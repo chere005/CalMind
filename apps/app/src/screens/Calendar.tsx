@@ -14,12 +14,13 @@ import {
   newId,
   ordBetween,
   parseWhenFromText,
-  repeatNext,
+  reminderToggle,
   todayStr,
   type Rec,
 } from '@calmind/core';
 import { useStore } from '../store';
 import { T } from '../theme';
+import { TopBar } from '../chrome';
 import { CircleBtn, ConfirmDelete, Field, Pill, Rule } from '../ui';
 
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
@@ -46,15 +47,7 @@ export function Calendar() {
     setYm(`${y}-${String(m).padStart(2, '0')}`);
   };
 
-  const tick = (r: Rec<'reminder'>) => {
-    mutate((e) => {
-      if (r.payload.repeat && r.payload.due && !r.payload.done) {
-        e.put({ ...r, payload: { ...r.payload, due: repeatNext(r.payload.due, r.payload.repeat, r.payload.due) } });
-      } else {
-        e.put({ ...r, payload: { ...r.payload, done: !r.payload.done } });
-      }
-    });
-  };
+  const tick = (r: Rec<'reminder'>) => mutate((e) => e.put({ ...r, payload: reminderToggle(r.payload, todayStr()) }));
 
   const add = () => {
     const raw = addText.trim();
@@ -101,15 +94,16 @@ export function Calendar() {
 
   return (
     <View style={s.page}>
-      <View style={s.topbar}>
-        <Text style={s.appname}>Calendar</Text>
-        <View style={s.pager}>
-          <CircleBtn glyph="‹" onPress={() => page(-1)} />
-          <Text style={s.ymLabel}>{new Date(`${ym}-15T12:00:00`).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</Text>
-          <CircleBtn glyph="›" onPress={() => page(1)} />
-        </View>
-      </View>
-      <Rule />
+      <TopBar
+        title="Calendar"
+        controls={
+          <View style={s.pager}>
+            <CircleBtn glyph="‹" onPress={() => page(-1)} />
+            <Text style={s.ymLabel}>{new Date(`${ym}-15T12:00:00`).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}</Text>
+            <CircleBtn glyph="›" onPress={() => page(1)} />
+          </View>
+        }
+      />
 
       <View style={s.grid}>
         {WEEKDAYS.map((w, i) => (
@@ -131,7 +125,7 @@ export function Calendar() {
       <ScrollView style={s.panel} contentContainerStyle={s.panelInner}>
         <View style={s.panelHead}>
           <Text style={s.panelTitle}>{dayLabel}</Text>
-          <CircleBtn glyph="+" color={T.accent} onPress={() => setAdding(!adding)} />
+          <Pill label="+ Add" primary onPress={() => setAdding(!adding)} />
         </View>
         {adding && (
           <View style={s.addRow}>
@@ -177,8 +171,6 @@ export function Calendar() {
 
 const s = StyleSheet.create({
   page: { flex: 1, backgroundColor: T.bg },
-  topbar: { height: 32, marginTop: 24, marginHorizontal: 16, marginBottom: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  appname: { color: T.text, fontSize: 18, fontWeight: '700' },
   pager: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   ymLabel: { color: T.text, fontSize: 14, minWidth: 120, textAlign: 'center' },
   grid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 8, paddingVertical: 6 },

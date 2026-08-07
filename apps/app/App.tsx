@@ -8,7 +8,7 @@ import { Calendar } from './src/screens/Calendar';
 import { Notes } from './src/screens/Notes';
 import { Habits } from './src/screens/Habits';
 import { Add } from './src/screens/Add';
-import { T } from './src/theme';
+import { T, PAGE_MAX_WIDTH } from './src/theme';
 
 function Root() {
   const { ready, session } = useStore();
@@ -19,12 +19,15 @@ function Root() {
   if (!session) return <Login />;
   return (
     <View style={s.page}>
-      <View style={s.body}>
-        {tab === 'reminders' && <Reminders />}
-        {tab === 'calendar' && <Calendar />}
-        {tab === 'add' && <Add done={() => setTab('calendar')} />}
-        {tab === 'notes' && <Notes />}
-        {tab === 'habits' && <Habits />}
+      {/* Phone-first column, centred on a wide window — the suite's page shape. */}
+      <View style={s.centre}>
+        <View style={s.body}>
+          {tab === 'reminders' && <Reminders />}
+          {tab === 'calendar' && <Calendar />}
+          {tab === 'add' && <Add done={() => setTab('calendar')} />}
+          {tab === 'notes' && <Notes />}
+          {tab === 'habits' && <Habits />}
+        </View>
       </View>
       <TabBar tab={tab} onTab={setTab} />
     </View>
@@ -44,5 +47,6 @@ export default function App() {
 
 const s = StyleSheet.create({
   page: { flex: 1, backgroundColor: T.bg },
-  body: { flex: 1 },
+  centre: { flex: 1, alignItems: 'center' },
+  body: { flex: 1, width: '100%', maxWidth: PAGE_MAX_WIDTH },
 });

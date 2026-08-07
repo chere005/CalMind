@@ -5,4 +5,5 @@ export * from './sort';
 export * from './order';
 export * from './normalize';
 export * from './day';
+export * from './rules';
 export * from './sync';

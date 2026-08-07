@@ -15,7 +15,8 @@ import {
   ordBetween,
   parseWhenFromText,
   repeatLabel,
-  repeatNext,
+  reminderToggle,
+  sectionNameTaken,
   sortByDate,
   todayStr,
   type Rec,
@@ -24,8 +25,8 @@ import {
 } from '@calmind/core';
 import { useStore } from '../store';
 import { T, FOLDER_PALETTE } from '../theme';
-import { CircleBtn, ConfirmDelete, Field, Pill, Rule } from '../ui';
-import { Settings } from './Settings';
+import { TopBar } from '../chrome';
+import { CircleBtn, ConfirmDelete, Field, Pill } from '../ui';
 
 type FolderRec = Rec<'folder'>;
 type SectionRec = Rec<'section'>;
@@ -34,13 +35,12 @@ type ReminderRec = Rec<'reminder'>;
 const FOLD_KEY = 'calmind.folded.reminders';
 
 export function Reminders() {
-  const { recs, session, syncState, mutate } = useStore();
+  const { recs, mutate } = useStore();
   const [showDone, setShowDone] = useState(false);
   const [adding, setAdding] = useState<string | null>(null); // sectionId with the open add row
   const [addText, setAddText] = useState('');
   const [editing, setEditing] = useState<string | null>(null); // reminder id in inline edit
   const [editText, setEditText] = useState('');
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const [addingFolder, setAddingFolder] = useState(false);
   const [addingSection, setAddingSection] = useState<string | null>(null); // folderId
   const [newName, setNewName] = useState('');
@@ -108,16 +108,8 @@ export function Reminders() {
     setAdding(null);
   };
 
-  const tick = (r: ReminderRec) => {
-    mutate((e) => {
-      if (r.payload.repeat && r.payload.due && !r.payload.done) {
-        // Ticking a repeat rolls the due date instead of finishing the series.
-        e.put({ ...r, payload: { ...r.payload, due: repeatNext(r.payload.due, r.payload.repeat, r.payload.due) } });
-      } else {
-        e.put({ ...r, payload: { ...r.payload, done: !r.payload.done } });
-      }
-    });
-  };
+  // Ticking rolls a repeat instead of finishing it — the rule lives in core.
+  const tick = (r: ReminderRec) => mutate((e) => e.put({ ...r, payload: reminderToggle(r.payload, todayStr()) }));
 
   const saveEdit = (r: ReminderRec) => {
     const raw = editText.trim();
@@ -181,7 +173,7 @@ export function Reminders() {
     setNewName('');
     if (!name) return;
     const secs = sectionsOf(folder.id);
-    if (secs.some((x) => x.payload.name.toLowerCase() === name.toLowerCase())) return;
+    if (sectionNameTaken(recs, folder.id, name)) return;
     mutate((e) => {
       // Prepend, as on the web: a new section lands at the top of its folder.
       e.put({
@@ -226,16 +218,7 @@ export function Reminders() {
 
   return (
     <View style={s.page}>
-      <View style={s.topbar}>
-        <Text style={s.appname}>Reminders</Text>
-        <View style={s.topRight}>
-          <Text style={s.syncdot}>{syncState === 'syncing' ? '↻' : syncState === 'offline' ? '⌁ offline' : ''}</Text>
-          <Pressable onPress={() => setSettingsOpen(true)} hitSlop={8}>
-            <Text style={s.who}>{session?.username}</Text>
-          </Pressable>
-        </View>
-      </View>
-      <Rule />
+      <TopBar title="Reminders" />
 
       <ScrollView contentContainerStyle={s.scroll}>
         {folders.map((f) => (
@@ -341,26 +324,12 @@ export function Reminders() {
         </View>
       </ScrollView>
 
-      {settingsOpen && <Settings onClose={() => setSettingsOpen(false)} />}
     </View>
   );
 }
 
 const s = StyleSheet.create({
   page: { flex: 1, backgroundColor: T.bg },
-  topbar: {
-    height: 32,
-    marginTop: 24,
-    marginHorizontal: 16,
-    marginBottom: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  appname: { color: T.text, fontSize: 18, fontWeight: '700' },
-  topRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  syncdot: { color: T.muted, fontSize: 12 },
-  who: { color: T.accent, fontSize: 14, fontWeight: '600' },
   scroll: { padding: 16, paddingBottom: 48, gap: 18 },
   folderBlock: { gap: 8 },
   folderHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },

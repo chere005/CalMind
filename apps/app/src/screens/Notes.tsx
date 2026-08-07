@@ -8,6 +8,7 @@ import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-
 import { byOrd, newId, ordBetween, parseWhenFromText, todayStr, type Rec } from '@calmind/core';
 import { useStore } from '../store';
 import { T } from '../theme';
+import { TopBar } from '../chrome';
 import { CircleBtn, ConfirmDelete, Field, Rule } from '../ui';
 
 export function Notes() {
@@ -80,10 +81,7 @@ export function Notes() {
 
   return (
     <View style={s.page}>
-      <View style={s.topbar}>
-        <Text style={s.appname}>Notes</Text>
-      </View>
-      <Rule />
+      <TopBar title="Notes" />
       <ScrollView contentContainerStyle={s.scroll}>
         {folders.map((f) => (
           <View key={f.id} style={s.folderBlock}>

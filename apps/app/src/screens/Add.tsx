@@ -8,7 +8,8 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { byOrd, newId, ordBetween, parseWhenFromText, todayStr, type Rec } from '@calmind/core';
 import { useStore } from '../store';
 import { T } from '../theme';
-import { Field, Pill, Rule } from '../ui';
+import { TopBar } from '../chrome';
+import { Field, Pill } from '../ui';
 
 type Kind = 'reminder' | 'event' | 'note';
 
@@ -58,11 +59,7 @@ export function Add({ done }: { done: () => void }) {
 
   return (
     <View style={s.page}>
-      <View style={s.topbar}>
-        <Text style={s.appname}>Add</Text>
-        <Pill label="Done" primary onPress={done} />
-      </View>
-      <Rule />
+      <TopBar title="Add" controls={<Pill label="Done" primary onPress={done} />} />
       <ScrollView contentContainerStyle={s.scroll}>
         <Field value={text} onChangeText={setText} placeholder="What? — “Vet 8/3 2pm”" autoFocus onSubmitEditing={add} />
         <View style={s.kindRow}>
@@ -89,8 +86,6 @@ export function Add({ done }: { done: () => void }) {
 
 const s = StyleSheet.create({
   page: { flex: 1, backgroundColor: T.bg },
-  topbar: { height: 32, marginTop: 24, marginHorizontal: 16, marginBottom: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  appname: { color: T.text, fontSize: 18, fontWeight: '700' },
   scroll: { padding: 16, gap: 12 },
   kindRow: { flexDirection: 'row', gap: 8 },
   destLabel: { color: T.dim, fontSize: 13 },

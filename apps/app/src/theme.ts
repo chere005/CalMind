@@ -22,3 +22,6 @@ export const T = {
 
 /** The per-app folder palette — reminders' vivid anchor tier, as in lib/palette.php. */
 export const FOLDER_PALETTE = ['#60a5fa', '#ef4444', '#34d399', '#f59e0b', '#a78bfa', '#9ca3af'];
+
+/** The page column: phone-first content centred on a wide window, suite-style. */
+export const PAGE_MAX_WIDTH = 640;

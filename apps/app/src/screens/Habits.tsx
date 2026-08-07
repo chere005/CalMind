@@ -9,7 +9,8 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { byOrd, newId, ordBetween, tickId, todayStr, type Rec } from '@calmind/core';
 import { useStore } from '../store';
 import { T } from '../theme';
-import { CircleBtn, ConfirmDelete, Field, Rule } from '../ui';
+import { TopBar } from '../chrome';
+import { CircleBtn, ConfirmDelete, Field } from '../ui';
 
 const pad = (n: number) => String(n).padStart(2, '0');
 
@@ -63,17 +64,18 @@ export function Habits() {
 
   return (
     <View style={s.page}>
-      <View style={s.topbar}>
-        <Text style={s.appname}>Habits</Text>
-        <View style={s.pager}>
-          <CircleBtn glyph="‹" onPress={() => setW(w - 1)} />
-          <CircleBtn glyph="›" onPress={() => setW(w + 1)} />
-          <Pressable onPress={() => setEditing(!editing)} hitSlop={8}>
-            <Text style={[s.editPencil, editing && { color: T.accent }]}>✎</Text>
-          </Pressable>
-        </View>
-      </View>
-      <Rule />
+      <TopBar
+        title="Habits"
+        controls={
+          <View style={s.pager}>
+            <CircleBtn glyph="‹" onPress={() => setW(w - 1)} />
+            <CircleBtn glyph="›" onPress={() => setW(w + 1)} />
+            <Pressable onPress={() => setEditing(!editing)} hitSlop={8}>
+              <Text style={[s.editPencil, editing && { color: T.accent }]}>✎</Text>
+            </Pressable>
+          </View>
+        }
+      />
 
       <ScrollView contentContainerStyle={s.scroll}>
         <View style={s.headRow}>
@@ -130,8 +132,6 @@ export function Habits() {
 
 const s = StyleSheet.create({
   page: { flex: 1, backgroundColor: T.bg },
-  topbar: { height: 32, marginTop: 24, marginHorizontal: 16, marginBottom: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  appname: { color: T.text, fontSize: 18, fontWeight: '700' },
   pager: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   editPencil: { color: T.dim, fontSize: 18, paddingHorizontal: 4 },
   scroll: { padding: 16, paddingBottom: 48, gap: 14 },

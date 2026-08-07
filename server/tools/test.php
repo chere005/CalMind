@@ -128,6 +128,33 @@ t("users are walls — bob never sees alice's records", function () use ($rec) {
     $r = api(['action' => 'sync', 'cursor' => 0, 'changes' => []], $tokenB);
     eq(0, count($r['body']['changes']), 'empty for bob');
 });
+t('the cursor only ever advances', function () use ($tokenA, $rec) {
+    $c1 = api(['action' => 'sync', 'cursor' => 0, 'changes' => []], $tokenA)['body']['cursor'];
+    $c2 = api(['action' => 'sync', 'cursor' => 0, 'changes' => [$rec('r3', 5000, 'later')]], $tokenA)['body']['cursor'];
+    ok($c2 > $c1, "a push advances it ($c1 -> $c2)");
+    eq($c2, api(['action' => 'sync', 'cursor' => 0, 'changes' => []], $tokenA)['body']['cursor'], 'a pull leaves it');
+});
+t('an oversized batch is refused whole; an oversized payload drops alone', function () use ($tokenA, $rec) {
+    $batch = array_map(fn($i) => $rec("b$i", 1000, 'x'), range(0, 500));
+    eq(400, api(['action' => 'sync', 'cursor' => 0, 'changes' => $batch], $tokenA)['status'], '501 rows is too many');
+    $fat = $rec('fat', 1000, str_repeat('x', 70000));
+    $r = api(['action' => 'sync', 'cursor' => 0, 'changes' => [$fat, $rec('slim', 1000, 'fits')]], $tokenA);
+    $ids = array_column($r['body']['changes'], 'id');
+    ok(!in_array('fat', $ids, true), 'the fat row was dropped');
+    ok(in_array('slim', $ids, true), 'the slim row landed');
+});
+t('records rest encrypted — ENC1 on disk, no plaintext content', function () use ($scratch) {
+    $raw = (string) file_get_contents($scratch . '/records-alice.json');
+    ok(str_starts_with($raw, 'ENC1:'), 'the store prefix');
+    ok(!str_contains($raw, 'buy milk') && !str_contains($raw, 'newer'), 'no reminder text readable');
+});
+t('logout revokes exactly that token', function () {
+    $t1 = api(['action' => 'login', 'username' => 'bob', 'password' => 'bobpassword'])['body']['token'];
+    $t2 = api(['action' => 'login', 'username' => 'bob', 'password' => 'bobpassword'])['body']['token'];
+    api(['action' => 'logout'], $t1);
+    eq(401, api(['action' => 'whoami'], $t1)['status'], 'the logged-out token is dead');
+    eq(200, api(['action' => 'whoami'], $t2)['status'], 'the other device stays signed in');
+});
 
 echo "\n\033[1mpasswords\033[0m\n";
 t('change_password needs the old one and revokes other tokens', function () use (&$tokenA) {
@@ -150,6 +177,18 @@ t('recover emails a code that resets the password once', function () use ($scrat
     eq(200, $r['status'], 'right code resets');
     eq(403, api(['action' => 'reset', 'username' => 'alice', 'code' => $code, 'password' => 'alicepass4'])['status'], 'a code is single-use');
     eq(200, api(['action' => 'login', 'username' => 'alice', 'password' => 'alicepass3'])['status'], 'new password works');
+});
+t('five wrong codes burn the recovery — the right one no longer works', function () use ($scratch) {
+    api(['action' => 'recover', 'username' => 'alice']);
+    preg_match_all('/code=(\d{6})/', (string) file_get_contents($scratch . '/mail.log'), $m);
+    $code = end($m[1]);
+    $wrong = $code === '000000' ? '111111' : '000000';
+    for ($i = 0; $i < 5; $i++) {
+        api(['action' => 'reset', 'username' => 'alice', 'code' => $wrong, 'password' => 'alicepass9']);
+    }
+    eq(403, api(['action' => 'reset', 'username' => 'alice', 'code' => $code, 'password' => 'alicepass9'])['status'],
+        'exhausted — even the right code is refused');
+    eq(200, api(['action' => 'login', 'username' => 'alice', 'password' => 'alicepass3'])['status'], 'the password never moved');
 });
 
 echo "\n────────────────────────────────\n$pass passed, $fail failed\n";
