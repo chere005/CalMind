@@ -45,6 +45,11 @@ if [ "$WEB" = 1 ]; then
   (cd apps/app && npx expo export -p web)
 fi
 
+# rsync only creates the final path element, so make the parents first.
+if [ -z "$DRY" ]; then
+  ssh "$SSH_DEST" "mkdir -p $LIB_DEST /home/protected/calmind-test/data $WEB_DEST/api"
+fi
+
 echo "==> [TEST] server/lib -> $LIB_DEST (config.php never sent)"
 rsync -avL $DRY --exclude 'config.php' server/lib/ "$SSH_DEST:$LIB_DEST/"
 
@@ -56,4 +61,15 @@ if [ "$WEB" = 1 ] && [ -d apps/app/dist ]; then
   rsync -avL $DRY --exclude 'api' apps/app/dist/ "$SSH_DEST:$WEB_DEST/"
 fi
 
-echo "==> Done. Data dir (server-side config) is never touched."
+# The web user must be able to CREATE the data dir's contents (it owns the data,
+# suite-style), and read lib; rsync leaves everything owned by the SSH login, so
+# hand the group over. Data contents themselves are never touched.
+if [ -z "$DRY" ]; then
+  echo "==> [TEST] web-user perms (lib read, data dir writable)"
+  ssh "$SSH_DEST" "mkdir -p /home/protected/calmind-test/data \
+    && chgrp -R web /home/protected/calmind-test \
+    && chmod -R g+rX /home/protected/calmind-test/lib \
+    && chmod g+rwx /home/protected/calmind-test /home/protected/calmind-test/data"
+fi
+
+echo "==> Done. Data contents are never touched."

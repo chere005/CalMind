@@ -1,0 +1,4 @@
+# NFSN's Apache runs PHP as CGI/FastCGI, which drops the Authorization header
+# unless told otherwise — without this every bearer token arrives empty and the
+# whole API answers 401.
+CGIPassAuth On
