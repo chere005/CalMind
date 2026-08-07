@@ -77,8 +77,8 @@ one-time Xcode wiring step: `apps/watch/README.md`.
 ```
 
 Needs `server/deploy.conf` (gitignored) with `SSH_DEST`. Ships the API to
-`/test/calmind-app/api/`, the static web client beside it, and the lib to
-`/home/protected/calmind-test/lib` — config and data dirs are never touched,
+`/test/calmind/api/`, the static web client beside it, and the lib to
+`/home/protected/calmind/lib` — config and data dirs are never touched,
 nothing is ever `--delete`d, and no hostname lives in this repo.
 
 ## Rules of the road

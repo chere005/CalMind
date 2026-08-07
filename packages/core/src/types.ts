@@ -4,9 +4,13 @@
  * lives in `payload`, which the server treats as opaque. The later E2EE step
  * encrypts `payload` alone — nothing about the protocol changes.
  *
- * Folders and sections are records with their own ids, and items reference them BY
- * ID — a lesson from the web suite, where name-keyed folders meant every rename had
- * to chase references through five files. Here a rename touches one record.
+ * Folders, sections and calendars are records with their own ids, and items
+ * reference them BY ID — a lesson from the web suite, where name-keyed folders
+ * meant every rename had to chase references through five files. Here a rename
+ * touches one record.
+ *
+ * Record type names are all-lowercase on purpose: the server admits new types by
+ * pattern, so the whole suite model shipped without a server change.
  */
 
 export type RepeatUnit = 'day' | 'week' | 'month' | 'year';
@@ -14,7 +18,14 @@ export type RepeatUnit = 'day' | 'week' | 'month' | 'year';
 /** "Every 2 weeks" is { n: 2, unit: 'week' }; null happens once. */
 export type Repeat = { n: number; unit: RepeatUnit };
 
-export type Folder = { name: string; color: string; ord: string };
+/**
+ * A folder belongs to one app ('reminders' | 'notes'; absent = 'reminders', the
+ * shape milestone 1 wrote). `rideAlong` is the suite's Calendar folder made a
+ * property instead of a magic name: an UNDATED open reminder in a rideAlong
+ * folder shows on the calendar under today, every day, until ticked — and the
+ * folder itself refuses deletion, since the behavior is the identity.
+ */
+export type Folder = { name: string; color: string; ord: string; app?: 'reminders' | 'notes'; rideAlong?: boolean };
 export type Section = { name: string; folderId: string; ord: string };
 export type Reminder = {
   text: string;
@@ -28,8 +39,48 @@ export type Reminder = {
   ord: string; // fractional order key within its section — see order.ts
 };
 
-export type RecType = 'folder' | 'section' | 'reminder';
-export type PayloadOf = { folder: Folder; section: Section; reminder: Reminder };
+export type CalendarPayload = { name: string; color: string; ord: string };
+export type Event = {
+  text: string;
+  date: string; // events always have a date — today by default
+  time: string | null;
+  repeat: Repeat | null;
+  calendarId: string;
+  ord: string;
+};
+
+/** Note bodies are plain text, as in the native apps (the web suite's rich text
+ *  is a later milestone). An optional date puts the note on the calendar. */
+export type Note = { title: string; body: string; date: string | null; folderId: string; sectionId: string; ord: string };
+
+export type HabitSection = { name: string; color: string; ord: string };
+export type Habit = { name: string; sectionId: string; ord: string };
+/** One tick of one habit on one day. Deterministic id (tickId) makes the same
+ *  tick from two devices the same record, so LWW converges instead of doubling. */
+export type Tick = { habitId: string; date: string };
+
+export type RecType =
+  | 'folder'
+  | 'section'
+  | 'reminder'
+  | 'event'
+  | 'note'
+  | 'calendar'
+  | 'habit'
+  | 'habitsection'
+  | 'tick';
+
+export type PayloadOf = {
+  folder: Folder;
+  section: Section;
+  reminder: Reminder;
+  event: Event;
+  note: Note;
+  calendar: CalendarPayload;
+  habit: Habit;
+  habitsection: HabitSection;
+  tick: Tick;
+};
 
 export type Rec<T extends RecType = RecType> = {
   id: string;
@@ -39,7 +90,17 @@ export type Rec<T extends RecType = RecType> = {
   payload: PayloadOf[T];
 };
 
-export type AnyRec = Rec<'folder'> | Rec<'section'> | Rec<'reminder'>;
+export type AnyRec = { [T in RecType]: Rec<T> }[RecType];
+
+/** The app a folder serves; milestone-1 records carried no `app`. */
+export function folderApp(f: Folder): 'reminders' | 'notes' {
+  return f.app ?? 'reminders';
+}
+
+/** The one id a tick can have, so ticking twice on two devices converges. */
+export function tickId(habitId: string, date: string): string {
+  return `t_${habitId}_${date.replace(/-/g, '')}`;
+}
 
 /** 12 hex chars, the suite's id shape. Injectable RNG keeps core dependency-free. */
 export function newId(rng: (bytes: number) => Uint8Array = defaultRng): string {

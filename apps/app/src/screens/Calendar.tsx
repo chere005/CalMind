@@ -1,0 +1,209 @@
+/**
+ * The Calendar: month grid over a day panel, the suite's split. Cells carry the
+ * day's marks (event dots in calendar colors, the worst reminder state, a note
+ * mark); the panel lists events → reminders → notes in the suite's order, ticks
+ * roll repeats, and the add row files a reminder or event by kind. A day is
+ * selected by a tap and nothing else.
+ */
+import React, { useMemo, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  dayItems,
+  dayMarks,
+  monthGrid,
+  newId,
+  ordBetween,
+  parseWhenFromText,
+  repeatNext,
+  todayStr,
+  type Rec,
+} from '@calmind/core';
+import { useStore } from '../store';
+import { T } from '../theme';
+import { CircleBtn, ConfirmDelete, Field, Pill, Rule } from '../ui';
+
+const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+
+export function Calendar() {
+  const { recs, mutate } = useStore();
+  const today = todayStr();
+  const [ym, setYm] = useState(today.slice(0, 7));
+  const [day, setDay] = useState(today);
+  const [adding, setAdding] = useState(false);
+  const [addKind, setAddKind] = useState<'reminder' | 'event'>('event');
+  const [addText, setAddText] = useState('');
+
+  const [year, month] = ym.split('-').map(Number) as [number, number];
+  const cells = useMemo(() => monthGrid(year, month), [year, month]);
+  const marks = useMemo(() => new Map(cells.filter(Boolean).map((d) => [d!, dayMarks(recs, d!, today)])), [recs, cells, today]);
+  const items = useMemo(() => dayItems(recs, day, today), [recs, day, today]);
+  const calById = useMemo(() => new Map(recs.filter((r): r is Rec<'calendar'> => r.type === 'calendar').map((c) => [c.id, c.payload])), [recs]);
+
+  const page = (dir: -1 | 1) => {
+    const m0 = month - 1 + dir;
+    const y = year + Math.floor(m0 / 12);
+    const m = ((m0 % 12) + 12) % 12 + 1;
+    setYm(`${y}-${String(m).padStart(2, '0')}`);
+  };
+
+  const tick = (r: Rec<'reminder'>) => {
+    mutate((e) => {
+      if (r.payload.repeat && r.payload.due && !r.payload.done) {
+        e.put({ ...r, payload: { ...r.payload, due: repeatNext(r.payload.due, r.payload.repeat, r.payload.due) } });
+      } else {
+        e.put({ ...r, payload: { ...r.payload, done: !r.payload.done } });
+      }
+    });
+  };
+
+  const add = () => {
+    const raw = addText.trim();
+    setAdding(false);
+    setAddText('');
+    if (!raw) return;
+    const [text, date, time] = parseWhenFromText(raw, today);
+    mutate((e) => {
+      if (addKind === 'event') {
+        const cal = [...calById.keys()][0] ?? '';
+        e.put({
+          id: newId(), type: 'event', updated: 0,
+          payload: { text: text || raw, date: date ?? day, time, repeat: null, calendarId: cal, ord: ordBetween(null, null) },
+        });
+      } else {
+        // A reminder from the panel lands dated on the picked day (unless the text says otherwise).
+        const folders = recs.filter((r): r is Rec<'folder'> => r.type === 'folder' && (r.payload.app ?? 'reminders') === 'reminders');
+        const rideAlong = folders.find((f) => f.payload.rideAlong) ?? folders[0]!;
+        const sec = recs.find((r): r is Rec<'section'> => r.type === 'section' && r.payload.folderId === rideAlong.id)!;
+        e.put({
+          id: newId(), type: 'reminder', updated: 0,
+          payload: { text: text || raw, due: date ?? day, time, done: false, repeat: null, folderId: rideAlong.id, sectionId: sec.id, indent: 0, ord: ordBetween(null, null) },
+        });
+      }
+    });
+  };
+
+  const cellMark = (d: string) => {
+    const m = marks.get(d)!;
+    return (
+      <View style={s.markRow}>
+        {m.eventColors.slice(0, 3).map((c, i) => (
+          <View key={i} style={[s.dot, { backgroundColor: c }]} />
+        ))}
+        {m.reminderState !== 'none' && (
+          <Text style={[s.markGlyph, m.reminderState === 'overdue' && { color: T.overdue }, m.reminderState === 'done' && { color: T.muted }]}>☐</Text>
+        )}
+        {m.noteCount > 0 && <Text style={[s.markGlyph, { color: T.dim }]}>▤</Text>}
+      </View>
+    );
+  };
+
+  const dayLabel = new Date(`${day}T12:00:00`).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
+
+  return (
+    <View style={s.page}>
+      <View style={s.topbar}>
+        <Text style={s.appname}>Calendar</Text>
+        <View style={s.pager}>
+          <CircleBtn glyph="‹" onPress={() => page(-1)} />
+          <Text style={s.ymLabel}>{new Date(`${ym}-15T12:00:00`).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</Text>
+          <CircleBtn glyph="›" onPress={() => page(1)} />
+        </View>
+      </View>
+      <Rule />
+
+      <View style={s.grid}>
+        {WEEKDAYS.map((w, i) => (
+          <Text key={i} style={s.weekday}>{w}</Text>
+        ))}
+        {cells.map((d, i) =>
+          d === null ? (
+            <View key={`b${i}`} style={s.cell} />
+          ) : (
+            <Pressable key={d} onPress={() => setDay(d)} style={[s.cell, d === day && s.cellPicked]}>
+              <Text style={[s.cellNum, d === today && s.cellToday]}>{Number(d.slice(8))}</Text>
+              {cellMark(d)}
+            </Pressable>
+          ),
+        )}
+      </View>
+      <Rule />
+
+      <ScrollView style={s.panel} contentContainerStyle={s.panelInner}>
+        <View style={s.panelHead}>
+          <Text style={s.panelTitle}>{dayLabel}</Text>
+          <CircleBtn glyph="+" color={T.accent} onPress={() => setAdding(!adding)} />
+        </View>
+        {adding && (
+          <View style={s.addRow}>
+            <View style={s.kindRow}>
+              <Pill label="Event" primary={addKind === 'event'} onPress={() => setAddKind('event')} />
+              <Pill label="Reminder" primary={addKind === 'reminder'} onPress={() => setAddKind('reminder')} />
+            </View>
+            <Field value={addText} onChangeText={setAddText} placeholder="New item — “Dinner 7pm”" autoFocus onBlur={add} onSubmitEditing={add} />
+          </View>
+        )}
+        {items.events.map((e) => (
+          <View key={e.id} style={s.row}>
+            <View style={[s.dot, s.rowDot, { backgroundColor: calById.get(e.payload.calendarId)?.color ?? T.folderBlue }]} />
+            <Text style={s.rowText}>{e.payload.text}</Text>
+            {e.payload.time && <Text style={s.chip}>{e.payload.time}</Text>}
+            <ConfirmDelete onDelete={() => mutate((en) => en.del(e.id))} />
+          </View>
+        ))}
+        {items.reminders.map(({ rec: r, overdue, rider }) => (
+          <View key={r.id} style={s.row}>
+            <Pressable onPress={() => tick(r)} hitSlop={8} style={[s.tickBox, r.payload.done && s.tickDone, overdue && s.tickOverdue]}>
+              {r.payload.done && <Text style={s.tickMark}>✓</Text>}
+            </Pressable>
+            <Text style={[s.rowText, r.payload.done && s.rowDone]}>{r.payload.text}</Text>
+            {overdue && <Text style={[s.chip, { color: T.overdue }]}>{r.payload.due}</Text>}
+            {rider && <Text style={s.chip}>every day</Text>}
+            {r.payload.time && <Text style={s.chip}>{r.payload.time}</Text>}
+          </View>
+        ))}
+        {items.notes.map((n) => (
+          <View key={n.id} style={s.row}>
+            <Text style={[s.markGlyph, { color: T.dim }]}>▤</Text>
+            <Text style={s.rowText}>{n.payload.title}</Text>
+          </View>
+        ))}
+        {items.events.length + items.reminders.length + items.notes.length === 0 && !adding && (
+          <Text style={s.empty}>Nothing on this day</Text>
+        )}
+      </ScrollView>
+    </View>
+  );
+}
+
+const s = StyleSheet.create({
+  page: { flex: 1, backgroundColor: T.bg },
+  topbar: { height: 32, marginTop: 24, marginHorizontal: 16, marginBottom: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  appname: { color: T.text, fontSize: 18, fontWeight: '700' },
+  pager: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  ymLabel: { color: T.text, fontSize: 14, minWidth: 120, textAlign: 'center' },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 8, paddingVertical: 6 },
+  weekday: { width: `${100 / 7}%`, textAlign: 'center', color: T.muted, fontSize: 11, paddingVertical: 2 },
+  cell: { width: `${100 / 7}%`, minHeight: 52, alignItems: 'center', paddingTop: 4, borderRadius: 8 },
+  cellPicked: { backgroundColor: T.surface2 },
+  cellNum: { color: T.text, fontSize: 13 },
+  cellToday: { color: T.accentInk, backgroundColor: T.accent, borderRadius: 9, minWidth: 18, height: 18, textAlign: 'center', lineHeight: 18, fontWeight: '700', overflow: 'hidden' },
+  markRow: { flexDirection: 'row', gap: 2, marginTop: 2, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center' },
+  dot: { width: 6, height: 6, borderRadius: 3 },
+  rowDot: { width: 10, height: 10, borderRadius: 5 },
+  markGlyph: { fontSize: 10, color: T.dim },
+  panel: { flex: 1 },
+  panelInner: { padding: 16, gap: 8 },
+  panelHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  panelTitle: { color: T.gold, fontSize: 15, fontWeight: '700' },
+  addRow: { gap: 8 },
+  kindRow: { flexDirection: 'row', gap: 8 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 4 },
+  rowText: { color: T.text, fontSize: 15, flex: 1 },
+  rowDone: { color: T.muted, textDecorationLine: 'line-through' },
+  chip: { color: T.dim, fontSize: 12 },
+  tickBox: { width: 22, height: 22, borderRadius: 11, borderWidth: 1.5, borderColor: T.line, alignItems: 'center', justifyContent: 'center' },
+  tickDone: { backgroundColor: T.accentInk, borderColor: T.accent },
+  tickOverdue: { borderColor: T.overdue },
+  tickMark: { color: T.accent, fontSize: 12, fontWeight: '700' },
+  empty: { color: T.muted, fontSize: 13, marginTop: 8 },
+});

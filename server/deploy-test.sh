@@ -27,10 +27,10 @@ done
 
 # The destinations are constants with a guard, deploy-dev.sh-style: this script
 # can only ever write the test instance's calmind areas.
-LIB_DEST="/home/protected/calmind-test/lib"
-WEB_DEST="/home/public/test/calmind-app"
+LIB_DEST="/home/protected/calmind/lib"
+WEB_DEST="/home/public/test/calmind"
 case "$LIB_DEST$WEB_DEST" in
-  */calmind-test/*calmind-app*) ;;
+  /home/protected/calmind/*/home/public/test/calmind) ;;
   *) echo "guard: refusing non-calmind destination" >&2; exit 1 ;;
 esac
 
@@ -47,7 +47,7 @@ fi
 
 # rsync only creates the final path element, so make the parents first.
 if [ -z "$DRY" ]; then
-  ssh "$SSH_DEST" "mkdir -p $LIB_DEST /home/protected/calmind-test/data $WEB_DEST/api"
+  ssh "$SSH_DEST" "mkdir -p $LIB_DEST /home/protected/calmind/data $WEB_DEST/api"
 fi
 
 echo "==> [TEST] server/lib -> $LIB_DEST (config.php never sent)"
@@ -66,10 +66,10 @@ fi
 # hand the group over. Data contents themselves are never touched.
 if [ -z "$DRY" ]; then
   echo "==> [TEST] web-user perms (lib read, data dir writable)"
-  ssh "$SSH_DEST" "mkdir -p /home/protected/calmind-test/data \
-    && chgrp -R web /home/protected/calmind-test \
-    && chmod -R g+rX /home/protected/calmind-test/lib \
-    && chmod g+rwx /home/protected/calmind-test /home/protected/calmind-test/data"
+  ssh "$SSH_DEST" "mkdir -p /home/protected/calmind/data \
+    && chgrp -R web /home/protected/calmind \
+    && chmod -R g+rX /home/protected/calmind/lib \
+    && chmod g+rwx /home/protected/calmind /home/protected/calmind/data"
 fi
 
 echo "==> Done. Data contents are never touched."

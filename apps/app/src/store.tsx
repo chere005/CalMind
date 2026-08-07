@@ -40,11 +40,18 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [syncState, setSyncState] = useState<SyncState>('idle');
   const timers = useRef<{ persist?: ReturnType<typeof setTimeout>; sync?: ReturnType<typeof setTimeout> }>({});
 
+  // Seeding starters against an EMPTY engine that simply hasn't pulled yet would
+  // duplicate everything the server already holds — normalize only runs once the
+  // store is hydrated: a snapshot with a cursor, or one completed sync.
+  const hydratedRef = useRef(false);
+
   /** Re-render from the engine, keep the shape guarantees, feed the watch. */
   const refresh = useCallback(() => {
     const engine = engineRef.current;
-    const { added, edited } = normalize(engine.all());
-    for (const r of [...added, ...edited]) engine.put(r);
+    if (hydratedRef.current) {
+      const { added, edited } = normalize(engine.all());
+      for (const r of [...added, ...edited]) engine.put(r);
+    }
     const all = engine.all();
     setRecs(all);
     pushWatchList(all);
@@ -63,6 +70,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setSyncState('syncing');
     try {
       await engineRef.current.sync(syncTransport(s));
+      hydratedRef.current = true; // the server has spoken — seeding is safe now
       setSyncState('idle');
     } catch (e) {
       // Offline is normal for a local-first app; a dead token is not.
@@ -103,6 +111,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       await AsyncStorage.setItem(SESSION_KEY, JSON.stringify(s));
       const snap = await AsyncStorage.getItem(snapKey(s.username));
       engineRef.current = SyncEngine.fromSnapshot(snap ? JSON.parse(snap) : null);
+      hydratedRef.current = engineRef.current.toSnapshot().cursor > 0;
       setSessionState(s);
       sessionRef.current = s;
       refresh();
@@ -114,6 +123,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const signOut = useCallback(async () => {
     await AsyncStorage.removeItem(SESSION_KEY);
     engineRef.current = new SyncEngine();
+    hydratedRef.current = false;
     setSessionState(null);
     setRecs([]);
   }, []);
@@ -131,6 +141,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         const s = JSON.parse(raw) as Session;
         const snap = await AsyncStorage.getItem(snapKey(s.username));
         engineRef.current = SyncEngine.fromSnapshot(snap ? JSON.parse(snap) : null);
+        hydratedRef.current = engineRef.current.toSnapshot().cursor > 0;
         setSessionState(s);
         sessionRef.current = s;
         refresh();

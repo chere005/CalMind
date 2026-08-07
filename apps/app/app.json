@@ -26,7 +26,7 @@
       "bundler": "metro"
     },
     "experiments": {
-      "baseUrl": "/test/calmind-app"
+      "baseUrl": "/test/calmind"
     }
   }
 }

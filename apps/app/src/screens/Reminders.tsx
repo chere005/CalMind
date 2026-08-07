@@ -1,11 +1,14 @@
 /**
- * The Reminders list — milestone 1's app. Folder blocks, gold section titles,
- * the section-header "+", tick circles that roll a repeat instead of finishing
- * it, inline edit that re-parses dates out of the text, and the two-press ×.
- * All behavior comes from @calmind/core; this file is layout and gestures.
+ * The Reminders list. Folder blocks, gold section titles with collapse
+ * chevrons, the section-header "+", tick circles that roll a repeat instead of
+ * finishing it, inline edit that re-parses dates out of the text, subtasks
+ * (one level — a + on a task, a ‹ on a subtask), a repeat mini-editor, and the
+ * two-press ×. All behavior comes from @calmind/core; this file is layout and
+ * gestures.
  */
-import React, { useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View, Pressable } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   byOrd,
   newId,
@@ -15,8 +18,9 @@ import {
   repeatNext,
   sortByDate,
   todayStr,
-  type AnyRec,
   type Rec,
+  type Repeat,
+  type RepeatUnit,
 } from '@calmind/core';
 import { useStore } from '../store';
 import { T, FOLDER_PALETTE } from '../theme';
@@ -26,6 +30,8 @@ import { Settings } from './Settings';
 type FolderRec = Rec<'folder'>;
 type SectionRec = Rec<'section'>;
 type ReminderRec = Rec<'reminder'>;
+
+const FOLD_KEY = 'calmind.folded.reminders';
 
 export function Reminders() {
   const { recs, session, syncState, mutate } = useStore();
@@ -38,9 +44,24 @@ export function Reminders() {
   const [addingFolder, setAddingFolder] = useState(false);
   const [addingSection, setAddingSection] = useState<string | null>(null); // folderId
   const [newName, setNewName] = useState('');
+  const [folded, setFolded] = useState<Set<string>>(new Set());
+
+  // Collapse state survives visits, per the suite's localStorage habit.
+  useEffect(() => {
+    AsyncStorage.getItem(FOLD_KEY).then((raw) => raw && setFolded(new Set(JSON.parse(raw))));
+  }, []);
+  const toggleFold = (id: string) => {
+    const next = new Set(folded);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setFolded(next);
+    AsyncStorage.setItem(FOLD_KEY, JSON.stringify([...next])).catch(() => {});
+  };
 
   const { folders, sectionsOf, remindersOf } = useMemo(() => {
-    const folders = recs.filter((r): r is FolderRec => r.type === 'folder').sort((a, b) => byOrd(a.payload, b.payload));
+    const folders = recs
+      .filter((r): r is FolderRec => r.type === 'folder' && (r.payload.app ?? 'reminders') === 'reminders')
+      .sort((a, b) => byOrd(a.payload, b.payload));
     const sections = recs.filter((r): r is SectionRec => r.type === 'section').sort((a, b) => byOrd(a.payload, b.payload));
     const reminders = recs.filter((r): r is ReminderRec => r.type === 'reminder').sort((a, b) => byOrd(a.payload, b.payload));
     return {
@@ -100,7 +121,6 @@ export function Reminders() {
 
   const saveEdit = (r: ReminderRec) => {
     const raw = editText.trim();
-    setEditing(null);
     if (!raw || raw === r.payload.text) return;
     // Editing re-reads the text the same way adding does, so retyping a date moves it.
     const [text, due, time] = parseWhenFromText(raw, todayStr());
@@ -111,6 +131,33 @@ export function Reminders() {
       }),
     );
   };
+
+  /** A blank subtask directly under its parent, opened for typing — the + on a task. */
+  const addSubtask = (parent: ReminderRec) => {
+    const siblings = recs
+      .filter((x): x is ReminderRec => x.type === 'reminder' && x.payload.sectionId === parent.payload.sectionId)
+      .sort((a, b) => byOrd(a.payload, b.payload));
+    const at = siblings.findIndex((x) => x.id === parent.id);
+    const next = siblings[at + 1];
+    const id = newId();
+    mutate((e) =>
+      e.put({
+        id, type: 'reminder', updated: 0,
+        payload: {
+          text: '', due: null, time: null, done: false, repeat: null,
+          folderId: parent.payload.folderId, sectionId: parent.payload.sectionId,
+          indent: 1, ord: ordBetween(parent.payload.ord, next?.payload.ord ?? null),
+        },
+      }),
+    );
+    setEditing(id);
+    setEditText('');
+  };
+
+  /** The ‹ on a subtask: lift it back out to a task of its own. */
+  const outdent = (r: ReminderRec) => mutate((e) => e.put({ ...r, payload: { ...r.payload, indent: 0 } }));
+
+  const setRepeat = (r: ReminderRec, rep: Repeat | null) => mutate((e) => e.put({ ...r, payload: { ...r.payload, repeat: rep } }));
 
   const addFolder = () => {
     const name = newName.trim();
@@ -123,7 +170,7 @@ export function Reminders() {
         id: newId(),
         type: 'folder',
         updated: 0,
-        payload: { name, color: FOLDER_PALETTE[folders.length % FOLDER_PALETTE.length]!, ord: ordBetween(last?.payload.ord ?? null, null) },
+        payload: { name, color: FOLDER_PALETTE[folders.length % FOLDER_PALETTE.length]!, ord: ordBetween(last?.payload.ord ?? null, null), app: 'reminders' },
       });
     });
   };
@@ -153,9 +200,28 @@ export function Reminders() {
     const bits = [
       due ? new Date(`${due}T12:00:00`).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) : '',
       time ?? '',
-      repeatLabel(r.payload.repeat),
+      repeatLabel(repeat),
     ].filter(Boolean);
     return <Text style={[s.chip, overdue && s.chipOverdue]}>{bits.join(' · ')}</Text>;
+  };
+
+  const repeatEditor = (r: ReminderRec) => {
+    const rep = r.payload.repeat;
+    return (
+      <View style={s.repRow}>
+        <Pill label="Once" primary={!rep} onPress={() => setRepeat(r, null)} />
+        {(['day', 'week', 'month', 'year'] as RepeatUnit[]).map((u) => (
+          <Pill key={u} label={u} primary={rep?.unit === u} onPress={() => setRepeat(r, { n: rep?.unit === u ? rep.n : 1, unit: u })} />
+        ))}
+        {rep && (
+          <View style={s.repCount}>
+            <CircleBtn glyph="−" size={22} onPress={() => setRepeat(r, { ...rep, n: Math.max(1, rep.n - 1) })} />
+            <Text style={s.repN}>{rep.n}</Text>
+            <CircleBtn glyph="+" size={22} onPress={() => setRepeat(r, { ...rep, n: Math.min(999, rep.n + 1) })} />
+          </View>
+        )}
+      </View>
+    );
   };
 
   return (
@@ -192,11 +258,15 @@ export function Reminders() {
             )}
             {sectionsOf(f.id).map((sec) => {
               const rows = remindersOf(sec.id).filter((r) => showDone || !r.payload.done);
+              const isFolded = folded.has(sec.id);
               return (
                 <View key={sec.id} style={s.section}>
                   <View style={s.secHead}>
+                    <Pressable onPress={() => toggleFold(sec.id)} hitSlop={8}>
+                      <Text style={s.chevron}>{isFolded ? '▸' : '▾'}</Text>
+                    </Pressable>
                     <Text style={s.secName}>{sec.payload.name}</Text>
-                    <CircleBtn glyph="+" color={T.accent} size={22} onPress={() => { setAdding(sec.id); setAddText(''); }} />
+                    <CircleBtn glyph="+" color={T.accent} size={22} onPress={() => { setAdding(sec.id); setAddText(''); if (isFolded) toggleFold(sec.id); }} />
                   </View>
                   {adding === sec.id && (
                     <Field
@@ -208,33 +278,44 @@ export function Reminders() {
                       onSubmitEditing={() => addReminder(sec)}
                     />
                   )}
-                  {rows.map((r) => (
-                    <View key={r.id} style={[s.row, r.payload.indent > 0 && s.rowIndented]}>
-                      <Pressable onPress={() => tick(r)} hitSlop={8} style={[s.tick, r.payload.done && s.tickDone]}>
-                        {r.payload.done && <Text style={s.tickMark}>✓</Text>}
-                      </Pressable>
-                      {editing === r.id ? (
-                        <Field
-                          value={editText}
-                          onChangeText={setEditText}
-                          autoFocus
-                          style={s.editField}
-                          onBlur={() => saveEdit(r)}
-                          onSubmitEditing={() => saveEdit(r)}
-                        />
-                      ) : (
-                        <Pressable
-                          style={s.rowBody}
-                          onLongPress={() => { setEditing(r.id); setEditText(r.payload.text); }}
-                          delayLongPress={350}
-                        >
-                          <Text style={[s.rowText, r.payload.done && s.rowTextDone]}>{r.payload.text}</Text>
-                          {dueChip(r)}
-                        </Pressable>
-                      )}
-                      {editing === r.id && <ConfirmDelete onDelete={() => { setEditing(null); mutate((e) => e.del(r.id)); }} />}
-                    </View>
-                  ))}
+                  {!isFolded &&
+                    rows.map((r) => (
+                      <View key={r.id}>
+                        <View style={[s.row, r.payload.indent > 0 && s.rowIndented]}>
+                          <Pressable onPress={() => tick(r)} hitSlop={8} style={[s.tick, r.payload.done && s.tickDone]}>
+                            {r.payload.done && <Text style={s.tickMark}>✓</Text>}
+                          </Pressable>
+                          {editing === r.id ? (
+                            <>
+                              <Field
+                                value={editText}
+                                onChangeText={setEditText}
+                                autoFocus
+                                style={s.editField}
+                                onBlur={() => { saveEdit(r); if (editText.trim() === '' && r.payload.text === '') mutate((e) => e.del(r.id)); setEditing(null); }}
+                                onSubmitEditing={() => { saveEdit(r); setEditing(null); }}
+                              />
+                              {r.payload.indent === 0 ? (
+                                <CircleBtn glyph="+" size={24} onPress={() => { saveEdit(r); addSubtask(r); }} />
+                              ) : (
+                                <CircleBtn glyph="‹" size={24} onPress={() => { saveEdit(r); setEditing(null); outdent(r); }} />
+                              )}
+                              <ConfirmDelete onDelete={() => { setEditing(null); mutate((e) => e.del(r.id)); }} />
+                            </>
+                          ) : (
+                            <Pressable
+                              style={s.rowBody}
+                              onLongPress={() => { setEditing(r.id); setEditText(r.payload.text); }}
+                              delayLongPress={350}
+                            >
+                              <Text style={[s.rowText, r.payload.done && s.rowTextDone]}>{r.payload.text || '…'}</Text>
+                              {dueChip(r)}
+                            </Pressable>
+                          )}
+                        </View>
+                        {editing === r.id && repeatEditor(r)}
+                      </View>
+                    ))}
                 </View>
               );
             })}
@@ -295,6 +376,7 @@ const s = StyleSheet.create({
   folderRule: { flex: 1, height: 1, backgroundColor: T.lineSoft },
   section: { gap: 6 },
   secHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
+  chevron: { color: T.muted, fontSize: 12, width: 14, textAlign: 'center' },
   secName: { color: T.gold, fontSize: 14, fontWeight: '700' },
   row: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 6 },
   rowIndented: { paddingLeft: 28 },
@@ -315,6 +397,9 @@ const s = StyleSheet.create({
   tickMark: { color: T.accent, fontSize: 13, fontWeight: '700' },
   chip: { color: T.dim, fontSize: 12 },
   chipOverdue: { color: T.overdue, fontWeight: '600' },
+  repRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingLeft: 34, paddingBottom: 6, alignItems: 'center' },
+  repCount: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  repN: { color: T.text, fontSize: 14, minWidth: 20, textAlign: 'center' },
   footer: { marginTop: 8 },
   footerRow: { flexDirection: 'row', gap: 8 },
 });

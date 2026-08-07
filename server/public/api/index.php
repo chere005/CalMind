@@ -8,8 +8,8 @@
  */
 
 // Repo layout first (local dev, tests); the NFSN test instance keeps lib outside
-// the web root, suite-style — /home/protected/calmind-test/lib.
-foreach ([dirname(__DIR__, 2) . '/lib', '/home/protected/calmind-test/lib'] as $__lib) {
+// the web root, suite-style — /home/protected/calmind/lib.
+foreach ([dirname(__DIR__, 2) . '/lib', '/home/protected/calmind/lib'] as $__lib) {
     if (is_file($__lib . '/app.php')) {
         require_once $__lib . '/app.php';
         break;
