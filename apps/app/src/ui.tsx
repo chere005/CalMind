@@ -34,19 +34,29 @@ export function CircleBtn({
   onPress,
   color = T.dim,
   size = 26,
+  bg,
+  active = false,
 }: {
   glyph: string;
   onPress: () => void;
   color?: string;
   size?: number;
+  bg?: string; // filled circle (colour swatches)
+  active?: boolean; // accent state for icon toggles (Completed etc.)
 }) {
   return (
     <Pressable
       onPress={onPress}
       hitSlop={8}
-      style={({ pressed }) => [s.circle, { width: size, height: size, borderRadius: size / 2 }, pressed && s.pressed]}
+      style={({ pressed }) => [
+        s.circle,
+        { width: size, height: size, borderRadius: size / 2 },
+        bg ? { backgroundColor: bg, borderColor: bg } : null,
+        active && s.circleActive,
+        pressed && s.pressed,
+      ]}
     >
-      <Text style={{ color, fontSize: size * 0.55, lineHeight: size * 0.62, fontWeight: '700' }}>{glyph}</Text>
+      <Text style={{ color: active ? T.accent : color, fontSize: size * 0.55, lineHeight: size * 0.62, fontWeight: '700' }}>{glyph}</Text>
     </Pressable>
   );
 }
@@ -107,6 +117,7 @@ const s = StyleSheet.create({
     justifyContent: 'center',
   },
   armed: { backgroundColor: T.danger, borderColor: T.danger },
+  circleActive: { backgroundColor: T.accentInk, borderColor: T.accent },
   pressed: { opacity: 0.6 },
   disabled: { opacity: 0.4 },
   field: {

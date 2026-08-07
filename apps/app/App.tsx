@@ -15,6 +15,8 @@ function Root() {
   // Signing in lands on the Calendar, as the suite does — "what's on today"
   // shouldn't depend on which icon you opened.
   const [tab, setTab] = useState<Tab>('calendar');
+  // A note made anywhere opens in its editor — the Add tab hands the id over.
+  const [noteToOpen, setNoteToOpen] = useState<string | null>(null);
   if (!ready) return <View style={s.page} />;
   if (!session) return <Login />;
   return (
@@ -24,8 +26,16 @@ function Root() {
         <View style={s.body}>
           {tab === 'reminders' && <Reminders />}
           {tab === 'calendar' && <Calendar />}
-          {tab === 'add' && <Add done={() => setTab('calendar')} />}
-          {tab === 'notes' && <Notes />}
+          {tab === 'add' && (
+            <Add
+              done={() => setTab('calendar')}
+              onNoteCreated={(id) => {
+                setNoteToOpen(id);
+                setTab('notes');
+              }}
+            />
+          )}
+          {tab === 'notes' && <Notes openNoteId={noteToOpen} onOpenConsumed={() => setNoteToOpen(null)} />}
           {tab === 'habits' && <Habits />}
         </View>
       </View>

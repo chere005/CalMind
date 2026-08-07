@@ -59,6 +59,19 @@ export type Habit = { name: string; sectionId: string; ord: string };
  *  tick from two devices the same record, so LWW converges instead of doubling. */
 export type Tick = { habitId: string; date: string };
 
+/**
+ * Per-app view preferences, synced like everything else (deterministic id via
+ * prefsId, whole-record LWW — the last device to change a pref wins). Ids in
+ * here are re-validated on read, so a deleted folder silently reverts, exactly
+ * the suite's rule for its stored prefs.
+ */
+export type Prefs = {
+  lastView?: string; // 'all' or a folderId
+  hidden?: string[]; // folderIds switched off in the All view
+  defaultSectionId?: string; // where new items land from All (reminders/notes)
+  defaultCalendarId?: string; // where new events land (calendar)
+};
+
 export type RecType =
   | 'folder'
   | 'section'
@@ -68,7 +81,8 @@ export type RecType =
   | 'calendar'
   | 'habit'
   | 'habitsection'
-  | 'tick';
+  | 'tick'
+  | 'pref';
 
 export type PayloadOf = {
   folder: Folder;
@@ -80,6 +94,7 @@ export type PayloadOf = {
   habit: Habit;
   habitsection: HabitSection;
   tick: Tick;
+  pref: Prefs;
 };
 
 export type Rec<T extends RecType = RecType> = {
@@ -100,6 +115,11 @@ export function folderApp(f: Folder): 'reminders' | 'notes' {
 /** The one id a tick can have, so ticking twice on two devices converges. */
 export function tickId(habitId: string, date: string): string {
   return `t_${habitId}_${date.replace(/-/g, '')}`;
+}
+
+/** The one prefs record per app — same-device and cross-device edits converge. */
+export function prefsId(app: 'reminders' | 'notes' | 'calendar'): string {
+  return `prefs_${app}`;
 }
 
 /** 12 hex chars, the suite's id shape. Injectable RNG keeps core dependency-free. */

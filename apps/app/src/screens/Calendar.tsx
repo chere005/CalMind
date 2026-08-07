@@ -21,7 +21,8 @@ import {
 import { useStore } from '../store';
 import { T } from '../theme';
 import { TopBar } from '../chrome';
-import { CircleBtn, ConfirmDelete, Field, Pill, Rule } from '../ui';
+import { ItemModal, type ItemKind } from '../components/ItemModal';
+import { CircleBtn, ConfirmDelete, Pill, Rule } from '../ui';
 
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
@@ -30,9 +31,7 @@ export function Calendar() {
   const today = todayStr();
   const [ym, setYm] = useState(today.slice(0, 7));
   const [day, setDay] = useState(today);
-  const [adding, setAdding] = useState(false);
-  const [addKind, setAddKind] = useState<'reminder' | 'event'>('event');
-  const [addText, setAddText] = useState('');
+  const [modal, setModal] = useState<null | { mode: 'create' } | { mode: 'edit'; kind: ItemKind; rec: Rec<'event'> | Rec<'reminder'> | Rec<'note'> }>(null);
 
   const [year, month] = ym.split('-').map(Number) as [number, number];
   const cells = useMemo(() => monthGrid(year, month), [year, month]);
@@ -48,32 +47,6 @@ export function Calendar() {
   };
 
   const tick = (r: Rec<'reminder'>) => mutate((e) => e.put({ ...r, payload: reminderToggle(r.payload, todayStr()) }));
-
-  const add = () => {
-    const raw = addText.trim();
-    setAdding(false);
-    setAddText('');
-    if (!raw) return;
-    const [text, date, time] = parseWhenFromText(raw, today);
-    mutate((e) => {
-      if (addKind === 'event') {
-        const cal = [...calById.keys()][0] ?? '';
-        e.put({
-          id: newId(), type: 'event', updated: 0,
-          payload: { text: text || raw, date: date ?? day, time, repeat: null, calendarId: cal, ord: ordBetween(null, null) },
-        });
-      } else {
-        // A reminder from the panel lands dated on the picked day (unless the text says otherwise).
-        const folders = recs.filter((r): r is Rec<'folder'> => r.type === 'folder' && (r.payload.app ?? 'reminders') === 'reminders');
-        const rideAlong = folders.find((f) => f.payload.rideAlong) ?? folders[0]!;
-        const sec = recs.find((r): r is Rec<'section'> => r.type === 'section' && r.payload.folderId === rideAlong.id)!;
-        e.put({
-          id: newId(), type: 'reminder', updated: 0,
-          payload: { text: text || raw, due: date ?? day, time, done: false, repeat: null, folderId: rideAlong.id, sectionId: sec.id, indent: 0, ord: ordBetween(null, null) },
-        });
-      }
-    });
-  };
 
   const cellMark = (d: string) => {
     const m = marks.get(d)!;
@@ -94,16 +67,14 @@ export function Calendar() {
 
   return (
     <View style={s.page}>
-      <TopBar
-        title="Calendar"
-        controls={
-          <View style={s.pager}>
-            <CircleBtn glyph="‹" onPress={() => page(-1)} />
-            <Text style={s.ymLabel}>{new Date(`${ym}-15T12:00:00`).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}</Text>
-            <CircleBtn glyph="›" onPress={() => page(1)} />
-          </View>
-        }
-      />
+      <TopBar title="Calendar" />
+      {/* The date centred over the grid; ◉ jumps home to today. */}
+      <View style={s.pagerRow}>
+        <CircleBtn glyph="‹" onPress={() => page(-1)} />
+        <Text style={s.ymLabel}>{new Date(`${ym}-15T12:00:00`).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</Text>
+        <CircleBtn glyph="›" onPress={() => page(1)} />
+        <CircleBtn glyph="◉" color={T.accent} onPress={() => { setYm(today.slice(0, 7)); setDay(today); }} />
+      </View>
 
       <View style={s.grid}>
         {WEEKDAYS.map((w, i) => (
@@ -125,22 +96,14 @@ export function Calendar() {
       <ScrollView style={s.panel} contentContainerStyle={s.panelInner}>
         <View style={s.panelHead}>
           <Text style={s.panelTitle}>{dayLabel}</Text>
-          <Pill label="+ Add" primary onPress={() => setAdding(!adding)} />
+          <Pill label="+ Add" primary onPress={() => setModal({ mode: 'create' })} />
         </View>
-        {adding && (
-          <View style={s.addRow}>
-            <View style={s.kindRow}>
-              <Pill label="Event" primary={addKind === 'event'} onPress={() => setAddKind('event')} />
-              <Pill label="Reminder" primary={addKind === 'reminder'} onPress={() => setAddKind('reminder')} />
-            </View>
-            <Field value={addText} onChangeText={setAddText} placeholder="New item — “Dinner 7pm”" autoFocus onBlur={add} onSubmitEditing={add} />
-          </View>
-        )}
         {items.events.map((e) => (
           <View key={e.id} style={s.row}>
             <View style={[s.dot, s.rowDot, { backgroundColor: calById.get(e.payload.calendarId)?.color ?? T.folderBlue }]} />
             <Text style={s.rowText}>{e.payload.text}</Text>
             {e.payload.time && <Text style={s.chip}>{e.payload.time}</Text>}
+            <CircleBtn glyph="✎" size={24} onPress={() => setModal({ mode: 'edit', kind: 'event', rec: e })} />
             <ConfirmDelete onDelete={() => mutate((en) => en.del(e.id))} />
           </View>
         ))}
@@ -153,26 +116,30 @@ export function Calendar() {
             {overdue && <Text style={[s.chip, { color: T.overdue }]}>{r.payload.due}</Text>}
             {rider && <Text style={s.chip}>every day</Text>}
             {r.payload.time && <Text style={s.chip}>{r.payload.time}</Text>}
+            <CircleBtn glyph="✎" size={24} onPress={() => setModal({ mode: 'edit', kind: 'reminder', rec: r })} />
           </View>
         ))}
         {items.notes.map((n) => (
           <View key={n.id} style={s.row}>
             <Text style={[s.markGlyph, { color: T.dim }]}>▤</Text>
             <Text style={s.rowText}>{n.payload.title}</Text>
+            <CircleBtn glyph="✎" size={24} onPress={() => setModal({ mode: 'edit', kind: 'note', rec: n })} />
           </View>
         ))}
-        {items.events.length + items.reminders.length + items.notes.length === 0 && !adding && (
+        {items.events.length + items.reminders.length + items.notes.length === 0 && (
           <Text style={s.empty}>Nothing on this day</Text>
         )}
       </ScrollView>
+      {modal?.mode === 'create' && <ItemModal mode="create" kind="event" date={day} onClose={() => setModal(null)} />}
+      {modal?.mode === 'edit' && <ItemModal mode="edit" kind={modal.kind} rec={modal.rec} onClose={() => setModal(null)} />}
     </View>
   );
 }
 
 const s = StyleSheet.create({
   page: { flex: 1, backgroundColor: T.bg },
-  pager: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  ymLabel: { color: T.text, fontSize: 14, minWidth: 120, textAlign: 'center' },
+  pagerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, paddingVertical: 4 },
+  ymLabel: { color: T.text, fontSize: 15, fontWeight: '600', minWidth: 150, textAlign: 'center' },
   grid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 8, paddingVertical: 6 },
   weekday: { width: `${100 / 7}%`, textAlign: 'center', color: T.muted, fontSize: 11, paddingVertical: 2 },
   cell: { width: `${100 / 7}%`, minHeight: 52, alignItems: 'center', paddingTop: 4, borderRadius: 8 },
@@ -187,8 +154,6 @@ const s = StyleSheet.create({
   panelInner: { padding: 16, gap: 8 },
   panelHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   panelTitle: { color: T.gold, fontSize: 15, fontWeight: '700' },
-  addRow: { gap: 8 },
-  kindRow: { flexDirection: 'row', gap: 8 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 4 },
   rowText: { color: T.text, fontSize: 15, flex: 1 },
   rowDone: { color: T.muted, textDecorationLine: 'line-through' },

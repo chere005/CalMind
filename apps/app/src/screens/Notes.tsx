@@ -9,18 +9,27 @@ import { byOrd, newId, ordBetween, parseWhenFromText, todayStr, type Rec } from 
 import { useStore } from '../store';
 import { T } from '../theme';
 import { TopBar } from '../chrome';
+import { FolderPick, useFolderView } from '../components/FolderPick';
 import { CircleBtn, ConfirmDelete, Field, Rule } from '../ui';
 
-export function Notes() {
+export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | null; onOpenConsumed?: () => void }) {
   const { recs, mutate } = useStore();
+  const { visible: visibleFolders } = useFolderView('notes');
   const [openId, setOpenId] = useState<string | null>(null);
+  const [sel, setSel] = useState({ start: 0, end: 0 });
+
+  // Another screen (the Add tab) created a note — land in its editor, as prod does.
+  React.useEffect(() => {
+    if (openNoteId) {
+      setOpenId(openNoteId);
+      onOpenConsumed?.();
+    }
+  }, [openNoteId, onOpenConsumed]);
   const [adding, setAdding] = useState<string | null>(null); // sectionId
   const [addText, setAddText] = useState('');
 
   const { folders, sectionsOf, notesOf } = useMemo(() => {
-    const folders = recs
-      .filter((r): r is Rec<'folder'> => r.type === 'folder' && (r.payload.app ?? 'reminders') === 'notes')
-      .sort((a, b) => byOrd(a.payload, b.payload));
+    const folders = visibleFolders;
     const sections = recs.filter((r): r is Rec<'section'> => r.type === 'section').sort((a, b) => byOrd(a.payload, b.payload));
     const notes = recs.filter((r): r is Rec<'note'> => r.type === 'note').sort((a, b) => byOrd(a.payload, b.payload));
     return {
@@ -28,7 +37,7 @@ export function Notes() {
       sectionsOf: (fid: string) => sections.filter((x) => x.payload.folderId === fid),
       notesOf: (sid: string) => notes.filter((x) => x.payload.sectionId === sid),
     };
-  }, [recs]);
+  }, [recs, visibleFolders]);
 
   const open = openId ? (recs.find((r) => r.id === openId) as Rec<'note'> | undefined) : undefined;
 
@@ -49,12 +58,33 @@ export function Notes() {
     setOpenId(id);
   };
 
+  const wrapSel = (before: string, after = before) => {
+    if (!open) return;
+    const b = open.payload.body;
+    const { start, end } = sel;
+    const next = b.slice(0, start) + before + b.slice(start, end) + after + b.slice(end);
+    mutate((e) => e.put({ ...open, payload: { ...open.payload, body: next } }));
+  };
+  const linePrefix = (marker: string) => {
+    if (!open) return;
+    const b = open.payload.body;
+    const at = b.lastIndexOf('\n', Math.max(0, sel.start - 1)) + 1;
+    const next = b.slice(0, at) + marker + b.slice(at);
+    mutate((e) => e.put({ ...open, payload: { ...open.payload, body: next } }));
+  };
+
   if (open) {
     return (
       <View style={s.page}>
         <View style={s.topbar}>
           <CircleBtn glyph="‹" onPress={() => setOpenId(null)} />
-          <ConfirmDelete onDelete={() => { setOpenId(null); mutate((e) => e.del(open.id)); }} />
+          <View style={s.toolRow}>
+            <CircleBtn glyph="B" color={T.text} onPress={() => wrapSel('**')} />
+            <CircleBtn glyph="I" color={T.text} onPress={() => wrapSel('*')} />
+            <CircleBtn glyph="•" onPress={() => linePrefix('- ')} />
+            <CircleBtn glyph="❝" onPress={() => linePrefix('> ')} />
+            <ConfirmDelete onDelete={() => { setOpenId(null); mutate((e) => e.del(open.id)); }} />
+          </View>
         </View>
         <Rule />
         <ScrollView contentContainerStyle={s.editor}>
@@ -72,6 +102,7 @@ export function Notes() {
             placeholder="Write…"
             placeholderTextColor={T.muted}
             multiline
+            onSelectionChange={(ev) => setSel(ev.nativeEvent.selection)}
             onChangeText={(t) => mutate((e) => e.put({ ...open, payload: { ...open.payload, body: t } }))}
           />
         </ScrollView>
@@ -81,7 +112,7 @@ export function Notes() {
 
   return (
     <View style={s.page}>
-      <TopBar title="Notes" />
+      <TopBar title="Notes" controls={<FolderPick app="notes" />} />
       <ScrollView contentContainerStyle={s.scroll}>
         {folders.map((f) => (
           <View key={f.id} style={s.folderBlock}>
@@ -116,7 +147,8 @@ export function Notes() {
 
 const s = StyleSheet.create({
   page: { flex: 1, backgroundColor: T.bg },
-  topbar: { height: 32, marginTop: 24, marginHorizontal: 16, marginBottom: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  topbar: { height: 32, marginTop: 16, marginHorizontal: 16, marginBottom: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  toolRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   appname: { color: T.text, fontSize: 18, fontWeight: '700' },
   scroll: { padding: 16, paddingBottom: 48, gap: 18 },
   folderBlock: { gap: 8 },

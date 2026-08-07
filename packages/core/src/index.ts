@@ -6,4 +6,5 @@ export * from './order';
 export * from './normalize';
 export * from './day';
 export * from './rules';
+export * from './manage';
 export * from './sync';

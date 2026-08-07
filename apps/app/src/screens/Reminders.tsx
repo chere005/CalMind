@@ -23,9 +23,12 @@ import {
   type Repeat,
   type RepeatUnit,
 } from '@calmind/core';
+import * as Clipboard from 'expo-clipboard';
 import { useStore } from '../store';
-import { T, FOLDER_PALETTE } from '../theme';
+import { T } from '../theme';
 import { TopBar } from '../chrome';
+import { FolderPick, useFolderView } from '../components/FolderPick';
+import { ItemModal } from '../components/ItemModal';
 import { CircleBtn, ConfirmDelete, Field, Pill } from '../ui';
 
 type FolderRec = Rec<'folder'>;
@@ -35,16 +38,17 @@ type ReminderRec = Rec<'reminder'>;
 const FOLD_KEY = 'calmind.folded.reminders';
 
 export function Reminders() {
-  const { recs, mutate } = useStore();
+  const { recs, session, mutate } = useStore();
+  const { visible: visibleFolders } = useFolderView('reminders');
   const [showDone, setShowDone] = useState(false);
   const [adding, setAdding] = useState<string | null>(null); // sectionId with the open add row
   const [addText, setAddText] = useState('');
   const [editing, setEditing] = useState<string | null>(null); // reminder id in inline edit
   const [editText, setEditText] = useState('');
-  const [addingFolder, setAddingFolder] = useState(false);
   const [addingSection, setAddingSection] = useState<string | null>(null); // folderId
   const [newName, setNewName] = useState('');
   const [folded, setFolded] = useState<Set<string>>(new Set());
+  const [modalRec, setModalRec] = useState<ReminderRec | null>(null); // the full-edit window
 
   // Collapse state survives visits, per the suite's localStorage habit.
   useEffect(() => {
@@ -59,9 +63,7 @@ export function Reminders() {
   };
 
   const { folders, sectionsOf, remindersOf } = useMemo(() => {
-    const folders = recs
-      .filter((r): r is FolderRec => r.type === 'folder' && (r.payload.app ?? 'reminders') === 'reminders')
-      .sort((a, b) => byOrd(a.payload, b.payload));
+    const folders = visibleFolders;
     const sections = recs.filter((r): r is SectionRec => r.type === 'section').sort((a, b) => byOrd(a.payload, b.payload));
     const reminders = recs.filter((r): r is ReminderRec => r.type === 'reminder').sort((a, b) => byOrd(a.payload, b.payload));
     return {
@@ -74,7 +76,7 @@ export function Reminders() {
             .map((x) => ({ due: x.payload.due, indent: x.payload.indent, rec: x })),
         ).map((row) => row.rec),
     };
-  }, [recs]);
+  }, [recs, visibleFolders]);
 
   const addReminder = (section: SectionRec) => {
     const raw = addText.trim();
@@ -151,22 +153,6 @@ export function Reminders() {
 
   const setRepeat = (r: ReminderRec, rep: Repeat | null) => mutate((e) => e.put({ ...r, payload: { ...r.payload, repeat: rep } }));
 
-  const addFolder = () => {
-    const name = newName.trim();
-    setAddingFolder(false);
-    setNewName('');
-    if (!name) return;
-    mutate((e) => {
-      const last = folders[folders.length - 1];
-      e.put({
-        id: newId(),
-        type: 'folder',
-        updated: 0,
-        payload: { name, color: FOLDER_PALETTE[folders.length % FOLDER_PALETTE.length]!, ord: ordBetween(last?.payload.ord ?? null, null), app: 'reminders' },
-      });
-    });
-  };
-
   const addSection = (folder: FolderRec) => {
     const name = newName.trim();
     setAddingSection(null);
@@ -183,6 +169,31 @@ export function Reminders() {
         payload: { name, folderId: folder.id, ord: ordBetween(null, secs[0]?.payload.ord ?? null) },
       });
     });
+  };
+
+  const collapseAll = () => {
+    const all = folders.flatMap((f) => sectionsOf(f.id).map((x) => x.id));
+    const next = all.every((id) => folded.has(id)) ? new Set<string>() : new Set(all);
+    setFolded(next);
+    AsyncStorage.setItem(FOLD_KEY, JSON.stringify([...next])).catch(() => {});
+  };
+
+  /** The visible list as Markdown — sean's personal tool, as in prod. */
+  const copyMarkdown = () => {
+    const lines: string[] = [];
+    for (const f of folders) {
+      lines.push(`## ${f.payload.name}`);
+      for (const sec of sectionsOf(f.id)) {
+        lines.push(`### ${sec.payload.name}`);
+        for (const r of remindersOf(sec.id)) {
+          if (!showDone && r.payload.done) continue;
+          const chip = [r.payload.due, r.payload.time, repeatLabel(r.payload.repeat)].filter(Boolean).join(' · ');
+          const pad = r.payload.indent > 0 ? '  ' : '';
+          lines.push(`${pad}- [${r.payload.done ? 'x' : ' '}] ${r.payload.text}${chip ? ` (${chip})` : ''}`);
+        }
+      }
+    }
+    Clipboard.setStringAsync(lines.join('\n')).catch(() => {});
   };
 
   const dueChip = (r: ReminderRec) => {
@@ -218,7 +229,17 @@ export function Reminders() {
 
   return (
     <View style={s.page}>
-      <TopBar title="Reminders" />
+      <TopBar
+        title="Reminders"
+        controls={
+          <View style={s.tools}>
+            <CircleBtn glyph="⌄" onPress={collapseAll} />
+            <CircleBtn glyph="☑" active={showDone} onPress={() => setShowDone(!showDone)} />
+            {session?.username === 'sean' && <CircleBtn glyph="⧉" onPress={copyMarkdown} />}
+            <FolderPick app="reminders" />
+          </View>
+        }
+      />
 
       <ScrollView contentContainerStyle={s.scroll}>
         {folders.map((f) => (
@@ -278,6 +299,7 @@ export function Reminders() {
                                 onBlur={() => { saveEdit(r); if (editText.trim() === '' && r.payload.text === '') mutate((e) => e.del(r.id)); setEditing(null); }}
                                 onSubmitEditing={() => { saveEdit(r); setEditing(null); }}
                               />
+                              <CircleBtn glyph="✎" size={24} onPress={() => { saveEdit(r); setEditing(null); setModalRec(r); }} />
                               {r.payload.indent === 0 ? (
                                 <CircleBtn glyph="+" size={24} onPress={() => { saveEdit(r); addSubtask(r); }} />
                               ) : (
@@ -305,25 +327,9 @@ export function Reminders() {
           </View>
         ))}
 
-        <View style={s.footer}>
-          {addingFolder ? (
-            <Field
-              value={newName}
-              onChangeText={setNewName}
-              placeholder="New folder"
-              autoFocus
-              onBlur={addFolder}
-              onSubmitEditing={addFolder}
-            />
-          ) : (
-            <View style={s.footerRow}>
-              <Pill label="+ Folder" onPress={() => { setAddingFolder(true); setNewName(''); }} />
-              <Pill label={showDone ? '☑ Completed' : '☐ Completed'} onPress={() => setShowDone(!showDone)} />
-            </View>
-          )}
-        </View>
       </ScrollView>
 
+      {modalRec && <ItemModal mode="edit" kind="reminder" rec={modalRec} onClose={() => setModalRec(null)} />}
     </View>
   );
 }
@@ -368,7 +374,6 @@ const s = StyleSheet.create({
   chipOverdue: { color: T.overdue, fontWeight: '600' },
   repRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingLeft: 34, paddingBottom: 6, alignItems: 'center' },
   repCount: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  tools: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   repN: { color: T.text, fontSize: 14, minWidth: 20, textAlign: 'center' },
-  footer: { marginTop: 8 },
-  footerRow: { flexDirection: 'row', gap: 8 },
 });

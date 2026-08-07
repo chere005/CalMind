@@ -13,7 +13,7 @@ import { Field, Pill } from '../ui';
 
 type Kind = 'reminder' | 'event' | 'note';
 
-export function Add({ done }: { done: () => void }) {
+export function Add({ done, onNoteCreated }: { done: () => void; onNoteCreated?: (id: string) => void }) {
   const { recs, mutate } = useStore();
   const [kind, setKind] = useState<Kind>('reminder');
   const [text, setText] = useState('');
@@ -38,6 +38,7 @@ export function Add({ done }: { done: () => void }) {
     if (!raw) return;
     const today = todayStr();
     const [clean, date, time] = parseWhenFromText(raw, today);
+    let createdNoteId: string | null = null;
     mutate((e) => {
       if (kind === 'event') {
         const cal = calendars.find((c) => c.id === destId) ?? calendars[0]!;
@@ -48,11 +49,18 @@ export function Add({ done }: { done: () => void }) {
         if (kind === 'reminder') {
           e.put({ id: newId(), type: 'reminder', updated: 0, payload: { text: clean || raw, due: date, time, done: false, repeat: null, folderId, sectionId: pick.sec.id, indent: 0, ord: ordBetween(null, null) } });
         } else {
-          e.put({ id: newId(), type: 'note', updated: 0, payload: { title: clean || raw, body: '', date, folderId, sectionId: pick.sec.id, ord: ordBetween(null, null) } });
+          const noteId = newId();
+          e.put({ id: noteId, type: 'note', updated: 0, payload: { title: clean || raw, body: '', date, folderId, sectionId: pick.sec.id, ord: ordBetween(null, null) } });
+          createdNoteId = noteId;
         }
       }
     });
     setText('');
+    if (createdNoteId) {
+      // A new note goes straight to its editor, as prod does.
+      onNoteCreated?.(createdNoteId);
+      return;
+    }
     setFlash(`${kind[0]!.toUpperCase() + kind.slice(1)} added${date ? ' · ' + date : ''}`);
     setTimeout(() => setFlash(''), 2500);
   };
