@@ -1,0 +1,269 @@
+<?php
+/**
+ * The CalMind sync API — a dumb store with auth. The server executes no domain
+ * logic: it merges opaque payloads by their clear metadata (id, type, updated,
+ * deleted) and hands back its tail. All the product behavior lives in
+ * packages/core, on the clients.
+ *
+ * Auth is bearer tokens (hashed at rest); passwords are password_hash() only —
+ * nothing recoverable is stored, by design. Recovery is an emailed code.
+ */
+
+require_once __DIR__ . '/store.php';
+
+const USERNAME_RE   = '/^[A-Za-z0-9_-]{2,20}$/';
+const REC_ID_RE     = '/^[A-Za-z0-9_-]{1,64}$/';
+const REC_TYPE_RE   = '/^[a-z]{1,20}$/';   // folder|section|reminder today; events, notes, habits later without a server change
+const MAX_BATCH     = 500;
+const MAX_PAYLOAD   = 65536;               // bytes of JSON per record
+const RECOVER_TTL   = 900;                 // a code lives fifteen minutes
+const RECOVER_TRIES = 5;
+
+function app_config(): array
+{
+    $cfg = is_file(__DIR__ . '/config.php') ? require __DIR__ . '/config.php' : [];
+    $cfg['data_dir'] ??= getenv('CALMIND_DATA_DIR') ?: dirname(__DIR__) . '/data';
+    return $cfg;
+}
+
+function reply(int $status, array $body): never
+{
+    http_response_code($status);
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode($body, JSON_UNESCAPED_SLASHES);
+    exit;
+}
+
+function fail(int $status, string $error): never
+{
+    reply($status, ['ok' => false, 'error' => $error]);
+}
+
+/** One tab-separated line per action — the suite's usage-log rule: never any content. */
+function usage_log(array $cfg, string $action, string $user): void
+{
+    $tok  = fn(string $s) => preg_replace('/[^\w.@-]/', '_', $s);
+    $line = date('Y-m-d H:i:s') . "\t" . $tok($_SERVER['REMOTE_ADDR'] ?? '-') . "\t" . $tok($user) . "\t" . $tok($action) . "\n";
+    @file_put_contents($cfg['data_dir'] . '/usage.log', $line, FILE_APPEND | LOCK_EX);
+}
+
+/** Recovery codes go to the account email; without mail config they land in mail.log,
+ *  which is also how the test harness reads them. */
+function mail_code(array $cfg, string $email, string $code): void
+{
+    $line = date('c') . "  to=$email  code=$code\n";
+    @file_put_contents($cfg['data_dir'] . '/mail.log', $line, FILE_APPEND | LOCK_EX);
+    if (!empty($cfg['send_mail'])) {
+        @mail($email, 'CalMind password reset', "Your CalMind reset code is: $code\n\nIt expires in 15 minutes.");
+    }
+}
+
+// ---------------------------------------------------------------- accounts & tokens
+
+function accounts_file(array $cfg): string { return $cfg['data_dir'] . '/accounts.json'; }
+function tokens_file(array $cfg): string   { return $cfg['data_dir'] . '/tokens.json'; }
+function recover_file(array $cfg): string  { return $cfg['data_dir'] . '/recover.json'; }
+function records_file(array $cfg, string $user): string { return $cfg['data_dir'] . '/records-' . $user . '.json'; }
+
+/** A fresh bearer token for $user; only its hash is stored. */
+function token_issue(array $cfg, string $user): string
+{
+    $token = bin2hex(random_bytes(32));
+    with_lock($cfg, 'tokens', function () use ($cfg, $token, $user) {
+        $t = store_read($cfg, tokens_file($cfg));
+        $t[hash('sha256', $token)] = ['user' => $user, 'created' => time()];
+        store_write($cfg, tokens_file($cfg), $t);
+    });
+    return $token;
+}
+
+/** Every token a user holds, gone — password change and reset both call this. */
+function tokens_revoke(array $cfg, string $user): void
+{
+    with_lock($cfg, 'tokens', function () use ($cfg, $user) {
+        $t = array_filter(store_read($cfg, tokens_file($cfg)), fn($v) => ($v['user'] ?? '') !== $user);
+        store_write($cfg, tokens_file($cfg), $t);
+    });
+}
+
+/** The signed-in user, from the Authorization: Bearer header, or a 401. */
+function require_auth(array $cfg): string
+{
+    $hdr = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
+    if (!preg_match('/^Bearer\s+([a-f0-9]{64})$/', $hdr, $m)) {
+        fail(401, 'auth required');
+    }
+    $t = store_read($cfg, tokens_file($cfg));
+    $user = $t[hash('sha256', $m[1])]['user'] ?? '';
+    if ($user === '') {
+        fail(401, 'bad token');
+    }
+    return $user;
+}
+
+// ---------------------------------------------------------------- action handlers
+
+function handle_signup(array $cfg, array $in): never
+{
+    $user  = (string) ($in['username'] ?? '');
+    $email = trim((string) ($in['email'] ?? ''));
+    $pass  = (string) ($in['password'] ?? '');
+    if (!preg_match(USERNAME_RE, $user))                    { fail(400, 'username: 2-20 letters, numbers, - or _'); }
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL))         { fail(400, 'that email address doesn\'t look right'); }
+    if (strlen($pass) < 6)                                  { fail(400, 'password: at least 6 characters'); }
+    $token = with_lock($cfg, 'accounts', function () use ($cfg, $user, $email, $pass) {
+        $acc = store_read($cfg, accounts_file($cfg));
+        if (isset($acc[$user])) {
+            fail(409, 'that username is taken');
+        }
+        $acc[$user] = ['email' => $email, 'hash' => password_hash($pass, PASSWORD_DEFAULT), 'created' => time()];
+        store_write($cfg, accounts_file($cfg), $acc);
+        return token_issue($cfg, $user);
+    });
+    usage_log($cfg, 'signup', $user);
+    reply(200, ['ok' => true, 'token' => $token, 'username' => $user]);
+}
+
+function handle_login(array $cfg, array $in): never
+{
+    $user = (string) ($in['username'] ?? '');
+    $pass = (string) ($in['password'] ?? '');
+    $acc  = store_read($cfg, accounts_file($cfg));
+    if (!isset($acc[$user]) || !password_verify($pass, $acc[$user]['hash'] ?? '')) {
+        usage_log($cfg, 'login_fail', $user);
+        fail(401, 'wrong username or password');
+    }
+    usage_log($cfg, 'login', $user);
+    reply(200, ['ok' => true, 'token' => token_issue($cfg, $user), 'username' => $user]);
+}
+
+function handle_logout(array $cfg): never
+{
+    $user = require_auth($cfg);
+    $hdr  = $_SERVER['HTTP_AUTHORIZATION'];
+    preg_match('/([a-f0-9]{64})$/', $hdr, $m);
+    with_lock($cfg, 'tokens', function () use ($cfg, $m) {
+        $t = store_read($cfg, tokens_file($cfg));
+        unset($t[hash('sha256', $m[1])]);
+        store_write($cfg, tokens_file($cfg), $t);
+    });
+    usage_log($cfg, 'logout', $user);
+    reply(200, ['ok' => true]);
+}
+
+function handle_change_password(array $cfg, array $in): never
+{
+    $user = require_auth($cfg);
+    $old  = (string) ($in['old'] ?? '');
+    $new  = (string) ($in['new'] ?? '');
+    if (strlen($new) < 6) { fail(400, 'password: at least 6 characters'); }
+    with_lock($cfg, 'accounts', function () use ($cfg, $user, $old, $new) {
+        $acc = store_read($cfg, accounts_file($cfg));
+        if (!password_verify($old, $acc[$user]['hash'] ?? '')) {
+            fail(403, 'current password is wrong');
+        }
+        $acc[$user]['hash'] = password_hash($new, PASSWORD_DEFAULT);
+        store_write($cfg, accounts_file($cfg), $acc);
+    });
+    tokens_revoke($cfg, $user);   // every other device signs in again
+    usage_log($cfg, 'change_password', $user);
+    reply(200, ['ok' => true, 'token' => token_issue($cfg, $user)]);
+}
+
+function handle_recover(array $cfg, array $in): never
+{
+    $user = (string) ($in['username'] ?? '');
+    $acc  = store_read($cfg, accounts_file($cfg));
+    // Always answer ok — which usernames exist is nobody's business.
+    if (isset($acc[$user])) {
+        $code = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+        with_lock($cfg, 'recover', function () use ($cfg, $user, $code) {
+            $r = store_read($cfg, recover_file($cfg));
+            $r[$user] = ['code' => $code, 'expires' => time() + RECOVER_TTL, 'tries' => 0];
+            store_write($cfg, recover_file($cfg), $r);
+        });
+        mail_code($cfg, $acc[$user]['email'], $code);
+        usage_log($cfg, 'recover', $user);
+    }
+    reply(200, ['ok' => true]);
+}
+
+function handle_reset(array $cfg, array $in): never
+{
+    $user = (string) ($in['username'] ?? '');
+    $code = trim((string) ($in['code'] ?? ''));
+    $pass = (string) ($in['password'] ?? '');
+    if (strlen($pass) < 6) { fail(400, 'password: at least 6 characters'); }
+    with_lock($cfg, 'recover', function () use ($cfg, $user, $code) {
+        $r = store_read($cfg, recover_file($cfg));
+        $p = $r[$user] ?? null;
+        if (!$p || (int) $p['expires'] < time() || (int) $p['tries'] >= RECOVER_TRIES) {
+            unset($r[$user]);
+            store_write($cfg, recover_file($cfg), $r);
+            fail(403, 'that code expired — start again');
+        }
+        if (!hash_equals((string) $p['code'], $code)) {
+            $r[$user]['tries'] = (int) $p['tries'] + 1;
+            store_write($cfg, recover_file($cfg), $r);
+            fail(403, 'that code doesn\'t match');
+        }
+        unset($r[$user]);
+        store_write($cfg, recover_file($cfg), $r);
+    });
+    with_lock($cfg, 'accounts', function () use ($cfg, $user, $pass) {
+        $acc = store_read($cfg, accounts_file($cfg));
+        $acc[$user]['hash'] = password_hash($pass, PASSWORD_DEFAULT);
+        store_write($cfg, accounts_file($cfg), $acc);
+    });
+    tokens_revoke($cfg, $user);
+    usage_log($cfg, 'reset', $user);
+    reply(200, ['ok' => true, 'token' => token_issue($cfg, $user), 'username' => $user]);
+}
+
+function handle_whoami(array $cfg): never
+{
+    reply(200, ['ok' => true, 'username' => require_auth($cfg)]);
+}
+
+/** The sync round trip: accept newer records, return everything past the cursor. */
+function handle_sync(array $cfg, array $in): never
+{
+    $user    = require_auth($cfg);
+    $cursor  = max(0, (int) ($in['cursor'] ?? 0));
+    $changes = is_array($in['changes'] ?? null) ? $in['changes'] : [];
+    if (count($changes) > MAX_BATCH) {
+        fail(400, 'batch too large');
+    }
+    $out = with_lock($cfg, 'records-' . $user, function () use ($cfg, $user, $cursor, $changes) {
+        $db   = store_read($cfg, records_file($cfg, $user));
+        $seq  = (int) ($db['seq'] ?? 0);
+        $recs = is_array($db['recs'] ?? null) ? $db['recs'] : [];
+        foreach ($changes as $c) {
+            if (!is_array($c)) { continue; }
+            $id      = (string) ($c['id'] ?? '');
+            $type    = (string) ($c['type'] ?? '');
+            $updated = (int) ($c['updated'] ?? 0);
+            if (!preg_match(REC_ID_RE, $id) || !preg_match(REC_TYPE_RE, $type) || $updated <= 0) {
+                continue;   // malformed rows are dropped, never fatal — the rest of the batch lands
+            }
+            if (strlen(json_encode($c['payload'] ?? null)) > MAX_PAYLOAD) {
+                continue;
+            }
+            $cur = $recs[$id] ?? null;
+            if ($cur === null || $updated > (int) $cur['updated']) {
+                $recs[$id] = ['id' => $id, 'type' => $type, 'updated' => $updated,
+                              'deleted' => !empty($c['deleted']), 'payload' => $c['payload'] ?? null,
+                              'seq' => ++$seq];
+            }
+        }
+        store_write($cfg, records_file($cfg, $user), ['seq' => $seq, 'recs' => $recs]);
+        $tail = array_values(array_filter($recs, fn($r) => (int) $r['seq'] > $cursor));
+        usort($tail, fn($a, $b) => $a['seq'] <=> $b['seq']);
+        return ['cursor' => $seq, 'changes' => array_map(function ($r) {
+            unset($r['seq']);
+            return $r;
+        }, $tail)];
+    });
+    usage_log($cfg, 'sync', $user);
+    reply(200, ['ok' => true, 'cursor' => $out['cursor'], 'changes' => $out['changes']]);
+}

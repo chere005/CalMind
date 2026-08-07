@@ -1,0 +1,113 @@
+/**
+ * The CalMind card: sign in, sign up, and the two-step email recovery. One
+ * screen, three modes — the login page never draws chrome, matching the suite.
+ */
+import React, { useState } from 'react';
+import { KeyboardAvoidingView, Platform, StyleSheet, Text, View } from 'react-native';
+import { defaultServerUrl } from '../config';
+import { login, signup, recover, reset } from '../api';
+import { useStore } from '../store';
+import { Field, Pill, ErrorLine } from '../ui';
+import { T } from '../theme';
+
+type Mode = 'signin' | 'signup' | 'recover' | 'reset';
+
+export function Login() {
+  const { signIn } = useStore();
+  const [mode, setMode] = useState<Mode>('signin');
+  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [code, setCode] = useState('');
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const serverUrl = defaultServerUrl();
+
+  const run = async (fn: () => Promise<void>) => {
+    setBusy(true);
+    setError('');
+    try {
+      await fn();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'something went wrong');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const submit = () =>
+    run(async () => {
+      if (mode === 'signin') {
+        const r = await login(serverUrl, username, password);
+        await signIn({ token: r.token, username: r.username, serverUrl });
+      } else if (mode === 'signup') {
+        const r = await signup(serverUrl, username, email, password);
+        await signIn({ token: r.token, username: r.username, serverUrl });
+      } else if (mode === 'recover') {
+        await recover(serverUrl, username);
+        setMode('reset');
+      } else {
+        const r = await reset(serverUrl, username, code, password);
+        await signIn({ token: r.token, username: r.username, serverUrl });
+      }
+    });
+
+  return (
+    <KeyboardAvoidingView style={s.page} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <View style={s.card}>
+        <Text style={s.logo}>CalMind</Text>
+        <Field value={username} onChangeText={setUsername} placeholder="Username" autoCapitalize="none" autoCorrect={false} />
+        {mode === 'signup' && (
+          <Field value={email} onChangeText={setEmail} placeholder="Email" autoCapitalize="none" keyboardType="email-address" />
+        )}
+        {mode === 'reset' && (
+          <>
+            <Text style={s.hint}>If that account exists, a 6-digit code went to its email.</Text>
+            <Field value={code} onChangeText={setCode} placeholder="Code" keyboardType="number-pad" maxLength={6} />
+          </>
+        )}
+        {mode !== 'recover' && (
+          <Field
+            value={password}
+            onChangeText={setPassword}
+            placeholder={mode === 'reset' ? 'New password' : 'Password'}
+            secureTextEntry
+            onSubmitEditing={submit}
+          />
+        )}
+        <ErrorLine text={error} />
+        <View style={s.actions}>
+          <Pill
+            primary
+            disabled={busy}
+            label={mode === 'signin' ? 'Sign in' : mode === 'signup' ? 'Sign up' : mode === 'recover' ? 'Send code' : 'Set password'}
+            onPress={submit}
+          />
+        </View>
+        <View style={s.links}>
+          {mode !== 'signin' && <Pill label="Sign in" onPress={() => setMode('signin')} />}
+          {mode === 'signin' && <Pill label="Sign up" onPress={() => setMode('signup')} />}
+          {mode === 'signin' && <Pill label="Forgot?" onPress={() => setMode('recover')} />}
+        </View>
+      </View>
+    </KeyboardAvoidingView>
+  );
+}
+
+const s = StyleSheet.create({
+  page: { flex: 1, backgroundColor: T.bg, alignItems: 'center', justifyContent: 'center', padding: 24 },
+  card: {
+    width: '100%',
+    maxWidth: 360,
+    backgroundColor: T.surface,
+    borderWidth: 1,
+    borderColor: T.line,
+    borderRadius: 16,
+    padding: 20,
+    gap: 10,
+  },
+  logo: { color: T.accent, fontSize: 28, fontWeight: '700', textAlign: 'center', marginBottom: 6 },
+  hint: { color: T.dim, fontSize: 13 },
+  actions: { marginTop: 4, alignItems: 'stretch' },
+  links: { flexDirection: 'row', gap: 8, justifyContent: 'center', marginTop: 4 },
+});

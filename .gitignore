@@ -1,0 +1,20 @@
+# Dependencies and build output
+node_modules/
+.expo/
+apps/app/dist/
+apps/app/web-build/
+
+# Continuous native generation — ios/ and android/ are prebuild output, regenerated
+# by `npx expo prebuild`. They get committed only when the watch target lands and
+# forces hand-kept native projects; until then they are disposable.
+apps/app/ios/
+apps/app/android/
+
+# Server secrets and live data — never committed, mirroring the suite's rule that
+# no config and no data dir ever rides along with source.
+server/deploy.conf
+server/lib/config.php
+server/data/
+
+*.log
+.DS_Store

@@ -1,0 +1,14 @@
+{
+  "name": "calmind",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "apps/app"
+  ],
+  "scripts": {
+    "test": "npm run test:core && npm run test:server",
+    "test:core": "npm -w @calmind/core run test -- --run",
+    "test:server": "php server/tools/test.php",
+    "web": "npm -w app run web"
+  }
+}

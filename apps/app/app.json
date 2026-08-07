@@ -1,0 +1,29 @@
+{
+  "expo": {
+    "name": "CalMind",
+    "slug": "calmind",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#111111",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.seancheren.calmind"
+    },
+    "android": {
+      "package": "com.seancheren.calmind",
+      "adaptiveIcon": {
+        "backgroundColor": "#111111",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    }
+  }
+}
