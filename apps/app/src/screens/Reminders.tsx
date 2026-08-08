@@ -9,7 +9,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { duplicateItem,
+import { deleteSection, duplicateItem,
   timeLabel,
   byOrd,
   moveReminderBlock,
@@ -373,6 +373,7 @@ export function Reminders() {
                     </Pressable>
                     {renamingSec === sec.id ? (
                       <Field
+                        testID="sec-rename"
                         value={renameSecText}
                         onChangeText={setRenameSecText}
                         autoFocus
@@ -390,6 +391,7 @@ export function Reminders() {
                       />
                     ) : (
                       <Pressable
+                        testID={`sec-name-${sec.payload.name}`}
                         onPress={() => {
                           const now = Date.now();
                           if (lastSecTap.current.id === sec.id && now - lastSecTap.current.at < 300) {
@@ -406,6 +408,12 @@ export function Reminders() {
                       </Pressable>
                     )}
                     <CircleBtn testID={`secadd-${sec.payload.name}`} glyph="+" color={T.accent} size={22} onPress={() => { setAdding(sec.id); setAddText(''); if (isFolded) toggleFold(sec.id); }} />
+                    {pageEdit && (
+                      <ConfirmDelete testID={`secdel-${sec.payload.name}`} size={22} onDelete={() => {
+                        const res = deleteSection(recs, sec.id);
+                        if (!('error' in res)) mutate((e) => res.put.forEach((r) => e.put(r)));
+                      }} />
+                    )}
                   </View>
                   {adding === sec.id && (
                     <Field

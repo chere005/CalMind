@@ -626,3 +626,35 @@ test('the day panel cluster waits for a double-click, like the suite', async ({ 
   await page.keyboard.press('Escape');
   await expect(page.getByText('✎')).toBeHidden();
 });
+
+test('a section deletes with two presses from edit mode', async ({ page }) => {
+  await signup(page);
+  await page.getByTestId('tab-reminders').click();
+  await page.getByTestId('foldadd-Reminders').click();
+  await page.getByPlaceholder('New section').fill('Doomed');
+  await page.getByPlaceholder('New section').press('Enter');
+  // Long-press the section name: edit mode on (the rename field opens too).
+  const name = page.getByText('Doomed', { exact: true });
+  const box = (await name.boundingBox())!;
+  await page.mouse.move(box.x + 10, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.waitForTimeout(500);
+  await page.mouse.up();
+  const del = page.getByTestId('secdel-Doomed');
+  await expect(del).toBeVisible();
+  await del.click(); // arms
+  await del.click(); // deletes
+  await expect(page.getByTestId('secdel-Doomed')).toBeHidden();
+  await expect(page.getByText('Doomed', { exact: true })).toBeHidden();
+});
+
+test('a Notes section renames via double-click', async ({ page }) => {
+  await signup(page);
+  await page.getByTestId('tab-notes').click();
+  await page.getByTestId('nsec-name-General').dblclick();
+  const field = page.getByTestId('nsec-rename');
+  await expect(field).toBeVisible();
+  await field.fill('Stuff');
+  await field.press('Enter');
+  await expect(page.getByText('Stuff', { exact: true }).first()).toBeVisible();
+});

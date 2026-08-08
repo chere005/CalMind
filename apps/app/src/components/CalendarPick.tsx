@@ -68,7 +68,7 @@ export function CalendarPick() {
   return (
     <>
       <Pressable onPress={() => setOpen(true)} hitSlop={8}>
-        <PieDot colors={visible.map((c) => c.payload.color)} size={20} />
+        <PieDot rainbow={hidden.length === 0 && hiddenShared.length === 0} colors={visible.map((c) => c.payload.color)} size={18} />
       </Pressable>
 
       {open && (
@@ -92,7 +92,7 @@ export function CalendarPick() {
                         <Text style={[s.box, allOn && s.boxOn]}>{allOn ? '☑' : '☐'}</Text>
                       </Pressable>
                       <Pressable style={s.rowMain} onPress={() => { setPrefs({ lastView: 'all', hidden: [], hiddenShared: [] }); setOpen(false); }}>
-                        <PieDot colors={calendars.map((c) => c.payload.color)} size={14} />
+                        <PieDot rainbow colors={calendars.map((c) => c.payload.color)} size={14} />
                         <Text style={[s.rowText, view === 'all' && s.rowActive]}>All calendars</Text>
                       </Pressable>
                     </View>
@@ -108,7 +108,7 @@ export function CalendarPick() {
                       >
                         <Text style={[s.box, !off && s.boxOn]}>{off ? '☐' : '☑'}</Text>
                       </Pressable>
-                      <Pressable style={s.rowMain} onPress={() => { setPrefs({ lastView: c.id }); setOpen(false); }}>
+                      <Pressable style={s.rowMain} onPress={() => { setPrefs({ lastView: c.id, hidden: calendars.filter((x) => x.id !== c.id).map((x) => x.id), hiddenShared: sharedCals.map((x) => x.id) }); setOpen(false); }}>
                         <View style={[s.dot, { backgroundColor: c.payload.color }]} />
                         <Text style={[s.rowText, view === c.id && s.rowActive]}>{c.payload.name}</Text>
                       </Pressable>

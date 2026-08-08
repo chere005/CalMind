@@ -5,11 +5,28 @@
  */
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import Svg, { Path, Circle } from 'react-native-svg';
+import Svg, { Path, Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
 import { themed, T } from '../theme';
 
-export function PieDot({ colors, size = 22 }: { colors: string[]; size?: number }) {
+export function PieDot({ colors, size = 22, rainbow = false }: { colors: string[]; size?: number; rainbow?: boolean }) {
   const r = size / 2;
+  // Everything switched on wears the RAINBOW — one smooth gradient disc, not
+  // a pie of segments (Sean's call; the pie means a subset is showing).
+  if (rainbow) {
+    return (
+      <Svg width={size} height={size}>
+        <Defs>
+          <LinearGradient id="pierainbow" x1="0" y1="0" x2="1" y2="1">
+            <Stop offset="0" stopColor="#f472b6" />
+            <Stop offset="0.35" stopColor="#fb923c" />
+            <Stop offset="0.65" stopColor="#fde047" />
+            <Stop offset="1" stopColor="#4ade80" />
+          </LinearGradient>
+        </Defs>
+        <Circle cx={r} cy={r} r={r} fill="url(#pierainbow)" />
+      </Svg>
+    );
+  }
   if (colors.length === 0) {
     return <View style={[s.ring, { width: size, height: size, borderRadius: r }]} />;
   }

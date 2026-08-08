@@ -63,7 +63,7 @@ export function FolderPick({ app }: { app: 'reminders' | 'notes' }) {
     <>
       <Pressable testID={`pick-${app}`} onPress={() => setOpen(true)} hitSlop={8}>
         {/* One folder = its colour; several = the pie; everything on = the rainbow. */}
-        <PieDot colors={active ? [active.payload.color] : visible.map((f) => f.payload.color)} size={20} />
+        <PieDot rainbow={!active && hidden.length === 0 && hiddenShared.length === 0} colors={active ? [active.payload.color] : visible.map((f) => f.payload.color)} size={18} />
       </Pressable>
 
       {open && (
@@ -85,7 +85,7 @@ export function FolderPick({ app }: { app: 'reminders' | 'notes' }) {
                         <Text style={[s.box, allOn && s.boxOn]}>{allOn ? '☑' : '☐'}</Text>
                       </Pressable>
                       <Pressable style={s.rowMain} onPress={() => { setPrefs({ lastView: 'all', hidden: [], hiddenShared: [] }); setOpen(false); }}>
-                        <PieDot colors={folders.map((f) => f.payload.color)} size={14} />
+                        <PieDot rainbow colors={folders.map((f) => f.payload.color)} size={14} />
                         <Text style={[s.rowText, view === 'all' && s.rowActive]}>All</Text>
                       </Pressable>
                     </View>
@@ -104,7 +104,7 @@ export function FolderPick({ app }: { app: 'reminders' | 'notes' }) {
                       >
                         <Text style={[s.box, !off && s.boxOn]}>{off ? '☐' : '☑'}</Text>
                       </Pressable>
-                      <Pressable style={s.rowMain} onPress={() => { setPrefs({ lastView: f.id }); setOpen(false); }}>
+                      <Pressable style={s.rowMain} onPress={() => { setPrefs({ lastView: f.id, hidden: folders.filter((x) => x.id !== f.id).map((x) => x.id), hiddenShared: sharedFolders.map((x) => x.id) }); setOpen(false); }}>
                         <View style={[s.dot, { backgroundColor: f.payload.color }]} />
                         <Text style={[s.rowText, view === f.id && s.rowActive]}>{f.payload.name}</Text>
                       </Pressable>
@@ -123,7 +123,7 @@ export function FolderPick({ app }: { app: 'reminders' | 'notes' }) {
                       >
                         <Text style={[s.box, !off && s.boxOn]}>{off ? '☐' : '☑'}</Text>
                       </Pressable>
-                      <Pressable testID={`pick-shared-${f.payload.name}`} style={s.rowMain} onPress={() => { setPrefs({ lastView: key }); setOpen(false); }}>
+                      <Pressable testID={`pick-shared-${f.payload.name}`} style={s.rowMain} onPress={() => { setPrefs({ lastView: key, hidden: folders.map((x) => x.id), hiddenShared: sharedFolders.filter((x) => x.id !== f.id).map((x) => x.id) }); setOpen(false); }}>
                         <View style={[s.dot, { backgroundColor: f.payload.color }]} />
                         <Text style={[s.rowText, sharedView === key && s.rowActive]}>{f.payload.name}</Text>
                         <Text style={s.partnerChip}>{sharedPartnerLabel}</Text>

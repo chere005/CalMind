@@ -360,7 +360,7 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
           onSaved={(id, kind) => kind === 'note' && onNoteCreated?.(id)}
         />
       )}
-      {modal?.mode === 'edit' && <ItemModal mode="edit" kind={modal.kind} rec={modal.rec} onClose={() => setModal(null)} />}
+      {modal?.mode === 'edit' && <ItemModal mode="edit" kind={modal.kind} rec={modal.rec} onClose={() => setModal(null)} onSaved={(id, kind) => kind === 'note' && onNoteCreated?.(id)} />}
     </View>
   );
 }

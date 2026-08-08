@@ -88,8 +88,8 @@ const s = themed(() => StyleSheet.create({
   // Prod's header controls: the picker sits in a dark ringed circle, the
   // username in a thin outlined pill — header nav .who, carried over.
   // One row, one scale: ring and pill both 32 high, the suite's bar height.
-  // Icon-sized, chrome-free: the pie IS the icon (Sean: no big ringed button).
-  pickerRing: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
+  // Icon-sized, ringed, with air between the pie and its border (Sean).
+  pickerRing: { width: 28, height: 28, borderRadius: 14, borderWidth: 1, borderColor: T.line, backgroundColor: T.surface2, alignItems: 'center', justifyContent: 'center' },
   whoPill: { height: 28, flexDirection: 'row', alignItems: 'center', gap: 5, borderWidth: 1, borderColor: T.accentSoft, borderRadius: 999, paddingHorizontal: 13 },
   who: { color: T.accent, fontSize: 14, fontWeight: '600' },
   whoCaret: { color: T.accent, fontSize: 10, opacity: 0.8 },
