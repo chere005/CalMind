@@ -449,6 +449,14 @@ function handle_feed(array $cfg): never
     $days = [];
     for ($i = 0; $i < 21; $i++) { $days[date('Y-m-d', strtotime("+$i days"))] = []; }
 
+    // The suite's feed_scope: the widget follows what the calendar shows —
+    // hidden folders drop their reminders, hidden calendars their events.
+    $prefs = fn(string $app) => is_array(($recs["prefs_$app"]['payload'] ?? null)) ? $recs["prefs_$app"]['payload'] : [];
+    $hidFolders = array_flip((array) ($prefs('reminders')['hidden'] ?? []));
+    $calPrefs = $prefs('calendar');
+    $hidCals = array_flip((array) ($calPrefs['hidden'] ?? []));
+    $onlyCal = (string) ($calPrefs['lastView'] ?? 'all');
+
     $rideAlong = [];
     foreach ($recs as $r) {
         if ($r['type'] === 'folder' && !empty($r['payload']['rideAlong'])) { $rideAlong[$r['id']] = true; }
@@ -483,11 +491,19 @@ function handle_feed(array $cfg): never
     foreach ($recs as $r) {
         $p = $r['payload'];
         if ($r['type'] === 'reminder' && empty($p['done'])) {
+            if (isset($hidFolders[$p['folderId'] ?? ''])) { continue; }
             $rolled = !empty($p['due']) && $p['due'] < $today;
             if (empty($p['due']) && isset($rideAlong[$p['folderId'] ?? ''])) {
                 $days[$today][] = ['kind' => 'reminder', 'id' => $r['id'], 'text' => $p['text'], 'time' => $p['time'] ?? null, 'rolled' => false];
             } elseif ($rolled) {
                 $days[$today][] = ['kind' => 'reminder', 'id' => $r['id'], 'text' => $p['text'], 'time' => $p['time'] ?? null, 'rolled' => true];
+                // A rolled REPEATING reminder still owes its future dates —
+                // the suite lists repeats past the rolled one inside the window.
+                foreach ($expand($p['due'], $p['repeat'] ?? null) as $d) {
+                    if ($d > $today) {
+                        $days[$d][] = ['kind' => 'reminder', 'id' => $r['id'], 'text' => $p['text'], 'time' => $p['time'] ?? null, 'rolled' => false];
+                    }
+                }
             } else {
                 foreach ($expand($p['due'] ?? null, $p['repeat'] ?? null) as $d) {
                     $days[$d][] = ['kind' => 'reminder', 'id' => $r['id'], 'text' => $p['text'], 'time' => $p['time'] ?? null, 'rolled' => false];
@@ -495,6 +511,8 @@ function handle_feed(array $cfg): never
             }
         }
         if ($r['type'] === 'event') {
+            $cal = (string) ($p['calendarId'] ?? '');
+            if (isset($hidCals[$cal]) || ($onlyCal !== 'all' && $cal !== $onlyCal)) { continue; }
             foreach ($expand($p['date'] ?? null, $p['repeat'] ?? null) as $d) {
                 $days[$d][] = ['kind' => 'event', 'id' => $r['id'], 'text' => $p['text'], 'time' => $p['time'] ?? null];
             }
@@ -504,5 +522,13 @@ function handle_feed(array $cfg): never
     foreach ($days as $d => &$rows) {
         usort($rows, fn($a, $b) => ($a['kind'] === $b['kind']) ? strcmp((string) ($a['time'] ?? ''), (string) ($b['time'] ?? '')) : ($a['kind'] === 'reminder' ? -1 : 1));
     }
+    // The suite's widget carries at most 12 rows across the window.
+    $kept = 0;
+    foreach ($days as $d => &$rows) {
+        $take = max(0, min(count($rows), 12 - $kept));
+        $rows = array_slice($rows, 0, $take);
+        $kept += $take;
+    }
+    unset($rows);
     reply(200, ['ok' => true, 'today' => $today, 'days' => array_filter($days)]);
 }

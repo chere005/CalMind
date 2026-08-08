@@ -337,12 +337,30 @@ honest — the next iteration trusts it.
   'buy bread' dropped into A's shared section shows in A's own list.
 - 126 core + 20 server + 18 gesture tests.
 
-## In flight (iteration 20 — start here)
-- Widget feed: confirm own-data-only against the suite's feed.php (riders,
-  rolled, 21 days) — write the comparison note either way.
-- Habits 8th wide-only column; drag known-simplifications sweep.
-- Calendar shared-calendar recolour rows (folders shipped; calendars still
-  show owner colour only in the manager).
+## Iteration 20 shipped
+- FEED COMPARISON against the suite's build_feed, three real gaps closed:
+  a rolled REPEATING reminder now keeps its future dates in the window (it
+  only sat on today); the suite's 12-row cap holds; and the feed follows
+  visibility — hidden reminder folders drop out, events follow hidden_cals
+  and a single-calendar lastView. Own-data-only confirmed on both sides
+  (the feed reads records-<user> alone; a partner's items never feed).
+  New server test pins all three (21 server tests).
+- HABITS ROLLING WINDOW: weekDates is the suite's shape now — six days back
+  through TOMORROW, eight columns, of which a narrow screen (≤640) shows
+  the last five (the wide-only rule), pager label following the shown span.
+- Shared-calendar recolour rows in Manage calendars (the folders' twin,
+  APP_PALETTES_SHARED.calendar).
+- Drag simplification sweep: the iteration-6 caveats are all retired —
+  measured drags (it. 11) removed the uniform-height assumption, empty
+  sections are targets, sections drag, Notes rows drag.
+- 126 core + 21 server + 18 gesture tests.
+
+## In flight (iteration 21 — start here)
+- By-eye pass on test against prod, side by side, page by page (spacing,
+  icon centring — the CLAUDE.md pre-deploy rule — fonts, empty states).
+- Scriptable script parity check (tools/scriptable-widget.js vs the suite's
+  generated script: day headings, tick links, rolled tint).
+- Native targets: expo run:ios / run:android smoke, watch bridge check.
 
 ## Next, in pain order
 1. Habits month view (day pies + its legend) + Manage-sections window +

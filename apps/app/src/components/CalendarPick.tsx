@@ -18,7 +18,7 @@ import {
   type Rec,
 } from '@calmind/core';
 import { useStore } from '../store';
-import { themed, APP_PALETTES, T } from '../theme';
+import { themed, APP_PALETTES, T , APP_PALETTES_SHARED } from '../theme';
 import { CircleBtn, ConfirmDelete, Field, Pill } from '../ui';
 import { Dropdown } from './Dropdown';
 import { ordForMove, useRowDrag } from './rowdrag';
@@ -125,7 +125,17 @@ export function CalendarPick() {
 }
 
 function CalendarManager({ onClose }: { onClose: () => void }) {
-  const { recs, mutate } = useStore();
+  const { recs, mutate, sharedRecs, sharedPartner } = useStore();
+  // The viewer's recolour of a partner's shared calendar — my override, my
+  // prefs, the lighter shared palette, their data untouched.
+  const sharedCalRows = sharedPartner ? sharedRecs.filter((r): r is Rec<'calendar'> => r.type === 'calendar') : [];
+  const recolorSharedCal = (c: Rec<'calendar'>) => {
+    const key = `@${sharedPartner}:${c.id}`;
+    const cur = prefsOf(recs, 'calendar').sharedColors ?? {};
+    const pal = APP_PALETTES_SHARED.calendar;
+    const at = pal.indexOf(cur[key] ?? c.payload.color);
+    mutate((e) => e.put(prefsPut(recs, 'calendar', { sharedColors: { ...cur, [key]: pal[(at + 1) % pal.length]! } })));
+  };
   const { calendars } = useCalendarView();
   const [newName, setNewName] = useState('');
   const [renaming, setRenaming] = useState<string | null>(null);
@@ -228,6 +238,17 @@ function CalendarManager({ onClose }: { onClose: () => void }) {
               options={calendars.map((c) => ({ id: c.id, label: c.payload.name }))}
               onPick={(id) => mutate((e) => e.put(prefsPut(recs, 'calendar', { defaultCalendarId: id })))}
             />
+            {sharedCalRows.length > 0 && (
+              <>
+                <Text style={s.mlabel}>Shared with me</Text>
+                {sharedCalRows.map((c) => (
+                  <View key={c.id} style={s.mrow}>
+                    <CircleBtn glyph=" " size={22} onPress={() => recolorSharedCal(c)} bg={c.payload.color} />
+                    <Text style={s.sharedCalName}>@{sharedPartner}: {c.payload.name}</Text>
+                  </View>
+                ))}
+              </>
+            )}
             {err !== '' && <Text style={s.err}>{err}</Text>}
             <View style={s.doneRow}>
               <Pill label="Done" primary onPress={onClose} />
@@ -265,6 +286,8 @@ const s = themed(() => StyleSheet.create({
   renameField: { flex: 1, paddingVertical: 6 },
   label: { color: T.dim, fontSize: 13, marginTop: 6 },
   rowWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  mlabel: { color: T.gold, fontSize: 13, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 12 },
+  sharedCalName: { color: T.dim, fontSize: 15, flex: 1 },
   err: { color: T.danger, fontSize: 13 },
   doneRow: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 4 },
 }));

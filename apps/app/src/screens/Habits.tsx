@@ -8,7 +8,7 @@
  * the username) filters sections and opens Manage sections.
  */
 import React, { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View , useWindowDimensions } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { byOrd, monthGrid, newId, ordBetween, prefsOf, prefsPut, tickId, todayStr, type Rec } from '@calmind/core';
@@ -22,12 +22,15 @@ const pad = (n: number) => String(n).padStart(2, '0');
 const FOLD_KEY = 'calmind.folded.habits';
 
 function weekDates(offset: number): string[] {
+  // The suite's rolling window: six days back through TOMORROW — eight
+  // columns in one layout, of which a narrow screen shows the last five.
   const now = new Date();
-  const sunday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay() + offset * 7);
-  return Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(sunday.getFullYear(), sunday.getMonth(), sunday.getDate() + i);
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-  });
+  const out: string[] = [];
+  for (let i = 6; i >= -1; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset * 7 - i);
+    out.push(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`);
+  }
+  return out;
 }
 
 /** One day's pie: contiguous arcs — each section's ticked share in its colour,
@@ -95,7 +98,10 @@ export function Habits() {
   const view = prefsOf(recs, 'habits').view ?? 'week';
   const setView = (v: 'week' | 'month') => mutate((e) => e.put(prefsPut(recs, 'habits', { view: v })));
 
-  const days = useMemo(() => weekDates(w), [w]);
+  const allDays = useMemo(() => weekDates(w), [w]);
+  // The columns only a wide screen shows — the suite's wide-only rule at 640.
+  const wide = useWindowDimensions().width > 640;
+  const days = wide ? allDays : allDays.slice(3);
   const [year, month] = ym.split('-').map(Number) as [number, number];
   const cells = useMemo(() => monthGrid(year, month), [year, month]);
 
@@ -170,7 +176,7 @@ export function Habits() {
         ? 'This week'
         : new Date(`${days[0]}T12:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) +
           ' – ' +
-          new Date(`${days[6]}T12:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+          new Date(`${days[days.length - 1]}T12:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 
   return (
     <View style={s.page}>

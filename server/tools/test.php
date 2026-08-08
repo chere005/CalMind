@@ -175,6 +175,36 @@ t('the widget token reads the feed — dated rows in, undated non-riders out', f
     ok(in_array('feed me', $texts, true), 'a dated reminder feeds');
     ok(!in_array('not on the widget', $texts, true), 'an undated non-rider stays off the widget');
 });
+t('the feed follows the suite: rolled repeats keep future dates, hidden folders drop out', function () use ($tokenA) {
+    global $port;
+    $lastWeek = date('Y-m-d', strtotime('-7 days'));
+    $rows = [
+        // Overdue weekly repeat: today (rolled) AND its next date inside the window.
+        ['id' => 'wrep', 'type' => 'reminder', 'updated' => 8100,
+         'payload' => ['text' => 'water ferns', 'due' => $lastWeek, 'time' => null, 'done' => false,
+                       'repeat' => ['n' => 1, 'unit' => 'week'], 'folderId' => 'f', 'sectionId' => 's', 'indent' => 0, 'ord' => 'X']],
+        // A folder switched off in prefs: its reminder never feeds.
+        ['id' => 'fhid', 'type' => 'folder', 'updated' => 8100, 'payload' => ['name' => 'Hidden', 'color' => '#929aaa', 'ord' => 'z', 'app' => 'reminders']],
+        ['id' => 'whid', 'type' => 'reminder', 'updated' => 8100,
+         'payload' => ['text' => 'invisible', 'due' => date('Y-m-d'), 'time' => null, 'done' => false,
+                       'repeat' => null, 'folderId' => 'fhid', 'sectionId' => 's', 'indent' => 0, 'ord' => 'Y']],
+        ['id' => 'prefs_reminders', 'type' => 'pref', 'updated' => 8100, 'payload' => ['hidden' => ['fhid']]],
+    ];
+    api(['action' => 'sync', 'cursor' => 0, 'changes' => $rows], $tokenA);
+    $wt = api(['action' => 'widget_token'], $tokenA)['body']['token'];
+    $feed = json_decode((string) @file_get_contents("http://127.0.0.1:$port/api/index.php?feed=1&t=$wt"), true);
+    $today = date('Y-m-d');
+    $texts = fn($d) => array_column($feed['days'][$d] ?? [], 'text');
+    ok(in_array('water ferns', $texts($today), true), 'the rolled one sits on today');
+    $rolled = array_values(array_filter($feed['days'][$today], fn($r) => $r['text'] === 'water ferns'))[0];
+    ok(!empty($rolled['rolled']), 'and wears the rolled tint');
+    $next = date('Y-m-d', strtotime($lastWeek . ' +14 days'));
+    ok(in_array('water ferns', $texts($next), true), 'its future repeat date still lists');
+    $all = [];
+    foreach (($feed['days'] ?? []) as $rs) { foreach ($rs as $r) { $all[] = $r['text']; } }
+    ok(!in_array('invisible', $all, true), 'a hidden folder never feeds');
+    ok(count($all) <= 12, 'the suite cap of 12 rows holds');
+});
 t('a bad feed token is a 401 and a bearer token does not work as one', function () use ($tokenA) {
     global $port;
     $r1 = json_decode((string) @file_get_contents("http://127.0.0.1:$port/api/index.php?feed=1&t=" . str_repeat('0', 48)), true);
