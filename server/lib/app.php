@@ -268,6 +268,137 @@ function handle_sync(array $cfg, array $in): never
     reply(200, ['ok' => true, 'cursor' => $out['cursor'], 'changes' => $out['changes']]);
 }
 
+// ---------------------------------------------------------------- sharing
+
+/** The user's share record out of their own store — partners + the three
+ *  opt-in buckets (record ids). Absent record = shares nothing, names nobody. */
+function share_of(array $cfg, string $user): array
+{
+    $db  = store_read($cfg, records_file($cfg, $user));
+    $rec = ($db['recs'] ?? [])['share'] ?? null;
+    $p   = (is_array($rec) && empty($rec['deleted']) && is_array($rec['payload'] ?? null)) ? $rec['payload'] : [];
+    $names = fn($k) => array_values(array_filter((array) ($p[$k] ?? []), 'is_string'));
+    return ['partners' => $names('partners'), 'calendars' => $names('calendars'),
+            'folders' => $names('folders'), 'notefolders' => $names('notefolders')];
+}
+
+/** The suite's share_mutual(): a partnership exists only while BOTH stored
+ *  lists name each other — re-checked from the two stores on every request,
+ *  so removal on either side ends all sharing instantly, both ways. */
+function share_mutual(array $cfg, string $me, string $partner): bool
+{
+    if ($me === $partner || $partner === '') { return false; }
+    return in_array($partner, share_of($cfg, $me)['partners'], true)
+        && in_array($me, share_of($cfg, $partner)['partners'], true);
+}
+
+/** Is a record inside what $share opens up? Rows follow their container. */
+function share_in_scope(array $share, string $type, string $id, ?array $payload): bool
+{
+    $cal  = array_flip($share['calendars']);
+    $fold = array_flip(array_merge($share['folders'], $share['notefolders']));
+    return match ($type) {
+        'calendar' => isset($cal[$id]),
+        'event'    => isset($cal[(string) (($payload ?? [])['calendarId'] ?? '')]),
+        'folder'   => isset($fold[$id]),
+        'section', 'reminder', 'note' => isset($fold[(string) (($payload ?? [])['folderId'] ?? '')]),
+        default    => false,
+    };
+}
+
+/** A partner's records filtered to what they share — nothing is ever copied;
+ *  this reads the owner's store directly, like the suite reading their file. */
+function shared_records(array $cfg, string $owner): array
+{
+    $share = share_of($cfg, $owner);
+    $db    = store_read($cfg, records_file($cfg, $owner));
+    $out   = [];
+    foreach (($db['recs'] ?? []) as $r) {
+        if (!is_array($r) || !empty($r['deleted'])) { continue; }
+        $p = is_array($r['payload'] ?? null) ? $r['payload'] : null;
+        if (share_in_scope($share, (string) $r['type'], (string) $r['id'], $p)) {
+            unset($r['seq']);
+            $out[] = $r;
+        }
+    }
+    return $out;
+}
+
+/** Everything the first mutual partner shares, plus every named partner's
+ *  handshake state for the share window's badges. */
+function handle_shared_pull(array $cfg): never
+{
+    $me       = require_auth($cfg);
+    $partners = [];
+    $from     = null;
+    $records  = [];
+    foreach (share_of($cfg, $me)['partners'] as $p) {
+        $mutual     = share_mutual($cfg, $me, $p);
+        $partners[] = ['name' => $p, 'mutual' => $mutual];
+        if ($mutual && $from === null) {
+            $from    = $p;
+            $records = shared_records($cfg, $p);
+        }
+    }
+    reply(200, ['ok' => true, 'partners' => $partners, 'partner' => $from, 'records' => $records]);
+}
+
+/**
+ * One write into a partner's store — the shared views' live ticks, row edits
+ * and adds. Structure stays theirs: container types are refused outright,
+ * and a row must sit inside the shared buckets BOTH as stored and as sent,
+ * so a write can neither reach a private row nor drag one into view.
+ */
+function handle_shared_put(array $cfg, array $in): never
+{
+    $me      = require_auth($cfg);
+    $partner = (string) ($in['partner'] ?? '');
+    if (!share_mutual($cfg, $me, $partner)) {
+        fail(403, 'not sharing');
+    }
+    $c = is_array($in['record'] ?? null) ? $in['record'] : null;
+    if ($c === null) {
+        fail(400, 'record required');
+    }
+    $id      = (string) ($c['id'] ?? '');
+    $type    = (string) ($c['type'] ?? '');
+    $updated = (int) ($c['updated'] ?? 0);
+    if (!preg_match(REC_ID_RE, $id) || !preg_match(REC_TYPE_RE, $type) || $updated <= 0) {
+        fail(400, 'malformed record');
+    }
+    if (!in_array($type, ['reminder', 'note', 'event'], true)) {
+        fail(403, 'structure is theirs');
+    }
+    if (strlen(json_encode($c['payload'] ?? null)) > MAX_PAYLOAD) {
+        fail(400, 'payload too large');
+    }
+    $share   = share_of($cfg, $partner);
+    $payload = is_array($c['payload'] ?? null) ? $c['payload'] : null;
+    with_lock($cfg, 'records-' . $partner, function () use ($cfg, $partner, $share, $c, $id, $type, $updated, $payload) {
+        $db   = store_read($cfg, records_file($cfg, $partner));
+        $recs = is_array($db['recs'] ?? null) ? $db['recs'] : [];
+        $cur  = $recs[$id] ?? null;
+        $curPayload = is_array($cur['payload'] ?? null) ? $cur['payload'] : null;
+        if ($cur !== null && !share_in_scope($share, (string) $cur['type'], $id, $curPayload)) {
+            fail(403, 'outside what they share');
+        }
+        if ($payload !== null && !share_in_scope($share, $type, $id, $payload)) {
+            fail(403, 'outside what they share');
+        }
+        if ($cur === null && $payload === null) {
+            fail(400, 'nothing to write');
+        }
+        if ($cur === null || $updated > (int) $cur['updated']) {
+            $seq       = (int) ($db['seq'] ?? 0) + 1;
+            $recs[$id] = ['id' => $id, 'type' => $type, 'updated' => $updated,
+                          'deleted' => !empty($c['deleted']), 'payload' => $payload, 'seq' => $seq];
+            store_write($cfg, records_file($cfg, $partner), ['seq' => $seq, 'recs' => $recs]);
+        }
+    });
+    usage_log($cfg, 'shared_put', $me);
+    reply(200, ['ok' => true]);
+}
+
 // ---------------------------------------------------------------- the widget feed
 
 function widget_tokens_file(array $cfg): string { return $cfg['data_dir'] . '/widgettokens.json'; }

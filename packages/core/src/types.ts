@@ -84,7 +84,8 @@ export type RecType =
   | 'habit'
   | 'habitsection'
   | 'tick'
-  | 'pref';
+  | 'pref'
+  | 'share';
 
 export type PayloadOf = {
   folder: Folder;
@@ -97,7 +98,32 @@ export type PayloadOf = {
   habitsection: HabitSection;
   tick: Tick;
   pref: Prefs;
+  share: Share;
 };
+
+/** The suite's shares file as one singleton record (id 'share'): who I name
+ *  as partners, and the three opt-in buckets of MY ids they may see. A
+ *  partnership exists only while both sides name each other — the server
+ *  re-checks that from both stores on every shared read and write. */
+export type Share = {
+  partners: string[];
+  calendars: string[]; // calendar record ids
+  folders: string[]; // reminder folder ids
+  notefolders: string[]; // note folder ids
+};
+
+export const SHARE_ID = 'share';
+
+export function shareOf(recs: AnyRec[], id: string = SHARE_ID): Share {
+  const rec = recs.find((r) => r.id === id && r.type === 'share' && !r.deleted) as Rec<'share'> | undefined;
+  const p = rec?.payload;
+  return {
+    partners: p?.partners ?? [],
+    calendars: p?.calendars ?? [],
+    folders: p?.folders ?? [],
+    notefolders: p?.notefolders ?? [],
+  };
+}
 
 export type Rec<T extends RecType = RecType> = {
   id: string;

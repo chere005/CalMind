@@ -10,6 +10,7 @@ import { apiPost, changePassword, logout } from '../api';
 import { useStore } from '../store';
 import { CircleBtn, Field, Pill, ErrorLine } from '../ui';
 import { applyTheme, currentTheme, themed, T, THEMES, type ThemeName } from '../theme';
+import { ShareModal } from '../components/ShareModal';
 
 export function Settings({ onClose }: { onClose: () => void }) {
   const { session, setSession, signOut, recs, mutate } = useStore();
@@ -23,6 +24,7 @@ export function Settings({ onClose }: { onClose: () => void }) {
   const [msg, setMsg] = useState('');
   const [err, setErr] = useState('');
   const [note, setNote] = useState('');
+  const [shareOpen, setShareOpen] = useState(false);
 
   const change = async () => {
     setErr('');
@@ -37,6 +39,9 @@ export function Settings({ onClose }: { onClose: () => void }) {
       setErr(e instanceof Error ? e.message : 'something went wrong');
     }
   };
+
+  // The suite closes settings before the share window opens — one layer.
+  if (shareOpen) return <ShareModal onClose={onClose} />;
 
   return (
     <Modal transparent animationType="fade" onRequestClose={onClose}>
@@ -66,7 +71,7 @@ export function Settings({ onClose }: { onClose: () => void }) {
               buttons — Share, Widget, Done (the accent checkmark). Share and
               Widget say where they are on the roadmap until those land. */}
           <View style={s.footer}>
-            <CircleBtn glyph="⇗" size={40} onPress={() => setNote('Sharing lands with partner lists — next on the roadmap.')} />
+            <CircleBtn testID="open-share" glyph="⇗" size={40} onPress={() => setShareOpen(true)} />
             <CircleBtn
               glyph="▤"
               size={40}

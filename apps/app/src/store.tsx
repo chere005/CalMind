@@ -9,7 +9,7 @@ import React, { createContext, useCallback, useContext, useEffect, useRef, useSt
 import { AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SyncEngine, normalize, prefsOf, type AnyRec } from '@calmind/core';
-import { type Session, syncTransport, ApiError } from './api';
+import { apiPost, type Session, syncTransport, ApiError } from './api';
 import { pushWatchList } from './watch';
 import { applyTheme, type ThemeName } from './theme';
 
@@ -17,6 +17,8 @@ const SESSION_KEY = 'calmind.session';
 const snapKey = (user: string) => `calmind.snapshot.${user}`;
 
 type SyncState = 'idle' | 'syncing' | 'offline';
+
+export type PartnerBadge = { name: string; mutual: boolean };
 
 type Store = {
   ready: boolean;
@@ -28,6 +30,13 @@ type Store = {
   setSession: (s: Session) => Promise<void>; // token refresh (password change)
   mutate: (fn: (engine: SyncEngine) => void) => void;
   syncNow: () => Promise<void>;
+  /** Sharing: the first mutual partner's shared records, read-only copies
+   *  refreshed with every sync; writes go through sharedPut, never the
+   *  engine — a partner's store is not ours to hold a cursor into. */
+  partners: PartnerBadge[];
+  sharedPartner: string | null;
+  sharedRecs: AnyRec[];
+  sharedPut: (rec: AnyRec) => Promise<void>;
 };
 
 const Ctx = createContext<Store | null>(null);
@@ -39,6 +48,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [session, setSessionState] = useState<Session | null>(null);
   const [recs, setRecs] = useState<AnyRec[]>([]);
   const [syncState, setSyncState] = useState<SyncState>('idle');
+  const [partners, setPartners] = useState<PartnerBadge[]>([]);
+  const [sharedPartner, setSharedPartner] = useState<string | null>(null);
+  const [sharedRecs, setSharedRecs] = useState<AnyRec[]>([]);
   const timers = useRef<{ persist?: ReturnType<typeof setTimeout>; sync?: ReturnType<typeof setTimeout> }>({});
 
   // Seeding starters against an EMPTY engine that simply hasn't pulled yet would
@@ -65,6 +77,21 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     AsyncStorage.setItem(snapKey(user), JSON.stringify(engineRef.current.toSnapshot())).catch(() => {});
   }, []);
 
+  const pullShared = useCallback(async () => {
+    const s = sessionRef.current;
+    if (!s) return;
+    try {
+      const r = await apiPost<{ partners: PartnerBadge[]; partner: string | null; records: AnyRec[] }>(
+        s.serverUrl, { action: 'shared_pull' }, s.token,
+      );
+      setPartners(r.partners);
+      setSharedPartner(r.partner);
+      setSharedRecs(r.records);
+    } catch {
+      // Offline: the last pulled copy stands, like any local-first read.
+    }
+  }, []);
+
   const syncNow = useCallback(async () => {
     const s = sessionRef.current;
     if (!s) return;
@@ -73,6 +100,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       await engineRef.current.sync(syncTransport(s));
       hydratedRef.current = true; // the server has spoken — seeding is safe now
       setSyncState('idle');
+      void pullShared();
     } catch (e) {
       // Offline is normal for a local-first app; a dead token is not.
       setSyncState('offline');
@@ -84,7 +112,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     }
     refresh();
     persistNow(s.username);
-  }, [refresh, persistNow]);
+  }, [refresh, persistNow, pullShared]);
+
+  const sharedPut = useCallback(async (rec: AnyRec) => {
+    const s = sessionRef.current;
+    if (!s || !sharedPartner) return;
+    await apiPost(s.serverUrl, { action: 'shared_put', partner: sharedPartner, record: { ...rec, updated: Date.now() } }, s.token);
+    await pullShared();
+  }, [sharedPartner, pullShared]);
 
   const syncSoon = useCallback(() => {
     clearTimeout(timers.current.sync);
@@ -132,6 +167,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     hydratedRef.current = false;
     setSessionState(null);
     setRecs([]);
+    setPartners([]);
+    setSharedPartner(null);
+    setSharedRecs([]);
     applyTheme('midnight'); // the login page always renders midnight
   }, []);
 
@@ -171,7 +209,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, [syncNow]);
 
   return (
-    <Ctx.Provider value={{ ready, session, recs, syncState, signIn, signOut, setSession, mutate, syncNow }}>
+    <Ctx.Provider value={{ ready, session, recs, syncState, signIn, signOut, setSession, mutate, syncNow, partners, sharedPartner, sharedRecs, sharedPut }}>
       {children}
     </Ctx.Provider>
   );

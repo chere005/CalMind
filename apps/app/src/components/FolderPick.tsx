@@ -14,27 +14,41 @@ import { themed, T } from '../theme';
 import { FolderManager } from './FolderManager';
 import { PieDot } from './PieDot';
 
-export type FolderView = { view: string; hidden: string[]; folders: Rec<'folder'>[]; visible: Rec<'folder'>[] };
+export type FolderView = {
+  sharedFolders: Rec<'folder'>[];
+  sharedPartner: string | null;
+  sharedView: string | null; view: string; hidden: string[]; folders: Rec<'folder'>[]; visible: Rec<'folder'>[] };
 
 /** The screens' read model: current view, and the folders it puts on screen. */
 export function useFolderView(app: 'reminders' | 'notes'): FolderView {
-  const { recs } = useStore();
+  const { recs, sharedRecs, sharedPartner } = useStore();
   return useMemo(() => {
     const folders = recs
       .filter((r): r is Rec<'folder'> => r.type === 'folder' && (r.payload.app ?? 'reminders') === app)
       .sort((a, b) => byOrd(a.payload, b.payload));
     const prefs = prefsOf(recs, app);
     const ids = new Set(folders.map((f) => f.id));
-    const view = prefs.lastView && ids.has(prefs.lastView) ? prefs.lastView : 'all';
+    // The partner's shared folders ride along as @partner:folderId views.
+    const sharedFolders = sharedPartner
+      ? sharedRecs
+          .filter((r): r is Rec<'folder'> => r.type === 'folder' && (r.payload.app ?? 'reminders') === app)
+          .sort((a, b) => byOrd(a.payload, b.payload))
+      : [];
+    const sharedKey = (fid: string) => `@${sharedPartner}:${fid}`;
+    const sharedView =
+      prefs.lastView?.startsWith('@') && sharedFolders.some((f) => sharedKey(f.id) === prefs.lastView)
+        ? prefs.lastView
+        : null;
+    const view = sharedView ?? (prefs.lastView && ids.has(prefs.lastView) ? prefs.lastView : 'all');
     const hidden = (prefs.hidden ?? []).filter((id) => ids.has(id));
     const visible = view === 'all' ? folders.filter((f) => !hidden.includes(f.id)) : folders.filter((f) => f.id === view);
-    return { view, hidden, folders, visible };
-  }, [recs, app]);
+    return { view, hidden, folders, visible, sharedFolders, sharedPartner, sharedView };
+  }, [recs, sharedRecs, sharedPartner, app]);
 }
 
 export function FolderPick({ app }: { app: 'reminders' | 'notes' }) {
   const { recs, mutate } = useStore();
-  const { view, hidden, folders, visible } = useFolderView(app);
+  const { view, hidden, folders, visible, sharedFolders, sharedPartner, sharedView } = useFolderView(app);
   const [open, setOpen] = useState(false);
   const [manage, setManage] = useState(false);
 
@@ -75,6 +89,16 @@ export function FolderPick({ app }: { app: 'reminders' | 'notes' }) {
                         <Text style={[s.box, !off && s.boxOn]}>{off ? '☐' : '☑'}</Text>
                       </Pressable>
                     </View>
+                  );
+                })}
+                {sharedFolders.length > 0 && <Text style={s.groupHead}>Shared with me</Text>}
+                {sharedFolders.map((f) => {
+                  const key = `@${sharedPartner}:${f.id}`;
+                  return (
+                    <Pressable key={key} testID={`pick-shared-${f.payload.name}`} style={s.row} onPress={() => { setPrefs({ lastView: key }); setOpen(false); }}>
+                      <View style={[s.dot, { backgroundColor: f.payload.color }]} />
+                      <Text style={[s.rowText, sharedView === key && s.rowActive]}>@{sharedPartner}: {f.payload.name}</Text>
+                    </Pressable>
                   );
                 })}
                 <Pressable style={[s.row, s.manageRow]} onPress={() => { setOpen(false); setManage(true); }}>
@@ -122,6 +146,7 @@ const s = themed(() => StyleSheet.create({
   rowActive: { color: T.accent, fontWeight: '700' },
   box: { color: T.muted, fontSize: 16 },
   boxOn: { color: T.accent },
+  groupHead: { color: T.muted, fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5, paddingHorizontal: 12, paddingTop: 10 },
   manageRow: { borderTopWidth: 1, borderTopColor: T.lineSoft, marginTop: 4 },
   manageText: { color: T.dim, fontSize: 14 },
 }));

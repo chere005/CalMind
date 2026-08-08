@@ -46,7 +46,7 @@ const FOLD_KEY = 'calmind.folded.reminders';
 
 export function Reminders() {
   const { recs, session, mutate } = useStore();
-  const { visible: visibleFolders } = useFolderView('reminders');
+  const { visible: visibleFolders, sharedView, sharedPartner } = useFolderView('reminders');
   const [showDone, setShowDone] = useState(false);
   const [adding, setAdding] = useState<string | null>(null); // sectionId with the open add row
   const [addText, setAddText] = useState('');
@@ -293,6 +293,10 @@ export function Reminders() {
     );
   };
 
+  if (sharedView && sharedPartner) {
+    return <SharedReminders viewKey={sharedView} partner={sharedPartner} />;
+  }
+
   return (
     <View style={s.page}>
       <TopBar title="Reminders" picker={<FolderPick app="reminders" />} />
@@ -522,6 +526,89 @@ export function Reminders() {
       )}
     </View>
   );
+}
+
+/**
+ * A partner's shared folder: their sections and rows, MY tick — the one view
+ * where every write goes to their store (sharedPut), and structure is
+ * read-only: no edit mode, no grips, no cluster, no swipe. The section +
+ * still adds a row into their section, as the suite allows.
+ */
+function SharedReminders({ viewKey, partner }: { viewKey: string; partner: string }) {
+  const { sharedRecs, sharedPut } = useStore();
+  const today = todayStr();
+  const folderId = viewKey.slice(viewKey.indexOf(':') + 1);
+  const folder = sharedRecs.find((r): r is Rec<'folder'> => r.type === 'folder' && r.id === folderId);
+  const sections = sharedRecs
+    .filter((r): r is Rec<'section'> => r.type === 'section' && r.payload.folderId === folderId)
+    .sort((a, b) => byOrd(a.payload, b.payload));
+  const rowsOf = (secId: string) =>
+    sortByDate(
+      sharedRecs
+        .filter((r): r is ReminderRec => r.type === 'reminder' && r.payload.sectionId === secId && !r.payload.done)
+        .sort((a, b) => byOrd(a.payload, b.payload))
+        .map((x) => ({ due: x.payload.due, indent: x.payload.indent, rec: x })),
+    ).map((row) => row.rec);
+  const [adding, setAdding] = useState<string | null>(null);
+  const [addText, setAddText] = useState('');
+
+  return (
+    <View style={s.page}>
+      <TopBar title="Reminders" picker={<FolderPick app="reminders" />} />
+      <ScrollView contentContainerStyle={s.scroll}>
+        <View style={s.folderHead}>
+          <Text style={[s.folderName, { backgroundColor: (folder?.payload.color ?? '#888888') + '33' }]}>@{partner}: {folder?.payload.name ?? '…'}</Text>
+        </View>
+        {sections.map((sec) => (
+          <View key={sec.id} style={s.section}>
+            <View style={s.secHead}>
+              <Text style={s.secName}>{sec.payload.name}</Text>
+              <CircleBtn glyph="+" size={22} onPress={() => { setAdding(sec.id); setAddText(''); }} />
+            </View>
+            {adding === sec.id && (
+              <Field
+                testID="shared-add-field"
+                value={addText}
+                onChangeText={setAddText}
+                autoFocus
+                placeholder="New reminder"
+                onSubmitEditing={() => {
+                  const text = addText.trim();
+                  setAdding(null);
+                  if (!text) return;
+                  const [title, due, time] = parseWhenFromText(text, today);
+                  void sharedPut({
+                    id: newId(), type: 'reminder', updated: 0,
+                    payload: { text: title, due, time, done: false, repeat: null, folderId, sectionId: sec.id, indent: 0, ord: ordBetween(null, rowsOf(sec.id)[0]?.payload.ord ?? null) },
+                  } as Rec<'reminder'>);
+                }}
+              />
+            )}
+            {rowsOf(sec.id).map((r) => (
+              <View key={r.id} style={[s.row, r.payload.indent > 0 && s.rowIndented]}>
+                <Pressable
+                  testID="shared-tick"
+                  onPress={() => void sharedPut({ ...r, payload: reminderToggle(r.payload, today) })}
+                  hitSlop={8}
+                  style={[s.tick, r.payload.done && s.tickDone]}
+                >
+                  {r.payload.done && <Text style={s.tickMark}>✓</Text>}
+                </Pressable>
+                <Text style={s.rowText}>{r.payload.text}</Text>
+                {dueChipStatic(r, today)}
+              </View>
+            ))}
+          </View>
+        ))}
+      </ScrollView>
+    </View>
+  );
+}
+
+function dueChipStatic(r: ReminderRec, today: string) {
+  if (!r.payload.due) return null;
+  const overdue = r.payload.due < today && !r.payload.done;
+  return <Text style={[s.chip, overdue && s.chipOverdue]}>{r.payload.due}{r.payload.time ? ` ${r.payload.time}` : ''}</Text>;
 }
 
 const s = themed(() => StyleSheet.create({

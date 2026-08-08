@@ -364,3 +364,49 @@ test('edit mode gates the row controls: absent, long-press reveals, Escape leave
   await page.keyboard.press('Escape');
   await expect(page.getByTestId('rem-dup')).toBeHidden();
 });
+
+test('sharing: mutual handshake, @partner view, a tick lands in their store', async ({ browser }) => {
+  const ctxA = await browser.newContext();
+  const ctxB = await browser.newContext();
+  const pageA = await ctxA.newPage();
+  const pageB = await ctxB.newPage();
+  const userB = await signup(pageB); // B exists first, so A can name a real account
+  const userA = await signup(pageA);
+
+  // A: one reminder in the starter folder, then share that folder with B.
+  await pageA.getByTestId('tab-reminders').click();
+  await pageA.getByTestId('secadd-General').first().click();
+  await pageA.getByTestId('rem-add-field').fill('peel garlic');
+  await pageA.getByTestId('rem-add-field').press('Enter');
+  await pageA.getByText(userA, { exact: true }).click();
+  await pageA.getByText('Settings', { exact: true }).click();
+  await pageA.getByTestId('open-share').click();
+  await pageA.getByTestId('share-add-partner').fill(userB);
+  await pageA.getByTestId('share-add-partner').press('Enter');
+  await pageA.getByTestId('share-folders-Reminders').click();
+  await pageA.getByText('Done', { exact: true }).click();
+
+  // B: add A back — the handshake closes and A's folder flows in.
+  await pageB.getByText(userB, { exact: true }).click();
+  await pageB.getByText('Settings', { exact: true }).click();
+  await pageB.getByTestId('open-share').click();
+  await pageB.getByTestId('share-add-partner').fill(userA);
+  await pageB.getByTestId('share-add-partner').press('Enter');
+  await expect(pageB.getByText('sharing', { exact: true })).toBeVisible({ timeout: 10_000 });
+  await pageB.getByText('Done', { exact: true }).click();
+
+  // B opens @A: Reminders and ticks A's row.
+  await pageB.getByTestId('tab-reminders').click();
+  await pageB.getByTestId('pick-reminders').click();
+  await pageB.getByTestId('pick-shared-Reminders').click();
+  await expect(pageB.getByText('peel garlic')).toBeVisible();
+  await pageB.getByTestId('shared-tick').first().click();
+  await expect(pageB.getByText('peel garlic')).toBeHidden({ timeout: 10_000 });
+
+  // The tick lives in A's store: A's own list hides the done row.
+  await pageA.reload();
+  await pageA.getByTestId('tab-reminders').click();
+  await expect(pageA.getByTestId('rem-row').filter({ hasText: 'peel garlic' })).toBeHidden({ timeout: 10_000 });
+  await ctxA.close();
+  await ctxB.close();
+});

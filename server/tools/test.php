@@ -218,5 +218,70 @@ t('five wrong codes burn the recovery — the right one no longer works', functi
     eq(200, api(['action' => 'login', 'username' => 'alice', 'password' => 'alicepass3'])['status'], 'the password never moved');
 });
 
+
+echo "\n\033[1msharing\033[0m\n";
+$mkUser = function (string $name) {
+    $r = api(['action' => 'signup', 'username' => $name, 'email' => "$name@example.com", 'password' => 'longenough1']);
+    return (string) $r['body']['token'];
+};
+$shareRec = fn(array $p, int $u = 1) => ['id' => 'share', 'type' => 'share', 'updated' => $u, 'payload' => $p];
+$tokP = ''; $tokQ = '';
+t('one-sided naming shares nothing; mutual opens the buckets', function () use ($mkUser, $shareRec, &$tokP, &$tokQ) {
+    $tokP = $mkUser('pat');
+    $tokQ = $mkUser('quinn');
+    // pat owns a folder+section+reminder and a private folder beside them.
+    api(['action' => 'sync', 'cursor' => 0, 'changes' => [
+        ['id' => 'fs', 'type' => 'folder', 'updated' => 1, 'payload' => ['name' => 'Dinner', 'color' => '#4c8bf0', 'ord' => 'a', 'app' => 'reminders']],
+        ['id' => 'ss', 'type' => 'section', 'updated' => 1, 'payload' => ['name' => 'General', 'folderId' => 'fs', 'ord' => 'a']],
+        ['id' => 'rs', 'type' => 'reminder', 'updated' => 1, 'payload' => ['text' => 'peel garlic', 'due' => null, 'time' => null, 'done' => false, 'repeat' => null, 'folderId' => 'fs', 'sectionId' => 'ss', 'indent' => 0, 'ord' => 'a']],
+        ['id' => 'fp', 'type' => 'folder', 'updated' => 1, 'payload' => ['name' => 'Private', 'color' => '#ea5853', 'ord' => 'b', 'app' => 'reminders']],
+        ['id' => 'rp', 'type' => 'reminder', 'updated' => 1, 'payload' => ['text' => 'secret', 'due' => null, 'time' => null, 'done' => false, 'repeat' => null, 'folderId' => 'fp', 'sectionId' => 'ss2', 'indent' => 0, 'ord' => 'a']],
+        $shareRec(['partners' => ['quinn'], 'calendars' => [], 'folders' => ['fs'], 'notefolders' => []]),
+    ]], $tokP);
+    // quinn has not named pat yet: nothing arrives, badge says waiting.
+    $r = api(['action' => 'shared_pull'], $tokQ);
+    eq(200, $r['status']);
+    eq(null, $r['body']['partner'], 'no mutual partner yet');
+    // quinn names pat back — now the shared folder flows, the private one never.
+    api(['action' => 'sync', 'cursor' => 0, 'changes' => [
+        $shareRec(['partners' => ['pat'], 'calendars' => [], 'folders' => [], 'notefolders' => []]),
+    ]], $tokQ);
+    $r = api(['action' => 'shared_pull'], $tokQ);
+    eq('pat', $r['body']['partner']);
+    $ids = array_column($r['body']['records'], 'id');
+    sort($ids);
+    eq(['fs', 'rs', 'ss'], $ids, 'exactly the shared folder, its section, its row');
+    // pat sees quinn as mutual now, sharing nothing back yet.
+    $r = api(['action' => 'shared_pull'], $tokP);
+    eq('quinn', $r['body']['partner']);
+    eq([], $r['body']['records'], 'quinn shares no buckets');
+});
+t('shared_put ticks their row, refuses structure and private rows', function () use (&$tokP, &$tokQ) {
+    // quinn ticks pat's shared reminder — allowed, lands in pat's store.
+    $r = api(['action' => 'shared_put', 'partner' => 'pat', 'record' =>
+        ['id' => 'rs', 'type' => 'reminder', 'updated' => 5, 'payload' => ['text' => 'peel garlic', 'due' => null, 'time' => null, 'done' => true, 'repeat' => null, 'folderId' => 'fs', 'sectionId' => 'ss', 'indent' => 0, 'ord' => 'a']]], $tokQ);
+    eq(200, $r['status'], 'tick in shared scope');
+    $r = api(['action' => 'sync', 'cursor' => 0, 'changes' => []], $tokP);
+    $rs = array_values(array_filter($r['body']['changes'], fn($c) => $c['id'] === 'rs'))[0];
+    eq(true, $rs['payload']['done'], "the tick is in pat's store");
+    // structure is theirs: a section write is refused whatever it says.
+    eq(403, api(['action' => 'shared_put', 'partner' => 'pat', 'record' =>
+        ['id' => 'ss', 'type' => 'section', 'updated' => 6, 'payload' => ['name' => 'Mine now', 'folderId' => 'fs', 'ord' => 'a']]], $tokQ)['status'], 'structural write');
+    // a private row can be neither edited nor dragged into view.
+    eq(403, api(['action' => 'shared_put', 'partner' => 'pat', 'record' =>
+        ['id' => 'rp', 'type' => 'reminder', 'updated' => 6, 'payload' => ['text' => 'seen', 'due' => null, 'time' => null, 'done' => false, 'repeat' => null, 'folderId' => 'fs', 'sectionId' => 'ss', 'indent' => 0, 'ord' => 'a']]], $tokQ)['status'], 'private row by id');
+    eq(403, api(['action' => 'shared_put', 'partner' => 'pat', 'record' =>
+        ['id' => 'rnew', 'type' => 'reminder', 'updated' => 6, 'payload' => ['text' => 'sneak', 'due' => null, 'time' => null, 'done' => false, 'repeat' => null, 'folderId' => 'fp', 'sectionId' => 'x', 'indent' => 0, 'ord' => 'a']]], $tokQ)['status'], 'add outside the buckets');
+});
+t('removal on either side ends sharing instantly, both ways', function () use ($shareRec, &$tokP, &$tokQ) {
+    api(['action' => 'sync', 'cursor' => 0, 'changes' => [
+        $shareRec(['partners' => [], 'calendars' => [], 'folders' => [], 'notefolders' => []], 9),
+    ]], $tokQ);
+    eq(null, api(['action' => 'shared_pull'], $tokQ)['body']['partner'], 'quinn dropped pat');
+    eq(null, api(['action' => 'shared_pull'], $tokP)['body']['partner'], 'and pat loses quinn the same instant');
+    eq(403, api(['action' => 'shared_put', 'partner' => 'pat', 'record' =>
+        ['id' => 'rs', 'type' => 'reminder', 'updated' => 10, 'payload' => ['text' => 'x', 'due' => null, 'time' => null, 'done' => false, 'repeat' => null, 'folderId' => 'fs', 'sectionId' => 'ss', 'indent' => 0, 'ord' => 'a']]], $tokQ)['status'], 'writes die with the handshake');
+});
+
 echo "\n────────────────────────────────\n$pass passed, $fail failed\n";
 exit($fail === 0 ? 0 : 1);

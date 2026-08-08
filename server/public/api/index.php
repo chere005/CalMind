@@ -51,6 +51,8 @@ match ((string) ($in['action'] ?? '')) {
     'reset'           => handle_reset($cfg, $in),
     'whoami'          => handle_whoami($cfg),
     'widget_token'    => handle_widget_token($cfg),
+    'shared_pull'     => handle_shared_pull($cfg),
+    'shared_put'      => handle_shared_put($cfg, $in),
     'sync'            => handle_sync($cfg, $in),
     default           => fail(400, 'unknown action'),
 };

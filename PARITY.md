@@ -254,13 +254,37 @@ honest — the next iteration trusts it.
   #555 staged as constants; the event blue was already right.
 - 126 core + 17 server + 16 gesture tests.
 
-## In flight (iteration 16 — start here)
-- Sharing (the big block): partner lists (share record type), server mutual
-  gate + shared_pull, share window from Settings, @partner read-only views,
-  then live ticks in All and shared recolour overrides (APP_PALETTES_SHARED
-  staged). Design the server actions carefully: the token must not widen —
-  reads of a partner's data go through BOTH users' stored consent, checked
-  server-side on every request, like share_mutual().
+## Iteration 16 shipped — SHARING (first half)
+- The model: one singleton 'share' record per user (partners + three opt-in
+  id buckets), the suite's shares file as a synced record. Server:
+  share_mutual() re-checks BOTH stores on every request; shared_pull returns
+  the first mutual partner's records filtered to their buckets (rows follow
+  their containers — nothing is copied, the owner's store is read directly);
+  shared_put writes ONE row into the partner's store, container types
+  refused outright, and the row must sit in shared scope both as stored and
+  as sent — a write can neither reach a private row nor drag one into view.
+  3 server tests: one-sided shares nothing / mutual opens buckets exactly /
+  tick lands + structure and private rows 403 / removal on either side ends
+  it instantly both ways.
+- The client: store pulls shared records with every sync (read-only copies,
+  never in the engine — a partner's store is not ours to hold a cursor
+  into); sharedPut round-trips and re-pulls. The share window (Settings ⇗,
+  closing settings first like the suite): partner list with two-press
+  remove, 'sharing'/'waiting for them' badges, empty-state handshake text,
+  and the three tick lists. The folder picker grew 'Shared with me' rows
+  (@partner: Folder); the Reminders shared view renders their sections
+  read-only with LIVE ticks and the section + adding into their store.
+- E2E (two browser contexts): full handshake A↔B, B ticks A's row in the
+  @A view, the tick lands in A's store.
+- 126 core + 20 server + 17 gesture tests.
+
+## In flight (iteration 17 — sharing, second half)
+- Calendar: partner's shared calendars in the picker + day panel owner
+  groups ('Aki's events', dimmer headings, no name chips); Notes shared
+  folders view; the All-view partner blocks with live ticks.
+- Shared recolour overrides (viewer-side, APP_PALETTES_SHARED lighter tier).
+- Structural refusals client-side too (no grips/cluster in shared views —
+  done for Reminders; mirror in Notes/Calendar as they land).
 
 ## Next, in pain order
 1. Habits month view (day pies + its legend) + Manage-sections window +
