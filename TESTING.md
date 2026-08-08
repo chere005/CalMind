@@ -1,81 +1,80 @@
-# What's tested, and where the old suite's tests went
+# What the tests cover — and what still needs an eye
 
-The PHP suite's ~300 tests are the reference. Every one of them maps to exactly
-one of four fates here, listed so nothing falls between the lists — the same
-bargain as the suite's own TESTING.md: change a behavior, change its test in
-the same commit; a thing in neither list is a thing nobody is looking at.
+The suite's bargain carries over: **change a feature, change its test in the
+same commit; add a feature, add a test with it; fix a bug, add the case that
+would have caught it.** This file is the map of which harness watches what,
+and what nobody watches but a person. Keep it in step, or a thing ends up in
+neither list and nobody is looking at it.
 
-## 1. Ported into `packages/core` (vitest — `npm run test:core`)
-
-The behaviors that were PHP functions are TypeScript functions now, tested
-directly instead of through rendered pages:
-
-- **`spec/*.json` replayed verbatim** (`spec.test.ts`, 44 cases): the slash-only
-  US-order parser, repeat steps with month/year clamping, window expansion,
-  tick rolls, undated-first outline-block sort. The same vectors the Swift and
-  Kotlin cores replay — this core is the third replayer.
-- **Tick semantics** (`rules.test.ts`): a repeating dated reminder rolls to the
-  occurrence strictly after max(due, today) — an overdue repeat jumps past
-  today rather than crawling; a roll never sets done; unticking reopens without
-  rolling; undated repeats just complete. Section names stay unique per folder,
-  case-insensitively, with tombstones freeing names.
-- **Shape guarantees** (`normalize.test.ts`): every starter seeds exactly once
-  (incl. the rideAlong Calendar folder growing onto pre-flag accounts); every
-  folder keeps a section; strays re-home within their own app; events fall to
-  the first live calendar, habits to the first live section; a well-formed
-  suite is left byte-for-byte alone.
-- **The calendar read model** (`day.test.ts`): events in time order; repeats
-  expand clamped; today collects overdue + rideAlong riders (a rider is never
-  "late", a done reminder does neither); month-cell marks (overdue beats open,
-  done only when all are ticked; event colors in first-appearance order).
-- **Order keys** (`order.test.ts`): fractional keys stay strictly ordered under
-  appends, 200 same-gap squeezes, and 500 random insertions — what lets drag
-  order live per-record and survive sync.
-- **The sync engine** (`sync.test.ts`): push/ack bookkeeping, two-device
-  convergence, tombstone propagation, echo-is-a-no-op, an edit made mid-flight
-  stays dirty, snapshots round-trip dirt included.
-
-## 2. Ported into `server/tools/test.php` (real HTTP — `npm run test:server`)
-
-The suite's auth/storage tests translated to the token world:
-
-- Signup validation; login against a hash; **no plaintext password at rest**;
-  bearer tokens rejected when absent, garbage, logged out (each token dies
-  alone), or superseded (password change/reset revokes every other device).
-- Recovery: codes are mailed (logged), single-use, and five wrong tries burn
-  the code for good while the password never moves.
-- Sync: cursor round-trips and only ever advances; LWW refuses stale writes;
-  tombstones sync; malformed rows (traversal ids, bad types) drop without
-  taking their batch; a 501-row batch is refused whole; an oversized payload
-  drops alone; **users are walls**; records rest ENC1-encrypted with no
-  readable content.
-
-## 3. Not applicable in this architecture — retired with reasons
-
-- **CSRF, sessions, POST→redirect→GET, page-render "quiet" sweeps, edit-mode
-  echo, instance preambles, `/test/`–`/dev/` isolation**: server-rendered-PHP
-  machinery. This server renders nothing and holds no session — auth is a
-  bearer token, so the CSRF class of bug has no purchase. (The old repo keeps
-  those tests for the old suite.)
-- **Sharing, widgets/feed, seeders, themes, bookshelf**: features that don't
-  exist here yet. Each arrives with its tests or it doesn't arrive — sharing's
-  partner-wall tests are the first thing written when sharing lands.
-- **Old deploy.sh rules**: this repo's `server/deploy-test.sh` carries the same
-  invariants (no config, no data, no --delete, guarded destinations) — enforced
-  by the script's own guard; the old repo's suite now also asserts its deploys
-  leave `/test/calmind/` alone.
-
-## 4. By eye, until a browser-driver harness lands
-
-The suite's hardest-won lesson holds here: the harness runs no gestures, and
-gestures are where phone bugs live. Currently unverifiable except by hand:
-long-press-to-edit, the two-press ×, tab switching, keyboard behavior, the
-month grid's tap-vs-scroll, watch pairing, and everything visual (margins, tab
-icons, dark theme). A Playwright suite against `expo start --web` is the
-planned closer for the web leg; native gestures stay by-eye.
-
-## The run
+## The three runs
 
 ```sh
-npm test            # core (81) + server (15), ~20 seconds
+npm -w @calmind/core test     # core: vitest, ~1s
+php server/tools/test.php     # server: real php -S + HTTP on a scratch dir, ~10s
+npx playwright test           # gestures: the EXPORTED app + real API, real mouse, ~30s
+                              #   (npm -w app exec expo export -- -p web first)
 ```
+
+All three must be green before `./server/deploy-test.sh`.
+
+## packages/core — the behavior itself (vitest)
+
+- Spec replay: the parser (slash-only US dates, times, tokens leaving
+  titles), repeats (month/year clamping), the outline block sort — shared
+  vectors in `spec/`, so any future port replays the same truths.
+- The day model: overdue collection on today, rideAlong riders, repeat
+  expansion, cell marks (one icon per kind+colour, worst reminder state),
+  the legend, week rows (`weekOf` — a month ROW, the ?wk=first|last idea).
+- Manage rules: folder/section/calendar/habit-section delete and rename
+  refusals and re-homes, block moves, the last-section-out ask,
+  conversions (one-way into notes, reminder⇄event, subtasks keep home),
+  duplicateItem, showAgain, reminderToggle's max(due, today) roll,
+  timeLabel, richLines.
+- Normalize guarantees (starters, re-homing, the rideAlong folder) and the
+  LWW sync engine (put/del/snapshot/dirty).
+
+## server/ — the API contract (PHP over real HTTP)
+
+- Auth: signup validation, hashed storage (no plaintext on disk), login,
+  token revocation on password change, recovery codes (single-use, five
+  wrong burns it).
+- Sync: cursor round-trip, LWW, tombstones, malformed-row tolerance,
+  MAX_BATCH/MAX_PAYLOAD caps, per-user walls.
+- Sharing: the mutual gate re-checked from both stores on every request,
+  bucket-filtered pulls, shared_put scope rules (structure refused, private
+  rows unreachable both as stored and as sent), removal ending it instantly.
+- The widget feed: read-only token (a bearer is refused as one), dated
+  in / undated non-riders out, rolled repeats keeping future dates, hidden
+  folders/calendars honoured, the cals= pin (narrow-only, stale → prefs),
+  the 12-row cap, spoken times.
+
+## e2e/ — gestures under a real mouse (Playwright)
+
+The suite's by-eye column, given teeth: every spec signs up its own account
+against a scratch API, so state never leaks. Covered: sign-up → Calendar
+landing; add + tick; manager drag reorder surviving reload; two-press
+delete; long-press inline edit; page edit mode's gate (absent → revealed →
+Escape); row/section/cross-folder/empty-section drags (measured, entered
+through edit mode as a finger must); kind conversion through the ✎ window;
+duplicate ⧉; swipe-left delete arriving armed; week mode folding and paging;
+rendered rich text; themes (pick → repaint → reload persists → logout
+midnight); the full sharing handshake ×2 (live ticks from the @partner view
+and the All canvas, shared note editing, recolour swatch, partner-destination
+add); ?tick= quick-done; the rolled flash on and off; the remembered day;
+the widget setup page's pin.
+
+## What only an eye can check
+
+- **Icon-button centring** — the suite's pre-deploy rule verbatim: every
+  glyph button re-checked visually on touched pages before deploying.
+- Colour truth (palettes, washes, contrast on all four themes), font sizes
+  and rhythm — Sean steers these from screenshots; match prod's CSS values.
+- Native: the iOS/Android sims (login → Calendar smoke) and the watch.
+  WatchConnectivity IS proven end-to-end on sims, with two gotchas that
+  will bite again: the phone must run the watch-EMBEDDED build (a phone
+  app without its companion makes updateApplicationContext throw, silently
+  eaten by the try?), and sim pairs drift to 'active, disconnected' —
+  bounce the WATCH sim and re-check `xcrun simctl list pairs`.
+- Scriptable on a real phone (the widget itself, tick links, the PWA hop).
+- Anything the export can't exercise: iOS keyboard behavior, safe areas,
+  home-screen PWA standalone mode.

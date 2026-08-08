@@ -497,12 +497,23 @@ honest — the next iteration trusts it.
   no page pencil; renames are long-press), a noted divergence.
 - 130 core + 22 server + 23 gesture tests.
 
-## In flight (iteration 30 — start here)
-- WatchConnectivity end-to-end still open: the phone adds natively but the
-  watch sim keeps its empty state (and once uninstalled the app between
-  launches — sim flakiness). WCSession activation logs both sides, then a
-  real-device check with Sean.
+## Iteration 30 shipped — THE WATCH DRAWS THE LIST
+- WatchConnectivity end-to-end PROVEN on simulators: the phone's store
+  change pushed through the WatchBridge and the watch rendered the
+  reminder row. Two root causes, both recorded in TESTING.md: the phone
+  sim was running the pre-watch-target build (no embedded companion →
+  updateApplicationContext throws, silently eaten by try?), and the sim
+  pair had drifted to 'active, disconnected' — bouncing the watch sim
+  reconnects it. Every layer of the stack now demonstrably works: web ⇄
+  server ⇄ phone (native) → watch.
+- TESTING.md lands in the repo: the suite's bargain ported — the map of
+  what the three harnesses watch and what stays by-eye.
+- 130 core + 22 server + 23 gesture tests.
+
+## In flight (iteration 31 — start here)
 - Sean to decide: sim/dev builds defaulting to the live test server.
+- The loop's core is essentially at parity; remaining items are steering
+  batches from Sean and the promote-readiness regression.
 
 ## Next, in pain order
 1. Habits month view (day pies + its legend) + Manage-sections window +
