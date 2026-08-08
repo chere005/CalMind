@@ -10,6 +10,7 @@ import React, { useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import {
   byOrd,
+  showAgain,
   convertEventToReminder,
   convertReminderToEvent,
   convertToNote,
@@ -173,6 +174,12 @@ export function ItemModal({
       return;
     }
     const id = mode === 'edit' && rec ? rec.id : newId();
+    if (mode === 'create' && resolvedDest) {
+      const app = kind === 'event' ? ('calendar' as const) : kind === 'note' ? ('notes' as const) : ('reminders' as const);
+      const container = kind === 'event' ? resolvedDest.id : (resolvedDest as Rec<'section'>).payload.folderId;
+      const widen = showAgain(recs, app, container);
+      if (widen) mutate((e) => e.put(widen));
+    }
     mutate((e) => {
       if (kind === 'event') {
         const payload: Rec<'event'>['payload'] = {

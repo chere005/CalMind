@@ -54,6 +54,16 @@ export function applyTheme(name: ThemeName): void {
   const { label: _label, ...cols } = THEMES[name];
   Object.assign(T, cols);
   gen++;
+  // The suite's <meta name="theme-color"> reads theme_bg() — follow on web.
+  if (typeof document !== 'undefined') {
+    let meta = document.querySelector('meta[name="theme-color"]') as HTMLMetaElement | null;
+    if (!meta) {
+      meta = document.createElement('meta');
+      meta.name = 'theme-color';
+      document.head.appendChild(meta);
+    }
+    meta.content = T.bg;
+  }
   listeners.forEach((fn) => fn());
 }
 

@@ -6,7 +6,7 @@
  */
 import React, { useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, Pressable, View } from 'react-native';
-import {
+import { showAgain,
   byOrd,
   newId,
   ordBetween,
@@ -72,6 +72,9 @@ export function Add({ done, onNoteCreated }: { done: () => void; onNoteCreated?:
     mutate((e) => {
       if (kind === 'event') {
         const cal = calendars.find((c) => c.id === destId) ?? calendars.find((c) => c.id === prefsOf(recs, 'calendar').defaultCalendarId) ?? calendars[0]!;
+        // Whatever you just added has to be visible afterwards.
+        const widen = showAgain(recs, 'calendar', cal.id);
+        if (widen) e.put(widen);
         e.put({ id: newId(), type: 'event', updated: 0, payload: { text: title, date: date ?? today, time, repeat, calendarId: cal.id, ord: ordBetween(null, null) } });
       } else {
         const app = kind === 'note' ? ('notes' as const) : ('reminders' as const);
@@ -80,6 +83,8 @@ export function Add({ done, onNoteCreated }: { done: () => void; onNoteCreated?:
           sectionChoices.find((c) => c.sec.id === prefsOf(recs, app).defaultSectionId) ??
           sectionChoices[0]!;
         const { folderId } = pick.sec.payload;
+        const widen = showAgain(recs, kind === 'reminder' ? 'reminders' : 'notes', folderId);
+        if (widen) e.put(widen);
         if (kind === 'reminder') {
           e.put({ id: newId(), type: 'reminder', updated: 0, payload: { text: title, due: date, time, done: false, repeat, folderId, sectionId: pick.sec.id, indent: 0, ord: ordBetween(null, null) } });
         } else {

@@ -13,7 +13,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { byOrd, monthGrid, newId, ordBetween, prefsOf, prefsPut, tickId, todayStr, type Rec } from '@calmind/core';
 import { useStore } from '../store';
-import { themed, T } from '../theme';
+import { APP_PALETTES, themed, T } from '../theme';
 import { TopBar } from '../chrome';
 import { SectionPick, useHabitSections } from '../components/SectionPick';
 import { CircleBtn, ConfirmDelete, Field } from '../ui';
@@ -224,6 +224,16 @@ export function Habits() {
                   <Pressable onPress={() => toggleFold(sec.id)} hitSlop={8}>
                     <Text style={s.chev}>{folded.has(sec.id) ? '›' : '⌄'}</Text>
                   </Pressable>
+                  <Pressable
+                    testID={`hsec-dot-${sec.payload.name}`}
+                    hitSlop={10}
+                    style={[s.secDot, { backgroundColor: sec.payload.color }]}
+                    onPress={() => {
+                      const pal = APP_PALETTES.habits;
+                      const at = pal.indexOf(sec.payload.color);
+                      mutate((e) => e.put({ ...sec, payload: { ...sec.payload, color: pal[(at + 1) % pal.length]! } }));
+                    }}
+                  />
                   <View style={[s.secPill, { backgroundColor: tint(sec.payload.color, '2e') }]}>
                     <Text style={s.secPillText}>{sec.payload.name}</Text>
                   </View>
@@ -348,6 +358,7 @@ const s = themed(() => StyleSheet.create({
   section: { gap: 8 },
   secHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
   chev: { color: T.muted, fontSize: 14, width: 16, textAlign: 'center' },
+  secDot: { width: 11, height: 11, borderRadius: 6 },
   secPill: { borderRadius: 999, paddingHorizontal: 14, paddingVertical: 5 },
   secPillText: { color: T.text, fontSize: 16, fontWeight: '700' },
   secRule: { flex: 1, height: 1, backgroundColor: T.lineSoft },

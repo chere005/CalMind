@@ -330,6 +330,32 @@ export function moveSectionEmptyingFolder(
  * subtasks, which can't ride along, so it stays behind as their home.
  */
 /**
+ * The suite's $showAgain(): whatever you just added has to be visible
+ * afterwards, or the add reads as having failed. When the current filter
+ * would swallow the new item — a single-view on some OTHER container, or
+ * the destination hidden — widen the view back to All and un-hide it.
+ * Returns the pref record to put, or null when nothing would swallow it.
+ */
+export function showAgain(
+  recs: AnyRec[],
+  app: 'reminders' | 'notes' | 'calendar',
+  destContainerId: string,
+): Rec<'pref'> | null {
+  const p = prefsOf(recs, app);
+  const next: Partial<Prefs> = {};
+  let needed = false;
+  if (p.lastView && p.lastView !== 'all' && p.lastView !== destContainerId) {
+    next.lastView = 'all';
+    needed = true;
+  }
+  if ((p.hidden ?? []).includes(destContainerId)) {
+    next.hidden = (p.hidden ?? []).filter((id) => id !== destContainerId);
+    needed = true;
+  }
+  return needed ? prefsPut(recs, app, next) : null;
+}
+
+/**
  * The suite's duplicate button: a copy directly under the original, fresh
  * ids throughout. A reminder copies its whole outline block (parent and
  * subtasks travel together); a note or event is a single copy. `mkId` is

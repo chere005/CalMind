@@ -5,7 +5,7 @@
  * and taken names. One implementation, every platform.
  */
 import { describe, it, expect } from 'vitest';
-import { deleteCalendar, duplicateItem, deleteFolder, deleteHabitSection, deleteSection, moveNote, moveReminderBlock, moveSection, convertEventToReminder, convertReminderToEvent, convertToNote, moveSectionEmptyingFolder, reminderBlock, renameCalendar, renameFolder, renameSection, prefsOf, prefsPut } from '../src/manage';
+import { deleteCalendar, duplicateItem, showAgain, deleteFolder, deleteHabitSection, deleteSection, moveNote, moveReminderBlock, moveSection, convertEventToReminder, convertReminderToEvent, convertToNote, moveSectionEmptyingFolder, reminderBlock, renameCalendar, renameFolder, renameSection, prefsOf, prefsPut } from '../src/manage';
 import { prefsId } from '../src/types';
 import type { AnyRec, Rec } from '../src/types';
 
@@ -368,5 +368,21 @@ describe('duplicateItem — a copy directly under the original, fresh ids', () =
     expect(res.put[0]!.id).toBe('dup1');
     expect((res.put[0] as Rec<'event'>).payload.text).toBe('party');
     expect('error' in duplicateItem(base(), 'ghost', mk())).toBe(true);
+  });
+});
+
+describe("showAgain — what you just added must be visible", () => {
+  const pref = (payload: object): AnyRec => ({ id: 'prefs_calendar', type: 'pref', updated: 0, payload } as AnyRec);
+  it('widens a single view on another calendar back to All', () => {
+    const res = showAgain([...base(), pref({ lastView: 'calA' })], 'calendar', 'calB');
+    expect(res?.payload.lastView).toBe('all');
+  });
+  it('un-hides a hidden destination', () => {
+    const res = showAgain([...base(), pref({ hidden: ['calB'] })], 'calendar', 'calB');
+    expect(res?.payload.hidden).toEqual([]);
+  });
+  it('stays quiet when nothing would swallow the add', () => {
+    expect(showAgain([...base(), pref({ lastView: 'calB' })], 'calendar', 'calB')).toBeNull();
+    expect(showAgain([...base(), pref({})], 'calendar', 'calB')).toBeNull();
   });
 });

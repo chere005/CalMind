@@ -485,11 +485,23 @@ honest — the next iteration trusts it.
   the tab bar's icons pull to a 420px centre on web only.
 - 127 core + 22 server + 22 gesture tests.
 
-## In flight (iteration 29 — start here)
-- WatchConnectivity end-to-end: the phone did sign in and add natively, but
-  the watch sim kept its empty state (the watch app also got UNINSTALLED
-  between launches once — sim flakiness). Debug path: WCSession activation
-  logs on both sides, then a real-device check with Sean.
+## Iteration 29 shipped — the fine-tooth CLAUDE.md pass, round two
+- $SHOWAGAIN: whatever you just added has to be visible afterwards — the
+  suite's rule lands as core showAgain() (single-view on another container
+  widens back to All, a hidden destination un-hides; 3 tests) wired into
+  BOTH create paths (the day-panel modal and the Add tab).
+- theme-color meta follows the theme on web (the suite's theme_bg()), so
+  Sage's browser chrome goes cream with the page.
+- The Habits page grew the suite's section colour dot left of each pill,
+  cycling the habits palette in place — always live here (this Habits has
+  no page pencil; renames are long-press), a noted divergence.
+- 130 core + 22 server + 23 gesture tests.
+
+## In flight (iteration 30 — start here)
+- WatchConnectivity end-to-end still open: the phone adds natively but the
+  watch sim keeps its empty state (and once uninstalled the app between
+  launches — sim flakiness). WCSession activation logs both sides, then a
+  real-device check with Sean.
 - Sean to decide: sim/dev builds defaulting to the live test server.
 
 ## Next, in pain order

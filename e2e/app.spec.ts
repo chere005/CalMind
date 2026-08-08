@@ -586,3 +586,14 @@ test('the widget setup page bakes the pin and carries the whole script', async (
   expect(raw).toContain('&cals=all'); // every calendar showing → the all pin
   await expect(page.getByText(/every calendar/)).toBeVisible();
 });
+
+test('a fresh add through the day-panel modal is visible immediately', async ({ page }) => {
+  // showAgain's single-view and hidden cases are pinned in core tests; this
+  // holds the visible outcome end-to-end.
+  await signup(page);
+  await page.getByText('+ Add', { exact: true }).click();
+  await page.getByTestId('kind-event').click();
+  await page.getByPlaceholder(/What\?/).fill('resurfaced');
+  await page.getByText('Save', { exact: true }).click();
+  await expect(page.getByText('resurfaced')).toBeVisible();
+});
