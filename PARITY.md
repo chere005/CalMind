@@ -771,6 +771,25 @@ honest — the next iteration trusts it.
   So the colour chain deliberately stops at the grid and the legend;
   CalMind's panel already matches.
 
+## Iteration 45 — desktop parity, and the export path's last three callers
+- Centralising the export behind `npm run export:web` had left three
+  callers still reaching for the bare `expo export`, which writes an
+  index.html with no manifest and no status-bar metas. Two were docs
+  (desktop/README's build recipe, TESTING's three-runs block); the third
+  was REAL — the Windows workflow, so a Windows bundle built from the
+  Actions tab would have shipped a different index.html from the one the
+  site serves. Exactly the drift the single path existed to prevent.
+  The workflow is corrected but NOT triggered: dispatch-only stands, and
+  running it is Sean's call.
+- macOS desktop rebuilt off the current export and smoke-tested: builds
+  clean in 16s, launches, survives, quits. Tauri compiles the frontend
+  INTO the binary, so the html can't be grepped out of the .app — the
+  embedded ASSET INDEX is the tell, and it lists /index.html and
+  /manifest.webmanifest, so the new export went in.
+- The manifest means desktop parity has a second, cheaper half now:
+  Chrome and Edge can install the same page as a desktop app with no
+  Tauri in the picture at all.
+
 ## NEXT: the Add-Recipe page (Sean's spec, precise)
 - A structured page in Notes, the akisbookshelf add-quote shape: Title;
   an INGREDIENTS section whose + parses units (grams, cups, tsp, tbsp…)

@@ -87,9 +87,15 @@ Next up, in Sean's order:
       a dead graphics state and never open its adb port (kill it hard,
       restart with `-gpu swiftshader_indirect`), and `expo run:android
       --device` wants the AVD NAME, not the adb serial.
-- [ ] macOS/Windows desktop parity is untouched this pass — the Tauri shell
-      wraps the identical web export, so everything above rides along with
-      the next desktop build.
+- [x] **macOS desktop** rebuilt off the current export and smoke-tested
+      (builds, launches, survives, quits). The embedded asset index lists
+      /index.html and /manifest.webmanifest, which is how you tell the new
+      export went in — Tauri compiles the frontend into the binary, so the
+      html itself can't be grepped out of the .app.
+- [x] **The Windows workflow was exporting the wrong thing** — a bare
+      `expo export`, so a Windows bundle would have carried an index.html
+      without the manifest or the status-bar metas. Corrected in the file;
+      still dispatch-only, still Sean's call to run.
 
 ## 2 · Steady state (every iteration)
 
