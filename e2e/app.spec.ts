@@ -280,7 +280,7 @@ test('week mode: swipe up folds the grid, arrows page by week, swipe down restor
   await page.mouse.down();
   for (let i = 1; i <= 6; i++) await page.mouse.move(cx, box.y + 120 - i * 15);
   await page.mouse.up();
-  await expect.poll(countCells).toBe(7);
+  await expect.poll(countCells).toBe(14); // Sean's fold: this week AND the next
   // Arrows page a week at a time; five presses always cross a month edge.
   const label = () => page.getByTestId('cal-ym').innerText();
   const before = await label();

@@ -13,9 +13,9 @@ import { duplicateItem,
   addDays,
   cellMarks,
   dayItems,
-  monthGrid,
+  monthGridFilled,
   monthLegend,
-  weekOf,
+  twoWeeksFrom,
   newId,
   ordBetween,
   parseWhenFromText,
@@ -89,8 +89,10 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
   }, [sharedRecs, sharedPartner, visibleShared]);
   const sharedItems = useMemo(() => dayItems(sharedDrawn, day, today), [sharedDrawn, day, today]);
   const sharedCalById = useMemo(() => new Map(sharedRecs.filter((r): r is Rec<'calendar'> => r.type === 'calendar').map((c) => [c.id, c.payload])), [sharedRecs]);
-  const monthCells = useMemo(() => monthGrid(year, month), [year, month]);
-  const cells = useMemo(() => (weekMode ? weekOf(wkAnchor).cells : monthCells), [weekMode, wkAnchor, monthCells]);
+  // The filled grid: every cell a real date, the neighbours' lightened.
+  // Week mode is Sean's TWO-week fold: the anchor's week plus the next.
+  const monthCells = useMemo(() => monthGridFilled(year, month), [year, month]);
+  const cells = useMemo(() => (weekMode ? twoWeeksFrom(wkAnchor) : monthCells), [weekMode, wkAnchor, monthCells]);
   const marks = useMemo(
     () => new Map(cells.filter(Boolean).map((d) => [d!, [...cellMarks(drawn, d!, today), ...cellMarks(sharedDrawn, d!, today)]])),
     [drawn, sharedDrawn, cells, today],
@@ -200,18 +202,14 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
         {WEEKDAYS.map((w, i) => (
           <Text key={i} style={s.weekday}>{w}</Text>
         ))}
-        {cells.map((d, i) =>
-          d === null ? (
-            <View key={`b${i}`} style={s.cell} />
-          ) : (
-            <Pressable key={d} testID="cal-cell" onPress={() => setDay(d)} style={s.cell}>
-              <View style={[s.cellInner, d === day && s.cellPicked]}>
-                <Text style={[s.cellNum, d === today && s.cellToday]}>{Number(d.slice(8))}</Text>
-                {cellMark(d)}
-              </View>
-            </Pressable>
-          ),
-        )}
+        {cells.map((d) => (
+          <Pressable key={d} testID="cal-cell" onPress={() => setDay(d)} style={s.cell}>
+            <View style={[s.cellInner, d === day && s.cellPicked]}>
+              <Text style={[s.cellNum, !d.startsWith(ym) && !weekMode && s.cellNumOther, d === today && s.cellToday]}>{Number(d.slice(8))}</Text>
+              {cellMark(d)}
+            </View>
+          </Pressable>
+        ))}
       </View>
       <Rule />
       {!weekMode && (legend.length > 0 || sharedLegend.length > 0) && (
@@ -377,6 +375,7 @@ const s = themed(() => StyleSheet.create({
   cellInner: { margin: 1.5, minHeight: 46, alignItems: 'center', paddingTop: 3, paddingBottom: 2, borderRadius: 8 },
   cellPicked: { backgroundColor: T.surface2 },
   panelBtns: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  cellNumOther: { color: T.muted, opacity: 0.55 },
   cellNum: { color: T.text, fontSize: 13 },
   cellToday: { color: T.accentInk, backgroundColor: T.accent, borderRadius: 9, minWidth: 18, height: 18, textAlign: 'center', lineHeight: 18, fontWeight: '700', overflow: 'hidden' },
   markWell: { flexDirection: 'row', flexWrap: 'wrap', gap: 1.5, marginTop: 1, alignItems: 'center', justifyContent: 'center', maxWidth: 40, minHeight: 22 },
