@@ -5,7 +5,7 @@
  * and taken names. One implementation, every platform.
  */
 import { describe, it, expect } from 'vitest';
-import { deleteCalendar, duplicateItem, showAgain, deleteFolder, deleteHabitSection, deleteSection, moveNote, moveReminderBlock, moveSection, convertEventToReminder, convertReminderToEvent, convertToNote, moveSectionEmptyingFolder, reminderBlock, renameCalendar, renameFolder, renameSection, prefsOf, prefsPut } from '../src/manage';
+import { deleteCalendar, duplicateItem, showAgain, deleteFolder, deleteHabitSection, deleteSection, moveHabit, moveHabitSection, moveNote, moveReminderBlock, moveSection, convertEventToReminder, convertReminderToEvent, convertToNote, moveSectionEmptyingFolder, reminderBlock, renameCalendar, renameFolder, renameSection, prefsOf, prefsPut } from '../src/manage';
 import { prefsId } from '../src/types';
 import type { AnyRec, Rec } from '../src/types';
 
@@ -165,6 +165,63 @@ describe('habit sections — delete keeps the habits', () => {
     const res = deleteHabitSection([hs('s1', 'A'), hs('s2', 'B'), habit('h1', 's2')], 's2');
     if ('error' in res) throw new Error(res.error);
     expect((res.put.find((r) => r.id === 'h1') as Rec<'habit'>).payload.sectionId).toBe('s1');
+  });
+});
+
+describe('the habits drag — rows between sections, sections among themselves', () => {
+  const hs = (id: string, ord: string): Rec<'habitsection'> => ({
+    id, type: 'habitsection', updated: 0, payload: { name: id, color: '#4357ef', ord },
+  });
+  const habit = (id: string, sectionId: string, ord: string): Rec<'habit'> => ({
+    id, type: 'habit', updated: 0, payload: { name: id, sectionId, ord },
+  });
+  // Two sections, two habits in the first and one in the second.
+  const base = (): AnyRec[] => [
+    hs('s1', 'A'), hs('s2', 'B'),
+    habit('h1', 's1', 'A'), habit('h2', 's1', 'B'), habit('h3', 's2', 'A'),
+  ];
+
+  it('a habit lands in another section, before the row named', () => {
+    const res = moveHabit(base(), 'h1', 's2', 'h3');
+    if ('error' in res) throw new Error(res.error);
+    const moved = res.put[0] as Rec<'habit'>;
+    expect(moved.payload.sectionId).toBe('s2');
+    expect(moved.payload.ord < 'A').toBe(true); // ahead of h3
+  });
+
+  it('a null landing row means the end of the destination', () => {
+    const res = moveHabit(base(), 'h1', 's2', null);
+    if ('error' in res) throw new Error(res.error);
+    expect((res.put[0] as Rec<'habit'>).payload.ord > 'A').toBe(true); // after h3
+  });
+
+  it('reordering within a section never re-homes it', () => {
+    const res = moveHabit(base(), 'h2', 's1', 'h1');
+    if ('error' in res) throw new Error(res.error);
+    const moved = res.put[0] as Rec<'habit'>;
+    expect(moved.payload.sectionId).toBe('s1');
+    expect(moved.payload.ord < 'A').toBe(true);
+  });
+
+  it('a habit refuses a section that is not there, and a landing row that is not', () => {
+    expect('error' in moveHabit(base(), 'h1', 'nope', null)).toBe(true);
+    expect('error' in moveHabit(base(), 'h1', 's2', 'ghost')).toBe(true);
+  });
+
+  it('a section reorders against its siblings, and to the end', () => {
+    const first = moveHabitSection(base(), 's2', 's1');
+    if ('error' in first) throw new Error(first.error);
+    expect((first.put[0] as Rec<'habitsection'>).payload.ord < 'A').toBe(true);
+    const last = moveHabitSection(base(), 's1', null);
+    if ('error' in last) throw new Error(last.error);
+    expect((last.put[0] as Rec<'habitsection'>).payload.ord > 'B').toBe(true);
+  });
+
+  it('a section has no last-section or duplicate-name refusal to hit — only a missing one', () => {
+    // There is nowhere else to move a habit section TO, so moveSection's two
+    // refusals cannot arise here; the one section left still reorders.
+    expect('error' in moveHabitSection([hs('s1', 'A')], 's1', null)).toBe(false);
+    expect('error' in moveHabitSection(base(), 'ghost', null)).toBe(true);
   });
 });
 

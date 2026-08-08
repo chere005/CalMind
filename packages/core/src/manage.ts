@@ -250,6 +250,42 @@ export function moveNote(recs: AnyRec[], noteId: string, destSectionId: string, 
 }
 
 /**
+ * Move a habit into a section, landing before another habit (null = the end).
+ * A habit belongs to its section and nothing else — there is no folder layer
+ * in Habits — so this is moveNote without the re-pointing.
+ */
+export function moveHabit(recs: AnyRec[], habitId: string, destSectionId: string, beforeId: string | null): ManageResult {
+  const h = of(recs, 'habit').find((x) => x.id === habitId);
+  if (!h) return { error: 'no such habit' };
+  if (!of(recs, 'habitsection').some((s) => s.id === destSectionId)) return { error: 'no such habit section' };
+  const destRows = of(recs, 'habit')
+    .filter((x) => x.payload.sectionId === destSectionId && x.id !== habitId)
+    .sort((a, b) => byOrd(a.payload, b.payload));
+  const at = beforeId === null ? destRows.length : destRows.findIndex((x) => x.id === beforeId);
+  if (at === -1) return { error: 'no such landing row' };
+  const ord = ordBetween(destRows[at - 1]?.payload.ord ?? null, destRows[at]?.payload.ord ?? null);
+  return { put: [{ ...h, payload: { ...h.payload, ord, sectionId: destSectionId } }] };
+}
+
+/**
+ * Reorder a habit section against its siblings (null = the end). Habit
+ * sections sit in one flat list, so moveSection's two refusals — a folder's
+ * last section, a duplicate name in the destination — cannot arise: there is
+ * nowhere else to move a section TO, only somewhere else in the same order.
+ */
+export function moveHabitSection(recs: AnyRec[], sectionId: string, beforeSectionId: string | null): ManageResult {
+  const sec = of(recs, 'habitsection').find((s) => s.id === sectionId);
+  if (!sec) return { error: 'no such habit section' };
+  const sibs = of(recs, 'habitsection')
+    .filter((s) => s.id !== sectionId)
+    .sort((a, b) => byOrd(a.payload, b.payload));
+  const at = beforeSectionId === null ? sibs.length : sibs.findIndex((s) => s.id === beforeSectionId);
+  if (at === -1) return { error: 'no such landing section' };
+  const ord = ordBetween(sibs[at - 1]?.payload.ord ?? null, sibs[at]?.payload.ord ?? null);
+  return { put: [{ ...sec, payload: { ...sec.payload, ord } }] };
+}
+
+/**
  * Move a section (with everything in it) into a folder, before another
  * section (null = end). The suite's refusals carry over: a folder whose
  * STAYING sections already hold the name refuses (a duplicate loses items on

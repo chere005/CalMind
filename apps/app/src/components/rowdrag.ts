@@ -85,6 +85,13 @@ export function useRowDrag(count: number, onDrop: (from: number, to: number) => 
         PanResponder.create({
           onStartShouldSetPanResponder: () => true,
           onMoveShouldSetPanResponder: () => true,
+          // A grip's drag is never up for negotiation. The enclosing
+          // ScrollView asks for the responder the moment the pointer travels
+          // vertically, and the default answer is yes — so on any list long
+          // enough to scroll, the drag was granted, measured, and then
+          // silently TERMINATED before it could drop. Refusing the request is
+          // what makes a drag survive on a real-length list.
+          onPanResponderTerminationRequest: () => false,
           onPanResponderGrant: () => {
             setUi({ dragIdx: i, dragDy: 0, slot: null });
             void measure();

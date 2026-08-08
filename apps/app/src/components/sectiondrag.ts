@@ -64,6 +64,10 @@ export function useSectionDrag(
         PanResponder.create({
           onStartShouldSetPanResponder: () => true,
           onMoveShouldSetPanResponder: () => true,
+          // As in the row drag: the enclosing ScrollView asks to take the
+          // gesture over as soon as it travels, and yielding meant the drag
+          // died on any list long enough to scroll.
+          onPanResponderTerminationRequest: () => false,
           onPanResponderGrant: () => {
             setDragging(sectionId);
             setLineKey(null);

@@ -610,6 +610,32 @@ test('the widget setup page bakes the pin and carries the whole script', async (
   await expect(page.getByText(/every calendar/)).toBeVisible();
 });
 
+test('a habit drags to a new spot, and the order survives a reload', async ({ page }) => {
+  // Habits reorder like Reminders and Notes now: the grips live in the edit
+  // mode the top bar's pencil opens, and the stored ord IS the display order.
+  await signup(page);
+  await page.getByTestId('tab-habits').click();
+  for (const name of ['stretch', 'water', 'walk']) {
+    await page.getByText('+', { exact: true }).first().click();
+    await page.getByPlaceholder('New habit').fill(name);
+    await page.getByPlaceholder('New habit').press('Enter');
+  }
+  const names = page.getByTestId('habit-grip');
+  await expect(names).toHaveCount(3);
+
+  await page.getByTestId('habits-edit').click();
+  const g0 = (await names.nth(0).boundingBox())!;
+  const g2 = (await names.nth(2).boundingBox())!;
+  // Drag the first habit down past the third.
+  await dragVert(page, names.first(), g2.y + g2.height / 2 - (g0.y + g0.height / 2) + 8);
+
+  const order = async () => (await page.getByTestId('habit-name').allTextContents());
+  expect(await order()).toEqual(['water', 'walk', 'stretch']);
+  await page.reload();
+  await page.getByTestId('tab-habits').click();
+  expect(await order()).toEqual(['water', 'walk', 'stretch']);
+});
+
 test('the month cell keeps a fixed two-row mark well, busy day or empty', async ({ page }) => {
   // The suite's rule: the icons sit in a FIXED two-row well, so every cell
   // stands the same height however busy its day. A one-row minimum let a

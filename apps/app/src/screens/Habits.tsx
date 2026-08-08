@@ -11,12 +11,19 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View , useWindowDimensions , Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Svg, { Circle, Path } from 'react-native-svg';
-import { byOrd, monthGrid, newId, ordBetween, prefsOf, prefsPut, tickId, todayStr, type Rec } from '@calmind/core';
+import { byOrd, monthGrid, moveHabit, moveHabitSection, newId, ordBetween, prefsOf, prefsPut, tickId, todayStr, type Rec } from '@calmind/core';
 import { useStore } from '../store';
 import { APP_PALETTES, themed, T } from '../theme';
 import { TopBar } from '../chrome';
 import { SectionPick, useHabitSections } from '../components/SectionPick';
+import { useRowDrag } from '../components/rowdrag';
+import { useSectionDrag } from '../components/sectiondrag';
 import { CircleBtn, ConfirmDelete, Field } from '../ui';
+
+// Habit sections sit in one flat list with no folder above them, so the
+// section drag — which is built around folders — is handed a single
+// synthetic one. Every slot it offers then belongs to the same list.
+const HFOLDER = 'habits';
 
 const pad = (n: number) => String(n).padStart(2, '0');
 const FOLD_KEY = 'calmind.folded.habits';
@@ -122,6 +129,47 @@ export function Habits() {
 
   const secColor = useMemo(() => new Map(sections.map((s) => [s.id, s.payload.color])), [sections]);
 
+  // The suite's edit mode (body.editing): the grips and the row delete exist
+  // only inside it, revealed by the top bar's pencil, left by Escape. Nothing
+  // else on the grid moves when it turns on.
+  const [edit, setEdit] = useState(false);
+  useEffect(() => {
+    if (!edit || typeof document === 'undefined') return;
+    const onKey = (ev: KeyboardEvent) => { if (ev.key === 'Escape') setEdit(false); };
+    document.addEventListener('keydown', onKey, true);
+    return () => document.removeEventListener('keydown', onKey, true);
+  }, [edit]);
+
+  // One flat list of every draggable entry, in drawn order — an empty section
+  // contributes a placeholder so a habit can be dropped into it.
+  type FlatEntry = { kind: 'row'; rec: Rec<'habit'>; sectionId: string } | { kind: 'empty'; sectionId: string };
+  const flatRows = useMemo(() => {
+    const out: FlatEntry[] = [];
+    for (const sec of sections) {
+      const rows = habitsOf(sec.id);
+      if (rows.length === 0) out.push({ kind: 'empty', sectionId: sec.id });
+      for (const h of rows) out.push({ kind: 'row', rec: h, sectionId: sec.id });
+    }
+    return out;
+  }, [sections, habitsOf]);
+  const drag = useRowDrag(flatRows.length, (from, to) => {
+    const src = flatRows[from];
+    if (src?.kind !== 'row') return;
+    const slotIdx = to > from ? to + 1 : to;
+    const before = flatRows[slotIdx];
+    const destSectionId = before?.sectionId ?? flatRows[flatRows.length - 1]?.sectionId ?? src.sectionId;
+    const beforeId = before?.kind === 'row' ? before.rec.id : null;
+    const res = moveHabit(recs, src.rec.id, destSectionId, beforeId);
+    if ('error' in res) return;
+    mutate((e) => res.put.forEach((r) => e.put(r)));
+  });
+  const flatIdxOf = (id: string) => flatRows.findIndex((x) => x.kind === 'row' && x.rec.id === id);
+  const emptyIdxOf = (sectionId: string) => flatRows.findIndex((x) => x.kind === 'empty' && x.sectionId === sectionId);
+  const secDrag = useSectionDrag((sectionId, slot) => {
+    const res = moveHabitSection(recs, sectionId, slot.beforeSectionId);
+    if (!('error' in res)) mutate((e) => res.put.forEach((r) => e.put(r)));
+  });
+
   /** The day's contiguous shares: per section, ticked count over all counted. */
   const sharesFor = (date: string) => {
     const total = Math.max(1, allHabits.length);
@@ -179,7 +227,11 @@ export function Habits() {
 
   return (
     <View style={s.page}>
-      <TopBar title="Habits" picker={<SectionPick />} />
+      <TopBar
+        title="Habits"
+        controls={<CircleBtn testID="habits-edit" glyph="✎" size={30} active={edit} onPress={() => setEdit(!edit)} />}
+        picker={<SectionPick />}
+      />
 
       {/* Week|Month segmented at the left; the labelled pager at the right. */}
       <View style={s.controlRow}>
@@ -219,7 +271,20 @@ export function Habits() {
 
             {sections.map((sec) => (
               <View key={sec.id} style={s.section}>
-                <View style={s.secHead}>
+                {secDrag.lineKey === `before:${sec.id}` && <View style={s.dropLine} />}
+                <View
+                  ref={secDrag.registerHeader(sec.id, HFOLDER)}
+                  style={[s.secHead, secDrag.dragging === sec.id && s.dragging]}
+                >
+                  <View
+                    testID={`hsec-grip-${sec.payload.name}`}
+                    {...(edit ? secDrag.gripFor(sec.id, HFOLDER) : {})}
+                    style={[s.rowGrip, !edit && s.gripGone]}
+                    pointerEvents={edit ? 'auto' : 'none'}
+                    hitSlop={6}
+                  >
+                    <Text style={s.rowGripText}>≡</Text>
+                  </View>
                   <Pressable onPress={() => toggleFold(sec.id)} hitSlop={8}>
                     <Text style={s.chev}>{folded.has(sec.id) ? '›' : '⌄'}</Text>
                   </Pressable>
@@ -242,10 +307,33 @@ export function Habits() {
                 {addingIn === sec.id && (
                   <Field value={addText} onChangeText={setAddText} placeholder="New habit" autoFocus onBlur={() => addHabit(sec)} onSubmitEditing={() => addHabit(sec)} />
                 )}
+                {!folded.has(sec.id) && habitsOf(sec.id).length === 0 && (
+                  <View>
+                    {drag.slot !== null && emptyIdxOf(sec.id) === drag.slot && <View style={s.dropLine} />}
+                    <View ref={drag.registerRow(emptyIdxOf(sec.id))} style={s.emptySlot} />
+                  </View>
+                )}
                 {!folded.has(sec.id) &&
                   habitsOf(sec.id).map((h) => (
-                    <View key={h.id} style={s.habitRow}>
+                    <View key={h.id}>
+                      {drag.slot !== null && flatIdxOf(h.id) === drag.slot && <View style={s.dropLine} />}
+                      <View
+                        ref={drag.registerRow(flatIdxOf(h.id))}
+                        style={[
+                          s.habitRow,
+                          drag.dragIdx !== null && flatIdxOf(h.id) === drag.dragIdx && { opacity: 0.55, transform: [{ translateY: drag.dragDy }] },
+                        ]}
+                      >
                       <View style={s.nameCol}>
+                        <View
+                          testID="habit-grip"
+                          {...(edit ? drag.handleFor(flatIdxOf(h.id)) : {})}
+                          style={[s.rowGrip, !edit && s.gripGone]}
+                          pointerEvents={edit ? 'auto' : 'none'}
+                          hitSlop={6}
+                        >
+                          <Text style={s.rowGripText}>≡</Text>
+                        </View>
                         {renaming === h.id ? (
                           <Field
                             value={renameText}
@@ -269,10 +357,10 @@ export function Habits() {
                             onLongPress={() => { setRenaming(h.id); setRenameText(h.payload.name); }}
                             delayLongPress={350}
                           >
-                            <Text style={[s.habitName, { color: tint(sec.payload.color, 'ee') }]} numberOfLines={1}>{h.payload.name}</Text>
+                            <Text testID="habit-name" style={[s.habitName, { color: tint(sec.payload.color, 'ee') }]} numberOfLines={1}>{h.payload.name}</Text>
                           </Pressable>
                         )}
-                        {renaming === h.id && <ConfirmDelete size={24} onDelete={() => mutate((e) => e.del(h.id))} />}
+                        {(renaming === h.id || edit) && <ConfirmDelete size={24} onDelete={() => mutate((e) => e.del(h.id))} />}
                       </View>
                       {days.map((d) => {
                         const on = ticked(h.id, d);
@@ -293,10 +381,12 @@ export function Habits() {
                           </View>
                         );
                       })}
+                      </View>
                     </View>
                   ))}
               </View>
             ))}
+            {secDrag.lineKey === `end:${HFOLDER}` && <View style={s.dropLine} />}
           </>
         )}
 
@@ -362,6 +452,15 @@ const s = themed(() => StyleSheet.create({
   secPillText: { color: T.text, fontSize: 16, fontWeight: '700' },
   secRule: { flex: 1, height: 1, backgroundColor: T.lineSoft },
   habitRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 4 },
+  // Out of edit mode the grip leaves the flow entirely rather than hiding, so
+  // the name box hugs its label instead of sitting pushed off by an invisible
+  // handle — the suite's rule, and the reason it uses display over visibility.
+  rowGrip: { width: 16, alignItems: 'center', justifyContent: 'center' },
+  gripGone: { display: 'none' },
+  rowGripText: { color: T.muted, fontSize: 14 },
+  dragging: { opacity: 0.55 },
+  dropLine: { height: 2, backgroundColor: T.accent, borderRadius: 1, marginVertical: 1 },
+  emptySlot: { height: 18 },
   nameBox: { flex: 1, borderWidth: 1, borderRadius: 10, paddingVertical: 9, alignItems: 'center' },
   habitName: { fontSize: 16, fontWeight: '600' },
   tickCell: { width: 38, height: 38, borderRadius: 19, borderWidth: 1.5 },
