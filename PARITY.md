@@ -583,6 +583,24 @@ honest — the next iteration trusts it.
   Events · A's events · Reminders · A's notes.
 - 145 core + 22 server + 30 gesture. Deployed to test, live == local.
 
+## Iteration 37 shipped — Habits drags, and the drag stops dying on long lists
+- HABITS REORDERS at last, the one app whose rows and sections couldn't.
+  Core gained moveHabit + moveHabitSection (moveNote/moveSection minus the
+  folder layer Habits hasn't got, so the last-section and duplicate-name
+  refusals can't arise — 6 tests). The screen wires them behind the suite's
+  own edit mode: the top bar's ✎ reveals grips and the row delete, Escape
+  leaves, and out of edit mode the grip leaves the FLOW (display, not
+  opacity) so the name box keeps hugging its label.
+- THE SHARED HOOK HAD A REAL BUG, and it was never about Habits: the
+  enclosing ScrollView asks for the responder as soon as a drag travels
+  vertically, and PanResponder says yes by default — so the drag was
+  granted, measured, then silently TERMINATED before it could drop. It
+  only bites on a list long enough to scroll, which is exactly why the
+  Reminders and Notes specs (short lists) passed while Sean's real store
+  would have failed. Both hooks now refuse the request.
+  Worth knowing: a green gesture suite did not mean the drag worked.
+- 151 core + 22 server + 32 gesture. Deployed, live == local.
+
 ## NEXT: the Add-Recipe page (Sean's spec, precise)
 - A structured page in Notes, the akisbookshelf add-quote shape: Title;
   an INGREDIENTS section whose + parses units (grams, cups, tsp, tbsp…)

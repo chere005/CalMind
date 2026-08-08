@@ -15,15 +15,25 @@ visual. Deploy to **test only** (`./server/deploy-test.sh`) as changes land.
       Completed filter empties it; a partner's dated notes now draw at all.
       Pinned by spec (`dp-group-head`), deployed.
 
+- [x] **The month cell's mark well** is a FIXED two rows, so cells stand the
+      same height however busy the day (spec measures every well).
+- [x] **Partner dimming** — checked against the suite rather than assumed:
+      the rule is only that the partner's HEADINGS are a shade dimmer and
+      their rows carry no name chip. CalMind already does both; there is no
+      row or mark dimming in the suite to port. Nothing owed.
+- [x] **Habits rows and sections drag** (iteration 37), behind the suite's
+      ✎ edit mode — and the shared drag hooks stopped yielding the responder
+      to the enclosing ScrollView, which had been killing every drag on a
+      list long enough to scroll.
+
 Next up on web, in order:
 
-- [ ] **Partner dimming when sharing** — the last unhonoured line of the
-      suite-notes list: a partner's rows/marks read dimmer than my own so
-      whose day it is never needs reading. Applies to the day panel rows,
-      the month-cell marks, and the legend.
-- [ ] **Habits rows and sections don't drag** — Reminders and Notes both do,
-      the ord keys and both drag hooks (rowdrag/sectiondrag) are ready. This
-      is wiring, not design.
+- [ ] **The month cell on a phone** — the suite says three icons per row on
+      a phone; CalMind forces three everywhere via a 40px cap. Check what a
+      wide screen should do before changing anything.
+- [ ] Nothing else is known-broken on web. The next real work is the recipe
+      OCR pass (§3), which is where Sean's priority order points once web is
+      clean.
 
 ## 2 · Steady state (every iteration)
 
