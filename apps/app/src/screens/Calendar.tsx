@@ -185,6 +185,8 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
     );
   };
 
+  const dueLabel = (d: string) =>
+    new Date(`${d}T12:00:00`).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
   const dayLabel = new Date(`${day}T12:00:00`).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
 
   return (
@@ -302,7 +304,7 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
             <Pressable style={s.rowBodyFlex} onPress={() => rowPress(r.id)} onLongPress={() => setPanelEdit(true)} delayLongPress={350}>
               <Text style={[s.rowText, r.payload.done && s.rowDone]}>{r.payload.text}</Text>
             </Pressable>
-            {overdue && <Text style={[s.chip, { color: T.overdue }]}>{r.payload.due}</Text>}
+            {overdue && <Text style={[s.chip, { color: T.overdue }]}>{dueLabel(r.payload.due!)}</Text>}
             {rider && <Text style={s.chip}>every day</Text>}
             {r.payload.time && <Text style={s.chip}>{timeLabel(r.payload.time)}</Text>}
             {panelEdit && (
@@ -330,7 +332,7 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
               style={[s.tickBox, overdue && s.tickOverdue]}
             />
             <Text style={s.rowText}>{r.payload.text}</Text>
-            {overdue && <Text style={[s.chip, { color: T.overdue }]}>{r.payload.due}</Text>}
+            {overdue && <Text style={[s.chip, { color: T.overdue }]}>{dueLabel(r.payload.due!)}</Text>}
             {r.payload.time && <Text style={s.chip}>{timeLabel(r.payload.time)}</Text>}
           </View>
         ))}
