@@ -17,13 +17,13 @@ const of = <T extends AnyRec['type']>(recs: AnyRec[], t: T) =>
 export type ManageResult = { put: AnyRec[] } | { error: string };
 
 /** The prefs record for an app, or an empty one. */
-export function prefsOf(recs: AnyRec[], app: 'reminders' | 'notes' | 'calendar'): Prefs {
+export function prefsOf(recs: AnyRec[], app: 'reminders' | 'notes' | 'calendar' | 'habits'): Prefs {
   const rec = recs.find((r) => r.id === prefsId(app) && !r.deleted);
   return rec && rec.type === 'pref' ? (rec.payload as Prefs) : {};
 }
 
 /** A fresh pref record carrying `next` merged over what's stored. */
-export function prefsPut(recs: AnyRec[], app: 'reminders' | 'notes' | 'calendar', next: Partial<Prefs>): Rec<'pref'> {
+export function prefsPut(recs: AnyRec[], app: 'reminders' | 'notes' | 'calendar' | 'habits', next: Partial<Prefs>): Rec<'pref'> {
   return { id: prefsId(app), type: 'pref', updated: 0, payload: { ...prefsOf(recs, app), ...next } };
 }
 
@@ -149,6 +149,26 @@ export function deleteCalendar(recs: AnyRec[], calendarId: string): ManageResult
   for (const e of of(recs, 'event')) {
     if (e.payload.calendarId === calendarId) {
       put.push({ ...e, payload: { ...e.payload, calendarId: dest.id } });
+    }
+  }
+  return { put };
+}
+
+
+// ---------------------------------------------------------------- habit sections
+
+/** Deleting a habit section keeps its habits — they move to the first
+ *  remaining section. The last section stays, as everywhere else. */
+export function deleteHabitSection(recs: AnyRec[], sectionId: string): ManageResult {
+  const sections = of(recs, 'habitsection').sort((a, b) => byOrd(a.payload, b.payload));
+  const target = sections.find((s) => s.id === sectionId);
+  if (!target) return { error: 'no such section' };
+  if (sections.length <= 1) return { error: 'the last section stays' };
+  const dest = sections.find((s) => s.id !== sectionId)!;
+  const put: AnyRec[] = [{ ...target, deleted: true }];
+  for (const h of of(recs, 'habit')) {
+    if (h.payload.sectionId === sectionId) {
+      put.push({ ...h, payload: { ...h.payload, sectionId: dest.id } });
     }
   }
   return { put };

@@ -5,7 +5,7 @@
  * and taken names. One implementation, every platform.
  */
 import { describe, it, expect } from 'vitest';
-import { deleteCalendar, deleteFolder, deleteSection, renameCalendar, renameFolder, renameSection, prefsOf, prefsPut } from '../src/manage';
+import { deleteCalendar, deleteFolder, deleteHabitSection, deleteSection, renameCalendar, renameFolder, renameSection, prefsOf, prefsPut } from '../src/manage';
 import { prefsId } from '../src/types';
 import type { AnyRec, Rec } from '../src/types';
 
@@ -145,5 +145,25 @@ describe('calendars — rename and delete carry the folder rules over', () => {
     const ok = renameCalendar(recs, 'c1', 'Home');
     if ('error' in ok) throw new Error(ok.error);
     expect((ok.put[0] as Rec<'calendar'>).payload.name).toBe('Home');
+  });
+});
+
+
+describe('habit sections — delete keeps the habits', () => {
+  const hs = (id: string, ord = 'V'): Rec<'habitsection'> => ({
+    id, type: 'habitsection', updated: 0, payload: { name: id, color: '#4357ef', ord },
+  });
+  const habit = (id: string, sectionId: string): Rec<'habit'> => ({
+    id, type: 'habit', updated: 0, payload: { name: id, sectionId, ord: 'V' },
+  });
+
+  it('the last section stays', () => {
+    expect('error' in deleteHabitSection([hs('s1')], 's1')).toBe(true);
+  });
+
+  it('deleting moves its habits to the first remaining section', () => {
+    const res = deleteHabitSection([hs('s1', 'A'), hs('s2', 'B'), habit('h1', 's2')], 's2');
+    if ('error' in res) throw new Error(res.error);
+    expect((res.put.find((r) => r.id === 'h1') as Rec<'habit'>).payload.sectionId).toBe('s1');
   });
 });

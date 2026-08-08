@@ -47,11 +47,20 @@ honest — the next iteration trusts it.
   groups fold with persisted chevrons; the tab bar is all SVG (tick-circle,
   pie, +, page, flame).
 
-## In flight (iteration 3 — start here)
-- Habits month view: day pies (conic slices of ticked/counted per section),
-  its own legend, week/month toggle remembered per user (pref record).
-- Habits Manage-sections window (folder-manager shape) + habit rename in
-  place + collapse-all wiring.
+## Iteration 3 shipped
+- Habits month view: one pie per day, equal slices per counted habit in its
+  section's colour, filled when ticked, outline for days ahead, today pilled
+  and ringed, the key underneath in pie-slice order. Week|Month toggle lives
+  in the synced habits pref (Prefs.view). Pager pages whichever view is up.
+- Manage-sections window (☰): add/rename/recolor (habits palette)/two-press
+  delete via core deleteHabitSection (last stays, habits re-home — tested).
+- Habit rename in place (tap while pencil is on, or long-press); section fold
+  chevrons persisted. 100 core + 15 server tests.
+
+## In flight (iteration 4 — start here)
+- Drag-reorder: rows within/between sections, sections between folders,
+  folder rows in the manager — ord keys ready; needs a portable pan gesture
+  (PanResponder works web+native) with the suite's single drop-line feedback.
 
 ## Next, in pain order
 1. Habits month view (day pies + its legend) + Manage-sections window +
