@@ -172,10 +172,11 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
       <TopBar title="Calendar" picker={weekMode ? undefined : <CalendarPick />} />
       {/* The date centred over the grid; ◉ jumps home to today. */}
       <View style={s.pagerRow}>
-        <CircleBtn glyph="‹" onPress={() => page(-1)} />
-        <Text testID="cal-ym" style={s.ymLabel}>{new Date(`${ym}-15T12:00:00`).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</Text>
-        <CircleBtn testID="cal-next" glyph="›" onPress={() => page(1)} />
-        <CircleBtn glyph="◉" color={T.accent} onPress={() => { setYm(today.slice(0, 7)); setDay(today); }} />
+        <CircleBtn glyph="‹" size={32} onPress={() => page(-1)} />
+        <Pressable onPress={() => { setYm(today.slice(0, 7)); setDay(today); setWkAnchor(today); }} hitSlop={6}>
+          <Text testID="cal-ym" style={s.ymLabel}>{new Date(`${ym}-15T12:00:00`).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</Text>
+        </Pressable>
+        <CircleBtn testID="cal-next" glyph="›" size={32} onPress={() => page(1)} />
       </View>
 
       <View testID="cal-grid" style={s.grid} {...gridPan.panHandlers}>
