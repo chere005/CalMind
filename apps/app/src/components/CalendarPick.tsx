@@ -24,10 +24,14 @@ import { Dropdown } from './Dropdown';
 import { ordForMove, useRowDrag } from './rowdrag';
 import { PieDot } from './PieDot';
 
-export type CalendarView = { view: string; hidden: string[]; calendars: Rec<'calendar'>[]; visible: Rec<'calendar'>[] };
+export type CalendarView = {
+  sharedCals: Rec<'calendar'>[];
+  hiddenShared: string[];
+  visibleShared: Rec<'calendar'>[];
+  sharedPartner: string | null; view: string; hidden: string[]; calendars: Rec<'calendar'>[]; visible: Rec<'calendar'>[] };
 
 export function useCalendarView(): CalendarView {
-  const { recs } = useStore();
+  const { recs, sharedRecs, sharedPartner } = useStore();
   return useMemo(() => {
     const calendars = recs.filter((r): r is Rec<'calendar'> => r.type === 'calendar').sort((a, b) => byOrd(a.payload, b.payload));
     const prefs = prefsOf(recs, 'calendar');
@@ -35,13 +39,21 @@ export function useCalendarView(): CalendarView {
     const view = prefs.lastView && ids.has(prefs.lastView) ? prefs.lastView : 'all';
     const hidden = (prefs.hidden ?? []).filter((id) => ids.has(id));
     const visible = view === 'all' ? calendars.filter((c) => !hidden.includes(c.id)) : calendars.filter((c) => c.id === view);
-    return { view, hidden, calendars, visible };
-  }, [recs]);
+    // The partner's shared calendars ride beside mine, with their own
+    // show/hide flags in hiddenShared — never merged into one list, so whose
+    // calendar an event lands in is never a guess.
+    const sharedCals = sharedPartner
+      ? sharedRecs.filter((r): r is Rec<'calendar'> => r.type === 'calendar').sort((a, b) => byOrd(a.payload, b.payload))
+      : [];
+    const hiddenShared = (prefs.hiddenShared ?? []).filter((id) => sharedCals.some((c) => c.id === id));
+    const visibleShared = sharedCals.filter((c) => !hiddenShared.includes(c.id));
+    return { view, hidden, calendars, visible, sharedCals, hiddenShared, visibleShared, sharedPartner };
+  }, [recs, sharedRecs, sharedPartner]);
 }
 
 export function CalendarPick() {
   const { recs, mutate } = useStore();
-  const { view, hidden, calendars, visible } = useCalendarView();
+  const { view, hidden, calendars, visible, sharedCals, hiddenShared, sharedPartner } = useCalendarView();
   const [open, setOpen] = useState(false);
   const [manage, setManage] = useState(false);
 
@@ -73,6 +85,25 @@ export function CalendarPick() {
                       <Pressable
                         hitSlop={8}
                         onPress={() => setPrefs({ hidden: off ? hidden.filter((id) => id !== c.id) : [...hidden, c.id], lastView: 'all' })}
+                      >
+                        <Text style={[s.box, !off && s.boxOn]}>{off ? '☐' : '☑'}</Text>
+                      </Pressable>
+                    </View>
+                  );
+                })}
+                {sharedCals.length > 0 && <Text style={s.groupHead}>Shared with me</Text>}
+                {sharedCals.map((c) => {
+                  const off = hiddenShared.includes(c.id);
+                  return (
+                    <View key={c.id} style={s.row}>
+                      <View style={s.rowMain}>
+                        <View style={[s.dot, { backgroundColor: c.payload.color }]} />
+                        <Text style={s.rowText}>@{sharedPartner}: {c.payload.name}</Text>
+                      </View>
+                      <Pressable
+                        testID={`calshared-box-${c.payload.name}`}
+                        hitSlop={8}
+                        onPress={() => setPrefs({ hiddenShared: off ? hiddenShared.filter((id) => id !== c.id) : [...hiddenShared, c.id] })}
                       >
                         <Text style={[s.box, !off && s.boxOn]}>{off ? '☐' : '☑'}</Text>
                       </Pressable>
@@ -228,6 +259,7 @@ const s = themed(() => StyleSheet.create({
   rowActive: { color: T.accent, fontWeight: '700' },
   box: { color: T.muted, fontSize: 16 },
   boxOn: { color: T.accent },
+  groupHead: { color: T.muted, fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5, paddingHorizontal: 12, paddingTop: 10 },
   manageRow: { borderTopWidth: 1, borderTopColor: T.lineSoft, marginTop: 4 },
   manageText: { color: T.dim, fontSize: 14 },
   renameField: { flex: 1, paddingVertical: 6 },

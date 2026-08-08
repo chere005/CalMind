@@ -410,3 +410,57 @@ test('sharing: mutual handshake, @partner view, a tick lands in their store', as
   await ctxA.close();
   await ctxB.close();
 });
+
+test("sharing: a calendar shows under the partner's day-panel group; notes read rendered", async ({ browser }) => {
+  const ctxA = await browser.newContext();
+  const ctxB = await browser.newContext();
+  const pageA = await ctxA.newPage();
+  const pageB = await ctxB.newPage();
+  const userB = await signup(pageB);
+  const userA = await signup(pageA);
+
+  // A: an event today (the add modal defaults to the selected day = today)
+  // and a note, then share the starter calendar and note folder with B.
+  await pageA.getByText('+ Add', { exact: true }).click();
+  await pageA.getByTestId('kind-event').click();
+  await pageA.getByPlaceholder(/What\?/).fill('joint dinner');
+  await pageA.getByText('Save', { exact: true }).click();
+  await pageA.getByTestId('tab-notes').click();
+  await pageA.getByTestId('secadd-General').first().click();
+  await pageA.getByPlaceholder('New note').fill('the recipe');
+  await pageA.getByPlaceholder('New note').press('Enter');
+  await pageA.getByTestId('note-body-view').click();
+  await pageA.getByTestId('note-body-edit').fill('**garlic** first');
+  await pageA.getByText('← All notes').click();
+  await pageA.getByText(userA, { exact: true }).click();
+  await pageA.getByText('Settings', { exact: true }).click();
+  await pageA.getByTestId('open-share').click();
+  await pageA.getByTestId('share-add-partner').fill(userB);
+  await pageA.getByTestId('share-add-partner').press('Enter');
+  await pageA.getByTestId('share-calendars-Personal').click();
+  await pageA.getByTestId('share-notefolders-General').click();
+  await pageA.getByText('Done', { exact: true }).click();
+
+  // B adds A back, then looks at today and at the shared notes.
+  await pageB.getByText(userB, { exact: true }).click();
+  await pageB.getByText('Settings', { exact: true }).click();
+  await pageB.getByTestId('open-share').click();
+  await pageB.getByTestId('share-add-partner').fill(userA);
+  await pageB.getByTestId('share-add-partner').press('Enter');
+  await expect(pageB.getByText('sharing', { exact: true })).toBeVisible({ timeout: 10_000 });
+  await pageB.getByText('Done', { exact: true }).click();
+
+  await pageB.getByTestId('tab-calendar').click();
+  await expect(pageB.getByText(`${userA}'s events`)).toBeVisible({ timeout: 10_000 });
+  await expect(pageB.getByText('joint dinner')).toBeVisible();
+
+  await pageB.getByTestId('tab-notes').click();
+  await pageB.getByTestId('pick-notes').click();
+  await pageB.getByTestId('pick-shared-General').click();
+  await pageB.getByTestId('shared-note-row').click();
+  await expect(pageB.getByText('garlic')).toBeVisible();
+  const body = await pageB.getByText('garlic').textContent();
+  expect(body).not.toContain('**');
+  await ctxA.close();
+  await ctxB.close();
+});

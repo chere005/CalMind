@@ -34,8 +34,8 @@ import { CircleBtn, ConfirmDelete, Pill, Rule } from '../ui';
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
 export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => void }) {
-  const { recs, mutate } = useStore();
-  const { visible: visibleCals, calendars } = useCalendarView();
+  const { recs, mutate, sharedRecs, sharedPartner, sharedPut } = useStore();
+  const { visible: visibleCals, calendars, visibleShared } = useCalendarView();
   const today = todayStr();
   const [ym, setYm] = useState(today.slice(0, 7));
   const [day, setDay] = useState(today);
@@ -74,10 +74,23 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
     const on = new Set(visibleCals.map((c) => c.id));
     return on.size === calendars.length ? recs : recs.filter((r) => r.type !== 'event' || on.has(r.payload.calendarId));
   }, [recs, visibleCals, calendars]);
+  // The partner's shared items, filtered by their own show/hide boxes; their
+  // reminders and notes ride along whole — folder-level hiding is theirs.
+  const sharedDrawn = useMemo(() => {
+    if (!sharedPartner) return [] as typeof sharedRecs;
+    const on = new Set(visibleShared.map((c) => c.id));
+    return sharedRecs.filter((r) => r.type !== 'event' || on.has(r.payload.calendarId));
+  }, [sharedRecs, sharedPartner, visibleShared]);
+  const sharedItems = useMemo(() => dayItems(sharedDrawn, day, today), [sharedDrawn, day, today]);
+  const sharedCalById = useMemo(() => new Map(sharedRecs.filter((r): r is Rec<'calendar'> => r.type === 'calendar').map((c) => [c.id, c.payload])), [sharedRecs]);
   const monthCells = useMemo(() => monthGrid(year, month), [year, month]);
   const cells = useMemo(() => (weekMode ? weekOf(wkAnchor).cells : monthCells), [weekMode, wkAnchor, monthCells]);
-  const marks = useMemo(() => new Map(cells.filter(Boolean).map((d) => [d!, cellMarks(drawn, d!, today)])), [drawn, cells, today]);
+  const marks = useMemo(
+    () => new Map(cells.filter(Boolean).map((d) => [d!, [...cellMarks(drawn, d!, today), ...cellMarks(sharedDrawn, d!, today)]])),
+    [drawn, sharedDrawn, cells, today],
+  );
   const legend = useMemo(() => monthLegend(drawn, cells, today), [drawn, cells, today]);
+  const sharedLegend = useMemo(() => monthLegend(sharedDrawn, cells, today), [sharedDrawn, cells, today]);
   const items = useMemo(() => dayItems(drawn, day, today), [drawn, day, today]);
   const calById = useMemo(() => new Map(recs.filter((r): r is Rec<'calendar'> => r.type === 'calendar').map((c) => [c.id, c.payload])), [recs]);
 
@@ -168,13 +181,19 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
         )}
       </View>
       <Rule />
-      {!weekMode && legend.length > 0 && (
+      {!weekMode && (legend.length > 0 || sharedLegend.length > 0) && (
         <ScrollView style={s.legend} contentContainerStyle={s.legendInner} horizontal={false}>
           <View style={s.legendWrap}>
             {legend.map((l) => (
               <View key={`${l.kind}:${l.id}`} style={s.legendItem}>
                 {l.kind === 'event' ? <CalGlyph color={l.color} /> : l.kind === 'reminder' ? <TickBoxGlyph color={l.color} /> : <PageGlyph color={l.color} />}
                 <Text style={s.legendText}>{l.name}</Text>
+              </View>
+            ))}
+            {sharedLegend.map((l) => (
+              <View key={`sh:${l.kind}:${l.id}`} style={s.legendItem}>
+                {l.kind === 'event' ? <CalGlyph color={l.color} /> : l.kind === 'reminder' ? <TickBoxGlyph color={l.color} /> : <PageGlyph color={l.color} />}
+                <Text style={[s.legendText, s.legendShared]}>@{sharedPartner}: {l.name}</Text>
               </View>
             ))}
           </View>
@@ -212,6 +231,19 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
             <Text style={s.groupTitle}>Reminders</Text>
           </Pressable>
         )}
+        {sharedItems.events.length > 0 && (
+          <Pressable style={s.groupHead} onPress={() => toggleFold('events:@')}>
+            <Text style={s.chev}>{folded.has('events:@') ? '▸' : '▾'}</Text>
+            <Text style={[s.groupTitle, s.groupTitleShared]}>{sharedPartner}'s events</Text>
+          </Pressable>
+        )}
+        {!folded.has('events:@') && sharedItems.events.map((e) => (
+          <View key={`sh${e.id}`} style={s.row}>
+            <View style={[s.dot, s.rowDot, { backgroundColor: sharedCalById.get(e.payload.calendarId)?.color ?? T.folderBlue }]} />
+            <Text style={s.rowText}>{e.payload.text}</Text>
+            {e.payload.time && <Text style={s.chip}>{e.payload.time}</Text>}
+          </View>
+        ))}
         {!folded.has('reminders') && items.reminders.filter(({ rec: r }) => showDone || !r.payload.done).map(({ rec: r, overdue, rider }) => (
           <View key={r.id} {...swipe.handlersFor(r.id)} style={[s.row, s.rowNoSelect]}>
             <Pressable onPress={() => tick(r)} hitSlop={8} style={[s.tickBox, r.payload.done && s.tickDone, overdue && s.tickOverdue]}>
@@ -224,6 +256,25 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
             <CircleBtn glyph="✎" size={24} onPress={() => setModal({ mode: 'edit', kind: 'reminder', rec: r })} />
             <CircleBtn glyph="⧉" size={24} onPress={() => { const res = duplicateItem(recs, r.id, newId); if (!('error' in res)) mutate((en) => res.put.forEach((p) => en.put(p))); }} />
             {swipe.swiped === r.id && <ConfirmDelete forceArmed onDelete={() => { swipe.clear(); mutate((en) => en.del(r.id)); }} />}
+          </View>
+        ))}
+        {sharedItems.reminders.filter(({ rec: r }) => !r.payload.done).length > 0 && (
+          <Pressable style={s.groupHead} onPress={() => toggleFold('reminders:@')}>
+            <Text style={s.chev}>{folded.has('reminders:@') ? '▸' : '▾'}</Text>
+            <Text style={[s.groupTitle, s.groupTitleShared]}>{sharedPartner}'s reminders</Text>
+          </Pressable>
+        )}
+        {!folded.has('reminders:@') && sharedItems.reminders.filter(({ rec: r }) => !r.payload.done).map(({ rec: r, overdue }) => (
+          <View key={`sh${r.id}`} style={s.row}>
+            <Pressable
+              testID="shared-day-tick"
+              onPress={() => void sharedPut({ ...r, payload: reminderToggle(r.payload, todayStr()) })}
+              hitSlop={8}
+              style={[s.tickBox, overdue && s.tickOverdue]}
+            />
+            <Text style={s.rowText}>{r.payload.text}</Text>
+            {overdue && <Text style={[s.chip, { color: T.overdue }]}>{r.payload.due}</Text>}
+            {r.payload.time && <Text style={s.chip}>{r.payload.time}</Text>}
           </View>
         ))}
         {items.notes.length > 0 && (
@@ -279,9 +330,11 @@ const s = themed(() => StyleSheet.create({
   legendInner: { paddingHorizontal: 16, paddingVertical: 6 },
   legendWrap: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 14, rowGap: 4 },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  legendShared: { color: T.muted },
   legendText: { color: T.dim, fontSize: 12 },
   groupHead: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 },
   chev: { color: T.muted, fontSize: 12, width: 14, textAlign: 'center' },
+  groupTitleShared: { color: T.muted },
   groupTitle: { color: T.gold, fontSize: 13, fontWeight: '700' },
   dot: { width: 6, height: 6, borderRadius: 3 },
   rowDot: { width: 10, height: 10, borderRadius: 5 },

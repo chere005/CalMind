@@ -18,7 +18,7 @@ import { useSwipeLeft } from '../components/swiperow';
 
 export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | null; onOpenConsumed?: () => void }) {
   const { recs, mutate } = useStore();
-  const { visible: visibleFolders } = useFolderView('notes');
+  const { visible: visibleFolders, sharedView, sharedPartner } = useFolderView('notes');
   const [openId, setOpenId] = useState<string | null>(null);
   const [sel, setSel] = useState({ start: 0, end: 0 });
   const [dateOpen, setDateOpen] = useState(false);
@@ -157,6 +157,10 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
     const next = b.slice(0, at) + marker + b.slice(at);
     mutate((e) => e.put({ ...open, payload: { ...open.payload, body: next } }));
   };
+
+  if (sharedView && sharedPartner) {
+    return <SharedNotes viewKey={sharedView} partner={sharedPartner} />;
+  }
 
   if (open) {
     return (
@@ -386,6 +390,79 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
   );
 }
 
+/**
+ * A partner's shared note folder: their sections and rows, read-only — a tap
+ * opens the note RENDERED (richLines), never the editor. Structure and body
+ * both stay theirs; live shared note editing is a later milestone.
+ */
+function SharedNotes({ viewKey, partner }: { viewKey: string; partner: string }) {
+  const { sharedRecs } = useStore();
+  const folderId = viewKey.slice(viewKey.indexOf(':') + 1);
+  const folder = sharedRecs.find((r): r is Rec<'folder'> => r.type === 'folder' && r.id === folderId);
+  const sections = sharedRecs
+    .filter((r): r is Rec<'section'> => r.type === 'section' && r.payload.folderId === folderId)
+    .sort((a, b) => byOrd(a.payload, b.payload));
+  const notesOf = (sid: string) =>
+    sharedRecs
+      .filter((r): r is Rec<'note'> => r.type === 'note' && r.payload.sectionId === sid)
+      .sort((a, b) => byOrd(a.payload, b.payload));
+  const [openShared, setOpenShared] = useState<Rec<'note'> | null>(null);
+
+  if (openShared) {
+    return (
+      <View style={s.page}>
+        <View style={s.edHead}>
+          <Pressable style={s.ddPill} onPress={() => setOpenShared(null)}>
+            <Text style={s.backText}>← @{partner}: {folder?.payload.name ?? ''}</Text>
+          </Pressable>
+        </View>
+        <ScrollView contentContainerStyle={s.editor}>
+          <Text style={s.sharedTitle}>{openShared.payload.title}</Text>
+          {openShared.payload.date && <Text style={s.sharedDate}>{openShared.payload.date}</Text>}
+          <View style={s.body}>
+            {richLines(openShared.payload.body).map((ln, i) => (
+              <View key={i} style={[s.rtLine, ln.kind === 'quote' && s.rtQuote]}>
+                {ln.kind === 'bullet' && <Text style={s.rtDot}>•</Text>}
+                <Text style={[s.rtText, ln.kind === 'quote' && s.rtQuoteText]}>
+                  {ln.runs.map((r, j) => (
+                    <Text key={j} style={[r.bold && s.rtBold, r.italic && s.rtItalic, r.under && s.rtUnder]}>{r.text || ' '}</Text>
+                  ))}
+                </Text>
+              </View>
+            ))}
+          </View>
+        </ScrollView>
+      </View>
+    );
+  }
+
+  return (
+    <View style={s.page}>
+      <TopBar title="Notes" picker={<FolderPick app="notes" />} />
+      <ScrollView contentContainerStyle={s.scroll}>
+        <View style={s.folderHead}>
+          <Text style={s.sharedFolderChip}>@{partner}: {folder?.payload.name ?? '…'}</Text>
+        </View>
+        {sections.map((sec) => (
+          <View key={sec.id} style={s.section}>
+            <View style={s.secHead}>
+              <Text style={s.secName}>{sec.payload.name}</Text>
+            </View>
+            {notesOf(sec.id).map((n) => (
+              <View key={n.id} style={s.row}>
+                <Pressable testID="shared-note-row" onPress={() => setOpenShared(n)} style={s.rowBody}>
+                  <Text style={s.rowTitle} numberOfLines={1}>{n.payload.title}</Text>
+                  <Text style={s.chev}>›</Text>
+                </Pressable>
+              </View>
+            ))}
+          </View>
+        ))}
+      </ScrollView>
+    </View>
+  );
+}
+
 const s = themed(() => StyleSheet.create({
   page: { flex: 1, backgroundColor: T.bg },
   topbar: { height: 32, marginTop: 16, marginHorizontal: 16, marginBottom: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
@@ -402,6 +479,9 @@ const s = themed(() => StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 8, height: 44 },
   rowBody: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
   rowNoSelect: { userSelect: 'none' } as import('react-native').ViewStyle,
+  sharedTitle: { color: T.text, fontSize: 22, fontWeight: '800' },
+  sharedDate: { color: T.dim, fontSize: 13, marginTop: 2 },
+  sharedFolderChip: { color: T.text, fontSize: 15, fontWeight: '800', paddingHorizontal: 10, paddingVertical: 2, borderRadius: 999, overflow: 'hidden' },
   gripHidden: { opacity: 0 },
   editBackdropFill: { minHeight: 160 },
   rowGrip: { width: 16, alignItems: 'center', justifyContent: 'center' },

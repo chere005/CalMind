@@ -278,13 +278,30 @@ honest — the next iteration trusts it.
   @A view, the tick lands in A's store.
 - 126 core + 20 server + 17 gesture tests.
 
-## In flight (iteration 17 — sharing, second half)
-- Calendar: partner's shared calendars in the picker + day panel owner
-  groups ('Aki's events', dimmer headings, no name chips); Notes shared
-  folders view; the All-view partner blocks with live ticks.
+## Iteration 17 shipped — sharing, second half
+- Calendar: the partner's shared calendars sit in the picker under 'Shared
+  with me' with their own show/hide boxes (Prefs.hiddenShared — never merged
+  into my list); their items draw into the month cells and the legend gets
+  one row per owner (mine first, partner's dimmer with the @name). The day
+  panel grew the suite's kind+owner groups — '<partner>'s events' /
+  reminders, dimmer headings, per-gkey fold keys, no name chips on their
+  rows — with LIVE ticks on their reminders (sharedPut) and read-only
+  events.
+- Notes: the @partner folder view — their sections and rows read-only; a
+  tap opens the note RENDERED (richLines), never the editor. Live shared
+  note editing is still queued.
+- Second two-context e2e: A shares the starter calendar + note folder; B
+  sees 'A's events · joint dinner' on today and reads the rendered note
+  (markers gone).
+- 126 core + 20 server + 18 gesture tests.
+
+## In flight (iteration 18 — start here)
+- All-view partner blocks in Reminders/Notes (their structure read-only,
+  ticks live, like the suite's All listing).
 - Shared recolour overrides (viewer-side, APP_PALETTES_SHARED lighter tier).
-- Structural refusals client-side too (no grips/cluster in shared views —
-  done for Reminders; mirror in Notes/Calendar as they land).
+- Shared note body editing through sharedPut.
+- Add app: a shared destination picker pair (mine / partner's, exactly one
+  owner selected), like the suite's day-panel add window.
 
 ## Next, in pain order
 1. Habits month view (day pies + its legend) + Manage-sections window +

@@ -68,6 +68,7 @@ export type Tick = { habitId: string; date: string };
 export type Prefs = {
   lastView?: string; // 'all' or a folderId
   hidden?: string[]; // folderIds switched off in the All view
+  hiddenShared?: string[]; // a partner's shared calendar/folder ids switched off
   defaultSectionId?: string; // where new items land from All (reminders/notes)
   defaultCalendarId?: string; // where new events land (calendar)
   view?: 'week' | 'month'; // habits: which grid the bar above it picked
