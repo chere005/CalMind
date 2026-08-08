@@ -39,12 +39,19 @@ honest — the next iteration trusts it.
   rendered PNGs from assets/logo.svg). Android adaptive art is the full mark —
   proper foreground inset when the Android build lands.
 
-## In flight (iteration 2 — start here)
-- Month cells: kind ICONS (cal glyph / tick box / page) per kind+colour,
-  legend order, worst-state reminder colouring, capped well with +N.
-- Legend bar between grid and panel (own items; partner rows when sharing).
-- Day panel: collapsible kind groups, persisted fold per group.
-- Tab bar: full SVG icon set in the mark's language (no emoji).
+## Iteration 2 shipped
+- cellMarks/monthLegend in core (4 new tests, 98 green): one icon per
+  kind+colour, worst state per reminder colour, legend built off the cells.
+- Month cells wear the kind icons in a capped well (+ past six); the legend
+  bar sits between grid and panel and hides when empty; the day panel's kind
+  groups fold with persisted chevrons; the tab bar is all SVG (tick-circle,
+  pie, +, page, flame).
+
+## In flight (iteration 3 — start here)
+- Habits month view: day pies (conic slices of ticked/counted per section),
+  its own legend, week/month toggle remembered per user (pref record).
+- Habits Manage-sections window (folder-manager shape) + habit rename in
+  place + collapse-all wiring.
 
 ## Next, in pain order
 1. Habits month view (day pies + its legend) + Manage-sections window +

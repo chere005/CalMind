@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { dayItems, dayMarks, monthGrid } from '../src/day';
+import { cellMarks, dayItems, dayMarks, monthGrid, monthLegend } from '../src/day';
 import type { AnyRec, Rec } from '../src/types';
 
 const TODAY = '2026-08-07';
@@ -76,5 +76,48 @@ describe('monthGrid', () => {
     expect(cells.slice(0, 6)).toEqual([null, null, null, null, null, null]); // Sun..Fri blank
     expect(cells[6]).toBe('2026-08-01');
     expect(cells[cells.length - 1]).toBe('2026-08-31');
+  });
+});
+
+const cal = (id: string, name: string, color: string, ord: string): Rec<'calendar'> => ({
+  id, type: 'calendar', updated: 0, payload: { name, color, ord },
+});
+
+describe('cellMarks — one icon per kind and colour, worst state per colour', () => {
+  it('two calendars on one day wear two event marks, kinds in legend order', () => {
+    const recs: AnyRec[] = [
+      cal('c1', 'Personal', '#0379f6', 'B'), cal('c2', 'Work', '#803be7', 'D'), folder('f'),
+      ev('e1', '2026-08-10', null, { calendarId: 'c1' }),
+      ev('e2', '2026-08-10', null, { calendarId: 'c2' }),
+      ev('e3', '2026-08-10', '09:00', { calendarId: 'c1' }),
+      rem('r1', '2026-08-10'),
+    ];
+    const marks = cellMarks(recs, '2026-08-10', TODAY);
+    expect(marks.map((m) => m.kind)).toEqual(['event', 'event', 'reminder']);
+    expect(marks[0]!.color).not.toBe(marks[1]!.color); // one icon PER colour, never per item
+  });
+
+  it("a colour's reminder mark: overdue beats open, done only when all are ticked", () => {
+    const recs: AnyRec[] = [folder('f'), rem('open', TODAY), rem('late', '2026-08-01'), rem('finished', TODAY, { done: true })];
+    const marks = cellMarks(recs, TODAY, TODAY); // today collects the overdue one too
+    expect(marks).toEqual([{ kind: 'reminder', color: '#fff', state: 'overdue' }]);
+    const allDone = cellMarks([folder('f'), rem('finished', TODAY, { done: true })], TODAY, TODAY);
+    expect(allDone[0]!.state).toBe('done');
+  });
+});
+
+describe('monthLegend — every calendar/folder with an item in the window', () => {
+  it('lists in kind order and skips the quiet ones', () => {
+    const recs: AnyRec[] = [
+      cal('c1', 'Personal', '#0379f6', 'B'), cal('c2', 'Work', '#803be7', 'D'), folder('f'),
+      ev('e1', '2026-08-10', null, { calendarId: 'c2' }),
+      rem('r1', '2026-08-11'),
+    ];
+    const legend = monthLegend(recs, ['2026-08-10', '2026-08-11', null], '2026-08-01');
+    expect(legend.map((l) => `${l.kind}:${l.name}`)).toEqual(['event:Work', 'reminder:f']);
+  });
+
+  it('is empty for an empty window', () => {
+    expect(monthLegend([cal('c1', 'P', '#0379f6', 'B')], ['2026-08-10'], '2026-08-01')).toEqual([]);
   });
 });
