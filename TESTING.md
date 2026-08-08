@@ -32,6 +32,20 @@ All three must be green before `./server/deploy-test.sh`.
   timeLabel, richLines.
 - Normalize guarantees (starters, re-homing, the rideAlong folder) and the
   LWW sync engine (put/del/snapshot/dirty).
+- The legend reads the days through the SAME folder tri-state the grid draws
+  through, so it can only name what the window actually holds — a folder set
+  to 'none' leaves the key, and a rideAlong folder earns its chip only on a
+  day it really rides.
+- Habit moves (`moveHabit`, `moveHabitSection`): habits have no folder layer,
+  so the last-section and duplicate-name refusals can't arise — only a
+  missing section or a missing landing row.
+- Balanced line breaking (`balanceLines`): fewest lines first, then the
+  evenest split — five chips over two lines come out 3+2, never 4+1; it
+  balances by WIDTH rather than count, gives an over-wide item its own line,
+  and its invariants hold at five different widths.
+- Recipe ingredients: quantity ranges written with a dash or with 'to', a
+  whole number plus a typographic fraction, and the sentences that merely
+  CONTAIN 'to' and are not ranges at all.
 
 ## server/ — the API contract (PHP over real HTTP)
 
@@ -63,6 +77,16 @@ and the All canvas, shared note editing, recolour swatch, partner-destination
 add); ?tick= quick-done; the rolled flash on and off; the remembered day;
 the widget setup page's pin.
 
+Added since: the day panel's GROUP ORDER (one group per kind and owner, mine
+before theirs, in the legend's kind order — read off the headings themselves);
+the month cell's fixed two-row mark well, measured on every cell so a quiet
+day can't stand shorter than a busy one; a habit dragging to a new spot and
+surviving a reload; habits showing five day columns on a phone and seven with
+room, with the pages abutting — no overlap, no gap; the web-app head and
+manifest an install needs; and Sean's COLOUR CHAIN end to end — the folder's
+colour in the manage menu reaching both the legend chip and the date's own
+mark, including when the reminder is overdue (the case that was wrong).
+
 ## What only an eye can check
 
 - **Icon-button centring** — the suite's pre-deploy rule verbatim: every
@@ -77,7 +101,17 @@ the widget setup page's pin.
   bounce the WATCH sim and re-check `xcrun simctl list pairs`.
 - Scriptable on a real phone (the widget itself, tick links, the PWA hop).
 - Anything the export can't exercise: iOS keyboard behavior, safe areas,
-  home-screen PWA standalone mode.
+  home-screen PWA standalone mode. **The status-bar strip is the live
+  example**: the head now carries viewport-fit=cover and the translucent
+  style, and a spec holds those in the HTML — but whether an INSTALLED web
+  app draws the strip in the theme's colour can only be seen on a phone.
+  Two things to know when checking it: iOS caches the head at install, so
+  the icon must be DELETED and re-added, not just relaunched; and the
+  simulator accepts no synthetic tap anywhere in the bottom toolbar (in
+  Safari as much as in our own tab bar), so Add to Home Screen cannot be
+  driven from here at all. That last limitation also puts the Habits, Notes
+  and Reminders tabs out of reach on the sim, which is why the native DRAG
+  is still unwitnessed by hand.
 - **Desktop** (desktop/): the shell holds NO behavior — it is the same web
   bundle the e2e suite drives, so the three runs above cover it. The by-eye
   residue is only the shell itself: window opens, CM dock icon, signs into
