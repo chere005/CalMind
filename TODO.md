@@ -78,15 +78,15 @@ visual. Deploy to **test only** (`./server/deploy-test.sh`) as changes land.
 
 Next up, in Sean's order:
 
-- [ ] **The native drag is unverified by hand.** iOS builds and runs, and
-      the day-panel fix is confirmed on it by screenshot, but the simulator
-      took no synthetic tap anywhere in the bottom tab strip, so Habits /
-      Notes / Reminders couldn't be reached. All three lists now freeze
-      their scroll during a drag as a by-construction guard. Worth Sean
-      trying a drag on his own phone — it is the one thing this pass could
-      not see for itself.
-- [ ] **Android** hasn't been built this pass. Same shared RN code, so the
-      same guard applies; the emulator is installed if it's worth a run.
+- [x] **The native drag is VERIFIED** (iteration 44) — on Android, where adb
+      takes synthetic input and the iOS sim does not. Grips revealed by ✎,
+      'games' dragged below 'music' and back again, Sean's order restored
+      exactly. The ScrollView-responder fix holds on a real device.
+- [x] **Android builds and runs** against the live test API, carrying the
+      whole run's work. Two traps worth remembering: the AVD can boot with
+      a dead graphics state and never open its adb port (kill it hard,
+      restart with `-gpu swiftshader_indirect`), and `expo run:android
+      --device` wants the AVD NAME, not the adb serial.
 - [ ] macOS/Windows desktop parity is untouched this pass — the Tauri shell
       wraps the identical web export, so everything above rides along with
       the next desktop build.

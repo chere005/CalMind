@@ -743,6 +743,34 @@ honest — the next iteration trusts it.
   drag is still unwitnessed.
 - 168 core + 22 server + 35 gesture. Deployed, live == local.
 
+## Iteration 44 — ANDROID RUNS, and the drag is finally WITNESSED
+- The emulator needed unsticking first: the Pixel_10_Pro AVD booted with a
+  broken graphics state ("Failed to find ColorBuffer" on repeat) and never
+  opened its adb port at all. A plain pkill did not kill it either, which
+  is what blocked the retry. Killed hard, restarted headless with
+  -gpu swiftshader_indirect, and it was up in 25 seconds.
+  (`expo run:android --device emulator-5554` is also wrong — that flag
+  wants the AVD name, not the adb serial. With one device, omit it.)
+- ANDROID RUNS against the live test API on Sean's own store, carrying
+  everything this run: the balanced legend (2 chips + 3, no orphan), the
+  day panel's group order, the folder-coloured marks.
+- FIVE DAY COLUMNS confirmed on a real phone-width device: We 5 · Th 6 ·
+  Fr 7 · Sa 8 (today, ringed) · Su 9, and the pager reads the RANGE
+  'Aug 5 – Aug 9' rather than 'This week', which is the label rule for a
+  window that isn't seven days.
+- THE DRAG IS VERIFIED ON A NATIVE DEVICE — the one thing iOS could not
+  show. adb takes synthetic input where the iOS sim would not, so: the ✎
+  revealed the grips and the × deletes, dragging 'games' below 'music'
+  landed it there, and dragging it back restored Sean's order exactly.
+  Both directions, on his real data, put back as found. That closes the
+  question the ScrollView-responder fix left open: refusing the
+  termination request and freezing the scroll DOES hold on native, not
+  just under Playwright's mouse.
+- Also checked and NOT changed: the suite's day-panel checkbox is
+  `accent-color: var(--accent)` — the theme's accent, not the folder's.
+  So the colour chain deliberately stops at the grid and the legend;
+  CalMind's panel already matches.
+
 ## NEXT: the Add-Recipe page (Sean's spec, precise)
 - A structured page in Notes, the akisbookshelf add-quote shape: Title;
   an INGREDIENTS section whose + parses units (grams, cups, tsp, tbsp…)
