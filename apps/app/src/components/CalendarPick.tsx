@@ -10,13 +10,17 @@ import {
   byOrd,
   calendarNameTaken,
   deleteCalendar,
+  folderApp,
+  folderMode,
   newId,
   ordBetween,
   prefsOf,
   prefsPut,
   renameCalendar,
+  type FolderMode,
   type Rec,
 } from '@calmind/core';
+import { CalGlyph } from './KindIcons';
 import { useStore } from '../store';
 import { themed, APP_PALETTES, T , APP_PALETTES_SHARED } from '../theme';
 import { CircleBtn, ConfirmDelete, Field, Pill } from '../ui';
@@ -54,6 +58,7 @@ export function useCalendarView(): CalendarView {
 
 export function CalendarPick() {
   const { recs, mutate, sharedPartnerLabel } = useStore();
+  const [manageRem, setManageRem] = useState(false);
   const { view, hidden, calendars, visible, sharedCals, hiddenShared, sharedPartner } = useCalendarView();
   const [open, setOpen] = useState(false);
   const [manage, setManage] = useState(false);
@@ -63,7 +68,7 @@ export function CalendarPick() {
   return (
     <>
       <Pressable onPress={() => setOpen(true)} hitSlop={8}>
-        <PieDot colors={visible.map((c) => c.payload.color)} size={22} />
+        <PieDot colors={visible.map((c) => c.payload.color)} size={20} />
       </Pressable>
 
       {open && (
@@ -77,10 +82,6 @@ export function CalendarPick() {
                   const allOn = hidden.length === 0 && hiddenShared.length === 0;
                   return (
                     <View style={s.row}>
-                      <Pressable style={s.rowMain} onPress={() => { setPrefs({ lastView: 'all', hidden: [], hiddenShared: [] }); setOpen(false); }}>
-                        <PieDot colors={calendars.map((c) => c.payload.color)} size={14} />
-                        <Text style={[s.rowText, view === 'all' && s.rowActive]}>All</Text>
-                      </Pressable>
                       <Pressable
                         testID="cal-all-box"
                         hitSlop={8}
@@ -90,6 +91,10 @@ export function CalendarPick() {
                       >
                         <Text style={[s.box, allOn && s.boxOn]}>{allOn ? '☑' : '☐'}</Text>
                       </Pressable>
+                      <Pressable style={s.rowMain} onPress={() => { setPrefs({ lastView: 'all', hidden: [], hiddenShared: [] }); setOpen(false); }}>
+                        <PieDot colors={calendars.map((c) => c.payload.color)} size={14} />
+                        <Text style={[s.rowText, view === 'all' && s.rowActive]}>All calendars</Text>
+                      </Pressable>
                     </View>
                   );
                 })()}
@@ -97,15 +102,15 @@ export function CalendarPick() {
                   const off = hidden.includes(c.id);
                   return (
                     <View key={c.id} style={s.row}>
-                      <Pressable style={s.rowMain} onPress={() => { setPrefs({ lastView: c.id }); setOpen(false); }}>
-                        <View style={[s.dot, { backgroundColor: c.payload.color }]} />
-                        <Text style={[s.rowText, view === c.id && s.rowActive]}>{c.payload.name}</Text>
-                      </Pressable>
                       <Pressable
                         hitSlop={8}
                         onPress={() => setPrefs({ hidden: off ? hidden.filter((id) => id !== c.id) : [...hidden, c.id], lastView: 'all' })}
                       >
                         <Text style={[s.box, !off && s.boxOn]}>{off ? '☐' : '☑'}</Text>
+                      </Pressable>
+                      <Pressable style={s.rowMain} onPress={() => { setPrefs({ lastView: c.id }); setOpen(false); }}>
+                        <View style={[s.dot, { backgroundColor: c.payload.color }]} />
+                        <Text style={[s.rowText, view === c.id && s.rowActive]}>{c.payload.name}</Text>
                       </Pressable>
                     </View>
                   );
@@ -115,11 +120,6 @@ export function CalendarPick() {
                   const off = hiddenShared.includes(c.id);
                   return (
                     <View key={c.id} style={s.row}>
-                      <View style={s.rowMain}>
-                        <View style={[s.dot, { backgroundColor: c.payload.color }]} />
-                        <Text style={s.rowText}>{c.payload.name}</Text>
-                        <Text style={s.partnerChip}>{sharedPartnerLabel}</Text>
-                      </View>
                       <Pressable
                         testID={`calshared-box-${c.payload.name}`}
                         hitSlop={8}
@@ -127,11 +127,19 @@ export function CalendarPick() {
                       >
                         <Text style={[s.box, !off && s.boxOn]}>{off ? '☐' : '☑'}</Text>
                       </Pressable>
+                      <View style={s.rowMain}>
+                        <View style={[s.dot, { backgroundColor: c.payload.color }]} />
+                        <Text style={s.rowText}>{c.payload.name}</Text>
+                        <Text style={s.partnerChip}>{sharedPartnerLabel}</Text>
+                      </View>
                     </View>
                   );
                 })}
                 <Pressable style={[s.row, s.manageRow]} onPress={() => { setOpen(false); setManage(true); }}>
-                  <Text style={s.manageText}>Manage calendars…</Text>
+                  <Text style={s.manageText}>Manage calendars</Text>
+                </Pressable>
+                <Pressable testID="manage-reminders-row" style={[s.row, s.manageRow2]} onPress={() => { setOpen(false); setManageRem(true); }}>
+                  <Text style={s.manageText}>Manage reminders</Text>
                 </Pressable>
               </ScrollView>
             </Pressable>
@@ -140,7 +148,75 @@ export function CalendarPick() {
       )}
 
       {manage && <CalendarManager onClose={() => setManage(false)} />}
+      {manageRem && <ReminderFoldersManager onClose={() => setManageRem(false)} />}
     </>
+  );
+}
+
+/**
+ * The suite's "Reminder folders" half of the calendar manager: one row per
+ * reminder folder (a partner's under their own heading), each carrying the
+ * tri-state — ● All / calendar-glyph Dated / ✕ None — that decides how that
+ * folder's reminders reach the calendar. Viewer-side pref, stored in the
+ * calendar prefs' folderModes, so a partner's folders gate the same way.
+ */
+function ReminderFoldersManager({ onClose }: { onClose: () => void }) {
+  const { recs, mutate, sharedRecs, sharedPartner, sharedPartnerLabel } = useStore();
+  const modes = prefsOf(recs, 'calendar').folderModes ?? {};
+  const [openFor, setOpenFor] = useState<string | null>(null);
+  const own = recs
+    .filter((r): r is Rec<'folder'> => r.type === 'folder' && folderApp(r.payload) === 'reminders')
+    .sort((a, b) => byOrd(a.payload, b.payload));
+  const shared = sharedPartner
+    ? sharedRecs.filter((r): r is Rec<'folder'> => r.type === 'folder' && folderApp(r.payload) === 'reminders').sort((a, b) => byOrd(a.payload, b.payload))
+    : [];
+  const set = (id: string, mode: FolderMode) => {
+    mutate((e) => e.put(prefsPut(recs, 'calendar', { folderModes: { ...modes, [id]: mode } })));
+    setOpenFor(null);
+  };
+  const face = (f: Rec<'folder'>) => folderMode(f.payload, f.id, modes);
+  const row = (f: Rec<'folder'>) => (
+    <View key={f.id}>
+      <View style={s.mrow}>
+        <Text style={s.mname}>{f.payload.name}</Text>
+        <Pressable testID={`remmode-${f.payload.name}`} style={s.triBtn} hitSlop={6} onPress={() => setOpenFor(openFor === f.id ? null : f.id)}>
+          {face(f) === 'all' && <View style={s.triAll} />}
+          {face(f) === 'dated' && <CalGlyph color={T.dim} size={15} />}
+          {face(f) === 'none' && <Text style={s.triNone}>✕</Text>}
+        </Pressable>
+      </View>
+      {openFor === f.id && (
+        <View style={s.triMenu}>
+          <Pressable testID="trimode-all" style={s.triOpt} onPress={() => set(f.id, 'all')}>
+            <View style={s.triAll} /><Text style={s.triOptText}>All</Text>
+          </Pressable>
+          <Pressable testID="trimode-dated" style={s.triOpt} onPress={() => set(f.id, 'dated')}>
+            <CalGlyph color={T.dim} size={15} /><Text style={s.triOptText}>Dated</Text>
+          </Pressable>
+          <Pressable testID="trimode-none" style={s.triOpt} onPress={() => set(f.id, 'none')}>
+            <Text style={s.triNone}>✕</Text><Text style={s.triOptText}>None</Text>
+          </Pressable>
+        </View>
+      )}
+    </View>
+  );
+  return (
+    <Modal transparent animationType="fade" onRequestClose={onClose}>
+      <Pressable style={s.backdrop2} onPress={onClose}>
+        <Pressable style={[s.card, { padding: 16 }]} onPress={() => setOpenFor(null)}>
+          <Text style={s.h2}>Reminder folders</Text>
+          <Text style={s.subhead}>Which folders' reminders show up on the calendar.</Text>
+          <ScrollView style={{ maxHeight: 420 }}>
+            {own.map(row)}
+            {shared.length > 0 && <Text style={s.groupHead}>{sharedPartnerLabel}'s folders</Text>}
+            {shared.map(row)}
+          </ScrollView>
+          <View style={s.doneRow}>
+            <Pill testID="remfolders-done" label="Done" primary onPress={onClose} />
+          </View>
+        </Pressable>
+      </Pressable>
+    </Modal>
   );
 }
 
@@ -304,8 +380,9 @@ const s = themed(() => StyleSheet.create({
   rowActive: { color: T.accent, fontWeight: '700' },
   box: { color: T.muted, fontSize: 16 },
   boxOn: { color: T.accent },
-  partnerChip: { color: '#c4b5fd', backgroundColor: '#3b3355', fontSize: 12, fontWeight: '700', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999, overflow: 'hidden' },
+  partnerChip: { color: '#c4b5fd', backgroundColor: '#3b3355', fontSize: 12, fontWeight: '700', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999, overflow: 'hidden', marginLeft: 'auto' },
   groupHead: { color: T.muted, fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5, paddingHorizontal: 12, paddingTop: 10 },
+  manageRow2: {},
   manageRow: { borderTopWidth: 1, borderTopColor: T.lineSoft, marginTop: 4 },
   manageText: { color: T.dim, fontSize: 14 },
   renameField: { flex: 1, paddingVertical: 6 },
@@ -315,4 +392,12 @@ const s = themed(() => StyleSheet.create({
   sharedCalName: { color: T.dim, fontSize: 15, flex: 1 },
   err: { color: T.danger, fontSize: 13 },
   doneRow: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 4 },
+  subhead: { color: T.muted, fontSize: 13, marginTop: -6, marginBottom: 8 },
+  mname: { color: T.text, fontSize: 15, flex: 1 },
+  triBtn: { width: 34, height: 34, borderRadius: 17, borderWidth: 1, borderColor: T.line, backgroundColor: T.surface2, alignItems: 'center', justifyContent: 'center' },
+  triAll: { width: 13, height: 13, borderRadius: 7, backgroundColor: T.accent },
+  triNone: { color: T.accent, fontSize: 15, fontWeight: '700', lineHeight: 16 },
+  triMenu: { alignSelf: 'flex-end', backgroundColor: T.surface2, borderWidth: 1, borderColor: T.line, borderRadius: 12, paddingVertical: 4, marginBottom: 6, minWidth: 130 },
+  triOpt: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 9 },
+  triOptText: { color: T.text, fontSize: 15 },
 }));

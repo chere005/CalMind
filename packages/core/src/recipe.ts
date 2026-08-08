@@ -32,7 +32,7 @@ export function parseIngredient(text: string): string {
   if (!m) return t;
   let qty = m[1]!.replace(',', '.');
   qty = qty.replace(/(\d)\s+(\d\/\d)/, (_s, a, f) => `${a} ${FRACTIONS[f] ?? f}`);
-  if (FRACTIONS[qty]) qty = FRACTIONS[qty];
+  qty = FRACTIONS[qty] ?? qty;
   const unitRaw = (m[3] ?? '').toLowerCase();
   const rest = (m[4] ?? '').trim();
   const unit = UNIT_MAP[unitRaw];

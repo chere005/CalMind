@@ -26,7 +26,7 @@ import { Dropdown } from './Dropdown';
 import { ordForMove, useRowDrag } from './rowdrag';
 
 export function FolderManager({ app, onClose }: { app: 'reminders' | 'notes'; onClose: () => void }) {
-  const { recs, mutate, sharedRecs, sharedPartner } = useStore();
+  const { recs, mutate, sharedRecs, sharedPartner, sharedPartnerLabel } = useStore();
   // The suite's shared recolour: a read-only row per shared folder whose
   // swatch cycles the LIGHTER shared palette — the override is mine, stored
   // in my prefs, and never touches the owner's data.
@@ -148,8 +148,12 @@ export function FolderManager({ app, onClose }: { app: 'reminders' | 'notes'; on
                     
                   </Text>
                 )}
-                <CircleBtn glyph="✎" size={26} onPress={() => { setRenaming(f.id); setRenameText(f.payload.name); }} />
-                <ConfirmDelete testID="mgr-del" onDelete={() => remove(f)} />
+                {!f.payload.rideAlong && (
+                  <>
+                    <CircleBtn glyph="✎" size={26} onPress={() => { setRenaming(f.id); setRenameText(f.payload.name); }} />
+                    <ConfirmDelete testID="mgr-del" onDelete={() => remove(f)} />
+                  </>
+                )}
                 </View>
               </View>
             ))}
@@ -165,7 +169,8 @@ export function FolderManager({ app, onClose }: { app: 'reminders' | 'notes'; on
                       const cur = prefsOf(recs, app).sharedColors ?? {};
                       mutate((e) => e.put(prefsPut(recs, app, { sharedColors: { ...cur, [key]: hex } })));
                     }} />
-                    <Text style={s.sharedName}>@{sharedPartner}: {f.payload.name}</Text>
+                    <Text style={s.sharedName}>{f.payload.name}</Text>
+                    <Text style={s.ownerBadge}>{sharedPartnerLabel}</Text>
                   </View>
                 ))}
               </>
@@ -179,6 +184,7 @@ export function FolderManager({ app, onClose }: { app: 'reminders' | 'notes'; on
               gold
             />
 
+            <Text style={s.hint}>Deleting a folder keeps its items — they move to the default for new items.</Text>
             {err !== '' && <Text style={s.err}>{err}</Text>}
             <View style={s.doneRow}>
               <Pill label="Done" primary onPress={onClose} />
@@ -197,7 +203,7 @@ const s = themed(() => StyleSheet.create({
   h2: { color: T.text, fontSize: 18, fontWeight: '700' },
   addRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   addField: { flex: 1 },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 10, height: 44 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: T.surface2, borderWidth: 1, borderColor: T.lineSoft, borderRadius: 12, paddingHorizontal: 12, height: 52, marginBottom: 8 },
   grip: { width: 22, alignItems: 'center', justifyContent: 'center' },
   gripText: { color: T.muted, fontSize: 15, userSelect: 'none' },
   dropLine: { height: 2, backgroundColor: T.accent, borderRadius: 1, marginVertical: 1 },
@@ -206,6 +212,8 @@ const s = themed(() => StyleSheet.create({
   sharedName: { color: T.dim, fontSize: 15, flex: 1 },
   label: { color: T.dim, fontSize: 13, marginTop: 6 },
   rowWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  ownerBadge: { color: T.accent, fontSize: 12, fontWeight: '700', backgroundColor: T.accentSoft, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3, overflow: 'hidden', marginLeft: 'auto' },
+  hint: { color: T.muted, fontSize: 13, lineHeight: 18, marginTop: 10 },
   err: { color: T.danger, fontSize: 13 },
   doneRow: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 4 },
 }));

@@ -72,9 +72,15 @@ export type Prefs = {
   sharedColors?: Record<string, string>; // viewer-side recolour of a partner's shared containers, keyed @partner:id
   defaultSectionId?: string; // where new items land from All (reminders/notes)
   defaultCalendarId?: string; // where new events land (calendar)
+  // Which folders' reminders reach the calendar (the suite's tri-state):
+  // 'all' = dated + undated riding on today, 'dated' = only dated, 'none' =
+  // nothing. Absent = 'all' for a rideAlong folder, 'dated' otherwise.
+  folderModes?: Record<string, FolderMode>;
   view?: 'week' | 'month'; // habits: which grid the bar above it picked
   theme?: string; // suite: the chosen palette (midnight when absent)
 };
+
+export type FolderMode = 'all' | 'dated' | 'none';
 
 export type RecType =
   | 'folder'

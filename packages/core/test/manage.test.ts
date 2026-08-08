@@ -335,20 +335,18 @@ describe('duplicateItem — a copy directly under the original, fresh ids', () =
   const mk = () => { let n = 0; return () => 'dup' + ++n; };
 
   it('copies a reminder BLOCK under the original, family intact', () => {
-    const recs = [...base(),
-      reminder('r1', 'fa', 'sa'),
-      { ...reminder('r2', 'fa', 'sa'), payload: { ...reminder('r2', 'fa', 'sa').payload, indent: 1 } },
-      reminder('r9', 'fa', 'sa'), // ord 'r9' sorts after 'r2'
-    ];
+    const sub = reminder('r2', 'fa', 'sa');
+    sub.payload.indent = 1;
+    const recs = [...base(), reminder('r1', 'fa', 'sa'), sub, reminder('r9', 'fa', 'sa')];
     const res = duplicateItem(recs, 'r1', mk());
     if ('error' in res) throw new Error(res.error);
     expect(res.put.map((p) => p.id)).toEqual(['dup1', 'dup2']);
-    const [p, sub] = res.put as Rec<'reminder'>[];
-    expect(p!.payload.text).toBe('r1');
-    expect(sub!.payload.indent).toBe(1);
+    const [copyP, copyS] = res.put as Rec<'reminder'>[];
+    expect(copyP!.payload.text).toBe('r1');
+    expect(copyS!.payload.indent).toBe(1);
     // Ords land strictly between the block's end and the next row.
-    expect(p!.payload.ord > 'r2' && p!.payload.ord < 'r9').toBe(true);
-    expect(sub!.payload.ord > p!.payload.ord && sub!.payload.ord < 'r9').toBe(true);
+    expect(copyP!.payload.ord > 'r2' && copyP!.payload.ord < 'r9').toBe(true);
+    expect(copyS!.payload.ord > copyP!.payload.ord && copyS!.payload.ord < 'r9').toBe(true);
   });
 
   it('copies a note directly under itself', () => {

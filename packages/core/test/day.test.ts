@@ -163,3 +163,34 @@ describe('the filled grid and the two-week fold', () => {
     expect(twoWeeksFrom('2026-08-31')[13].startsWith('2026-09')).toBe(true);
   });
 });
+
+describe('folderModes — the calendar tri-state per reminder folder', () => {
+  const folder = (id: string, rideAlong = false): Rec<'folder'> => ({
+    id, type: 'folder', updated: 0,
+    payload: { name: id, color: '#fff', ord: id, app: 'reminders', ...(rideAlong ? { rideAlong: true } : {}) },
+  });
+  const rem = (id: string, folderId: string, due: string | null): Rec<'reminder'> => ({
+    id, type: 'reminder', updated: 0,
+    payload: { text: id, due, time: null, done: false, repeat: null, folderId, sectionId: 's', indent: 0, ord: id },
+  });
+  const today = '2026-08-08';
+  const recs = [folder('cal', true), folder('plain'), rem('rider', 'cal', null), rem('loose', 'plain', null), rem('dated', 'plain', today)];
+
+  it('defaults keep the old behaviour: rideAlong rides, plain is dated-only', () => {
+    const got = dayItems(recs, today, today);
+    expect(got.reminders.map((r) => r.rec.id).sort()).toEqual(['dated', 'rider']);
+  });
+  it("'all' on a plain folder makes its undated ride on today", () => {
+    const got = dayItems(recs, today, today, { plain: 'all' });
+    expect(got.reminders.map((r) => r.rec.id).sort()).toEqual(['dated', 'loose', 'rider']);
+  });
+  it("'none' silences a folder entirely — cells included", () => {
+    const got = dayItems(recs, today, today, { plain: 'none' });
+    expect(got.reminders.map((r) => r.rec.id)).toEqual(['rider']);
+    expect(cellMarks(recs, today, today, { plain: 'none', cal: 'none' }).filter((m) => m.kind === 'reminder')).toEqual([]);
+  });
+  it("'dated' on the rideAlong folder stops the ride", () => {
+    const got = dayItems(recs, today, today, { cal: 'dated' });
+    expect(got.reminders.map((r) => r.rec.id)).toEqual(['dated']);
+  });
+});

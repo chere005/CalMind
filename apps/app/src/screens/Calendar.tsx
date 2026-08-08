@@ -8,7 +8,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { PanResponder, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { duplicateItem,
+import { prefsOf, duplicateItem,
   timeLabel,
   addDays,
   cellMarks,
@@ -87,19 +87,20 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
     const on = new Set(visibleShared.map((c) => c.id));
     return sharedRecs.filter((r) => r.type !== 'event' || on.has(r.payload.calendarId));
   }, [sharedRecs, sharedPartner, visibleShared]);
-  const sharedItems = useMemo(() => dayItems(sharedDrawn, day, today), [sharedDrawn, day, today]);
+  const folderModes = useMemo(() => prefsOf(recs, 'calendar').folderModes ?? {}, [recs]);
+  const sharedItems = useMemo(() => dayItems(sharedDrawn, day, today, folderModes), [sharedDrawn, day, today, folderModes]);
   const sharedCalById = useMemo(() => new Map(sharedRecs.filter((r): r is Rec<'calendar'> => r.type === 'calendar').map((c) => [c.id, c.payload])), [sharedRecs]);
   // The filled grid: every cell a real date, the neighbours' lightened.
   // Week mode is Sean's TWO-week fold: the anchor's week plus the next.
   const monthCells = useMemo(() => monthGridFilled(year, month), [year, month]);
   const cells = useMemo(() => (weekMode ? twoWeeksFrom(wkAnchor) : monthCells), [weekMode, wkAnchor, monthCells]);
   const marks = useMemo(
-    () => new Map(cells.filter(Boolean).map((d) => [d!, [...cellMarks(drawn, d!, today), ...cellMarks(sharedDrawn, d!, today)]])),
-    [drawn, sharedDrawn, cells, today],
+    () => new Map(cells.filter(Boolean).map((d) => [d!, [...cellMarks(drawn, d!, today, folderModes), ...cellMarks(sharedDrawn, d!, today, folderModes)]])),
+    [drawn, sharedDrawn, cells, today, folderModes],
   );
   const legend = useMemo(() => monthLegend(drawn, cells, today), [drawn, cells, today]);
   const sharedLegend = useMemo(() => monthLegend(sharedDrawn, cells, today), [sharedDrawn, cells, today]);
-  const items = useMemo(() => dayItems(drawn, day, today), [drawn, day, today]);
+  const items = useMemo(() => dayItems(drawn, day, today, folderModes), [drawn, day, today, folderModes]);
   const calById = useMemo(() => new Map(recs.filter((r): r is Rec<'calendar'> => r.type === 'calendar').map((c) => [c.id, c.payload])), [recs]);
 
   const page = (dir: -1 | 1) => {
@@ -345,7 +346,8 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
             {swipe.swiped === n.id && <ConfirmDelete forceArmed onDelete={() => { swipe.clear(); mutate((en) => en.del(n.id)); }} />}
           </View>
         ))}
-        {items.events.length + items.reminders.length + items.notes.length === 0 && (
+        {items.events.length + items.reminders.length + items.notes.length +
+          sharedItems.events.length + sharedItems.reminders.length + sharedItems.notes.length === 0 && (
           <Text style={s.empty}>Nothing on this day</Text>
         )}
       </ScrollView>
