@@ -11,6 +11,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   byOrd,
+  moveReminderBlock,
   newId,
   ordBetween,
   parseWhenFromText,
@@ -28,6 +29,7 @@ import { useStore } from '../store';
 import { T } from '../theme';
 import { TopBar } from '../chrome';
 import { FolderPick, useFolderView } from '../components/FolderPick';
+import { useRowDrag } from '../components/rowdrag';
 import { ItemModal } from '../components/ItemModal';
 import { CircleBtn, ConfirmDelete, Field, Pill } from '../ui';
 
@@ -77,6 +79,36 @@ export function Reminders() {
         ).map((row) => row.rec),
     };
   }, [recs, visibleFolders]);
+
+  // Every visible row in render order: the drag speaks in these indices.
+  const flatRows = useMemo(() => {
+    const out: { rec: ReminderRec; sectionId: string }[] = [];
+    for (const f of folders) {
+      for (const sec of sectionsOf(f.id)) {
+        if (folded.has(sec.id)) continue;
+        for (const r of remindersOf(sec.id)) {
+          if (!showDone && r.payload.done) continue;
+          out.push({ rec: r, sectionId: sec.id });
+        }
+      }
+    }
+    return out;
+  }, [folders, sectionsOf, remindersOf, folded, showDone]);
+
+  const ROW_H = 46;
+  const drag = useRowDrag(flatRows.length, ROW_H, (from, to) => {
+    const src = flatRows[from];
+    if (!src) return;
+    // Landing before the row at `to` (drags downward land after it — the
+    // boundary the hook reports is already the gap the row falls into).
+    const slotIdx = to > from ? to + 1 : to;
+    const before = flatRows[slotIdx];
+    const destSectionId = before?.sectionId ?? flatRows[flatRows.length - 1]?.sectionId ?? src.sectionId;
+    const res = moveReminderBlock(recs, src.rec.id, destSectionId, before?.rec.id ?? null);
+    if ('error' in res) return;
+    mutate((e) => res.put.forEach((r) => e.put(r)));
+  });
+  const flatIdxOf = (id: string) => flatRows.findIndex((x) => x.rec.id === id);
 
   const addReminder = (section: SectionRec) => {
     const raw = addText.trim();
@@ -282,7 +314,18 @@ export function Reminders() {
                   {!isFolded &&
                     rows.map((r) => (
                       <View key={r.id}>
-                        <View testID="rem-row" style={[s.row, r.payload.indent > 0 && s.rowIndented]}>
+                        {drag.slot !== null && flatIdxOf(r.id) === drag.slot && <View style={s.dropLine} />}
+                        <View
+                          testID="rem-row"
+                          style={[
+                            s.row,
+                            r.payload.indent > 0 && s.rowIndented,
+                            drag.dragIdx !== null && flatIdxOf(r.id) === drag.dragIdx && { opacity: 0.55, transform: [{ translateY: drag.dragDy }] },
+                          ]}
+                        >
+                          <View testID="row-grip" {...drag.handleFor(flatIdxOf(r.id))} style={s.rowGrip} hitSlop={6}>
+                            <Text style={s.rowGripText}>≡</Text>
+                          </View>
                           <Pressable testID="tick" onPress={() => tick(r)} hitSlop={8} style={[s.tick, r.payload.done && s.tickDone]}>
                             {r.payload.done && <Text style={s.tickMark}>✓</Text>}
                           </Pressable>
@@ -352,7 +395,10 @@ const s = StyleSheet.create({
   secHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
   chevron: { color: T.muted, fontSize: 12, width: 14, textAlign: 'center' },
   secName: { color: T.gold, fontSize: 14, fontWeight: '700' },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 6 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 10, height: 46 },
+  rowGrip: { width: 16, alignItems: 'center', justifyContent: 'center' },
+  rowGripText: { color: T.lineSoft, fontSize: 13, userSelect: 'none' },
+  dropLine: { height: 2, backgroundColor: T.accent, borderRadius: 1, marginVertical: 1 },
   rowIndented: { paddingLeft: 28 },
   rowBody: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   rowText: { color: T.text, fontSize: 16, flexShrink: 1 },

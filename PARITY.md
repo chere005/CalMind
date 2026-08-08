@@ -84,10 +84,22 @@ honest — the next iteration trusts it.
   manager drag from iteration 4 is CONFIRMED with real gestures — off the
   by-eye list.
 
-## In flight (iteration 6 — start here)
-- Main-list drag-reorder (Reminders/Notes rows and sections, outline block
-  rules: blocks travel, level-1 anywhere among level-1, cross-folder refusals)
-  on useRowDrag — write the e2e spec FIRST, it's the safety net now.
+## Iteration 6 shipped
+- The outline drag, spec-first: reminderBlock/moveReminderBlock in core
+  (104 tests) — a parent gathers its following indent-1 rows, blocks land as
+  one family on consecutive ords, cross-folder re-files, self-landing refused.
+  Reminders rows wear a muted ≡ grip; the drag speaks flat visible-row
+  indices, the drop-line renders in place, and the e2e spec proves reorder +
+  reload persistence under a real mouse (6/6 green).
+- Known simplifications, honest: drop math assumes ~uniform 46px rows (fine
+  at phone widths; wrapped chips could drift a slot on unusual widths);
+  empty sections can't be drop targets yet; SECTION drag (blocks between
+  folders, last-section-out ask) still open. Notes rows don't drag yet.
+
+## In flight (iteration 7 — start here)
+- Notes row drag (same flat model) + section drag as blocks with the suite's
+  cross-folder rules (duplicate-name refusal, last-section-out ask).
+- Empty-section drop targets (a boundary per section head).
 
 ## Next, in pain order
 1. Habits month view (day pies + its legend) + Manage-sections window +

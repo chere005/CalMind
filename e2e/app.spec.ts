@@ -94,3 +94,29 @@ test('a long-press opens the inline edit', async ({ page }) => {
   await page.mouse.up();
   await expect(page.getByTestId('rem-edit')).toHaveValue('hold me');
 });
+
+test('a reminder row drags to a new spot and the order survives a reload', async ({ page }) => {
+  await signup(page);
+  await page.getByTestId('tab-reminders').click();
+  for (const name of ['alpha', 'beta']) {
+    await page.getByTestId('secadd-General').first().click();
+    await page.getByTestId('rem-add-field').fill(name);
+    await page.getByTestId('rem-add-field').press('Enter');
+  }
+  // New rows prepend: the list reads beta, alpha. Drag beta below alpha.
+  const rows = page.getByTestId('rem-row');
+  await expect(rows.first()).toContainText('beta');
+  const grip = rows.first().getByTestId('row-grip');
+  const box = (await grip.boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  for (let i = 1; i <= 8; i++) {
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2 + (i * 46) / 8);
+  }
+  await page.mouse.up();
+  await expect(rows.first()).toContainText('alpha');
+
+  await page.reload();
+  await page.getByTestId('tab-reminders').click();
+  await expect(page.getByTestId('rem-row').first()).toContainText('alpha', { timeout: 10_000 });
+});

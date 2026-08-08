@@ -7,7 +7,7 @@
  */
 import type { AnyRec, Prefs, Rec } from './types';
 import { folderApp, prefsId } from './types';
-import { byOrd } from './order';
+import { byOrd, ordBetween } from './order';
 import { sectionNameTaken } from './rules';
 
 const live = (r: { deleted?: boolean }) => !r.deleted;
@@ -170,6 +170,65 @@ export function deleteHabitSection(recs: AnyRec[], sectionId: string): ManageRes
     if (h.payload.sectionId === sectionId) {
       put.push({ ...h, payload: { ...h.payload, sectionId: dest.id } });
     }
+  }
+  return { put };
+}
+
+// ---------------------------------------------------------------- outline drag
+
+/**
+ * The rows a drag takes together — the suite's blockOf(): a top-level
+ * reminder carries every indent-1 row that follows it in stored (ord) order
+ * within its section, up to the next top-level row. A subtask alone is its
+ * own block (it can be dragged out; landing makes it read under its new
+ * neighbour, exactly as the suite's flat outline reads).
+ */
+export function reminderBlock(recs: AnyRec[], reminderId: string): Rec<'reminder'>[] {
+  const r = of(recs, 'reminder').find((x) => x.id === reminderId);
+  if (!r) return [];
+  if (r.payload.indent > 0) return [r];
+  const siblings = of(recs, 'reminder')
+    .filter((x) => x.payload.sectionId === r.payload.sectionId)
+    .sort((a, b) => byOrd(a.payload, b.payload));
+  const at = siblings.findIndex((x) => x.id === reminderId);
+  const block = [siblings[at]!];
+  for (let i = at + 1; i < siblings.length && siblings[i]!.payload.indent > 0; i++) {
+    block.push(siblings[i]!);
+  }
+  return block;
+}
+
+/**
+ * Drop a reminder block into a section, before `beforeId` (null = at the
+ * end). Cross-section and cross-folder moves re-file the whole block; the
+ * block's rows take consecutive ords in the landing gap, so it stays one
+ * family. Landing relative to a row inside another block is allowed — the
+ * suite lets a row drop between any two rows.
+ */
+export function moveReminderBlock(
+  recs: AnyRec[],
+  reminderId: string,
+  destSectionId: string,
+  beforeId: string | null,
+): ManageResult {
+  const block = reminderBlock(recs, reminderId);
+  if (block.length === 0) return { error: 'no such reminder' };
+  const dest = of(recs, 'section').find((s) => s.id === destSectionId);
+  if (!dest) return { error: 'no such section' };
+  const blockIds = new Set(block.map((b) => b.id));
+  if (beforeId !== null && blockIds.has(beforeId)) return { error: 'a block cannot land inside itself' };
+  const destRows = of(recs, 'reminder')
+    .filter((x) => x.payload.sectionId === destSectionId && !blockIds.has(x.id))
+    .sort((a, b) => byOrd(a.payload, b.payload));
+  const at = beforeId === null ? destRows.length : destRows.findIndex((x) => x.id === beforeId);
+  if (at === -1) return { error: 'no such landing row' };
+  let lo = destRows[at - 1]?.payload.ord ?? null;
+  const hi = destRows[at]?.payload.ord ?? null;
+  const put: AnyRec[] = [];
+  for (const b of block) {
+    const ord = ordBetween(lo, hi);
+    put.push({ ...b, payload: { ...b.payload, ord, sectionId: destSectionId, folderId: dest.payload.folderId } });
+    lo = ord; // consecutive keys keep the family in order inside the gap
   }
   return { put };
 }

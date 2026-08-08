@@ -5,7 +5,7 @@
  * and taken names. One implementation, every platform.
  */
 import { describe, it, expect } from 'vitest';
-import { deleteCalendar, deleteFolder, deleteHabitSection, deleteSection, renameCalendar, renameFolder, renameSection, prefsOf, prefsPut } from '../src/manage';
+import { deleteCalendar, deleteFolder, deleteHabitSection, deleteSection, moveReminderBlock, reminderBlock, renameCalendar, renameFolder, renameSection, prefsOf, prefsPut } from '../src/manage';
 import { prefsId } from '../src/types';
 import type { AnyRec, Rec } from '../src/types';
 
@@ -165,5 +165,54 @@ describe('habit sections — delete keeps the habits', () => {
     const res = deleteHabitSection([hs('s1', 'A'), hs('s2', 'B'), habit('h1', 's2')], 's2');
     if ('error' in res) throw new Error(res.error);
     expect((res.put.find((r) => r.id === 'h1') as Rec<'habit'>).payload.sectionId).toBe('s1');
+  });
+});
+
+describe('the outline drag — blocks travel, exactly as the suite moves them', () => {
+  const sec = (id: string, folderId: string, ord = 'V'): Rec<'section'> => ({
+    id, type: 'section', updated: 0, payload: { name: id, folderId, ord },
+  });
+  const fold = (id: string): Rec<'folder'> => ({
+    id, type: 'folder', updated: 0, payload: { name: id, color: '#fff', ord: id, app: 'reminders' },
+  });
+  const row = (id: string, sectionId: string, ord: string, indent: 0 | 1 = 0, folderId = 'f1'): Rec<'reminder'> => ({
+    id, type: 'reminder', updated: 0,
+    payload: { text: id, due: null, time: null, done: false, repeat: null, folderId, sectionId, indent, ord },
+  });
+
+  const world = (): AnyRec[] => [
+    fold('f1'), fold('f2'), sec('sA', 'f1', 'A'), sec('sB', 'f2', 'B'),
+    row('p1', 'sA', 'B'), row('c1', 'sA', 'D', 1), row('c2', 'sA', 'F', 1),
+    row('p2', 'sA', 'H'), row('q1', 'sB', 'B'),
+  ];
+
+  it('a parent block gathers its subtasks; a subtask alone is its own block', () => {
+    expect(reminderBlock(world(), 'p1').map((r) => r.id)).toEqual(['p1', 'c1', 'c2']);
+    expect(reminderBlock(world(), 'c2').map((r) => r.id)).toEqual(['c2']);
+    expect(reminderBlock(world(), 'p2').map((r) => r.id)).toEqual(['p2']);
+  });
+
+  it('moving a parent below a later row carries the family in order', () => {
+    const res = moveReminderBlock(world(), 'p1', 'sA', null); // to the end
+    if ('error' in res) throw new Error(res.error);
+    const ords = new Map(res.put.map((r) => [r.id, (r.payload as { ord: string }).ord]));
+    expect([...ords.keys()]).toEqual(['p1', 'c1', 'c2']);
+    expect(ords.get('p1')! > 'H').toBe(true); // past p2
+    expect(ords.get('c1')! > ords.get('p1')!).toBe(true);
+    expect(ords.get('c2')! > ords.get('c1')!).toBe(true);
+  });
+
+  it('a cross-folder move re-files folderId and sectionId for the whole block', () => {
+    const res = moveReminderBlock(world(), 'p1', 'sB', 'q1');
+    if ('error' in res) throw new Error(res.error);
+    for (const r of res.put) {
+      expect((r.payload as { sectionId: string }).sectionId).toBe('sB');
+      expect((r.payload as { folderId: string }).folderId).toBe('f2');
+      expect((r.payload as { ord: string }).ord < 'B').toBe(true); // all before q1
+    }
+  });
+
+  it('a block refuses to land inside itself', () => {
+    expect('error' in moveReminderBlock(world(), 'p1', 'sA', 'c1')).toBe(true);
   });
 });
