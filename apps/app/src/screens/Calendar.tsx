@@ -21,22 +21,30 @@ import {
 import { useStore } from '../store';
 import { T } from '../theme';
 import { TopBar } from '../chrome';
+import { CalendarPick, useCalendarView } from '../components/CalendarPick';
 import { ItemModal, type ItemKind } from '../components/ItemModal';
 import { CircleBtn, ConfirmDelete, Pill, Rule } from '../ui';
 
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
-export function Calendar() {
+export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => void }) {
   const { recs, mutate } = useStore();
+  const { visible: visibleCals, calendars } = useCalendarView();
   const today = todayStr();
   const [ym, setYm] = useState(today.slice(0, 7));
   const [day, setDay] = useState(today);
   const [modal, setModal] = useState<null | { mode: 'create' } | { mode: 'edit'; kind: ItemKind; rec: Rec<'event'> | Rec<'reminder'> | Rec<'note'> }>(null);
 
   const [year, month] = ym.split('-').map(Number) as [number, number];
+  // The picker's ticks are what's on screen: events on switched-off calendars
+  // leave the grid and the panel together.
+  const drawn = useMemo(() => {
+    const on = new Set(visibleCals.map((c) => c.id));
+    return on.size === calendars.length ? recs : recs.filter((r) => r.type !== 'event' || on.has(r.payload.calendarId));
+  }, [recs, visibleCals, calendars]);
   const cells = useMemo(() => monthGrid(year, month), [year, month]);
-  const marks = useMemo(() => new Map(cells.filter(Boolean).map((d) => [d!, dayMarks(recs, d!, today)])), [recs, cells, today]);
-  const items = useMemo(() => dayItems(recs, day, today), [recs, day, today]);
+  const marks = useMemo(() => new Map(cells.filter(Boolean).map((d) => [d!, dayMarks(drawn, d!, today)])), [drawn, cells, today]);
+  const items = useMemo(() => dayItems(drawn, day, today), [drawn, day, today]);
   const calById = useMemo(() => new Map(recs.filter((r): r is Rec<'calendar'> => r.type === 'calendar').map((c) => [c.id, c.payload])), [recs]);
 
   const page = (dir: -1 | 1) => {
@@ -67,7 +75,7 @@ export function Calendar() {
 
   return (
     <View style={s.page}>
-      <TopBar title="Calendar" />
+      <TopBar title="Calendar" picker={<CalendarPick />} />
       {/* The date centred over the grid; ◉ jumps home to today. */}
       <View style={s.pagerRow}>
         <CircleBtn glyph="‹" onPress={() => page(-1)} />
@@ -130,7 +138,15 @@ export function Calendar() {
           <Text style={s.empty}>Nothing on this day</Text>
         )}
       </ScrollView>
-      {modal?.mode === 'create' && <ItemModal mode="create" kind="event" date={day} onClose={() => setModal(null)} />}
+      {modal?.mode === 'create' && (
+        <ItemModal
+          mode="create"
+          kind="event"
+          date={day}
+          onClose={() => setModal(null)}
+          onSaved={(id, kind) => kind === 'note' && onNoteCreated?.(id)}
+        />
+      )}
       {modal?.mode === 'edit' && <ItemModal mode="edit" kind={modal.kind} rec={modal.rec} onClose={() => setModal(null)} />}
     </View>
   );

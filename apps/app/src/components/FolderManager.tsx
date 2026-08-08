@@ -19,7 +19,7 @@ import {
   type Rec,
 } from '@calmind/core';
 import { useStore } from '../store';
-import { FOLDER_PALETTE, T } from '../theme';
+import { APP_PALETTES, T } from '../theme';
 import { CircleBtn, ConfirmDelete, Field, Pill } from '../ui';
 
 export function FolderManager({ app, onClose }: { app: 'reminders' | 'notes'; onClose: () => void }) {
@@ -60,14 +60,15 @@ export function FolderManager({ app, onClose }: { app: 'reminders' | 'notes'; on
       const last = folders[folders.length - 1];
       e.put({
         id: newId(), type: 'folder', updated: 0,
-        payload: { name, color: FOLDER_PALETTE[folders.length % FOLDER_PALETTE.length]!, ord: ordBetween(last?.payload.ord ?? null, null), app },
+        payload: { name, color: pal[folders.length % pal.length]!, ord: ordBetween(last?.payload.ord ?? null, null), app },
       });
     });
   };
 
+  const pal = APP_PALETTES[app];
   const recolor = (f: Rec<'folder'>) => {
-    const at = FOLDER_PALETTE.indexOf(f.payload.color);
-    const next = FOLDER_PALETTE[(at + 1) % FOLDER_PALETTE.length]!;
+    const at = pal.indexOf(f.payload.color);
+    const next = pal[(at + 1) % pal.length]!;
     mutate((e) => e.put({ ...f, payload: { ...f.payload, color: next } }));
   };
 

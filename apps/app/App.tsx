@@ -25,7 +25,14 @@ function Root() {
       <View style={s.centre}>
         <View style={s.body}>
           {tab === 'reminders' && <Reminders />}
-          {tab === 'calendar' && <Calendar />}
+          {tab === 'calendar' && (
+            <Calendar
+              onNoteCreated={(id) => {
+                setNoteToOpen(id);
+                setTab('notes');
+              }}
+            />
+          )}
           {tab === 'add' && (
             <Add
               done={() => setTab('calendar')}

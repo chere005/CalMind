@@ -18,11 +18,11 @@ export const HABIT_SECTION_STARTER = 'Habits';
 
 // Seed colors, one per app tier as in lib/palette.php: reminders' vivid blue,
 // the event blue (deliberately a blue, never a cyan), notes' sky, habits' indigo.
-const C_REMINDERS = '#60a5fa';
-const C_CALENDAR_FOLDER = '#34d399';
-const C_NOTES = '#7dd3fc';
-const C_CAL = '#60a5fa';
-const C_HABITS = '#818cf8';
+const C_REMINDERS = '#4c8bf0';
+const C_CALENDAR_FOLDER = '#66d695';
+const C_NOTES = '#7dc2ed';
+const C_CAL = '#0379f6';
+const C_HABITS = '#4357ef';
 
 const live = (r: { deleted?: boolean }) => !r.deleted;
 

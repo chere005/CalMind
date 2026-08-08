@@ -119,3 +119,37 @@ export function deleteFolder(recs: AnyRec[], folderId: string): ManageResult {
   else for (const n of of(recs, 'note')) rehome(n);
   return { put };
 }
+
+// ---------------------------------------------------------------- calendars
+
+export function calendarNameTaken(recs: AnyRec[], name: string): boolean {
+  const clean = name.trim().toLowerCase();
+  return of(recs, 'calendar').some((c) => c.payload.name.trim().toLowerCase() === clean);
+}
+
+export function renameCalendar(recs: AnyRec[], calendarId: string, name: string): ManageResult {
+  const c = of(recs, 'calendar').find((x) => x.id === calendarId);
+  if (!c) return { error: 'no such calendar' };
+  const clean = name.trim();
+  if (clean === '') return { error: 'a calendar needs a name' };
+  if (clean === c.payload.name) return { error: 'unchanged' };
+  if (calendarNameTaken(recs, clean)) return { error: 'that name is taken' };
+  return { put: [{ ...c, payload: { ...c.payload, name: clean } }] };
+}
+
+/** Deleting a calendar keeps its events — they fall to the first remaining
+ *  calendar. The last calendar is undeletable, as the last folder is. */
+export function deleteCalendar(recs: AnyRec[], calendarId: string): ManageResult {
+  const cals = of(recs, 'calendar').sort((a, b) => byOrd(a.payload, b.payload));
+  const c = cals.find((x) => x.id === calendarId);
+  if (!c) return { error: 'no such calendar' };
+  if (cals.length <= 1) return { error: 'the last calendar stays' };
+  const dest = cals.find((x) => x.id !== calendarId)!;
+  const put: AnyRec[] = [{ ...c, deleted: true }];
+  for (const e of of(recs, 'event')) {
+    if (e.payload.calendarId === calendarId) {
+      put.push({ ...e, payload: { ...e.payload, calendarId: dest.id } });
+    }
+  }
+  return { put };
+}

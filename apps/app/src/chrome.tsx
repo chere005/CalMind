@@ -6,7 +6,8 @@
  * opens Settings. Every screen gets Settings for free.
  */
 import React, { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { logout } from './api';
 import { useStore } from './store';
 import { T } from './theme';
 import { Rule } from './ui';
@@ -21,7 +22,8 @@ export function TopBar({
   controls?: React.ReactNode;
   picker?: React.ReactNode;
 }) {
-  const { session, syncState } = useStore();
+  const { session, syncState, signOut } = useStore();
+  const [menuOpen, setMenuOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   return (
     <>
@@ -31,12 +33,34 @@ export function TopBar({
           {controls}
           <View style={[s.status, { backgroundColor: syncState === 'offline' ? T.gold : T.accent }]} />
           {picker}
-          <Pressable onPress={() => setSettingsOpen(true)} hitSlop={8}>
+          <Pressable onPress={() => setMenuOpen(true)} hitSlop={8}>
             <Text style={s.who}>{session?.username}</Text>
           </Pressable>
         </View>
       </View>
       <Rule />
+      {/* The username's own dropdown — the same two rows in every app. */}
+      {menuOpen && (
+        <Modal transparent animationType="fade" onRequestClose={() => setMenuOpen(false)}>
+          <Pressable style={s.menuBackdrop} onPress={() => setMenuOpen(false)}>
+            <View style={s.menu}>
+              <Pressable style={s.menuRow} onPress={() => { setMenuOpen(false); setSettingsOpen(true); }}>
+                <Text style={s.menuText}>Settings</Text>
+              </Pressable>
+              <Pressable
+                style={s.menuRow}
+                onPress={async () => {
+                  setMenuOpen(false);
+                  if (session) void logout(session);
+                  await signOut();
+                }}
+              >
+                <Text style={s.menuText}>Log out</Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Modal>
+      )}
       {settingsOpen && <Settings onClose={() => setSettingsOpen(false)} />}
     </>
   );
@@ -56,4 +80,18 @@ const s = StyleSheet.create({
   right: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   status: { width: 8, height: 8, borderRadius: 4 },
   who: { color: T.accent, fontSize: 14, fontWeight: '600' },
+  menuBackdrop: { flex: 1, backgroundColor: '#0007' },
+  menu: {
+    position: 'absolute',
+    top: 52,
+    right: 16,
+    minWidth: 160,
+    backgroundColor: T.surface,
+    borderWidth: 1,
+    borderColor: T.line,
+    borderRadius: 12,
+    paddingVertical: 4,
+  },
+  menuRow: { paddingHorizontal: 16, paddingVertical: 11 },
+  menuText: { color: T.text, fontSize: 15 },
 });

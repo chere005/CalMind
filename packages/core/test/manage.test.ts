@@ -5,7 +5,7 @@
  * and taken names. One implementation, every platform.
  */
 import { describe, it, expect } from 'vitest';
-import { deleteFolder, deleteSection, renameFolder, renameSection, prefsOf, prefsPut } from '../src/manage';
+import { deleteCalendar, deleteFolder, deleteSection, renameCalendar, renameFolder, renameSection, prefsOf, prefsPut } from '../src/manage';
 import { prefsId } from '../src/types';
 import type { AnyRec, Rec } from '../src/types';
 
@@ -113,5 +113,37 @@ describe('prefs records', () => {
     expect(p1.id).toBe(prefsId('reminders'));
     const p2 = prefsPut([p1], 'reminders', { hidden: ['f1'] });
     expect(p2.payload).toEqual({ lastView: 'all', hidden: ['f1'] });
+  });
+});
+
+describe('calendars — rename and delete carry the folder rules over', () => {
+  const cal = (id: string, name: string, ord = 'V'): Rec<'calendar'> => ({
+    id, type: 'calendar', updated: 0, payload: { name, color: '#60a5fa', ord },
+  });
+  const ev = (id: string, calendarId: string): Rec<'event'> => ({
+    id, type: 'event', updated: 0, payload: { text: 'e', date: '2026-08-07', time: null, repeat: null, calendarId, ord: 'V' },
+  });
+
+  it('the last calendar is undeletable', () => {
+    const res = deleteCalendar([cal('c1', 'Personal')], 'c1');
+    expect('error' in res).toBe(true);
+  });
+
+  it('deleting keeps the events — they fall to the first remaining calendar', () => {
+    const res = deleteCalendar([cal('c1', 'A', 'A'), cal('c2', 'B', 'B'), ev('e1', 'c2')], 'c2');
+    if ('error' in res) throw new Error(res.error);
+    const moved = res.put.find((r) => r.id === 'e1') as Rec<'event'>;
+    expect(moved.payload.calendarId).toBe('c1');
+    expect((res.put.find((r) => r.id === 'c2') as Rec<'calendar'>).deleted).toBe(true);
+  });
+
+  it('renames refuse empty, unchanged and taken names', () => {
+    const recs = [cal('c1', 'Personal'), cal('c2', 'Work', 'W')];
+    expect('error' in renameCalendar(recs, 'c1', '')).toBe(true);
+    expect('error' in renameCalendar(recs, 'c1', 'Personal')).toBe(true);
+    expect('error' in renameCalendar(recs, 'c1', 'work')).toBe(true);
+    const ok = renameCalendar(recs, 'c1', 'Home');
+    if ('error' in ok) throw new Error(ok.error);
+    expect((ok.put[0] as Rec<'calendar'>).payload.name).toBe('Home');
   });
 });

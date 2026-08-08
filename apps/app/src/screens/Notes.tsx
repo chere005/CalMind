@@ -25,8 +25,12 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
       onOpenConsumed?.();
     }
   }, [openNoteId, onOpenConsumed]);
-  const [adding, setAdding] = useState<string | null>(null); // sectionId
+  const [adding, setAddingRaw] = useState<string | null>(null); // sectionId
   const [addText, setAddText] = useState('');
+  const setAdding = (v: string | null) => {
+    if (v !== null) addCommitted.current = false;
+    setAddingRaw(v);
+  };
 
   const { folders, sectionsOf, notesOf } = useMemo(() => {
     const folders = visibleFolders;
@@ -41,7 +45,11 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
 
   const open = openId ? (recs.find((r) => r.id === openId) as Rec<'note'> | undefined) : undefined;
 
+  const addCommitted = React.useRef(false);
   const addNote = (section: Rec<'section'>) => {
+    // Enter fires submit AND blur on web — one field, one note.
+    if (addCommitted.current) return;
+    addCommitted.current = true;
     const raw = addText.trim();
     setAdding(null);
     setAddText('');

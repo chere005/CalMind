@@ -12,6 +12,7 @@ import { byOrd, prefsOf, prefsPut, type Rec } from '@calmind/core';
 import { useStore } from '../store';
 import { T } from '../theme';
 import { FolderManager } from './FolderManager';
+import { PieDot } from './PieDot';
 
 export type FolderView = { view: string; hidden: string[]; folders: Rec<'folder'>[]; visible: Rec<'folder'>[] };
 
@@ -33,7 +34,7 @@ export function useFolderView(app: 'reminders' | 'notes'): FolderView {
 
 export function FolderPick({ app }: { app: 'reminders' | 'notes' }) {
   const { recs, mutate } = useStore();
-  const { view, hidden, folders } = useFolderView(app);
+  const { view, hidden, folders, visible } = useFolderView(app);
   const [open, setOpen] = useState(false);
   const [manage, setManage] = useState(false);
 
@@ -42,8 +43,9 @@ export function FolderPick({ app }: { app: 'reminders' | 'notes' }) {
 
   return (
     <>
-      <Pressable onPress={() => setOpen(true)} hitSlop={8} style={[s.dotBtn, active && { backgroundColor: active.payload.color }]}>
-        {!active && <View style={s.allRing} />}
+      <Pressable onPress={() => setOpen(true)} hitSlop={8}>
+        {/* One folder = its colour; several = the pie; everything on = the rainbow. */}
+        <PieDot colors={active ? [active.payload.color] : visible.map((f) => f.payload.color)} />
       </Pressable>
 
       {open && (
@@ -52,7 +54,7 @@ export function FolderPick({ app }: { app: 'reminders' | 'notes' }) {
             <Pressable style={s.menu} onPress={() => {}}>
               <ScrollView>
                 <Pressable style={s.row} onPress={() => { setPrefs({ lastView: 'all' }); setOpen(false); }}>
-                  <View style={s.allDot} />
+                  <PieDot colors={folders.map((f) => f.payload.color)} size={14} />
                   <Text style={[s.rowText, view === 'all' && s.rowActive]}>All</Text>
                 </Pressable>
                 {folders.map((f) => {
