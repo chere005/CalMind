@@ -8,8 +8,7 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { T, PAGE_MAX_WIDTH } from './theme';
-import { PieIcon } from './Logo';
-import { FlameIcon, PageIcon, TickCircleIcon } from './components/KindIcons';
+import { CalendarIcon, FlameIcon, PageIcon, TickCircleIcon } from './components/KindIcons';
 
 export type Tab = 'reminders' | 'calendar' | 'add' | 'notes' | 'habits';
 
@@ -37,7 +36,7 @@ export function TabBar({ tab, onTab }: { tab: Tab; onTab: (t: Tab) => void }) {
               <View style={[s.halo, tab === key && s.haloOn]}>
                 {/* One SVG language for the whole bar — no emoji. */}
                 {key === 'reminders' && <TickCircleIcon />}
-                {key === 'calendar' && <PieIcon size={20} />}
+                {key === 'calendar' && <CalendarIcon color={tab === key ? T.text : T.dim} />}
                 {key === 'notes' && <PageIcon color={tab === key ? T.text : T.dim} />}
                 {key === 'habits' && <FlameIcon />}
               </View>

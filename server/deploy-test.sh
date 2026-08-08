@@ -59,6 +59,8 @@ rsync -avL $DRY server/public/api/ "$SSH_DEST:$WEB_DEST/api/"
 if [ "$WEB" = 1 ] && [ -d apps/app/dist ]; then
   echo "==> [TEST] web client -> $WEB_DEST/"
   rsync -avL $DRY --exclude 'api' apps/app/dist/ "$SSH_DEST:$WEB_DEST/"
+  # index.html must revalidate; the hashed bundles cache forever.
+  rsync -avL $DRY server/public/web.htaccess "$SSH_DEST:$WEB_DEST/.htaccess"
 fi
 
 # The web user must be able to CREATE the data dir's contents (it owns the data,

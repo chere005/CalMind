@@ -21,6 +21,7 @@ import {
 import { useStore } from '../store';
 import { APP_PALETTES, T } from '../theme';
 import { CircleBtn, ConfirmDelete, Field, Pill } from '../ui';
+import { ordForMove, useRowDrag } from './rowdrag';
 
 export function FolderManager({ app, onClose }: { app: 'reminders' | 'notes'; onClose: () => void }) {
   const { recs, mutate } = useStore();
@@ -47,6 +48,14 @@ export function FolderManager({ app, onClose }: { app: 'reminders' | 'notes'; on
     setErr(m);
     setTimeout(() => setErr(''), 3000);
   };
+
+  const ROW_H = 44;
+  const drag = useRowDrag(folders.length, ROW_H, (from, to) => {
+    const item = folders[from];
+    if (!item) return;
+    const ord = ordForMove(folders, from, to);
+    mutate((e) => e.put({ ...item, payload: { ...item.payload, ord } }));
+  });
 
   const add = () => {
     const name = newName.trim();
@@ -102,8 +111,11 @@ export function FolderManager({ app, onClose }: { app: 'reminders' | 'notes'; on
               <CircleBtn glyph="+" color={T.accent} size={34} onPress={add} />
             </View>
 
-            {folders.map((f) => (
-              <View key={f.id} style={s.row}>
+            {folders.map((f, i) => (
+              <View key={f.id}>
+                {drag.slot === i && <View style={s.dropLine} />}
+                <View style={[s.row, drag.dragIdx === i && { opacity: 0.55, transform: [{ translateY: drag.dragDy }] }]}>
+                <View {...drag.handleFor(i)} style={s.grip} hitSlop={8}><Text style={s.gripText}>≡</Text></View>
                 <CircleBtn glyph=" " size={22} color={f.payload.color} onPress={() => recolor(f)} bg={f.payload.color} />
                 {renaming === f.id ? (
                   <Field
@@ -122,8 +134,10 @@ export function FolderManager({ app, onClose }: { app: 'reminders' | 'notes'; on
                 )}
                 <CircleBtn glyph="✎" size={26} onPress={() => { setRenaming(f.id); setRenameText(f.payload.name); }} />
                 <ConfirmDelete onDelete={() => remove(f)} />
+                </View>
               </View>
             ))}
+            {drag.slot === folders.length && <View style={s.dropLine} />}
 
             <Text style={s.label}>Default for new items</Text>
             <View style={s.rowWrap}>
@@ -155,7 +169,10 @@ const s = StyleSheet.create({
   h2: { color: T.text, fontSize: 18, fontWeight: '700' },
   addRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   addField: { flex: 1 },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 10, height: 44 },
+  grip: { width: 22, alignItems: 'center', justifyContent: 'center' },
+  gripText: { color: T.muted, fontSize: 15, userSelect: 'none' },
+  dropLine: { height: 2, backgroundColor: T.accent, borderRadius: 1, marginVertical: 1 },
   rowText: { color: T.text, fontSize: 15, flex: 1 },
   renameField: { flex: 1, paddingVertical: 6 },
   label: { color: T.dim, fontSize: 13, marginTop: 6 },

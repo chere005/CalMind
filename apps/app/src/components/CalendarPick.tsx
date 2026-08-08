@@ -20,6 +20,7 @@ import {
 import { useStore } from '../store';
 import { APP_PALETTES, T } from '../theme';
 import { CircleBtn, ConfirmDelete, Field, Pill } from '../ui';
+import { ordForMove, useRowDrag } from './rowdrag';
 import { PieDot } from './PieDot';
 
 export type CalendarView = { view: string; hidden: string[]; calendars: Rec<'calendar'>[]; visible: Rec<'calendar'>[] };
@@ -105,6 +106,14 @@ function CalendarManager({ onClose }: { onClose: () => void }) {
     setTimeout(() => setErr(''), 3000);
   };
 
+  const ROW_H = 44;
+  const drag = useRowDrag(calendars.length, ROW_H, (from, to) => {
+    const item = calendars[from];
+    if (!item) return;
+    const ord = ordForMove(calendars, from, to);
+    mutate((e) => e.put({ ...item, payload: { ...item.payload, ord } }));
+  });
+
   const add = () => {
     const name = newName.trim();
     setNewName('');
@@ -157,8 +166,11 @@ function CalendarManager({ onClose }: { onClose: () => void }) {
               <Field value={newName} onChangeText={setNewName} placeholder="New calendar" style={s.addField} onSubmitEditing={add} />
               <CircleBtn glyph="+" color={T.accent} size={34} onPress={add} />
             </View>
-            {calendars.map((c) => (
-              <View key={c.id} style={s.mrow}>
+            {calendars.map((c, i) => (
+              <View key={c.id}>
+                {drag.slot === i && <View style={s.dropLine} />}
+                <View style={[s.mrow, drag.dragIdx === i && { opacity: 0.55, transform: [{ translateY: drag.dragDy }] }]}>
+                <View {...drag.handleFor(i)} style={s.grip} hitSlop={8}><Text style={s.gripText}>≡</Text></View>
                 <CircleBtn glyph=" " size={22} bg={c.payload.color} onPress={() => recolor(c)} />
                 {renaming === c.id ? (
                   <Field
@@ -174,8 +186,10 @@ function CalendarManager({ onClose }: { onClose: () => void }) {
                 )}
                 <CircleBtn glyph="✎" size={26} onPress={() => { setRenaming(c.id); setRenameText(c.payload.name); }} />
                 <ConfirmDelete onDelete={() => remove(c)} />
+                </View>
               </View>
             ))}
+            {drag.slot === calendars.length && <View style={s.dropLine} />}
             <Text style={s.label}>Default for new events</Text>
             <View style={s.rowWrap}>
               {calendars.map((c) => (
@@ -208,7 +222,10 @@ const s = StyleSheet.create({
   addRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   addField: { flex: 1 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 11 },
-  mrow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  mrow: { flexDirection: 'row', alignItems: 'center', gap: 10, height: 44 },
+  grip: { width: 22, alignItems: 'center', justifyContent: 'center' },
+  gripText: { color: T.muted, fontSize: 15, userSelect: 'none' },
+  dropLine: { height: 2, backgroundColor: T.accent, borderRadius: 1, marginVertical: 1 },
   rowMain: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
   dot: { width: 12, height: 12, borderRadius: 6 },
   rowText: { color: T.text, fontSize: 15, flex: 1 },

@@ -57,10 +57,24 @@ honest — the next iteration trusts it.
 - Habit rename in place (tap while pencil is on, or long-press); section fold
   chevrons persisted. 100 core + 15 server tests.
 
-## In flight (iteration 4 — start here)
-- Drag-reorder: rows within/between sections, sections between folders,
-  folder rows in the manager — ord keys ready; needs a portable pan gesture
-  (PanResponder works web+native) with the suite's single drop-line feedback.
+## Iteration 4 shipped
+- Row drag in all three manager windows (folders, calendars, habit sections):
+  ≡ handles, the suite's single drop-line, dim-and-ride row, ord landing via
+  ordForMove. useRowDrag is the portable hook (STABLE per-index responders —
+  rebuilt-per-render handlers dropped the gesture, showing as text selection;
+  release computes from total travel so fast flicks land). BY-EYE: synthetic
+  browser drags can't fully exercise PanResponder — Sean or the Playwright
+  harness must confirm real-mouse reorder before this counts as done.
+- Calendar tab icon is a proper calendar glyph (the pie was always about the
+  folder pickers — clarified); note rows lost their body previews; index.html
+  ships with no-cache (hashed bundles immutable) so stale pages stop happening.
+- Sean's prod pull confirmed visible on test after his page caught up.
+
+## In flight (iteration 5 — start here)
+- Main-list drag-reorder (Reminders/Notes rows and sections, the outline
+  block rules) on the proven useRowDrag — the big one.
+- Playwright harness for gestures (drags, two-press, long-press) against
+  expo web — TESTING.md's by-eye column needs teeth.
 
 ## Next, in pain order
 1. Habits month view (day pies + its legend) + Manage-sections window +

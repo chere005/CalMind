@@ -140,7 +140,6 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
                 {notesOf(sec.id).map((n) => (
                   <Pressable key={n.id} onPress={() => setOpenId(n.id)} style={s.row}>
                     <Text style={s.rowTitle} numberOfLines={1}>{n.payload.title}</Text>
-                    {n.payload.body !== '' && <Text style={s.snippet} numberOfLines={1}>{n.payload.body.replace(/\n/g, ' ')}</Text>}
                     <Text style={s.chev}>›</Text>
                   </Pressable>
                 ))}
@@ -167,8 +166,7 @@ const s = StyleSheet.create({
   secHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
   secName: { color: T.gold, fontSize: 14, fontWeight: '700' },
   row: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8 },
-  rowTitle: { color: T.text, fontSize: 16, flexShrink: 0, maxWidth: '60%' },
-  snippet: { color: T.muted, fontSize: 13, flex: 1 },
+  rowTitle: { color: T.text, fontSize: 16, flex: 1 },
   chev: { color: T.muted, fontSize: 16, marginLeft: 'auto' },
   editor: { padding: 16, gap: 10 },
   title: { color: T.text, fontSize: 20, fontWeight: '700', paddingVertical: 4 },

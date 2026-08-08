@@ -10,6 +10,7 @@ import { byOrd, deleteHabitSection, newId, ordBetween, type Rec } from '@calmind
 import { useStore } from '../store';
 import { APP_PALETTES, T } from '../theme';
 import { CircleBtn, ConfirmDelete, Field, Pill } from '../ui';
+import { ordForMove, useRowDrag } from './rowdrag';
 
 export function HabitSectionManager({ onClose }: { onClose: () => void }) {
   const { recs, mutate } = useStore();
@@ -28,6 +29,14 @@ export function HabitSectionManager({ onClose }: { onClose: () => void }) {
     setErr(m);
     setTimeout(() => setErr(''), 3000);
   };
+
+  const ROW_H = 44;
+  const drag = useRowDrag(sections.length, ROW_H, (from, to) => {
+    const item = sections[from];
+    if (!item) return;
+    const ord = ordForMove(sections, from, to);
+    mutate((e) => e.put({ ...item, payload: { ...item.payload, ord } }));
+  });
 
   const add = () => {
     const name = newName.trim();
@@ -67,8 +76,11 @@ export function HabitSectionManager({ onClose }: { onClose: () => void }) {
               <Field value={newName} onChangeText={setNewName} placeholder="New section" style={s.addField} onSubmitEditing={add} />
               <CircleBtn glyph="+" color={T.accent} size={34} onPress={add} />
             </View>
-            {sections.map((sec) => (
-              <View key={sec.id} style={s.row}>
+            {sections.map((sec, i) => (
+              <View key={sec.id}>
+                {drag.slot === i && <View style={s.dropLine} />}
+                <View style={[s.row, drag.dragIdx === i && { opacity: 0.55, transform: [{ translateY: drag.dragDy }] }]}>
+                <View {...drag.handleFor(i)} style={s.grip} hitSlop={8}><Text style={s.gripText}>≡</Text></View>
                 <CircleBtn
                   glyph=" "
                   size={22}
@@ -101,8 +113,10 @@ export function HabitSectionManager({ onClose }: { onClose: () => void }) {
                     mutate((e) => res.put.forEach((r) => e.put(r)));
                   }}
                 />
+                </View>
               </View>
             ))}
+            {drag.slot === sections.length && <View style={s.dropLine} />}
             {err !== '' && <Text style={s.err}>{err}</Text>}
             <View style={s.doneRow}>
               <Pill label="Done" primary onPress={onClose} />
@@ -121,7 +135,10 @@ const s = StyleSheet.create({
   h2: { color: T.text, fontSize: 18, fontWeight: '700' },
   addRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   addField: { flex: 1 },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 10, height: 44 },
+  grip: { width: 22, alignItems: 'center', justifyContent: 'center' },
+  gripText: { color: T.muted, fontSize: 15, userSelect: 'none' },
+  dropLine: { height: 2, backgroundColor: T.accent, borderRadius: 1, marginVertical: 1 },
   rowText: { color: T.text, fontSize: 15, flex: 1 },
   renameField: { flex: 1, paddingVertical: 6 },
   err: { color: T.danger, fontSize: 13 },

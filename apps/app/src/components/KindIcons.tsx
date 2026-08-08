@@ -58,6 +58,16 @@ export function PageIcon({ size = 20, color = T.dim }: { size?: number; color?: 
   );
 }
 
+export function CalendarIcon({ size = 20, color = T.dim }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24">
+      <Rect x={3} y={5} width={18} height={16} rx={3} fill="none" stroke={color} strokeWidth={2} />
+      <Path d="M 3 10 H 21 M 8 3 V 7 M 16 3 V 7" stroke={color} strokeWidth={2} strokeLinecap="round" />
+      <Circle cx={12} cy={15.5} r={1.8} fill={color} />
+    </Svg>
+  );
+}
+
 export function FlameIcon({ size = 20, color = '#f09a19' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24">
