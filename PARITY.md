@@ -237,12 +237,30 @@ honest — the next iteration trusts it.
   log out → midnight.
 - 126 core + 17 server + 15 gesture tests.
 
-## In flight (iteration 15 — start here)
-- Notes rows show ⧉ always — gate it behind an edit mode when Notes gets one
-  (the suite hides row controls outside edit mode).
-- kind_color_css parity check: dots/chips/tags reading one kind palette.
-- Sharing (the big block): partner lists, share window, @partner views,
-  live ticks in All, shared recolour overrides (APP_PALETTES_SHARED staged).
+## Iteration 15 shipped
+- PAGE EDIT MODE, the suite's body.editing: Reminders and Notes both. Long-
+  press or double-click a row enters it (a reminder also opens inline; a
+  section long-press enters it with its rename field); tap empty space or
+  Escape leaves (capture-phase listener — a focused field swallows Escape
+  before it bubbles). Grips hide OUTSIDE it the suite's way (opacity, not
+  unmount, so nothing shifts) and drags live only inside it; the icon
+  cluster (✎ ⧉ +/‹ ×) rides EVERY top-level row in edit mode now, not just
+  the inline-open one; Notes rows got their edit-gated ⧉ and two-press ×;
+  swipe-delete stands down page-wide in edit mode. Drag specs enter edit
+  mode first, as a finger must; a new spec pins the gate (absent → revealed
+  → Escape).
+- Kind palette check against kind_color_css: overdue corrected to the
+  suite's #f0a860 (was a tailwind orange), note purple #8b6ef0 and done
+  #555 staged as constants; the event blue was already right.
+- 126 core + 17 server + 16 gesture tests.
+
+## In flight (iteration 16 — start here)
+- Sharing (the big block): partner lists (share record type), server mutual
+  gate + shared_pull, share window from Settings, @partner read-only views,
+  then live ticks in All and shared recolour overrides (APP_PALETTES_SHARED
+  staged). Design the server actions carefully: the token must not widen —
+  reads of a partner's data go through BOTH users' stored consent, checked
+  server-side on every request, like share_mutual().
 
 ## Next, in pain order
 1. Habits month view (day pies + its legend) + Manage-sections window +

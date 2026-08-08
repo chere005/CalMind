@@ -54,6 +54,16 @@ export function Reminders() {
   const [editText, setEditText] = useState('');
   const holdCluster = React.useRef(false);
   const swipe = useSwipeLeft();
+  const [pageEdit, setPageEdit] = useState(false);
+  const exitEdit = () => { setPageEdit(false); setEditing(null); };
+  useEffect(() => {
+    if (!pageEdit || typeof document === 'undefined') return;
+    const onKey = (ev: KeyboardEvent) => { if (ev.key === 'Escape') exitEdit(); };
+    // Capture phase: a focused field can swallow Escape before it bubbles.
+    document.addEventListener('keydown', onKey, true);
+    return () => document.removeEventListener('keydown', onKey, true);
+  }, [pageEdit]);
+  const enterEdit = (r: ReminderRec) => { setPageEdit(true); setEditing(r.id); setEditText(r.payload.text); };
   const [addingSection, setAddingSection] = useState<string | null>(null); // folderId
   const [newName, setNewName] = useState('');
   const [renamingSec, setRenamingSec] = useState<string | null>(null);
@@ -323,7 +333,7 @@ export function Reminders() {
                     ref={secDrag.registerHeader(sec.id, f.id)}
                     style={[s.secHead, secDrag.dragging === sec.id && { opacity: 0.55 }]}
                   >
-                    <View testID={`sec-grip-${sec.payload.name}`} {...secDrag.gripFor(sec.id, f.id)} style={s.rowGrip} hitSlop={6}>
+                    <View testID={`sec-grip-${sec.payload.name}`} {...(pageEdit ? secDrag.gripFor(sec.id, f.id) : {})} style={[s.rowGrip, !pageEdit && s.gripHidden]} pointerEvents={pageEdit ? 'auto' : 'none'} hitSlop={6}>
                       <Text style={s.rowGripText}>≡</Text>
                     </View>
                     <Pressable onPress={() => toggleFold(sec.id)} hitSlop={8}>
@@ -351,12 +361,13 @@ export function Reminders() {
                         onPress={() => {
                           const now = Date.now();
                           if (lastSecTap.current.id === sec.id && now - lastSecTap.current.at < 300) {
+                            setPageEdit(true);
                             setRenamingSec(sec.id);
                             setRenameSecText(sec.payload.name);
                           }
                           lastSecTap.current = { id: sec.id, at: now };
                         }}
-                        onLongPress={() => { setRenamingSec(sec.id); setRenameSecText(sec.payload.name); }}
+                        onLongPress={() => { setPageEdit(true); setRenamingSec(sec.id); setRenameSecText(sec.payload.name); }}
                         delayLongPress={350}
                       >
                         <Text style={s.secName}>{sec.payload.name}</Text>
@@ -389,7 +400,7 @@ export function Reminders() {
                         <View
                           testID="rem-row"
                           ref={drag.registerRow(flatIdxOf(r.id))}
-                          {...(editing === r.id ? {} : swipe.handlersFor(r.id))}
+                          {...(pageEdit ? {} : swipe.handlersFor(r.id))}
                           style={[
                             s.row,
                             editing !== r.id && s.rowNoSelect,
@@ -397,46 +408,36 @@ export function Reminders() {
                             drag.dragIdx !== null && flatIdxOf(r.id) === drag.dragIdx && { opacity: 0.55, transform: [{ translateY: drag.dragDy }] },
                           ]}
                         >
-                          <View testID="row-grip" {...drag.handleFor(flatIdxOf(r.id))} style={s.rowGrip} hitSlop={6}>
+                          <View
+                            testID="row-grip"
+                            {...(pageEdit ? drag.handleFor(flatIdxOf(r.id)) : {})}
+                            style={[s.rowGrip, !pageEdit && s.gripHidden]}
+                            pointerEvents={pageEdit ? 'auto' : 'none'}
+                            hitSlop={6}
+                          >
                             <Text style={s.rowGripText}>≡</Text>
                           </View>
                           <Pressable testID="tick" onPress={() => tick(r)} hitSlop={8} style={[s.tick, r.payload.done && s.tickDone]}>
                             {r.payload.done && <Text style={s.tickMark}>✓</Text>}
                           </Pressable>
                           {editing === r.id ? (
-                            <>
-                              <Field
-                                testID="rem-edit"
-                                value={editText}
-                                onChangeText={setEditText}
-                                autoFocus
-                                style={s.editField}
-                                onBlur={() => {
-                                  saveEdit(r);
-                                  // A pointer already down on a cluster button: keep the
-                                  // cluster mounted so its press can land (blur fires between
-                                  // pointerdown and click, and unmounting kills the tap).
-                                  if (holdCluster.current) { holdCluster.current = false; return; }
-                                  if (editText.trim() === '' && r.payload.text === '') mutate((e) => e.del(r.id));
-                                  setEditing(null);
-                                }}
-                                onSubmitEditing={() => { saveEdit(r); setEditing(null); }}
-                              />
-                              <CircleBtn testID="rem-pencil" glyph="✎" size={24} onPressIn={() => { holdCluster.current = true; }} onPress={() => { saveEdit(r); setEditing(null); setModalRec(r); }} />
-                              {r.payload.indent === 0 && (
-                                <CircleBtn testID="rem-dup" glyph="⧉" size={24} onPressIn={() => { holdCluster.current = true; }} onPress={() => {
-                                  saveEdit(r); setEditing(null);
-                                  const res = duplicateItem(recs, r.id, newId);
-                                  if (!('error' in res)) mutate((e) => res.put.forEach((p) => e.put(p)));
-                                }} />
-                              )}
-                              {r.payload.indent === 0 ? (
-                                <CircleBtn glyph="+" size={24} onPressIn={() => { holdCluster.current = true; }} onPress={() => { saveEdit(r); addSubtask(r); }} />
-                              ) : (
-                                <CircleBtn glyph="‹" size={24} onPressIn={() => { holdCluster.current = true; }} onPress={() => { saveEdit(r); setEditing(null); outdent(r); }} />
-                              )}
-                              <ConfirmDelete onPressIn={() => { holdCluster.current = true; }} onDelete={() => { setEditing(null); mutate((e) => e.del(r.id)); }} />
-                            </>
+                            <Field
+                              testID="rem-edit"
+                              value={editText}
+                              onChangeText={setEditText}
+                              autoFocus
+                              style={s.editField}
+                              onBlur={() => {
+                                saveEdit(r);
+                                // A pointer already down on a cluster button: keep the
+                                // cluster mounted so its press can land (blur fires between
+                                // pointerdown and click, and unmounting kills the tap).
+                                if (holdCluster.current) { holdCluster.current = false; return; }
+                                if (editText.trim() === '' && r.payload.text === '') mutate((e) => e.del(r.id));
+                                setEditing(null);
+                              }}
+                              onSubmitEditing={() => { saveEdit(r); setEditing(null); }}
+                            />
                           ) : (
                             <Pressable
                               testID="rem-body"
@@ -444,22 +445,39 @@ export function Reminders() {
                               onPress={() => {
                                 if (swipe.justSwiped()) return;
                                 if (swipe.swiped) { swipe.clear(); return; }
+                                if (pageEdit) { setEditing(r.id); setEditText(r.payload.text); return; }
                                 // Double-click on desktop, as prod: two taps inside 300ms.
                                 const now = Date.now();
-                                if (lastTap.current.id === r.id && now - lastTap.current.at < 300) {
-                                  setEditing(r.id);
-                                  setEditText(r.payload.text);
-                                }
+                                if (lastTap.current.id === r.id && now - lastTap.current.at < 300) enterEdit(r);
                                 lastTap.current = { id: r.id, at: now };
                               }}
-                              onLongPress={() => { setEditing(r.id); setEditText(r.payload.text); }}
+                              onLongPress={() => enterEdit(r)}
                               delayLongPress={350}
                             >
                               <Text style={[s.rowText, r.payload.done && s.rowTextDone]}>{r.payload.text || '…'}</Text>
                               {dueChip(r)}
                             </Pressable>
                           )}
-                          {swipe.swiped === r.id && editing !== r.id && (
+                          {pageEdit && (
+                            <>
+                              <CircleBtn testID="rem-pencil" glyph="✎" size={24} onPressIn={() => { holdCluster.current = true; }} onPress={() => { if (editing === r.id) saveEdit(r); setEditing(null); setModalRec(r); }} />
+                              {r.payload.indent === 0 && (
+                                <CircleBtn testID="rem-dup" glyph="⧉" size={24} onPressIn={() => { holdCluster.current = true; }} onPress={() => {
+                                  if (editing === r.id) saveEdit(r);
+                                  setEditing(null);
+                                  const res = duplicateItem(recs, r.id, newId);
+                                  if (!('error' in res)) mutate((e) => res.put.forEach((p) => e.put(p)));
+                                }} />
+                              )}
+                              {r.payload.indent === 0 ? (
+                                <CircleBtn glyph="+" size={24} onPressIn={() => { holdCluster.current = true; }} onPress={() => { if (editing === r.id) saveEdit(r); addSubtask(r); }} />
+                              ) : (
+                                <CircleBtn glyph="‹" size={24} onPressIn={() => { holdCluster.current = true; }} onPress={() => { if (editing === r.id) saveEdit(r); setEditing(null); outdent(r); }} />
+                              )}
+                              <ConfirmDelete onPressIn={() => { holdCluster.current = true; }} onDelete={() => { setEditing(null); mutate((e) => e.del(r.id)); }} />
+                            </>
+                          )}
+                          {swipe.swiped === r.id && !pageEdit && (
                             <ConfirmDelete
                               testID="swipe-del"
                               forceArmed
@@ -477,6 +495,7 @@ export function Reminders() {
           </View>
         ))}
 
+        {pageEdit && <Pressable style={s.editBackdropFill} onPress={exitEdit} />}
       </ScrollView>
 
       {modalRec && <ItemModal mode="edit" kind="reminder" rec={modalRec} onClose={() => setModalRec(null)} />}
@@ -536,6 +555,9 @@ const s = themed(() => StyleSheet.create({
   askRow: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8 },
   // A swipe target never starts a text selection (a selection terminates the pan).
   rowNoSelect: { userSelect: 'none' } as import('react-native').ViewStyle,
+  // visibility, not display: entering edit mode must not nudge text sideways.
+  gripHidden: { opacity: 0 },
+  editBackdropFill: { minHeight: 160 },
   rowIndented: { paddingLeft: 28 },
   rowBody: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   rowText: { color: T.text, fontSize: 17, flexShrink: 1 },

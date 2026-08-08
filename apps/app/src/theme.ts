@@ -35,9 +35,12 @@ export const THEMES_LIGHT: readonly ThemeName[] = ['sage'];
  */
 export const T = {
   ...THEMES.midnight,
-  overdue: '#fb923c',
+  // The suite's kind palette (kind_color_css) — semantic, never themed.
+  overdue: '#f0a860',
   danger: '#ef4444',
-  folderBlue: '#60a5fa',
+  folderBlue: '#60a5fa', // --k-event: deliberately a blue, never a cyan
+  kindNote: '#8b6ef0',
+  kindDone: '#555555',
 };
 
 let gen = 0;

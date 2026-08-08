@@ -17,6 +17,16 @@ async function dragVert(page: Page, grip: ReturnType<Page['getByTestId']>, dy: n
   await page.mouse.up();
 }
 
+
+/** Long-press a row: the suite's way into page edit mode (grips live there). */
+async function longPress(page: Page, locator: ReturnType<Page['getByTestId']>) {
+  const box = (await locator.boundingBox())!;
+  await page.mouse.move(box.x + 20, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.waitForTimeout(500);
+  await page.mouse.up();
+}
+
 let seq = 0;
 async function signup(page: Page): Promise<string> {
   const user = `e2e${Date.now()}${seq++}`;
@@ -113,6 +123,7 @@ test('a reminder row drags to a new spot and the order survives a reload', async
   // New rows prepend: the list reads beta, alpha. Drag beta below alpha.
   const rows = page.getByTestId('rem-row');
   await expect(rows.first()).toContainText('beta');
+  await longPress(page, page.getByTestId('rem-body').filter({ hasText: 'beta' }));
   const r0 = (await rows.nth(0).boundingBox())!;
   const r1 = (await rows.nth(1).boundingBox())!;
   await dragVert(page, rows.first().getByTestId('row-grip'), r1.y + r1.height / 2 - (r0.y + r0.height / 2) + 8);
@@ -145,6 +156,7 @@ test('a note drags between folders and re-files', async ({ page }) => {
   // Drag the first note down past the second (into the Recipes General).
   const rows = page.getByTestId('note-row');
   await expect(rows).toHaveCount(2);
+  await longPress(page, rows.first());
   const n0 = (await rows.nth(0).boundingBox())!;
   const n1 = (await rows.nth(1).boundingBox())!;
   await dragVert(page, page.getByTestId('note-grip').first(), n1.y + n1.height / 2 - (n0.y + n0.height / 2) + 8);
@@ -164,7 +176,8 @@ test('a reminder drags into an EMPTY section', async ({ page }) => {
   await page.getByTestId('rem-add-field').fill('wander');
   await page.getByTestId('rem-add-field').press('Enter');
   // Target sits ABOVE General (new sections prepend): drag the row UP into
-  // its placeholder, by the placeholder's measured position.
+  // its placeholder, by the placeholder's measured position. Edit mode first.
+  await longPress(page, page.getByTestId('rem-body').filter({ hasText: 'wander' }));
   const hole = (await page.getByTestId('secempty-Target').boundingBox())!;
   const row = (await page.getByTestId('rem-row').first().boundingBox())!;
   await dragVert(page, page.getByTestId('row-grip').first(), hole.y + hole.height / 2 - (row.y + row.height / 2) - 8);
@@ -182,6 +195,9 @@ test('a SECTION drags between folders; a duplicate name refuses', async ({ page 
   await page.getByPlaceholder('New section').fill('Chores');
   await page.getByPlaceholder('New section').press('Enter');
 
+  // Long-press the section name: edit mode is where the grips live.
+  await longPress(page, page.getByText('Chores', { exact: true }));
+  await page.keyboard.press('Tab'); // leave the rename field the long-press opened
   // Drag Chores down into the Calendar folder's block.
   const grip = page.getByTestId('sec-grip-Chores');
   const box = (await grip.boundingBox())!;
@@ -334,4 +350,17 @@ test('a theme picked in Settings repaints the app, syncs, and login stays midnig
   await page.getByText(user, { exact: true }).click();
   await page.getByText('Log out', { exact: true }).click();
   await expect.poll(pageBg, { timeout: 10_000 }).toBe('rgb(17, 17, 17)');
+});
+
+test('edit mode gates the row controls: absent, long-press reveals, Escape leaves', async ({ page }) => {
+  await signup(page);
+  await page.getByTestId('tab-reminders').click();
+  await page.getByTestId('secadd-General').first().click();
+  await page.getByTestId('rem-add-field').fill('gated');
+  await page.getByTestId('rem-add-field').press('Enter');
+  await expect(page.getByTestId('rem-dup')).toBeHidden();
+  await longPress(page, page.getByTestId('rem-body').filter({ hasText: 'gated' }));
+  await expect(page.getByTestId('rem-dup')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('rem-dup')).toBeHidden();
 });

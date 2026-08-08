@@ -3,7 +3,7 @@
  * plus a plain-text body autosaving on the store's debounce. Notes never
  * convert out and never repeat; a date in the title puts one on the calendar.
  */
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { byOrd, richLines, duplicateItem, moveNote, moveSection, moveSectionEmptyingFolder, newId, ordBetween, parseDateFromText, parseWhenFromText, todayStr, type Rec } from '@calmind/core';
 import { useStore } from '../store';
@@ -24,6 +24,16 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
   const [dateOpen, setDateOpen] = useState(false);
   const [bodyEditing, setBodyEditing] = useState(false);
   const swipe = useSwipeLeft();
+  // The suite's page edit mode: long-press a row to enter, tap away or
+  // Escape to leave; grips and row controls exist only inside it.
+  const [pageEdit, setPageEdit] = useState(false);
+  useEffect(() => {
+    if (!pageEdit || typeof document === 'undefined') return;
+    const onKey = (ev: KeyboardEvent) => { if (ev.key === 'Escape') setPageEdit(false); };
+    // Capture phase: a focused field can swallow Escape before it bubbles.
+    document.addEventListener('keydown', onKey, true);
+    return () => document.removeEventListener('keydown', onKey, true);
+  }, [pageEdit]);
   const [dateField, setDateField] = useState('');
   const [goesOpen, setGoesOpen] = useState(false);
   const [delArmed, setDelArmed] = useState(false);
@@ -296,7 +306,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
                   ref={secDrag.registerHeader(sec.id, f.id)}
                   style={[s.secHead, secDrag.dragging === sec.id && { opacity: 0.55 }]}
                 >
-                  <View testID={`nsec-grip-${sec.payload.name}`} {...secDrag.gripFor(sec.id, f.id)} style={s.rowGrip} hitSlop={6}>
+                  <View testID={`nsec-grip-${sec.payload.name}`} {...(pageEdit ? secDrag.gripFor(sec.id, f.id) : {})} style={[s.rowGrip, !pageEdit && s.gripHidden]} pointerEvents={pageEdit ? 'auto' : 'none'} hitSlop={6}>
                     <Text style={s.rowGripText}>≡</Text>
                   </View>
                   <Text style={s.secName}>{sec.payload.name}</Text>
@@ -315,19 +325,30 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
                 {notesOf(sec.id).map((n) => (
                   <View key={n.id}>
                     {drag.slot !== null && flatIdxOf(n.id) === drag.slot && <View style={s.dropLine} />}
-                    <View ref={drag.registerRow(flatIdxOf(n.id))} {...swipe.handlersFor(n.id)} style={[s.row, s.rowNoSelect, drag.dragIdx !== null && flatIdxOf(n.id) === drag.dragIdx && { opacity: 0.55, transform: [{ translateY: drag.dragDy }] }]}>
-                      <View testID="note-grip" {...drag.handleFor(flatIdxOf(n.id))} style={s.rowGrip} hitSlop={6}>
+                    <View ref={drag.registerRow(flatIdxOf(n.id))} {...(pageEdit ? {} : swipe.handlersFor(n.id))} style={[s.row, s.rowNoSelect, drag.dragIdx !== null && flatIdxOf(n.id) === drag.dragIdx && { opacity: 0.55, transform: [{ translateY: drag.dragDy }] }]}>
+                      <View testID="note-grip" {...(pageEdit ? drag.handleFor(flatIdxOf(n.id)) : {})} style={[s.rowGrip, !pageEdit && s.gripHidden]} pointerEvents={pageEdit ? 'auto' : 'none'} hitSlop={6}>
                         <Text style={s.rowGripText}>≡</Text>
                       </View>
-                      <Pressable testID="note-row" onPress={() => { if (swipe.justSwiped()) return; if (swipe.swiped) { swipe.clear(); return; } setOpenId(n.id); }} style={s.rowBody}>
+                      <Pressable
+                        testID="note-row"
+                        onPress={() => { if (swipe.justSwiped()) return; if (swipe.swiped) { swipe.clear(); return; } setOpenId(n.id); }}
+                        onLongPress={() => setPageEdit(true)}
+                        delayLongPress={350}
+                        style={s.rowBody}
+                      >
                         <Text style={s.rowTitle} numberOfLines={1}>{n.payload.title}</Text>
                         <Text style={s.chev}>›</Text>
                       </Pressable>
-                      <CircleBtn glyph="⧉" size={22} onPress={() => {
-                        const res = duplicateItem(recs, n.id, newId);
-                        if (!('error' in res)) mutate((e) => res.put.forEach((p) => e.put(p)));
-                      }} />
-                      {swipe.swiped === n.id && (
+                      {pageEdit && (
+                        <>
+                          <CircleBtn testID="note-dup" glyph="⧉" size={22} onPress={() => {
+                            const res = duplicateItem(recs, n.id, newId);
+                            if (!('error' in res)) mutate((e) => res.put.forEach((p) => e.put(p)));
+                          }} />
+                          <ConfirmDelete onDelete={() => mutate((e) => e.del(n.id))} />
+                        </>
+                      )}
+                      {swipe.swiped === n.id && !pageEdit && (
                         <ConfirmDelete forceArmed onDelete={() => { swipe.clear(); mutate((e) => e.del(n.id)); }} />
                       )}
                     </View>
@@ -338,6 +359,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
             {secDrag.lineKey === `end:${f.id}` && <View style={s.dropLine} />}
           </View>
         ))}
+        {pageEdit && <Pressable style={s.editBackdropFill} onPress={() => setPageEdit(false)} />}
       </ScrollView>
       {emptyAsk && (
         <Modal transparent animationType="fade" onRequestClose={() => setEmptyAsk(null)}>
@@ -380,6 +402,8 @@ const s = themed(() => StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 8, height: 44 },
   rowBody: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
   rowNoSelect: { userSelect: 'none' } as import('react-native').ViewStyle,
+  gripHidden: { opacity: 0 },
+  editBackdropFill: { minHeight: 160 },
   rowGrip: { width: 16, alignItems: 'center', justifyContent: 'center' },
   rowGripText: { color: T.lineSoft, fontSize: 13, userSelect: 'none' },
   dropLine: { height: 2, backgroundColor: T.accent, borderRadius: 1, marginVertical: 1 },
