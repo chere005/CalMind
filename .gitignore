@@ -20,3 +20,6 @@ server/data/
 .DS_Store
 .claude/ralph-loop.local.md
 desktop/src-tauri/target/
+
+# Playwright writes failure artefacts here; they are never source.
+test-results/
