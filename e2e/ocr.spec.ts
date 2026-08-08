@@ -15,13 +15,17 @@ test('the recipe importer reads photos into a formatted note', async ({ page }) 
   await page.getByTestId('secadd-General').first().click();
   await page.getByPlaceholder('New note').fill('x');
   await page.getByPlaceholder('New note').press('Enter');
-  // Clear the title so the importer may claim it.
+  // Clear the title so the importer may claim it, then open the Recipe page
+  // — photos are picked from ITS camera button now, not the note editor.
   await page.getByPlaceholder('Title').fill('');
-  const chooser = page.waitForEvent('filechooser');
   await page.getByTestId('recipe-import').click();
+  const chooser = page.waitForEvent('filechooser');
+  await page.getByTestId('recipe-photos').click();
   await (await chooser).setFiles('/tmp/recipe-card.svg.png');
-  await expect(page.getByPlaceholder('Title')).toHaveValue(/Midnight Pancakes/i, { timeout: 100_000 });
-  await page.getByPlaceholder('Title').click(); // blur any state
+  await expect(page.getByTestId('recipe-title')).toHaveValue(/Midnight Pancakes/i, { timeout: 100_000 });
+  await page.getByTestId('recipe-save').click();
+  // Saved back into the note: title claimed, marker body rendered.
+  await expect(page.getByPlaceholder('Title')).toHaveValue(/Midnight Pancakes/i);
   const body = await page.getByTestId('note-body-view').innerText();
   expect(body.toLowerCase()).toContain('flour');
   expect(body).toContain('•'); // the ingredient bullets rendered

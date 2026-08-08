@@ -6,7 +6,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { byOrd, richLines, duplicateItem, formatRecipe, prefsPut, moveNote, moveSection, moveSectionEmptyingFolder, newId, ordBetween, parseDateFromText, parseWhenFromText, todayStr, type Rec } from '@calmind/core';
+import { deleteSection, renameSection, byOrd, richLines, duplicateItem, formatRecipe, prefsPut, moveNote, moveSection, moveSectionEmptyingFolder, newId, ordBetween, parseDateFromText, parseWhenFromText, todayStr, type Rec } from '@calmind/core';
 import { useStore } from '../store';
 import { themed, T } from '../theme';
 import { TopBar } from '../chrome';
@@ -17,7 +17,7 @@ import { useRowDrag } from '../components/rowdrag';
 import { useSectionDrag, type SectionSlot } from '../components/sectiondrag';
 import { useSwipeLeft } from '../components/swiperow';
 import { Chevron } from '../components/Chevron';
-import { ocrImages } from '../components/ocr';
+import { RecipeEditor } from './RecipeEditor';
 
 export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | null; onOpenConsumed?: () => void }) {
   const { recs, mutate, sharedRecs, sharedPartnerLabel } = useStore();
@@ -27,31 +27,8 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
   const [sel, setSel] = useState({ start: 0, end: 0 });
   const [dateOpen, setDateOpen] = useState(false);
   const [bodyEditing, setBodyEditing] = useState(false);
-  const [ocrBusy, setOcrBusy] = useState('');
-  // The recipe importer: pick photos, read their text, format, land it in
-  // THIS note — title too when one is obvious and ours is still blank.
-  const importRecipe = async () => {
-    if (!open) return;
-    try {
-      const ImagePicker = await import('expo-image-picker');
-      const picked = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
-        allowsMultipleSelection: true,
-        quality: 0.9,
-      });
-      if (picked.canceled || picked.assets.length === 0) return;
-      setOcrBusy(`Reading 0/${picked.assets.length}…`);
-      const pages = await ocrImages(picked.assets.map((a) => a.uri), (d, t) => setOcrBusy(`Reading ${d}/${t}…`));
-      const r = formatRecipe(pages);
-      const nextTitle = r.title && (!open.payload.title || open.payload.title === 'Untitled') ? r.title : open.payload.title;
-      const nextBody = open.payload.body ? open.payload.body + '\n\n' + r.body : r.body;
-      mutate((e) => e.put({ ...open, payload: { ...open.payload, title: nextTitle, body: nextBody } }));
-      setOcrBusy('');
-    } catch (err) {
-      setOcrBusy(err instanceof Error ? err.message : 'could not read the photos');
-      setTimeout(() => setOcrBusy(''), 4000);
-    }
-  };
+  const [recipeOpen, setRecipeOpen] = useState(false);
+
   const swipe = useSwipeLeft();
   // The suite's page edit mode: long-press a row to enter, tap away or
   // Escape to leave; grips and row controls exist only inside it.
@@ -150,6 +127,9 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
   const emptyIdxOf = (sectionId: string) => flatRows.findIndex((x) => x.kind === 'empty' && x.sectionId === sectionId);
 
   const [emptyAsk, setEmptyAsk] = useState<{ sectionId: string; slot: SectionSlot } | null>(null);
+  const [renamingSec, setRenamingSec] = useState<string | null>(null);
+  const [renameSecText, setRenameSecText] = useState('');
+  const lastSecTap = React.useRef<{ id: string; at: number }>({ id: '', at: 0 });
   const secDrag = useSectionDrag((sectionId, slot) => {
     const res = moveSection(recs, sectionId, slot.folderId, slot.beforeSectionId);
     if (!('error' in res)) {
@@ -271,8 +251,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
             <Pill label="I" onPress={() => wrapSel('*')} />
             <Pill label="U" onPress={() => wrapSel('__')} />
             <Pill label="· List" onPress={() => linePrefix('- ')} />
-            <Pill testID="recipe-import" label="📷 Recipe" onPress={() => void importRecipe()} />
-            {ocrBusy !== '' && <Text style={s.ocrBusy}>{ocrBusy}</Text>}
+            <Pill testID="recipe-import" label="Recipe" onPress={() => setRecipeOpen(true)} />
           </View>
           {dateOpen && (
             <View style={s.metaRow}>
@@ -335,6 +314,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
             </Pressable>
           )}
 
+          {recipeOpen && <RecipeEditor note={open} onClose={() => setRecipeOpen(false)} />}
           {/* Saved sits bottom-left; the two-press delete bottom-right. */}
           <View style={s.footRow}>
             <Text style={s.saved}>{'Saved'}</Text>
@@ -382,8 +362,49 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
                   <Pressable onPress={() => toggleNFold(sec.id)} hitSlop={8} style={s.chevWrap}>
                     <Chevron open={!nfolded.has(sec.id)} />
                   </Pressable>
-                  <Text style={s.secName}>{sec.payload.name}</Text>
+                  {renamingSec === sec.id ? (
+                    <Field
+                      testID="nsec-rename"
+                      value={renameSecText}
+                      onChangeText={setRenameSecText}
+                      autoFocus
+                      style={s.secRename}
+                      onBlur={() => {
+                        setRenamingSec(null);
+                        const res = renameSection(recs, sec.id, renameSecText);
+                        if (!('error' in res)) mutate((e) => res.put.forEach((r) => e.put(r)));
+                      }}
+                      onSubmitEditing={() => {
+                        setRenamingSec(null);
+                        const res = renameSection(recs, sec.id, renameSecText);
+                        if (!('error' in res)) mutate((e) => res.put.forEach((r) => e.put(r)));
+                      }}
+                    />
+                  ) : (
+                    <Pressable
+                      testID={`nsec-name-${sec.payload.name}`}
+                      onPress={() => {
+                        const now = Date.now();
+                        if (lastSecTap.current.id === sec.id && now - lastSecTap.current.at < 300) {
+                          setPageEdit(true);
+                          setRenamingSec(sec.id);
+                          setRenameSecText(sec.payload.name);
+                        }
+                        lastSecTap.current = { id: sec.id, at: now };
+                      }}
+                      onLongPress={() => { setPageEdit(true); setRenamingSec(sec.id); setRenameSecText(sec.payload.name); }}
+                      delayLongPress={350}
+                    >
+                      <Text style={s.secName}>{sec.payload.name}</Text>
+                    </Pressable>
+                  )}
                   <CircleBtn testID={`secadd-${sec.payload.name}`} glyph="+" color={T.accent} size={22} onPress={() => { setAdding(sec.id); setAddText(''); }} />
+                  {pageEdit && (
+                    <ConfirmDelete testID={`nsecdel-${sec.payload.name}`} size={22} onDelete={() => {
+                      const res = deleteSection(recs, sec.id);
+                      if (!('error' in res)) mutate((e) => res.put.forEach((r) => e.put(r)));
+                    }} />
+                  )}
                 </View>
                 {adding === sec.id && (
                   <Field value={addText} onChangeText={setAddText} placeholder="New note" autoFocus onBlur={() => addNote(sec)} onSubmitEditing={() => addNote(sec)} />
@@ -439,7 +460,9 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
             .map((f) => (
               <View key={`sh${f.id}`} style={s.folderBlock}>
                 <View style={s.folderHead}>
-                  <Text style={[s.folderName, { backgroundColor: f.payload.color + '33' }]}>@{sharedPartnerLabel}: {f.payload.name}</Text>
+                  <Text style={[s.folderName, { backgroundColor: f.payload.color + '33' }]}>{f.payload.name}</Text>
+                  <View style={s.folderRule} />
+                  <Text style={s.ownerBadge}>{sharedPartnerLabel}</Text>
                   <View style={s.folderRule} />
                 </View>
                 {sharedRecs
@@ -610,9 +633,11 @@ const s = themed(() => StyleSheet.create({
     borderRadius: 999,
     overflow: 'hidden',
   },
+  ownerBadge: { color: T.accent, fontSize: 12, fontWeight: '700', backgroundColor: T.accentSoft, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3, overflow: 'hidden' },
   folderRule: { flex: 1, height: 1, backgroundColor: T.lineSoft },
   section: { gap: 6 },
   secHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
+  secRename: { flex: 1, paddingVertical: 4 },
   secName: { color: T.gold, fontSize: 16, lineHeight: 20, fontWeight: '600' },
   chevron: { color: T.dim, fontSize: 16, width: 20, textAlign: 'center' },
   chevWrap: { width: 20, alignItems: 'center', justifyContent: 'center' },
