@@ -393,12 +393,18 @@ test('sharing: mutual handshake, @partner view, a tick lands in their store', as
   await pageB.getByTestId('share-add-partner').fill(userA);
   await pageB.getByTestId('share-add-partner').press('Enter');
   await expect(pageB.getByText('sharing', { exact: true })).toBeVisible({ timeout: 10_000 });
+  // Rename the entry: a display label, mine alone — the key never moves.
+  await pageB.getByText('✎', { exact: true }).first().click();
+  await pageB.locator('input:focus').fill('Buddy');
+  await pageB.locator('input:focus').press('Enter');
+  await expect(pageB.getByText('Buddy', { exact: true })).toBeVisible();
   await pageB.getByText('Done', { exact: true }).click();
 
-  // B opens @A: Reminders and ticks A's row.
+  // B opens @A: Reminders and ticks A's row — the picker wears the label.
   await pageB.getByTestId('tab-reminders').click();
   await pageB.getByTestId('pick-reminders').click();
   await pageB.getByTestId('pick-shared-Reminders').click();
+  await expect(pageB.getByText('@Buddy: Reminders')).toBeVisible();
   await expect(pageB.getByText('peel garlic')).toBeVisible();
   await pageB.getByTestId('shared-tick').first().click();
   await expect(pageB.getByText('peel garlic')).toBeHidden({ timeout: 10_000 });

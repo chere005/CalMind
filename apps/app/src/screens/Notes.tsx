@@ -18,7 +18,7 @@ import { useSectionDrag, type SectionSlot } from '../components/sectiondrag';
 import { useSwipeLeft } from '../components/swiperow';
 
 export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | null; onOpenConsumed?: () => void }) {
-  const { recs, mutate, sharedRecs } = useStore();
+  const { recs, mutate, sharedRecs, sharedPartnerLabel } = useStore();
   const { view, visible: visibleFolders, sharedView, sharedPartner } = useFolderView('notes');
   const setNotePrefs = (lastView: string) => mutate((e) => e.put(prefsPut(recs, 'notes', { lastView })));
   const [openId, setOpenId] = useState<string | null>(null);
@@ -396,7 +396,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
             .map((f) => (
               <View key={`sh${f.id}`} style={s.folderBlock}>
                 <View style={s.folderHead}>
-                  <Text style={[s.folderName, { backgroundColor: f.payload.color + '33' }]}>@{sharedPartner}: {f.payload.name}</Text>
+                  <Text style={[s.folderName, { backgroundColor: f.payload.color + '33' }]}>@{sharedPartnerLabel}: {f.payload.name}</Text>
                   <View style={s.folderRule} />
                 </View>
                 {sharedRecs
@@ -459,7 +459,8 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
  * both stay theirs; live shared note editing is a later milestone.
  */
 function SharedNotes({ viewKey, partner }: { viewKey: string; partner: string }) {
-  const { sharedRecs, sharedPut } = useStore();
+  const { sharedRecs, sharedPut, sharedPartnerLabel } = useStore();
+  const shown = sharedPartnerLabel ?? partner;
   const folderId = viewKey.slice(viewKey.indexOf(':') + 1);
   const folder = sharedRecs.find((r): r is Rec<'folder'> => r.type === 'folder' && r.id === folderId);
   const sections = sharedRecs
@@ -486,7 +487,7 @@ function SharedNotes({ viewKey, partner }: { viewKey: string; partner: string })
       <View style={s.page}>
         <View style={s.edHead}>
           <Pressable style={s.ddPill} onPress={() => setOpenShared(null)}>
-            <Text style={s.backText}>← @{partner}: {folder?.payload.name ?? ''}</Text>
+            <Text style={s.backText}>← @{shown}: {folder?.payload.name ?? ''}</Text>
           </Pressable>
         </View>
         <ScrollView contentContainerStyle={s.editor}>
@@ -526,7 +527,7 @@ function SharedNotes({ viewKey, partner }: { viewKey: string; partner: string })
       <TopBar title="Notes" picker={<FolderPick app="notes" />} />
       <ScrollView contentContainerStyle={s.scroll}>
         <View style={s.folderHead}>
-          <Text style={s.sharedFolderChip}>@{partner}: {folder?.payload.name ?? '…'}</Text>
+          <Text style={s.sharedFolderChip}>@{shown}: {folder?.payload.name ?? '…'}</Text>
         </View>
         {sections.map((sec) => (
           <View key={sec.id} style={s.section}>

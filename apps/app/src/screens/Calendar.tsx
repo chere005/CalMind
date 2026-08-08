@@ -39,7 +39,7 @@ const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 let calDay: string | null = null;
 
 export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => void }) {
-  const { recs, mutate, sharedRecs, sharedPartner, sharedPut } = useStore();
+  const { recs, mutate, sharedRecs, sharedPartner, sharedPartnerLabel, sharedPut } = useStore();
   const { visible: visibleCals, calendars, visibleShared } = useCalendarView();
   const today = todayStr();
   const [ym, setYm] = useState((calDay ?? today).slice(0, 7));
@@ -208,7 +208,7 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
             {sharedLegend.map((l) => (
               <View key={`sh:${l.kind}:${l.id}`} style={s.legendItem}>
                 {l.kind === 'event' ? <CalGlyph color={l.color} /> : l.kind === 'reminder' ? <TickBoxGlyph color={l.color} /> : <PageGlyph color={l.color} />}
-                <Text style={[s.legendText, s.legendShared]}>@{sharedPartner}: {l.name}</Text>
+                <Text style={[s.legendText, s.legendShared]}>@{sharedPartnerLabel}: {l.name}</Text>
               </View>
             ))}
           </View>
@@ -249,7 +249,7 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
         {sharedItems.events.length > 0 && (
           <Pressable style={s.groupHead} onPress={() => toggleFold('events:@')}>
             <Text style={s.chev}>{folded.has('events:@') ? '▸' : '▾'}</Text>
-            <Text style={[s.groupTitle, s.groupTitleShared]}>{sharedPartner}'s events</Text>
+            <Text style={[s.groupTitle, s.groupTitleShared]}>{sharedPartnerLabel}'s events</Text>
           </Pressable>
         )}
         {!folded.has('events:@') && sharedItems.events.map((e) => (
@@ -276,7 +276,7 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
         {sharedItems.reminders.filter(({ rec: r }) => !r.payload.done).length > 0 && (
           <Pressable style={s.groupHead} onPress={() => toggleFold('reminders:@')}>
             <Text style={s.chev}>{folded.has('reminders:@') ? '▸' : '▾'}</Text>
-            <Text style={[s.groupTitle, s.groupTitleShared]}>{sharedPartner}'s reminders</Text>
+            <Text style={[s.groupTitle, s.groupTitleShared]}>{sharedPartnerLabel}'s reminders</Text>
           </Pressable>
         )}
         {!folded.has('reminders:@') && sharedItems.reminders.filter(({ rec: r }) => !r.payload.done).map(({ rec: r, overdue }) => (

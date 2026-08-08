@@ -52,7 +52,7 @@ export function useCalendarView(): CalendarView {
 }
 
 export function CalendarPick() {
-  const { recs, mutate } = useStore();
+  const { recs, mutate, sharedPartnerLabel } = useStore();
   const { view, hidden, calendars, visible, sharedCals, hiddenShared, sharedPartner } = useCalendarView();
   const [open, setOpen] = useState(false);
   const [manage, setManage] = useState(false);
@@ -98,7 +98,7 @@ export function CalendarPick() {
                     <View key={c.id} style={s.row}>
                       <View style={s.rowMain}>
                         <View style={[s.dot, { backgroundColor: c.payload.color }]} />
-                        <Text style={s.rowText}>@{sharedPartner}: {c.payload.name}</Text>
+                        <Text style={s.rowText}>@{sharedPartnerLabel}: {c.payload.name}</Text>
                       </View>
                       <Pressable
                         testID={`calshared-box-${c.payload.name}`}
@@ -125,7 +125,7 @@ export function CalendarPick() {
 }
 
 function CalendarManager({ onClose }: { onClose: () => void }) {
-  const { recs, mutate, sharedRecs, sharedPartner } = useStore();
+  const { recs, mutate, sharedRecs, sharedPartner, sharedPartnerLabel } = useStore();
   // The viewer's recolour of a partner's shared calendar — my override, my
   // prefs, the lighter shared palette, their data untouched.
   const sharedCalRows = sharedPartner ? sharedRecs.filter((r): r is Rec<'calendar'> => r.type === 'calendar') : [];
@@ -244,7 +244,7 @@ function CalendarManager({ onClose }: { onClose: () => void }) {
                 {sharedCalRows.map((c) => (
                   <View key={c.id} style={s.mrow}>
                     <CircleBtn glyph=" " size={22} onPress={() => recolorSharedCal(c)} bg={c.payload.color} />
-                    <Text style={s.sharedCalName}>@{sharedPartner}: {c.payload.name}</Text>
+                    <Text style={s.sharedCalName}>@{sharedPartnerLabel}: {c.payload.name}</Text>
                   </View>
                 ))}
               </>

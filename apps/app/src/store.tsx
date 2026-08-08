@@ -8,7 +8,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { SyncEngine, normalize, prefsOf, folderApp, type AnyRec, type Rec } from '@calmind/core';
+import { SyncEngine, normalize, prefsOf, folderApp, shareOf, type AnyRec, type Rec } from '@calmind/core';
 import { apiPost, type Session, syncTransport, ApiError } from './api';
 import { pushWatchList } from './watch';
 import { applyTheme, type ThemeName } from './theme';
@@ -35,6 +35,8 @@ type Store = {
    *  engine — a partner's store is not ours to hold a cursor into. */
   partners: PartnerBadge[];
   sharedPartner: string | null;
+  /** My display label for the partner (share-window rename), else the name. */
+  sharedPartnerLabel: string | null;
   sharedRecs: AnyRec[];
   sharedPut: (rec: AnyRec) => Promise<void>;
 };
@@ -159,6 +161,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   // The suite's folder_shared_color(): the viewer's own recolour override
   // wins over the owner's colour, resolved HERE so the picker, the shared
   // views, the All blocks, the cells and the legend all follow for free.
+  const sharedPartnerLabel = React.useMemo(
+    () => (sharedPartner ? shareOf(recs).labels?.[sharedPartner] ?? sharedPartner : null),
+    [recs, sharedPartner],
+  );
+
   const sharedRecs = React.useMemo(() => {
     if (!sharedPartner || sharedRaw.length === 0) return sharedRaw;
     const key = (id: string) => `@${sharedPartner}:${id}`;
@@ -228,7 +235,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, [syncNow]);
 
   return (
-    <Ctx.Provider value={{ ready, session, recs, syncState, signIn, signOut, setSession, mutate, syncNow, partners, sharedPartner, sharedRecs, sharedPut }}>
+    <Ctx.Provider value={{ ready, session, recs, syncState, signIn, signOut, setSession, mutate, syncNow, partners, sharedPartner, sharedPartnerLabel, sharedRecs, sharedPut }}>
       {children}
     </Ctx.Provider>
   );

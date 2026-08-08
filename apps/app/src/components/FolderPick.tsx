@@ -47,7 +47,7 @@ export function useFolderView(app: 'reminders' | 'notes'): FolderView {
 }
 
 export function FolderPick({ app }: { app: 'reminders' | 'notes' }) {
-  const { recs, mutate } = useStore();
+  const { recs, mutate, sharedPartnerLabel } = useStore();
   const { view, hidden, folders, visible, sharedFolders, sharedPartner, sharedView } = useFolderView(app);
   const [open, setOpen] = useState(false);
   const [manage, setManage] = useState(false);
@@ -97,7 +97,7 @@ export function FolderPick({ app }: { app: 'reminders' | 'notes' }) {
                   return (
                     <Pressable key={key} testID={`pick-shared-${f.payload.name}`} style={s.row} onPress={() => { setPrefs({ lastView: key }); setOpen(false); }}>
                       <View style={[s.dot, { backgroundColor: f.payload.color }]} />
-                      <Text style={[s.rowText, sharedView === key && s.rowActive]}>@{sharedPartner}: {f.payload.name}</Text>
+                      <Text style={[s.rowText, sharedView === key && s.rowActive]}>@{sharedPartnerLabel}: {f.payload.name}</Text>
                     </Pressable>
                   );
                 })}

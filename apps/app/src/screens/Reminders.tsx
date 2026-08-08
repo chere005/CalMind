@@ -46,7 +46,7 @@ type ReminderRec = Rec<'reminder'>;
 const FOLD_KEY = 'calmind.folded.reminders';
 
 export function Reminders() {
-  const { recs, session, mutate, sharedRecs, sharedPut } = useStore();
+  const { recs, session, mutate, sharedRecs, sharedPut, sharedPartnerLabel } = useStore();
   const { view, visible: visibleFolders, sharedView, sharedPartner } = useFolderView('reminders');
   const [showDone, setShowDone] = useState(false);
   const [adding, setAdding] = useState<string | null>(null); // sectionId with the open add row
@@ -521,7 +521,7 @@ export function Reminders() {
             .map((f) => (
               <View key={`sh${f.id}`} style={s.folderBlock}>
                 <View style={s.folderHead}>
-                  <Text style={[s.folderName, { backgroundColor: f.payload.color + '33' }]}>@{sharedPartner}: {f.payload.name}</Text>
+                  <Text style={[s.folderName, { backgroundColor: f.payload.color + '33' }]}>@{sharedPartnerLabel}: {f.payload.name}</Text>
                   <View style={s.folderRule} />
                 </View>
                 {sharedRecs
@@ -589,7 +589,8 @@ export function Reminders() {
  * still adds a row into their section, as the suite allows.
  */
 function SharedReminders({ viewKey, partner }: { viewKey: string; partner: string }) {
-  const { sharedRecs, sharedPut } = useStore();
+  const { sharedRecs, sharedPut, sharedPartnerLabel } = useStore();
+  const shown = sharedPartnerLabel ?? partner;
   const today = todayStr();
   const folderId = viewKey.slice(viewKey.indexOf(':') + 1);
   const folder = sharedRecs.find((r): r is Rec<'folder'> => r.type === 'folder' && r.id === folderId);
@@ -611,7 +612,7 @@ function SharedReminders({ viewKey, partner }: { viewKey: string; partner: strin
       <TopBar title="Reminders" picker={<FolderPick app="reminders" />} />
       <ScrollView contentContainerStyle={s.scroll}>
         <View style={s.folderHead}>
-          <Text style={[s.folderName, { backgroundColor: (folder?.payload.color ?? '#888888') + '33' }]}>@{partner}: {folder?.payload.name ?? '…'}</Text>
+          <Text style={[s.folderName, { backgroundColor: (folder?.payload.color ?? '#888888') + '33' }]}>@{shown}: {folder?.payload.name ?? '…'}</Text>
         </View>
         {sections.map((sec) => (
           <View key={sec.id} style={s.section}>

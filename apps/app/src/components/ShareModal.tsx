@@ -17,6 +17,8 @@ export function ShareModal({ onClose }: { onClose: () => void }) {
   const { recs, mutate, partners, syncNow } = useStore();
   const share = shareOf(recs);
   const [newPartner, setNewPartner] = useState('');
+  const [renaming, setRenaming] = useState<string | null>(null);
+  const [labelText, setLabelText] = useState('');
 
   const putShare = (next: Share) => {
     mutate((e) => e.put({ id: SHARE_ID, type: 'share', updated: 0, payload: next } as AnyRec));
@@ -62,8 +64,27 @@ export function ShareModal({ onClose }: { onClose: () => void }) {
             )}
             {share.partners.map((name) => (
               <View key={name} style={s.row}>
-                <Text style={s.partnerName}>{name}</Text>
+                {renaming === name ? (
+                  <Field
+                    value={labelText}
+                    onChangeText={setLabelText}
+                    autoFocus
+                    style={s.addField}
+                    onBlur={() => setRenaming(null)}
+                    onSubmitEditing={() => {
+                      setRenaming(null);
+                      const label = labelText.trim();
+                      const labels = { ...share.labels };
+                      if (label && label !== name) labels[name] = label;
+                      else delete labels[name];
+                      putShare({ ...share, labels });
+                    }}
+                  />
+                ) : (
+                  <Text style={s.partnerName}>{share.labels?.[name] ?? name}</Text>
+                )}
                 <Text style={[s.badge, badge(name) === 'sharing' && s.badgeOn]}>{badge(name)}</Text>
+                <CircleBtn glyph="✎" size={24} onPress={() => { setRenaming(name); setLabelText(share.labels?.[name] ?? name); }} />
                 <ConfirmDelete
                   size={24}
                   onDelete={() => putShare({ ...share, partners: share.partners.filter((p) => p !== name) })}

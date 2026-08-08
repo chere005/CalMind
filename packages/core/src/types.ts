@@ -112,6 +112,7 @@ export type Share = {
   calendars: string[]; // calendar record ids
   folders: string[]; // reminder folder ids
   notefolders: string[]; // note folder ids
+  labels?: Record<string, string>; // my display name for a partner (rename never touches the key)
 };
 
 export const SHARE_ID = 'share';
@@ -124,6 +125,7 @@ export function shareOf(recs: AnyRec[], id: string = SHARE_ID): Share {
     calendars: p?.calendars ?? [],
     folders: p?.folders ?? [],
     notefolders: p?.notefolders ?? [],
+    labels: p?.labels ?? {},
   };
 }
 
