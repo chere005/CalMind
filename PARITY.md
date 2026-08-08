@@ -309,13 +309,24 @@ honest — the next iteration trusts it.
   expo emits none, and the home-screen icon read as broken without it.
   Verified live on test.
 
-## In flight (iteration 18 — start here)
-- All-view partner blocks in Reminders/Notes (their structure read-only,
-  ticks live, like the suite's All listing).
+## Iteration 18 shipped — sharing rounds out
+- ALL-VIEW PARTNER BLOCKS: in Reminders and Notes the partner's shared
+  folders follow my blocks on the All canvas — wash chip '@partner: Name',
+  their sections and rows, structure read-only, TICKS LIVE right there
+  (the suite's All rule); a partner note row hops to the @partner view.
+- SHARED NOTE EDITING: the @partner note opens rendered, a tap swaps in the
+  marker field, and the body commits to THEIR store on blur (sharedPut) —
+  reads and writes both go to the partner's file, structure alone refused.
+- Specs extended in place: B ticks A's row on the All canvas; B edits the
+  shared body and A reads 'then onions' in their own editor.
+- 126 core + 20 server + 18 gesture tests.
+
+## In flight (iteration 19 — start here)
 - Shared recolour overrides (viewer-side, APP_PALETTES_SHARED lighter tier).
-- Shared note body editing through sharedPut.
 - Add app: a shared destination picker pair (mine / partner's, exactly one
   owner selected), like the suite's day-panel add window.
+- Widget feed: partner riders? (check the suite — feed is own-data only).
+- Habits 8th wide-only column; drag known-simplifications sweep.
 
 ## Next, in pain order
 1. Habits month view (day pies + its legend) + Manage-sections window +

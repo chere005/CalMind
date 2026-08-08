@@ -5,7 +5,7 @@
  */
 import React, { useEffect, useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { byOrd, richLines, duplicateItem, moveNote, moveSection, moveSectionEmptyingFolder, newId, ordBetween, parseDateFromText, parseWhenFromText, todayStr, type Rec } from '@calmind/core';
+import { byOrd, richLines, duplicateItem, prefsPut, moveNote, moveSection, moveSectionEmptyingFolder, newId, ordBetween, parseDateFromText, parseWhenFromText, todayStr, type Rec } from '@calmind/core';
 import { useStore } from '../store';
 import { themed, T } from '../theme';
 import { TopBar } from '../chrome';
@@ -17,8 +17,9 @@ import { useSectionDrag, type SectionSlot } from '../components/sectiondrag';
 import { useSwipeLeft } from '../components/swiperow';
 
 export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | null; onOpenConsumed?: () => void }) {
-  const { recs, mutate } = useStore();
-  const { visible: visibleFolders, sharedView, sharedPartner } = useFolderView('notes');
+  const { recs, mutate, sharedRecs } = useStore();
+  const { view, visible: visibleFolders, sharedView, sharedPartner } = useFolderView('notes');
+  const setNotePrefs = (lastView: string) => mutate((e) => e.put(prefsPut(recs, 'notes', { lastView })));
   const [openId, setOpenId] = useState<string | null>(null);
   const [sel, setSel] = useState({ start: 0, end: 0 });
   const [dateOpen, setDateOpen] = useState(false);
@@ -363,6 +364,43 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
             {secDrag.lineKey === `end:${f.id}` && <View style={s.dropLine} />}
           </View>
         ))}
+        {view === 'all' && sharedPartner &&
+          sharedRecs
+            .filter((r): r is Rec<'folder'> => r.type === 'folder' && (r.payload.app ?? 'reminders') === 'notes')
+            .sort((a, b) => byOrd(a.payload, b.payload))
+            .map((f) => (
+              <View key={`sh${f.id}`} style={s.folderBlock}>
+                <View style={s.folderHead}>
+                  <Text style={[s.folderName, { backgroundColor: f.payload.color + '33' }]}>@{sharedPartner}: {f.payload.name}</Text>
+                  <View style={s.folderRule} />
+                </View>
+                {sharedRecs
+                  .filter((r): r is Rec<'section'> => r.type === 'section' && r.payload.folderId === f.id)
+                  .sort((a, b) => byOrd(a.payload, b.payload))
+                  .map((sec) => (
+                    <View key={sec.id} style={s.section}>
+                      <View style={s.secHead}>
+                        <Text style={s.secName}>{sec.payload.name}</Text>
+                      </View>
+                      {sharedRecs
+                        .filter((r): r is Rec<'note'> => r.type === 'note' && r.payload.sectionId === sec.id)
+                        .sort((a, b) => byOrd(a.payload, b.payload))
+                        .map((n) => (
+                          <View key={n.id} style={s.row}>
+                            <Pressable
+                              testID="all-shared-note"
+                              onPress={() => setNotePrefs(`@${sharedPartner}:${f.id}`)}
+                              style={s.rowBody}
+                            >
+                              <Text style={s.rowTitle} numberOfLines={1}>{n.payload.title}</Text>
+                              <Text style={s.chev}>›</Text>
+                            </Pressable>
+                          </View>
+                        ))}
+                    </View>
+                  ))}
+              </View>
+            ))}
         {pageEdit && <Pressable style={s.editBackdropFill} onPress={() => setPageEdit(false)} />}
       </ScrollView>
       {emptyAsk && (
@@ -396,7 +434,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
  * both stay theirs; live shared note editing is a later milestone.
  */
 function SharedNotes({ viewKey, partner }: { viewKey: string; partner: string }) {
-  const { sharedRecs } = useStore();
+  const { sharedRecs, sharedPut } = useStore();
   const folderId = viewKey.slice(viewKey.indexOf(':') + 1);
   const folder = sharedRecs.find((r): r is Rec<'folder'> => r.type === 'folder' && r.id === folderId);
   const sections = sharedRecs
@@ -407,8 +445,18 @@ function SharedNotes({ viewKey, partner }: { viewKey: string; partner: string })
       .filter((r): r is Rec<'note'> => r.type === 'note' && r.payload.sectionId === sid)
       .sort((a, b) => byOrd(a.payload, b.payload));
   const [openShared, setOpenShared] = useState<Rec<'note'> | null>(null);
+  const [sharedBodyEdit, setSharedBodyEdit] = useState(false);
+  const [draft, setDraft] = useState('');
 
   if (openShared) {
+    const commitBody = () => {
+      setSharedBodyEdit(false);
+      if (draft !== openShared.payload.body) {
+        const next = { ...openShared, payload: { ...openShared.payload, body: draft } };
+        setOpenShared(next);
+        void sharedPut(next);
+      }
+    };
     return (
       <View style={s.page}>
         <View style={s.edHead}>
@@ -419,18 +467,30 @@ function SharedNotes({ viewKey, partner }: { viewKey: string; partner: string })
         <ScrollView contentContainerStyle={s.editor}>
           <Text style={s.sharedTitle}>{openShared.payload.title}</Text>
           {openShared.payload.date && <Text style={s.sharedDate}>{openShared.payload.date}</Text>}
-          <View style={s.body}>
-            {richLines(openShared.payload.body).map((ln, i) => (
-              <View key={i} style={[s.rtLine, ln.kind === 'quote' && s.rtQuote]}>
-                {ln.kind === 'bullet' && <Text style={s.rtDot}>•</Text>}
-                <Text style={[s.rtText, ln.kind === 'quote' && s.rtQuoteText]}>
-                  {ln.runs.map((r, j) => (
-                    <Text key={j} style={[r.bold && s.rtBold, r.italic && s.rtItalic, r.under && s.rtUnder]}>{r.text || ' '}</Text>
-                  ))}
-                </Text>
-              </View>
-            ))}
-          </View>
+          {sharedBodyEdit ? (
+            <TextInput
+              testID="shared-note-edit"
+              style={s.body}
+              value={draft}
+              multiline
+              autoFocus
+              onChangeText={setDraft}
+              onBlur={commitBody}
+            />
+          ) : (
+            <Pressable testID="shared-note-body" style={s.body} onPress={() => { setDraft(openShared.payload.body); setSharedBodyEdit(true); }}>
+              {richLines(openShared.payload.body).map((ln, i) => (
+                <View key={i} style={[s.rtLine, ln.kind === 'quote' && s.rtQuote]}>
+                  {ln.kind === 'bullet' && <Text style={s.rtDot}>•</Text>}
+                  <Text style={[s.rtText, ln.kind === 'quote' && s.rtQuoteText]}>
+                    {ln.runs.map((r, j) => (
+                      <Text key={j} style={[r.bold && s.rtBold, r.italic && s.rtItalic, r.under && s.rtUnder]}>{r.text || ' '}</Text>
+                    ))}
+                  </Text>
+                </View>
+              ))}
+            </Pressable>
+          )}
         </ScrollView>
       </View>
     );

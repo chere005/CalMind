@@ -45,8 +45,8 @@ type ReminderRec = Rec<'reminder'>;
 const FOLD_KEY = 'calmind.folded.reminders';
 
 export function Reminders() {
-  const { recs, session, mutate } = useStore();
-  const { visible: visibleFolders, sharedView, sharedPartner } = useFolderView('reminders');
+  const { recs, session, mutate, sharedRecs, sharedPut } = useStore();
+  const { view, visible: visibleFolders, sharedView, sharedPartner } = useFolderView('reminders');
   const [showDone, setShowDone] = useState(false);
   const [adding, setAdding] = useState<string | null>(null); // sectionId with the open add row
   const [addText, setAddText] = useState('');
@@ -500,6 +500,45 @@ export function Reminders() {
           </View>
         ))}
 
+        {view === 'all' && sharedPartner &&
+          sharedRecs
+            .filter((r): r is Rec<'folder'> => r.type === 'folder' && (r.payload.app ?? 'reminders') === 'reminders')
+            .sort((a, b) => byOrd(a.payload, b.payload))
+            .map((f) => (
+              <View key={`sh${f.id}`} style={s.folderBlock}>
+                <View style={s.folderHead}>
+                  <Text style={[s.folderName, { backgroundColor: f.payload.color + '33' }]}>@{sharedPartner}: {f.payload.name}</Text>
+                  <View style={s.folderRule} />
+                </View>
+                {sharedRecs
+                  .filter((r): r is Rec<'section'> => r.type === 'section' && r.payload.folderId === f.id)
+                  .sort((a, b) => byOrd(a.payload, b.payload))
+                  .map((sec) => (
+                    <View key={sec.id} style={s.section}>
+                      <View style={s.secHead}>
+                        <Text style={s.secName}>{sec.payload.name}</Text>
+                      </View>
+                      {sortByDate(
+                        sharedRecs
+                          .filter((r): r is ReminderRec => r.type === 'reminder' && r.payload.sectionId === sec.id && !r.payload.done)
+                          .sort((a, b) => byOrd(a.payload, b.payload))
+                          .map((x) => ({ due: x.payload.due, indent: x.payload.indent, rec: x })),
+                      ).map(({ rec: r }, ri, arr) => (
+                        <View key={r.id} style={[s.row, ri === arr.length - 1 && s.rowLast, r.payload.indent > 0 && s.rowIndented]}>
+                          <Pressable
+                            testID="all-shared-tick"
+                            onPress={() => void sharedPut({ ...r, payload: reminderToggle(r.payload, todayStr()) })}
+                            hitSlop={8}
+                            style={s.tick}
+                          />
+                          <Text style={s.rowText}>{r.payload.text}</Text>
+                          {dueChipStatic(r, todayStr())}
+                        </View>
+                      ))}
+                    </View>
+                  ))}
+              </View>
+            ))}
         {pageEdit && <Pressable style={s.editBackdropFill} onPress={exitEdit} />}
       </ScrollView>
 

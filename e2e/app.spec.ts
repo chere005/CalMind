@@ -407,6 +407,17 @@ test('sharing: mutual handshake, @partner view, a tick lands in their store', as
   await pageA.reload();
   await pageA.getByTestId('tab-reminders').click();
   await expect(pageA.getByTestId('rem-row').filter({ hasText: 'peel garlic' })).toBeHidden({ timeout: 10_000 });
+
+  // The All listing shows A's block with a LIVE tick too: A adds another row,
+  // B (back on All) ticks it right there without entering the shared view.
+  await pageA.getByTestId('secadd-General').first().click();
+  await pageA.getByTestId('rem-add-field').fill('chop onions');
+  await pageA.getByTestId('rem-add-field').press('Enter');
+  await pageB.getByTestId('pick-reminders').click();
+  await pageB.getByText('All', { exact: true }).click();
+  await expect(pageB.getByText('chop onions')).toBeVisible({ timeout: 15_000 });
+  await pageB.getByTestId('all-shared-tick').first().click();
+  await expect(pageB.getByText('chop onions')).toBeHidden({ timeout: 10_000 });
   await ctxA.close();
   await ctxB.close();
 });
@@ -461,6 +472,15 @@ test("sharing: a calendar shows under the partner's day-panel group; notes read 
   await expect(pageB.getByText('garlic')).toBeVisible();
   const body = await pageB.getByText('garlic').textContent();
   expect(body).not.toContain('**');
+
+  // B edits the shared body; the edit lands in A's store.
+  await pageB.getByTestId('shared-note-body').click();
+  await pageB.getByTestId('shared-note-edit').fill('**garlic** first, then onions');
+  await pageB.getByText(/← @/).click();
+  await pageA.reload();
+  await pageA.getByTestId('tab-notes').click();
+  await pageA.getByTestId('note-row').filter({ hasText: 'the recipe' }).click();
+  await expect(pageA.getByText(/then onions/)).toBeVisible({ timeout: 10_000 });
   await ctxA.close();
   await ctxB.close();
 });
