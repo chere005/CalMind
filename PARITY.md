@@ -614,6 +614,20 @@ honest — the next iteration trusts it.
 - The loop's core parity stands complete. Remaining: Sean's dev-server
   default call, and his steering batches as they come.
 
+## Iteration 13 shipped (this session)
+- iOS DEMO DELIVERED: pod install needed only LANG=en_US.UTF-8 (cocoapods
+  chokes on ASCII-8BIT paths in a non-UTF-8 shell — remember this); build
+  installed to the iPhone 17 Pro sim, launched via simctl when expo's final
+  deep-link open failed, live against the test API as sean. Icons verified:
+  the one-stroke CM is the app icon + Android adaptive foreground.
+- Recipe page: the Include-notes checkbox (Sean's spec) — shown only when
+  parsed free text exists, default ON, OFF sheds it on save; spec proves the
+  shed. NOTE: the checkbox lives in RecipeEditor.tsx which is still the
+  other session's UNTRACKED file — deployed via dist, commit rides with
+  their RecipeEditor landing.
+- Picker ring: 32px with marginHorizontal 4 (Sean: more space around the
+  circle). 28 gesture specs green.
+
 ## Next, in pain order
 1. Habits month view (day pies + its legend) + Manage-sections window +
    habit rename in place + collapse-all wiring.

@@ -658,3 +658,22 @@ test('a Notes section renames via double-click', async ({ page }) => {
   await field.press('Enter');
   await expect(page.getByText('Stuff', { exact: true }).first()).toBeVisible();
 });
+
+test('the Recipe page can shed the non-recipe notes with its checkbox', async ({ page }) => {
+  await signup(page);
+  await page.getByTestId('tab-notes').click();
+  await page.getByTestId('secadd-General').first().click();
+  await page.getByPlaceholder('New note').fill('Pancakes');
+  await page.getByPlaceholder('New note').press('Enter');
+  // The editor auto-opens; give the body a recipe plus one free-text line.
+  await page.getByTestId('note-body-view').click();
+  await page.getByTestId('note-body-edit').fill('2 cups flour\n1. Mix well\nGrandma loved these, and she always doubled the butter.');
+  await page.getByTestId('recipe-import').click();
+  // The checkbox shows because free text exists; untick and save.
+  await expect(page.getByTestId('recipe-incnotes')).toBeVisible();
+  await page.getByTestId('recipe-incnotes').click();
+  await page.getByTestId('recipe-save').click();
+  const body = page.getByTestId('note-body-view');
+  await expect(body).toContainText('flour');
+  await expect(body).not.toContainText('Grandma');
+});
