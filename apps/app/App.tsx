@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { SafeAreaView, StatusBar, StyleSheet, View } from 'react-native';
 import { StoreProvider, useStore } from './src/store';
-import { TabBar, type Tab } from './src/nav';
+import { TabBar, NavCtx, type Tab } from './src/nav';
 import { Login } from './src/screens/Login';
 import { Reminders } from './src/screens/Reminders';
 import { Calendar } from './src/screens/Calendar';
@@ -15,7 +15,32 @@ function Root() {
   const { ready, session } = useStore();
   // Signing in lands on the Calendar, as the suite does — "what's on today"
   // shouldn't depend on which icon you opened.
-  const [tab, setTab] = useState<Tab>('calendar');
+  // The tab survives a refresh, and every switch feeds the back stack.
+  const [tab, setTabState] = useState<Tab>(() => {
+    if (typeof localStorage !== 'undefined') {
+      const t = localStorage.getItem('calmind.tab');
+      if (t === 'reminders' || t === 'calendar' || t === 'add' || t === 'notes' || t === 'habits') return t;
+    }
+    return 'calendar';
+  });
+  const backStack = React.useRef<Tab[]>([]);
+  const [canBack, setCanBack] = useState(false);
+  const setTab = (t: Tab) => {
+    if (t !== tab) {
+      backStack.current.push(tab);
+      setCanBack(true);
+    }
+    setTabState(t);
+    if (typeof localStorage !== 'undefined') localStorage.setItem('calmind.tab', t);
+  };
+  const goBack = () => {
+    const prev = backStack.current.pop();
+    setCanBack(backStack.current.length > 0);
+    if (prev) {
+      setTabState(prev);
+      if (typeof localStorage !== 'undefined') localStorage.setItem('calmind.tab', prev);
+    }
+  };
   // The widget's row link: ?tick=<id> opens the one-reminder Done page
   // (the suite's quick.php mode), on the signed-in session only.
   const [tickId, setTickId] = useState<string | null>(() => {
@@ -32,6 +57,7 @@ function Root() {
   if (!session) return <Login />;
   if (tickId) return <QuickTick id={tickId} onDone={tickDone} />;
   return (
+    <NavCtx.Provider value={{ canBack, goBack }}>
     <View style={s.page}>
       {/* Phone-first column, centred on a wide window — the suite's page shape. */}
       <View style={s.centre}>
@@ -60,6 +86,7 @@ function Root() {
       </View>
       <TabBar tab={tab} onTab={setTab} />
     </View>
+    </NavCtx.Provider>
   );
 }
 

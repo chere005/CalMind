@@ -79,3 +79,12 @@ const s = themed(() => StyleSheet.create({
   },
   addGlyph: { color: T.accentInk, fontSize: 26, fontWeight: '700', lineHeight: 30 },
 }));
+
+/**
+ * The tiny tab-history context: App owns the stack, the TopBar's back
+ * control pops it — Sean's always-goes-back button, and the remembered tab
+ * a refresh restores.
+ */
+import { createContext, useContext } from 'react';
+export const NavCtx = createContext<{ canBack: boolean; goBack: () => void }>({ canBack: false, goBack: () => {} });
+export const useNav = () => useContext(NavCtx);

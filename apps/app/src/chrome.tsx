@@ -10,8 +10,9 @@ import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { logout } from './api';
 import { useStore } from './store';
 import { themed, T } from './theme';
-import { Rule } from './ui';
+import { CircleBtn, Rule } from './ui';
 import { Settings } from './screens/Settings';
+import { useNav } from './nav';
 
 export function TopBar({
   title,
@@ -22,34 +23,23 @@ export function TopBar({
   controls?: React.ReactNode;
   picker?: React.ReactNode;
 }) {
+  const nav = useNav();
   const { session, syncState, signOut } = useStore();
   const [menuOpen, setMenuOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [tipOpen, setTipOpen] = useState(false);
   return (
     <>
       <View style={s.topbar}>
         <Text style={s.appname}>{title}</Text>
         <View style={s.right}>
+          {nav.canBack && <CircleBtn testID="nav-back" glyph="‹" size={28} onPress={nav.goBack} />}
           {controls}
           {picker && <View style={s.pickerRing}>{picker}</View>}
           <Pressable onPress={() => setMenuOpen(true)} hitSlop={8} style={s.whoPill}>
             <Text style={s.who}>{session?.username}</Text>
             <Text style={s.whoCaret}>▾</Text>
           </Pressable>
-          <Pressable
-            onHoverIn={() => setTipOpen(true)}
-            onHoverOut={() => setTipOpen(false)}
-            onLongPress={() => setTipOpen(true)}
-            onPress={() => setTipOpen(false)}
-          >
-            <View style={[s.status, { backgroundColor: syncState === 'offline' ? T.gold : T.accent }]} />
-            {tipOpen && (
-              <View style={s.tip}>
-                <Text style={s.tipText}>{syncState === 'offline' ? 'Offline — changes sync when you are back' : syncState === 'syncing' ? 'Syncing…' : 'Online — synced'}</Text>
-              </View>
-            )}
-          </Pressable>
+
         </View>
       </View>
       <Rule />

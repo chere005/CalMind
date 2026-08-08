@@ -14,7 +14,7 @@ import { ShareModal } from '../components/ShareModal';
 import { WidgetSetup } from './WidgetSetup';
 
 export function Settings({ onClose }: { onClose: () => void }) {
-  const { session, setSession, signOut, recs, mutate } = useStore();
+  const { session, setSession, signOut, recs, mutate, syncState } = useStore();
   const pickTheme = (name: ThemeName) => {
     applyTheme(name);
     // The choice syncs like any pref, so every device follows.
@@ -57,6 +57,10 @@ export function Settings({ onClose }: { onClose: () => void }) {
       <Pressable style={s.backdrop} onPress={onClose}>
         <Pressable style={s.card} onPress={() => {}}>
           <Text style={s.h2}>Settings</Text>
+          <View style={s.statusRow}>
+            <View style={[s.statusDot, { backgroundColor: syncState === 'offline' ? T.gold : T.accent }]} />
+            <Text style={s.statusText}>{syncState === 'offline' ? 'Offline — changes sync when you are back' : syncState === 'syncing' ? 'Syncing…' : 'Online — synced'}</Text>
+          </View>
           <Text style={s.who}>{session?.username}</Text>
           <Field value={oldPass} onChangeText={setOldPass} placeholder="Current password" secureTextEntry />
           <Field value={newPass} onChangeText={setNewPass} placeholder="New password" secureTextEntry />
@@ -113,6 +117,9 @@ const s = themed(() => StyleSheet.create({
     gap: 10,
   },
   h2: { color: T.text, fontSize: 18, fontWeight: '700' },
+  statusRow: { flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 2 },
+  statusDot: { width: 9, height: 9, borderRadius: 5 },
+  statusText: { color: T.dim, fontSize: 13 },
   who: { color: T.dim, fontSize: 13 },
   themeRow: { flexDirection: 'row', gap: 12, justifyContent: 'center', marginTop: 4 },
   swatch: { width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: T.line, alignItems: 'center', justifyContent: 'center' },
