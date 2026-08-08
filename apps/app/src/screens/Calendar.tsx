@@ -30,6 +30,7 @@ import { CalendarPick, useCalendarView } from '../components/CalendarPick';
 import { CalGlyph, PageGlyph, TickBoxGlyph } from '../components/KindIcons';
 import { ItemModal, type ItemKind } from '../components/ItemModal';
 import { useSwipeLeft } from '../components/swiperow';
+import { BalancedRow } from '../components/BalancedRow';
 import { CircleBtn, ConfirmDelete, Pill, Rule } from '../ui';
 
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
@@ -223,8 +224,10 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
         <ScrollView style={s.legend} contentContainerStyle={s.legendInner} horizontal={false}>
           {/* One row per owner, the owner named ONCE in small caps — the
               suite's legend, not a soup of @-prefixed items. */}
+          {/* The owner name rides as the first item of the balanced row, so
+              its width counts against line one like any other chip does. */}
           {legend.length > 0 && (
-            <View style={s.legendRowLine}>
+            <BalancedRow testID="legend-me">
               <Text style={s.legendOwner}>{(session?.username ?? 'me').toUpperCase()}</Text>
               {legend.map((l) => (
                 <View key={`${l.kind}:${l.id}`} style={s.legendItem}>
@@ -232,10 +235,10 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
                   <Text style={s.legendText}>{l.name}</Text>
                 </View>
               ))}
-            </View>
+            </BalancedRow>
           )}
           {sharedLegend.length > 0 && (
-            <View style={s.legendRowLine}>
+            <BalancedRow testID="legend-partner">
               <Text style={s.legendOwner}>{(sharedPartnerLabel ?? '').toUpperCase()}</Text>
               {sharedLegend.map((l) => (
                 <View key={`sh:${l.kind}:${l.id}`} style={s.legendItem}>
@@ -243,7 +246,7 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
                   <Text style={s.legendText}>{l.name}</Text>
                 </View>
               ))}
-            </View>
+            </BalancedRow>
           )}
         </ScrollView>
       )}
