@@ -445,12 +445,30 @@ honest — the next iteration trusts it.
   centre-aligned rows.
 - 127 core + 21 server + 21 gesture tests; web untouched this pass.
 
-## In flight (iteration 27 — start here)
-- Run the watch app on a paired watch simulator; push a list from the
-  phone through WatchConnectivity and see rows draw (the last unproven
-  link in the bridge).
-- Sean to decide: sim/dev builds defaulting to the live test server
-  (config.ts override exists either way).
+## Iteration 27 shipped — aki's data, Sean's polish batch, the watch RUNS
+- AKI'S PROD DATA on test: 59 records (26 reminders, 16 events, 2
+  calendars, folders/sections, prefs) through the same one-shot guarded
+  wrapper pair as sean's import — export wrapper on prod (auth.php, not
+  store.php alone: store_read needs the lib booted), mint wrapper on test
+  (account created if absent), both confirmed deleted; the temporary
+  password went to Sean as a file, never through chat.
+- SEAN'S POLISH: the tab icon is a round dark disc now (a circular alpha
+  mask carved in a pure-python PNG pass — the rounded tile's corners had
+  rasterised opaque white); the Calendar's spurious ◉ is gone (the month
+  label taps home, week anchor included); pager arrows, picker ring and
+  username pill share one 32px line; username 15, folder chips 17 and
+  pill-height matched.
+- THE WATCH APP RUNS: installed and launched on the paired Apple Watch
+  Series 11 sim from the generated target's build — 'Nothing to do' empty
+  state drawn. Remaining link: a phone with reminders pushing the list
+  through WatchConnectivity to see rows (needs the phone dev-client +
+  metro + a signed-in account with data at the same time).
+- 127 core + 21 server + 21 gesture tests.
+
+## In flight (iteration 28 — start here)
+- WatchConnectivity end-to-end: phone sim (dev client + metro + local API)
+  signed in with reminders, watch drawing the pushed rows.
+- Sean to decide: sim/dev builds defaulting to the live test server.
 - Periodic full two-instance regression (web + both sims) before any talk
   of promoting /test/calmind toward prod.
 
