@@ -711,6 +711,19 @@ test('the page carries the web-app head an installed iOS PWA needs', async ({ pa
   expect(await meta('apple-mobile-web-app-status-bar-style')).toBe('black-translucent');
   expect(await meta('apple-mobile-web-app-capable')).toBe('yes');
   expect(await meta('theme-color')).toBeTruthy();
+
+  // The manifest the suite has always had: what makes the app installable on
+  // Android and desktop Chrome/Edge. Its URLs are relative, so it resolves
+  // against wherever it is served rather than baking /test/calmind in.
+  const href = await page.locator('link[rel="manifest"]').getAttribute('href');
+  expect(href).toBe('manifest.webmanifest');
+  const res = await page.request.get(new URL(href!, page.url()).toString());
+  expect(res.ok()).toBe(true);
+  const mf = await res.json();
+  expect(mf.display).toBe('standalone');
+  expect(mf.start_url).toBe('./');
+  expect(mf.icons.length).toBeGreaterThan(0);
+  expect(mf.icons.every((i: { src: string }) => i.src.startsWith('./'))).toBe(true);
 });
 
 test('a habit drags to a new spot, and the order survives a reload', async ({ page }) => {

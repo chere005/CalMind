@@ -64,6 +64,10 @@ if [ "$WEB" = 1 ] && [ -d apps/app/dist ]; then
   perl -i -pe "s|favicon\.ico(\?v=[0-9a-f]*)?|favicon.ico?v=$ICOV|" apps/app/dist/index.html
   # The home-screen icon: iOS reads apple-touch-icon, which expo doesn't emit.
   sips -z 180 180 apps/app/assets/icon.png --out apps/app/dist/apple-touch-icon.png >/dev/null 2>&1
+  # …and the manifest's pair, for Android and desktop installs. The manifest
+  # itself is written by the export's head patch; these are what it names.
+  sips -z 192 192 apps/app/assets/icon.png --out apps/app/dist/icon-192.png >/dev/null 2>&1
+  sips -z 512 512 apps/app/assets/icon.png --out apps/app/dist/icon-512.png >/dev/null 2>&1
   grep -q apple-touch-icon apps/app/dist/index.html || \
     perl -i -pe 's|</head>|<link rel="apple-touch-icon" href="/test/calmind/apple-touch-icon.png"/></head>|' apps/app/dist/index.html
   rsync -avL $DRY --exclude 'api' apps/app/dist/ "$SSH_DEST:$WEB_DEST/"

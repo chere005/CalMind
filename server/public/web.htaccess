@@ -10,3 +10,10 @@
 <Files "favicon.ico">
   Header set Cache-Control "public, max-age=3600"
 </Files>
+# The manifest: Apache has no type for .webmanifest out of the box, and a
+# manifest served as text/plain is one a browser can refuse to install from.
+# It revalidates like index.html — the icons and name are allowed to change.
+<Files "manifest.webmanifest">
+  AddType application/manifest+json .webmanifest
+  Header set Cache-Control "no-cache"
+</Files>

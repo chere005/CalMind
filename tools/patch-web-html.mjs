@@ -28,6 +28,7 @@
  * icon keeps the old status-bar style until it is REMOVED and re-added.
  */
 import { readFileSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 
 const file = process.argv[2] ?? 'apps/app/dist/index.html';
 let html = readFileSync(file, 'utf8');
@@ -49,6 +50,37 @@ const add = metas
   .map(([name, content]) => `<meta name="${name}" content="${content}"/>`)
   .join('');
 if (add) html = html.replace('</head>', `${add}</head>`);
+
+/**
+ * The web app manifest the suite has always had and the export never wrote.
+ * It is what makes the app installable on Android and on desktop Chrome and
+ * Edge, and it carries the name and icons a home screen shows.
+ *
+ * Every URL in it is RELATIVE, so it resolves against wherever the manifest
+ * itself is served from — /test/calmind/ today, somewhere else tomorrow —
+ * rather than baking an instance prefix into a file that ships everywhere.
+ * The icons are emitted by the deploy (sips), beside the apple-touch-icon.
+ */
+const manifest = {
+  id: './',
+  name: 'CalMind',
+  short_name: 'CalMind',
+  start_url: './',
+  scope: './',
+  display: 'standalone',
+  orientation: 'portrait',
+  background_color: '#111111',
+  theme_color: '#111111',
+  icons: [
+    { src: './icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+    { src: './icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+    { src: './icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+  ],
+};
+writeFileSync(join(dirname(file), 'manifest.webmanifest'), JSON.stringify(manifest, null, 2) + '\n');
+if (!/rel=["']manifest["']/i.test(html)) {
+  html = html.replace('</head>', '<link rel="manifest" href="manifest.webmanifest"/></head>');
+}
 
 if (html !== before) {
   writeFileSync(file, html);
