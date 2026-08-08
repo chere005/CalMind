@@ -408,14 +408,33 @@ honest — the next iteration trusts it.
   it on the picker row.
 - 127 core + 21 server + 21 gesture tests.
 
-## In flight (iteration 25 — start here)
-- Android emulator smoke (expo run:android) — same pattern as iOS.
-- Watch target wiring (ios/ prebuild has no watch target; the watch sources
-  from the early scaffold need an xcode target added post-prebuild or a
-  config plugin — investigate which).
-- Empty states pass (fresh account, every tab) against prod's wording.
+## Iteration 25 shipped — ANDROID BOOTS TOO, and Sean's style batch
+- ANDROID: expo run:android builds (gradle 4m40s cold, NDK/CMake auto-
+  installed) and the app boots on the Pixel_10_Pro AVD — login card,
+  mark, fields. Same reproduction shape as iOS: boot the AVD first (expo
+  bails 'device offline' if it probes mid-boot), ANDROID_HOME set,
+  --no-bundler + metro. android/ stays gitignored prebuild output.
+- SEAN'S STYLE BATCH, from screenshots: folder chips down to 18/600 (21/700
+  read too heavy in RN's rendering); the top bar wears prod's controls —
+  the picker in a dark ringed 36px circle, the username in a thin outlined
+  accent pill with a caret (header nav .who carried over). Verified by
+  screenshot against his reference.
+- FAVICON 'issue' diagnosed: the live .ico is pixel-verified centred
+  (stroke-inclusive bbox math); Sean's tab held the hour-cached old one.
+- Empty-states pass: fresh account matches prod's shape on every tab
+  (folders with empty sections visible, Habits' starter pill) — clean.
+- Watch investigation: apps/watch/ Swift sources + the WatchBridge local
+  pod exist and compile into the phone app; the WATCH target itself needs
+  an @expo/config-plugins addition (prebuild emits none) — next.
+- 127 core + 21 server + 21 gesture tests.
+
+## In flight (iteration 26 — start here)
+- Watch target config plugin (apps/watch sources into a prebuild-added
+  watchOS target; WatchConnectivity end-to-end on sims).
 - Point the sim/dev builds at the LIVE test server by default? (config.ts
   override exists; decide with Sean.)
+- Scriptable: SFSymbol square + rolled-orange tint to match the suite's
+  generated script exactly.
 
 ## Next, in pain order
 1. Habits month view (day pies + its legend) + Manage-sections window +

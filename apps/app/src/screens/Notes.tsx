@@ -559,9 +559,9 @@ const s = themed(() => StyleSheet.create({
   folderHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   folderName: {
     color: T.text,
-    fontSize: 21,
-    lineHeight: 26,
-    fontWeight: '700',
+    fontSize: 18,
+    lineHeight: 23,
+    fontWeight: '600',
     paddingHorizontal: 10,
     paddingVertical: 2,
     borderRadius: 999,

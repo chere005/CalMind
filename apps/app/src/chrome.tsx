@@ -31,9 +31,10 @@ export function TopBar({
         <Text style={s.appname}>{title}</Text>
         <View style={s.right}>
           {controls}
-          {picker}
-          <Pressable onPress={() => setMenuOpen(true)} hitSlop={8}>
+          {picker && <View style={s.pickerRing}>{picker}</View>}
+          <Pressable onPress={() => setMenuOpen(true)} hitSlop={8} style={s.whoPill}>
             <Text style={s.who}>{session?.username}</Text>
+            <Text style={s.whoCaret}>▾</Text>
           </Pressable>
           <View style={[s.status, { backgroundColor: syncState === 'offline' ? T.gold : T.accent }]} />
         </View>
@@ -79,7 +80,12 @@ const s = themed(() => StyleSheet.create({
   appname: { color: T.text, fontSize: 24, fontWeight: '800' },
   right: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   status: { width: 8, height: 8, borderRadius: 4 },
+  // Prod's header controls: the picker sits in a dark ringed circle, the
+  // username in a thin outlined pill — header nav .who, carried over.
+  pickerRing: { width: 36, height: 36, borderRadius: 18, backgroundColor: T.surface2, borderWidth: 1, borderColor: T.line, alignItems: 'center', justifyContent: 'center' },
+  whoPill: { flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderColor: T.accentSoft, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 3 },
   who: { color: T.accent, fontSize: 14, fontWeight: '600' },
+  whoCaret: { color: T.accent, fontSize: 10, opacity: 0.8 },
   menuBackdrop: { flex: 1, backgroundColor: '#0007' },
   menu: {
     position: 'absolute',
