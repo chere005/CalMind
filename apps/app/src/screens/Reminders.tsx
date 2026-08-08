@@ -85,16 +85,18 @@ export function Reminders() {
     };
   }, [recs, visibleFolders]);
 
-  // Every visible row in render order: the drag speaks in these indices.
+  // Every visible row in render order — plus one placeholder per EMPTY
+  // section, so an empty section is a drop target. Placeholders take a row's
+  // height only while a drag is live, which keeps the index math uniform.
+  type FlatEntry = { kind: 'row'; rec: ReminderRec; sectionId: string } | { kind: 'empty'; sectionId: string };
   const flatRows = useMemo(() => {
-    const out: { rec: ReminderRec; sectionId: string }[] = [];
+    const out: FlatEntry[] = [];
     for (const f of folders) {
       for (const sec of sectionsOf(f.id)) {
         if (folded.has(sec.id)) continue;
-        for (const r of remindersOf(sec.id)) {
-          if (!showDone && r.payload.done) continue;
-          out.push({ rec: r, sectionId: sec.id });
-        }
+        const rows = remindersOf(sec.id).filter((r) => showDone || !r.payload.done);
+        if (rows.length === 0) out.push({ kind: 'empty', sectionId: sec.id });
+        for (const r of rows) out.push({ kind: 'row', rec: r, sectionId: sec.id });
       }
     }
     return out;
@@ -103,17 +105,17 @@ export function Reminders() {
   const ROW_H = 46;
   const drag = useRowDrag(flatRows.length, ROW_H, (from, to) => {
     const src = flatRows[from];
-    if (!src) return;
-    // Landing before the row at `to` (drags downward land after it — the
-    // boundary the hook reports is already the gap the row falls into).
+    if (src?.kind !== 'row') return;
     const slotIdx = to > from ? to + 1 : to;
     const before = flatRows[slotIdx];
     const destSectionId = before?.sectionId ?? flatRows[flatRows.length - 1]?.sectionId ?? src.sectionId;
-    const res = moveReminderBlock(recs, src.rec.id, destSectionId, before?.rec.id ?? null);
+    const beforeId = before?.kind === 'row' ? before.rec.id : null;
+    const res = moveReminderBlock(recs, src.rec.id, destSectionId, beforeId);
     if ('error' in res) return;
     mutate((e) => res.put.forEach((r) => e.put(r)));
   });
-  const flatIdxOf = (id: string) => flatRows.findIndex((x) => x.rec.id === id);
+  const flatIdxOf = (id: string) => flatRows.findIndex((x) => x.kind === 'row' && x.rec.id === id);
+  const emptyIdxOf = (sectionId: string) => flatRows.findIndex((x) => x.kind === 'empty' && x.sectionId === sectionId);
 
   const addReminder = (section: SectionRec) => {
     const raw = addText.trim();
@@ -280,7 +282,7 @@ export function Reminders() {
             <View style={s.folderHead}>
               {/* The folder's colour is the wash behind its name, not a dot beside it. */}
               <Text style={[s.folderName, { backgroundColor: f.payload.color + '33' }]}>{f.payload.name}</Text>
-              <CircleBtn glyph="+" color={T.accent} size={22} onPress={() => { setAddingSection(f.id); setNewName(''); }} />
+              <CircleBtn testID={`foldadd-${f.payload.name}`} glyph="+" color={T.accent} size={22} onPress={() => { setAddingSection(f.id); setNewName(''); }} />
               <View style={s.folderRule} />
             </View>
             {addingSection === f.id && (
@@ -347,6 +349,14 @@ export function Reminders() {
                       onBlur={() => addReminder(sec)}
                       onSubmitEditing={() => addReminder(sec)}
                     />
+                  )}
+                  {!isFolded && rows.length === 0 && (
+                    <View>
+                      {drag.slot !== null && emptyIdxOf(sec.id) === drag.slot && <View style={s.dropLine} />}
+                      <View style={[s.emptySlot, drag.dragIdx !== null && s.emptySlotLive]}>
+                        {drag.dragIdx !== null && <Text style={s.emptySlotText}>drop here</Text>}
+                      </View>
+                    </View>
                   )}
                   {!isFolded &&
                     rows.map((r) => (
@@ -446,6 +456,9 @@ const s = StyleSheet.create({
   rowGrip: { width: 16, alignItems: 'center', justifyContent: 'center' },
   rowGripText: { color: T.lineSoft, fontSize: 13, userSelect: 'none' },
   dropLine: { height: 2, backgroundColor: T.accent, borderRadius: 1, marginVertical: 1 },
+  emptySlot: { height: 0, overflow: 'hidden' },
+  emptySlotLive: { height: 46, borderWidth: 1, borderColor: T.lineSoft, borderStyle: 'dashed', borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  emptySlotText: { color: T.muted, fontSize: 13 },
   rowIndented: { paddingLeft: 28 },
   rowBody: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   rowText: { color: T.text, fontSize: 17, flexShrink: 1 },

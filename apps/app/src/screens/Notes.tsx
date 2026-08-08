@@ -49,12 +49,16 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
     };
   }, [recs, visibleFolders]);
 
-  // Every visible row in render order — the drag's coordinate space.
+  // Every visible row in render order, plus a placeholder per empty section
+  // so an empty section is a drop target (row-height only while dragging).
+  type FlatEntry = { kind: 'row'; rec: Rec<'note'>; sectionId: string } | { kind: 'empty'; sectionId: string };
   const flatRows = useMemo(() => {
-    const out: { rec: Rec<'note'>; sectionId: string }[] = [];
+    const out: FlatEntry[] = [];
     for (const f of folders) {
       for (const sec of sectionsOf(f.id)) {
-        for (const n of notesOf(sec.id)) out.push({ rec: n, sectionId: sec.id });
+        const rows = notesOf(sec.id);
+        if (rows.length === 0) out.push({ kind: 'empty', sectionId: sec.id });
+        for (const n of rows) out.push({ kind: 'row', rec: n, sectionId: sec.id });
       }
     }
     return out;
@@ -62,15 +66,17 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
   const ROW_H = 44;
   const drag = useRowDrag(flatRows.length, ROW_H, (from, to) => {
     const src = flatRows[from];
-    if (!src) return;
+    if (src?.kind !== 'row') return;
     const slotIdx = to > from ? to + 1 : to;
     const before = flatRows[slotIdx];
     const destSectionId = before?.sectionId ?? flatRows[flatRows.length - 1]?.sectionId ?? src.sectionId;
-    const res = moveNote(recs, src.rec.id, destSectionId, before?.rec.id ?? null);
+    const beforeId = before?.kind === 'row' ? before.rec.id : null;
+    const res = moveNote(recs, src.rec.id, destSectionId, beforeId);
     if ('error' in res) return;
     mutate((e) => res.put.forEach((r) => e.put(r)));
   });
-  const flatIdxOf = (id: string) => flatRows.findIndex((x) => x.rec.id === id);
+  const flatIdxOf = (id: string) => flatRows.findIndex((x) => x.kind === 'row' && x.rec.id === id);
+  const emptyIdxOf = (sectionId: string) => flatRows.findIndex((x) => x.kind === 'empty' && x.sectionId === sectionId);
 
   const open = openId ? (recs.find((r) => r.id === openId) as Rec<'note'> | undefined) : undefined;
 
@@ -248,6 +254,14 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
                 {adding === sec.id && (
                   <Field value={addText} onChangeText={setAddText} placeholder="New note" autoFocus onBlur={() => addNote(sec)} onSubmitEditing={() => addNote(sec)} />
                 )}
+                {notesOf(sec.id).length === 0 && (
+                  <View>
+                    {drag.slot !== null && emptyIdxOf(sec.id) === drag.slot && <View style={s.dropLine} />}
+                    <View style={[s.emptySlot, drag.dragIdx !== null && s.emptySlotLive]}>
+                      {drag.dragIdx !== null && <Text style={s.emptySlotText}>drop here</Text>}
+                    </View>
+                  </View>
+                )}
                 {notesOf(sec.id).map((n) => (
                   <View key={n.id}>
                     {drag.slot !== null && flatIdxOf(n.id) === drag.slot && <View style={s.dropLine} />}
@@ -289,6 +303,9 @@ const s = StyleSheet.create({
   rowGrip: { width: 16, alignItems: 'center', justifyContent: 'center' },
   rowGripText: { color: T.lineSoft, fontSize: 13, userSelect: 'none' },
   dropLine: { height: 2, backgroundColor: T.accent, borderRadius: 1, marginVertical: 1 },
+  emptySlot: { height: 0, overflow: 'hidden' },
+  emptySlotLive: { height: 44, borderWidth: 1, borderColor: T.lineSoft, borderStyle: 'dashed', borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  emptySlotText: { color: T.muted, fontSize: 13 },
   rowTitle: { color: T.text, fontSize: 16, flex: 1 },
   chev: { color: T.muted, fontSize: 16, marginLeft: 'auto' },
   editor: { padding: 16, gap: 10 },

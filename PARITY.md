@@ -132,7 +132,14 @@ honest — the next iteration trusts it.
   Widget button mints and shows the URL, tools/scriptable-widget.js is the
   script. TopBar titles at prod scale (24/800). Ralph state gitignored.
 
-## In flight (iteration 8 — start here)
+## Iteration 8 shipped
+- Empty sections are drop targets in Reminders AND Notes: one placeholder
+  entry per empty section in the flat drag model, expanding to a dashed
+  "drop here" slot only while a drag is live (uniform index math holds).
+  Proven by a real-mouse spec dragging a row UP into an empty section, with
+  DOM order asserting the re-file (8 gesture specs green).
+
+## In flight (iteration 9 — start here)
 - Notes row drag (same flat model) + section drag as blocks with the suite's
   cross-folder rules (duplicate-name refusal, last-section-out ask).
 - Empty-section drop targets (a boundary per section head).

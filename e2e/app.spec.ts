@@ -154,3 +154,30 @@ test('a note drags between folders and re-files', async ({ page }) => {
   // Both notes now sit under the second folder block; first row is 'second note'.
   await expect(rows.first()).toContainText('second note');
 });
+
+test('a reminder drags into an EMPTY section', async ({ page }) => {
+  await signup(page);
+  await page.getByTestId('tab-reminders').click();
+  // A fresh empty section under the Reminders folder.
+  await page.getByTestId('foldadd-Reminders').click();
+  await page.getByPlaceholder('New section').fill('Target');
+  await page.getByPlaceholder('New section').press('Enter');
+  // One reminder in General.
+  await page.getByTestId('secadd-General').first().click();
+  await page.getByTestId('rem-add-field').fill('wander');
+  await page.getByTestId('rem-add-field').press('Enter');
+  const grip = page.getByTestId('row-grip').first();
+  const box = (await grip.boundingBox())!;
+  // Target sits ABOVE General (new sections prepend): drag the row UP into it.
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  for (let i = 1; i <= 8; i++) {
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2 - (i * 46) / 8);
+  }
+  await page.mouse.up();
+  // DOM order proves the re-file: 'wander' now renders inside Target's block,
+  // before the General heading.
+  const body = await page.locator('body').innerText();
+  expect(body.indexOf('Target')).toBeLessThan(body.indexOf('wander'));
+  expect(body.indexOf('wander')).toBeLessThan(body.indexOf('General'));
+});
