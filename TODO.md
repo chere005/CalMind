@@ -70,6 +70,12 @@ visual. Deploy to **test only** (`./server/deploy-test.sh`) as changes land.
       cap already gives it. What WAS wrong: the suite packs lines with
       `align-content: flex-start` and CalMind centred them. Fixed.
 
+- [x] **The web app manifest** — installable on Android and on desktop
+      Chrome/Edge again, relative URLs so promote needs no edit, htaccess
+      names the type. Verified live.
+- [x] **Recipes: a method that numbers nothing** — prose methods now come
+      out as steps instead of leftovers.
+
 Next up, in Sean's order:
 
 - [ ] **The native drag is unverified by hand.** iOS builds and runs, and

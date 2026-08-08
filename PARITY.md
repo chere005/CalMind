@@ -712,6 +712,37 @@ honest — the next iteration trusts it.
   can't pass by accident), and the overdue case that was the real bug.
 - 165 core + 22 server + 35 gesture. Deployed, live == local.
 
+## Iteration 43 shipped — installable again, and a method that numbers nothing
+- THE WEB APP MANIFEST the suite has always had and the export never wrote.
+  CalMind could be bookmarked to a home screen but not properly INSTALLED.
+  Written by the same head patch as the status-bar metas, so it rides the
+  one export path the deploy and the harness share. Every URL inside is
+  RELATIVE, so it resolves against wherever it is served — /test/calmind/
+  today, /calmind/ on promote — instead of baking the instance prefix into
+  a file that ships everywhere. Icons (192/512) come off the same
+  assets/icon.png as the apple-touch-icon, beside it in the deploy.
+  Apache has no type for .webmanifest and a manifest served as text/plain
+  is one a browser can refuse to install from, so the htaccess names it.
+  Verified live: 200 as application/manifest+json, both icons 200.
+  This is the web tier, and also the honest half of desktop parity —
+  Chrome and Edge can install the same page with no Tauri involved.
+- A METHOD THAT NUMBERS NOTHING is still a method: cards that write the
+  method as prose had every instruction filed as leftover text, so the
+  Recipe page opened with an empty Instructions section. Under a
+  directions heading a line is a step now, numbered or not, and steps are
+  renumbered as they come (OCR skips and repeats numbers).
+  The first cut let a NUMBERED line open the steps block and the existing
+  checkbox spec caught it — one stray "1." turned the rest of a card into
+  instructions, eating the free text the checkbox exists to shed. Only a
+  heading opens the method. Both halves pinned.
+- TESTING.md caught up with everything this run, and records WHY the PWA
+  status bar stays in the by-eye column: iOS caches the head at install
+  (delete and re-add, don't just relaunch) and the simulator accepts no
+  synthetic tap anywhere in the bottom toolbar — Safari's included, so it
+  is the harness and not our tab bar. That same limit is why the native
+  drag is still unwitnessed.
+- 168 core + 22 server + 35 gesture. Deployed, live == local.
+
 ## NEXT: the Add-Recipe page (Sean's spec, precise)
 - A structured page in Notes, the akisbookshelf add-quote shape: Title;
   an INGREDIENTS section whose + parses units (grams, cups, tsp, tbsp…)
