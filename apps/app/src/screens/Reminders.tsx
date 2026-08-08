@@ -266,10 +266,11 @@ export function Reminders() {
                       <Text style={s.chevron}>{isFolded ? '▸' : '▾'}</Text>
                     </Pressable>
                     <Text style={s.secName}>{sec.payload.name}</Text>
-                    <CircleBtn glyph="+" color={T.accent} size={22} onPress={() => { setAdding(sec.id); setAddText(''); if (isFolded) toggleFold(sec.id); }} />
+                    <CircleBtn testID={`secadd-${sec.payload.name}`} glyph="+" color={T.accent} size={22} onPress={() => { setAdding(sec.id); setAddText(''); if (isFolded) toggleFold(sec.id); }} />
                   </View>
                   {adding === sec.id && (
                     <Field
+                      testID="rem-add-field"
                       value={addText}
                       onChangeText={setAddText}
                       placeholder="New reminder — try “Vet 8/3 2pm”"
@@ -281,13 +282,14 @@ export function Reminders() {
                   {!isFolded &&
                     rows.map((r) => (
                       <View key={r.id}>
-                        <View style={[s.row, r.payload.indent > 0 && s.rowIndented]}>
-                          <Pressable onPress={() => tick(r)} hitSlop={8} style={[s.tick, r.payload.done && s.tickDone]}>
+                        <View testID="rem-row" style={[s.row, r.payload.indent > 0 && s.rowIndented]}>
+                          <Pressable testID="tick" onPress={() => tick(r)} hitSlop={8} style={[s.tick, r.payload.done && s.tickDone]}>
                             {r.payload.done && <Text style={s.tickMark}>✓</Text>}
                           </Pressable>
                           {editing === r.id ? (
                             <>
                               <Field
+                                testID="rem-edit"
                                 value={editText}
                                 onChangeText={setEditText}
                                 autoFocus
@@ -305,6 +307,7 @@ export function Reminders() {
                             </>
                           ) : (
                             <Pressable
+                              testID="rem-body"
                               style={s.rowBody}
                               onLongPress={() => { setEditing(r.id); setEditText(r.payload.text); }}
                               delayLongPress={350}

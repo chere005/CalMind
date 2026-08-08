@@ -57,11 +57,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     pushWatchList(all);
   }, []);
 
-  const persistSoon = useCallback((user: string) => {
-    clearTimeout(timers.current.persist);
-    timers.current.persist = setTimeout(() => {
-      AsyncStorage.setItem(snapKey(user), JSON.stringify(engineRef.current.toSnapshot())).catch(() => {});
-    }, 300);
+  // Persist IMMEDIATELY on every change — a debounce here meant an edit made
+  // just before a reload never reached the snapshot and quietly vanished
+  // (caught by the e2e drag spec). Only the network round-trip is debounced.
+  const persistNow = useCallback((user: string) => {
+    AsyncStorage.setItem(snapKey(user), JSON.stringify(engineRef.current.toSnapshot())).catch(() => {});
   }, []);
 
   const syncNow = useCallback(async () => {
@@ -82,8 +82,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       }
     }
     refresh();
-    persistSoon(s.username);
-  }, [refresh, persistSoon]);
+    persistNow(s.username);
+  }, [refresh, persistNow]);
 
   const syncSoon = useCallback(() => {
     clearTimeout(timers.current.sync);
@@ -99,11 +99,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       fn(engineRef.current);
       refresh();
       if (sessionRef.current) {
-        persistSoon(sessionRef.current.username);
+        persistNow(sessionRef.current.username);
         syncSoon();
       }
     },
-    [refresh, persistSoon, syncSoon],
+    [refresh, persistNow, syncSoon],
   );
 
   const signIn = useCallback(

@@ -12,14 +12,17 @@ export function Pill({
   onPress,
   primary = false,
   disabled = false,
+  testID,
 }: {
   label: string;
   onPress: () => void;
   primary?: boolean;
   disabled?: boolean;
+  testID?: string;
 }) {
   return (
     <Pressable
+      testID={testID}
       onPress={onPress}
       disabled={disabled}
       style={({ pressed }) => [s.pill, primary && s.pillPrimary, pressed && s.pressed, disabled && s.disabled]}
@@ -36,6 +39,7 @@ export function CircleBtn({
   size = 26,
   bg,
   active = false,
+  testID,
 }: {
   glyph: string;
   onPress: () => void;
@@ -43,9 +47,11 @@ export function CircleBtn({
   size?: number;
   bg?: string; // filled circle (colour swatches)
   active?: boolean; // accent state for icon toggles (Completed etc.)
+  testID?: string;
 }) {
   return (
     <Pressable
+      testID={testID}
       onPress={onPress}
       hitSlop={8}
       style={({ pressed }) => [
@@ -62,11 +68,12 @@ export function CircleBtn({
 }
 
 /** Two-press delete: first press fills red (label never changes), second fires. */
-export function ConfirmDelete({ onDelete, size = 26 }: { onDelete: () => void; size?: number }) {
+export function ConfirmDelete({ onDelete, size = 26, testID }: { onDelete: () => void; size?: number; testID?: string }) {
   const [armed, setArmed] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   return (
     <Pressable
+      testID={testID}
       onPress={() => {
         if (armed) {
           clearTimeout(timer.current);

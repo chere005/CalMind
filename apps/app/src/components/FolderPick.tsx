@@ -43,7 +43,7 @@ export function FolderPick({ app }: { app: 'reminders' | 'notes' }) {
 
   return (
     <>
-      <Pressable onPress={() => setOpen(true)} hitSlop={8}>
+      <Pressable testID={`pick-${app}`} onPress={() => setOpen(true)} hitSlop={8}>
         {/* One folder = its colour; several = the pie; everything on = the rainbow. */}
         <PieDot colors={active ? [active.payload.color] : visible.map((f) => f.payload.color)} />
       </Pressable>

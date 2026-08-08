@@ -70,11 +70,24 @@ honest — the next iteration trusts it.
   ships with no-cache (hashed bundles immutable) so stale pages stop happening.
 - Sean's prod pull confirmed visible on test after his page caught up.
 
-## In flight (iteration 5 — start here)
-- Main-list drag-reorder (Reminders/Notes rows and sections, the outline
-  block rules) on the proven useRowDrag — the big one.
-- Playwright harness for gestures (drags, two-press, long-press) against
-  expo web — TESTING.md's by-eye column needs teeth.
+## Iteration 5 shipped
+- The Playwright gesture harness: e2e/router.php serves the EXPORTED app
+  under the production prefix with the real PHP API on a scratch dir — the
+  live test instance on a laptop. Five specs, real mouse events: signup→
+  calendar landing, add+tick (row hides), MANAGER DRAG reorder incl. reload
+  persistence, two-press delete, long-press inline edit. `npx playwright test`
+  (script: test:e2e). testIDs plumbed through Pill/CircleBtn/ConfirmDelete/
+  tabs/rows — they ride to native too.
+- Real bug the harness caught on day one: snapshot persistence was debounced
+  300ms, so an edit made just before a reload vanished. Persistence is now
+  immediate on every mutation; only the network push stays debounced. The
+  manager drag from iteration 4 is CONFIRMED with real gestures — off the
+  by-eye list.
+
+## In flight (iteration 6 — start here)
+- Main-list drag-reorder (Reminders/Notes rows and sections, outline block
+  rules: blocks travel, level-1 anywhere among level-1, cross-folder refusals)
+  on useRowDrag — write the e2e spec FIRST, it's the safety net now.
 
 ## Next, in pain order
 1. Habits month view (day pies + its legend) + Manage-sections window +

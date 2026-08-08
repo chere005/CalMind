@@ -114,8 +114,8 @@ export function FolderManager({ app, onClose }: { app: 'reminders' | 'notes'; on
             {folders.map((f, i) => (
               <View key={f.id}>
                 {drag.slot === i && <View style={s.dropLine} />}
-                <View style={[s.row, drag.dragIdx === i && { opacity: 0.55, transform: [{ translateY: drag.dragDy }] }]}>
-                <View {...drag.handleFor(i)} style={s.grip} hitSlop={8}><Text style={s.gripText}>≡</Text></View>
+                <View testID="mgr-row" style={[s.row, drag.dragIdx === i && { opacity: 0.55, transform: [{ translateY: drag.dragDy }] }]}>
+                <View testID="grip" {...drag.handleFor(i)} style={s.grip} hitSlop={8}><Text style={s.gripText}>≡</Text></View>
                 <CircleBtn glyph=" " size={22} color={f.payload.color} onPress={() => recolor(f)} bg={f.payload.color} />
                 {renaming === f.id ? (
                   <Field
@@ -133,7 +133,7 @@ export function FolderManager({ app, onClose }: { app: 'reminders' | 'notes'; on
                   </Text>
                 )}
                 <CircleBtn glyph="✎" size={26} onPress={() => { setRenaming(f.id); setRenameText(f.payload.name); }} />
-                <ConfirmDelete onDelete={() => remove(f)} />
+                <ConfirmDelete testID="mgr-del" onDelete={() => remove(f)} />
                 </View>
               </View>
             ))}

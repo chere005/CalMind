@@ -28,11 +28,11 @@ export function TabBar({ tab, onTab }: { tab: Tab; onTab: (t: Tab) => void }) {
       <View style={s.bar}>
         {TABS.map(({ key, icon }) =>
           key === 'add' ? (
-            <Pressable key={key} onPress={() => onTab(key)} style={s.addBtn} hitSlop={6}>
+            <Pressable key={key} testID={`tab-${key}`} onPress={() => onTab(key)} style={s.addBtn} hitSlop={6}>
               <Text style={s.addGlyph}>+</Text>
             </Pressable>
           ) : (
-            <Pressable key={key} onPress={() => onTab(key)} style={s.tab} hitSlop={6}>
+            <Pressable key={key} testID={`tab-${key}`} onPress={() => onTab(key)} style={s.tab} hitSlop={6}>
               <View style={[s.halo, tab === key && s.haloOn]}>
                 {/* One SVG language for the whole bar — no emoji. */}
                 {key === 'reminders' && <TickCircleIcon />}

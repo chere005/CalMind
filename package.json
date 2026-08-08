@@ -9,6 +9,11 @@
     "test": "npm run test:core && npm run test:server",
     "test:core": "npm -w @calmind/core run test -- --run",
     "test:server": "php server/tools/test.php",
-    "web": "npm -w app run web"
+    "web": "npm -w app run web",
+    "test:e2e": "npm -w app exec expo export -- -p web && playwright test",
+    "test:e2e:fast": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.62.1"
   }
 }
