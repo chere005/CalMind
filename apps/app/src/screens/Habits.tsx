@@ -8,7 +8,7 @@
  * the username) filters sections and opens Manage sections.
  */
 import React, { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View , useWindowDimensions } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View , useWindowDimensions , Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { byOrd, monthGrid, newId, ordBetween, prefsOf, prefsPut, tickId, todayStr, type Rec } from '@calmind/core';
@@ -99,9 +99,8 @@ export function Habits() {
   const setView = (v: 'week' | 'month') => mutate((e) => e.put(prefsPut(recs, 'habits', { view: v })));
 
   const allDays = useMemo(() => weekDates(w), [w]);
-  // The columns only a wide screen shows — the suite's wide-only rule at 640.
-  const wide = useWindowDimensions().width > 640;
-  const days = wide ? allDays : allDays.slice(3);
+  // Sean's rule: seven columns on web, five on a phone.
+  const days = Platform.OS === 'web' ? allDays.slice(1) : allDays.slice(3);
   const [year, month] = ym.split('-').map(Number) as [number, number];
   const cells = useMemo(() => monthGrid(year, month), [year, month]);
 

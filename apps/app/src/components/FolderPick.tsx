@@ -59,7 +59,7 @@ export function FolderPick({ app }: { app: 'reminders' | 'notes' }) {
     <>
       <Pressable testID={`pick-${app}`} onPress={() => setOpen(true)} hitSlop={8}>
         {/* One folder = its colour; several = the pie; everything on = the rainbow. */}
-        <PieDot colors={active ? [active.payload.color] : visible.map((f) => f.payload.color)} size={24} />
+        <PieDot colors={active ? [active.payload.color] : visible.map((f) => f.payload.color)} size={18} />
       </Pressable>
 
       {open && (
@@ -67,10 +67,24 @@ export function FolderPick({ app }: { app: 'reminders' | 'notes' }) {
           <Pressable style={s.backdrop} onPress={() => setOpen(false)}>
             <Pressable style={s.menu} onPress={() => {}}>
               <ScrollView>
-                <Pressable style={s.row} onPress={() => { setPrefs({ lastView: 'all' }); setOpen(false); }}>
-                  <PieDot colors={folders.map((f) => f.payload.color)} size={14} />
-                  <Text style={[s.rowText, view === 'all' && s.rowActive]}>All</Text>
-                </Pressable>
+                {(() => {
+                  const allOn = hidden.length === 0;
+                  return (
+                    <View style={s.row}>
+                      <Pressable style={s.rowMain} onPress={() => { setPrefs({ lastView: 'all', hidden: [] }); setOpen(false); }}>
+                        <PieDot colors={folders.map((f) => f.payload.color)} size={14} />
+                        <Text style={[s.rowText, view === 'all' && s.rowActive]}>All</Text>
+                      </Pressable>
+                      <Pressable
+                        testID={`fold-all-box-${app}`}
+                        hitSlop={8}
+                        onPress={() => setPrefs(allOn ? { hidden: folders.map((f) => f.id) } : { lastView: 'all', hidden: [] })}
+                      >
+                        <Text style={[s.box, allOn && s.boxOn]}>{allOn ? '☑' : '☐'}</Text>
+                      </Pressable>
+                    </View>
+                  );
+                })()}
                 {folders.map((f) => {
                   const off = hidden.includes(f.id);
                   return (

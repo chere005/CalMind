@@ -510,6 +510,38 @@ honest — the next iteration trusts it.
   what the three harnesses watch and what stays by-eye.
 - 130 core + 22 server + 23 gesture tests.
 
+## Iteration 33 shipped — Sean's rapid-steering batch A
+- ALL IS THE MASTER again in both pickers: the row's new box shows ticked
+  only when everything is visible; one tap shows the lot (lands on All), a
+  second hides the lot — individual boxes untouched. (It had only been
+  setting the view, never the hidden lists.)
+- SEAN⇄AKI SHARING LIVE ON TEST: their prod shares- files exported one-shot,
+  converted (calendar ids kept by the import; folder names → the importer's
+  imf_ scheme) and pushed as share records — first pass lost LWW to records
+  the two had made in the UI that day (updated=1 vs Date.now, a lesson),
+  re-pushed with live timestamps. sean sees aki's folder+calendar+38 items;
+  aki sees sean's three folders, two calendars, 35 items. The ⇗ marks now
+  have something real to mark.
+- Native default server → LIVE TEST (Sean's call, made by using it): the
+  sim sits at the login pointed at his real data; he signs in himself.
+- Style batch: pie 18 inside its ring (air), pill spacing balanced, collapse
+  chevrons grown from comic-small to 16/20, Reminders date chips wear a
+  surface2 highlight and right-justify, Notes' Delete is outlined and
+  arming only recolours (never moves), Habits shows 7 columns on web / 5 on
+  phones.
+- 132 core + 22 server + 25 gesture tests.
+
+## Queued from Sean (batch B, next)
+- A back control that always returns to the previous screen (needs a small
+  tab-history context; he asked top-right).
+- Refresh restores the screen you were on (persist the active tab);
+  selected folders + fold state already persist.
+- The calendar rework: two-week fold (selected day's week + the next),
+  arrows/swipes page one week there and one month in full view; the grid
+  fills with the neighbours' days LIGHTENED, and picking one never changes
+  the shown month (core helpers monthGridFilled/twoWeeksFrom are in with
+  tests — the screen wiring is what remains).
+
 ## Iteration 32 shipped — the third sweep + Sean's live batch
 - CELL RULE completed: a fully-done colour's tick icon now LEAVES the month
   cell unless Completed is shown (it drew grey regardless) — spec drives

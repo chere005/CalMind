@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { addDays, weekOf, cellMarks, dayItems, dayMarks, monthGrid, monthLegend } from '../src/day';
+import { addDays, monthGridFilled, twoWeeksFrom, weekOf, cellMarks, dayItems, dayMarks, monthGrid, monthLegend } from '../src/day';
 import type { AnyRec, Rec } from '../src/types';
 
 const TODAY = '2026-08-07';
@@ -144,5 +144,22 @@ describe('weekOf — a month row, not a floating seven days', () => {
   it('addDays crosses months and years', () => {
     expect(addDays('2026-12-30', 3)).toBe('2027-01-02');
     expect(addDays('2026-03-01', -1)).toBe('2026-02-28');
+  });
+});
+
+describe('the filled grid and the two-week fold', () => {
+  it('fills the edges with the neighbours\u2019 real days, whole weeks', () => {
+    const g = monthGridFilled(2026, 8); // Aug 2026 starts Saturday
+    expect(g.length % 7).toBe(0);
+    expect(g[0]).toBe('2026-07-26'); // the leading Sunday, July
+    expect(g).toContain('2026-08-01');
+    expect(g[g.length - 1] >= '2026-08-31').toBe(true);
+  });
+  it('two weeks run from the selected day\u2019s Sunday, crossing months freely', () => {
+    const w = twoWeeksFrom('2026-08-08');
+    expect(w).toHaveLength(14);
+    expect(w[0]).toBe('2026-08-02');
+    expect(w[13]).toBe('2026-08-15');
+    expect(twoWeeksFrom('2026-08-31')[13].startsWith('2026-09')).toBe(true);
   });
 });

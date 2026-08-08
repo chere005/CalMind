@@ -474,9 +474,9 @@ export function Reminders() {
                               delayLongPress={350}
                             >
                               <Text style={[s.rowText, r.payload.done && s.rowTextDone]}>{r.payload.text || '…'}</Text>
-                              {dueChip(r)}
                             </Pressable>
                           )}
+                          {editing !== r.id && dueChip(r)}
                           {pageEdit && (
                             <>
                               <CircleBtn testID="rem-pencil" glyph="✎" size={24} onPressIn={() => { holdCluster.current = true; }} onPress={() => { if (editing === r.id) saveEdit(r); setEditing(null); setModalRec(r); }} />
@@ -684,7 +684,7 @@ const s = themed(() => StyleSheet.create({
   folderRule: { flex: 1, height: 1, backgroundColor: T.lineSoft },
   section: { gap: 6 },
   secHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 },
-  chevron: { color: T.muted, fontSize: 12, width: 14, textAlign: 'center' },
+  chevron: { color: T.dim, fontSize: 16, width: 20, textAlign: 'center' },
   secName: { color: T.gold, fontSize: 16, lineHeight: 20, fontWeight: '600' },
   secRename: { flex: 1, paddingVertical: 4 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: T.lineSoft },
@@ -718,7 +718,7 @@ const s = themed(() => StyleSheet.create({
   },
   tickDone: { backgroundColor: T.accentInk, borderColor: T.accent },
   tickMark: { color: T.accent, fontSize: 13, fontWeight: '700' },
-  chip: { color: T.dim, fontSize: 13 },
+  chip: { color: T.dim, fontSize: 13, backgroundColor: T.surface2, paddingHorizontal: 9, paddingVertical: 3, borderRadius: 999, overflow: 'hidden', marginLeft: 'auto' },
   chipOverdue: { color: T.overdue, fontWeight: '600' },
   rowRolled: { backgroundColor: T.accentSoft, borderRadius: 8 },
   chipRolled: { color: T.accent, fontWeight: '700' },

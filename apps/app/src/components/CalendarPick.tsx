@@ -62,7 +62,7 @@ export function CalendarPick() {
   return (
     <>
       <Pressable onPress={() => setOpen(true)} hitSlop={8}>
-        <PieDot colors={visible.map((c) => c.payload.color)} size={24} />
+        <PieDot colors={visible.map((c) => c.payload.color)} size={18} />
       </Pressable>
 
       {open && (
@@ -70,10 +70,28 @@ export function CalendarPick() {
           <Pressable style={s.backdrop} onPress={() => setOpen(false)}>
             <Pressable style={s.menu} onPress={() => {}}>
               <ScrollView>
-                <Pressable style={s.row} onPress={() => { setPrefs({ lastView: 'all' }); setOpen(false); }}>
-                  <PieDot colors={calendars.map((c) => c.payload.color)} size={14} />
-                  <Text style={[s.rowText, view === 'all' && s.rowActive]}>All</Text>
-                </Pressable>
+                {(() => {
+                  // All is the MASTER: ticked only when everything shows; one
+                  // tap shows the lot, a second (all already on) hides the lot.
+                  const allOn = hidden.length === 0 && hiddenShared.length === 0;
+                  return (
+                    <View style={s.row}>
+                      <Pressable style={s.rowMain} onPress={() => { setPrefs({ lastView: 'all', hidden: [], hiddenShared: [] }); setOpen(false); }}>
+                        <PieDot colors={calendars.map((c) => c.payload.color)} size={14} />
+                        <Text style={[s.rowText, view === 'all' && s.rowActive]}>All</Text>
+                      </Pressable>
+                      <Pressable
+                        testID="cal-all-box"
+                        hitSlop={8}
+                        onPress={() => setPrefs(allOn
+                          ? { hidden: calendars.map((c) => c.id), hiddenShared: sharedCals.map((c) => c.id) }
+                          : { lastView: 'all', hidden: [], hiddenShared: [] })}
+                      >
+                        <Text style={[s.box, allOn && s.boxOn]}>{allOn ? '☑' : '☐'}</Text>
+                      </Pressable>
+                    </View>
+                  );
+                })()}
                 {calendars.map((c) => {
                   const off = hidden.includes(c.id);
                   return (
