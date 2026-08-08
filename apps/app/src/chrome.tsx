@@ -83,9 +83,9 @@ const s = themed(() => StyleSheet.create({
   // Prod's header controls: the picker sits in a dark ringed circle, the
   // username in a thin outlined pill — header nav .who, carried over.
   // One row, one scale: ring and pill both 32 high, the suite's bar height.
-  pickerRing: { width: 32, height: 32, borderRadius: 16, backgroundColor: T.surface2, borderWidth: 1, borderColor: T.line, alignItems: 'center', justifyContent: 'center' },
-  whoPill: { height: 32, flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderColor: T.accentSoft, borderRadius: 999, paddingHorizontal: 12 },
-  who: { color: T.accent, fontSize: 15, fontWeight: '600' },
+  pickerRing: { width: 28, height: 28, borderRadius: 14, backgroundColor: T.surface2, borderWidth: 1, borderColor: T.line, alignItems: 'center', justifyContent: 'center' },
+  whoPill: { height: 28, flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderColor: T.accentSoft, borderRadius: 999, paddingHorizontal: 11 },
+  who: { color: T.accent, fontSize: 14, fontWeight: '600' },
   whoCaret: { color: T.accent, fontSize: 10, opacity: 0.8 },
   menuBackdrop: { flex: 1, backgroundColor: '#0007' },
   menu: {

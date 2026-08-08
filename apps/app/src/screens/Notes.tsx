@@ -570,7 +570,7 @@ const s = themed(() => StyleSheet.create({
   folderRule: { flex: 1, height: 1, backgroundColor: T.lineSoft },
   section: { gap: 6 },
   secHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
-  secName: { color: T.gold, fontSize: 18, lineHeight: 22, fontWeight: '600' },
+  secName: { color: T.gold, fontSize: 16, lineHeight: 20, fontWeight: '600' },
   chevron: { color: T.muted, fontSize: 12, width: 14, textAlign: 'center' },
   toolbarRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingBottom: 2 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 8, height: 44 },

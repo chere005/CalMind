@@ -456,6 +456,17 @@ function handle_feed(array $cfg): never
     $calPrefs = $prefs('calendar');
     $hidCals = array_flip((array) ($calPrefs['hidden'] ?? []));
     $onlyCal = (string) ($calPrefs['lastView'] ?? 'all');
+    // The suite's cals= pin: the setup page bakes the calendars showing at
+    // copy time into the URL. Validated against the owner's ids so it can
+    // only narrow; absent, 'all' or fully-stale pins follow prefs as before.
+    // Reminder folders are never pinned — they always follow hidden.
+    $pin = null;
+    if (isset($_GET['cals']) && $_GET['cals'] !== 'all') {
+        $own = [];
+        foreach ($recs as $r0) { if (($r0['type'] ?? '') === 'calendar') { $own[$r0['id']] = true; } }
+        $ids = array_values(array_filter(explode(',', (string) $_GET['cals']), fn($i) => isset($own[$i])));
+        if ($ids !== []) { $pin = array_flip($ids); }
+    }
 
     $rideAlong = [];
     foreach ($recs as $r) {
@@ -512,7 +523,7 @@ function handle_feed(array $cfg): never
         }
         if ($r['type'] === 'event') {
             $cal = (string) ($p['calendarId'] ?? '');
-            if (isset($hidCals[$cal]) || ($onlyCal !== 'all' && $cal !== $onlyCal)) { continue; }
+            if ($pin !== null ? !isset($pin[$cal]) : (isset($hidCals[$cal]) || ($onlyCal !== 'all' && $cal !== $onlyCal))) { continue; }
             foreach ($expand($p['date'] ?? null, $p['repeat'] ?? null) as $d) {
                 $days[$d][] = ['kind' => 'event', 'id' => $r['id'], 'text' => $p['text'], 'time' => $p['time'] ?? null];
             }

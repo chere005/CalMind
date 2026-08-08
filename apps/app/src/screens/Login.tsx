@@ -19,6 +19,7 @@ export function Login() {
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPw, setConfirmPw] = useState('');
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -36,8 +37,12 @@ export function Login() {
     }
   };
 
-  const submit = () =>
-    run(async () => {
+  const submit = () => {
+    if ((mode === 'signup' || mode === 'reset') && password !== confirmPw) {
+      setError("those passwords don't match");
+      return;
+    }
+    return run(async () => {
       if (mode === 'signin') {
         const r = await login(serverUrl, username, password);
         await signIn({ token: r.token, username: r.username, serverUrl });
@@ -52,6 +57,7 @@ export function Login() {
         await signIn({ token: r.token, username: r.username, serverUrl });
       }
     });
+  };
 
   return (
     <KeyboardAvoidingView style={s.page} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -73,6 +79,16 @@ export function Login() {
             value={password}
             onChangeText={setPassword}
             placeholder={mode === 'reset' ? 'New password' : 'Password'}
+            secureTextEntry
+            onSubmitEditing={submit}
+          />
+        )}
+        {(mode === 'signup' || mode === 'reset') && (
+          <Field
+            testID="login-confirm"
+            value={confirmPw}
+            onChangeText={setConfirmPw}
+            placeholder="Confirm password"
             secureTextEntry
             onSubmitEditing={submit}
           />

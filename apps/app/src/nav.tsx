@@ -6,7 +6,7 @@
  * window the five tabs stay under the content instead of flying to the edges.
  */
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View , Platform } from 'react-native';
 import { themed, T, PAGE_MAX_WIDTH } from './theme';
 import { CalendarIcon, FlameIcon, PageIcon, TickCircleIcon } from './components/KindIcons';
 
@@ -61,6 +61,8 @@ const s = themed(() => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
+    // Web spreads 640px wide; the suite's bar keeps its icons closer.
+    ...(Platform.OS === 'web' ? { alignSelf: 'center' as const, width: 420, maxWidth: '100%' as const } : null),
     paddingVertical: 6,
   },
   tab: { alignItems: 'center', justifyContent: 'center' },

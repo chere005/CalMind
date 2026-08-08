@@ -34,7 +34,8 @@ async function signup(page: Page): Promise<string> {
   await page.getByText('Sign up', { exact: true }).click();
   await page.getByPlaceholder('Username').fill(user);
   await page.getByPlaceholder('Email').fill(`${user}@example.com`);
-  await page.getByPlaceholder('Password').fill('e2epassword');
+  await page.getByPlaceholder('Password', { exact: true }).fill('e2epassword');
+  await page.getByPlaceholder('Confirm password').fill('e2epassword');
   await page.getByText('Sign up', { exact: true }).click();
   await expect(page.getByTestId('tab-reminders')).toBeVisible({ timeout: 10_000 });
   return user;
@@ -571,4 +572,17 @@ test('the selected day survives a trip to another tab', async ({ page }) => {
   await page.getByTestId('tab-notes').click();
   await page.getByTestId('tab-calendar').click();
   await expect(page.getByText(/, .* 15/)).toBeVisible(); // the panel heading still says the 15th
+});
+
+test('the widget setup page bakes the pin and carries the whole script', async ({ page }) => {
+  const user = await signup(page);
+  await page.getByText(user, { exact: true }).click();
+  await page.getByText('Settings', { exact: true }).click();
+  await page.getByTestId('open-widget').click();
+  await expect(page.getByText('Calendar widget')).toBeVisible();
+  await expect(page.getByTestId('copy-script')).toBeVisible({ timeout: 10_000 });
+  await page.getByText(/Show raw feed URL/).click();
+  const raw = await page.getByText(/feed=1&t=/).last().innerText();
+  expect(raw).toContain('&cals=all'); // every calendar showing → the all pin
+  await expect(page.getByText(/every calendar/)).toBeVisible();
 });

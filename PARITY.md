@@ -465,12 +465,32 @@ honest — the next iteration trusts it.
   metro + a signed-in account with data at the same time).
 - 127 core + 21 server + 21 gesture tests.
 
-## In flight (iteration 28 — start here)
-- WatchConnectivity end-to-end: phone sim (dev client + metro + local API)
-  signed in with reminders, watch drawing the pushed rows.
+## Iteration 28 shipped — Sean's live batch
+- AKI'S LOGIN FIXED: the mint wrapper wrote the hash under 'password' where
+  handle_login reads 'hash' — repaired by a one-shot wrapper (same temp
+  password), verified with a real login round-trip. Lesson recorded: the
+  scp'd wrappers can never self-unlink (the web user doesn't own them);
+  every one-shot ends with an ssh rm, always.
+- THE WIDGET SETUP PAGE, prod's feed.php translated: install steps, the
+  COMPLETE script with feed URL + token + the suite's cals= pin baked from
+  whatever the calendar is showing at copy time, Copy script, home-screen
+  steps, the token warning, Show raw feed URL. Tapping the widget opens
+  CalMind (the PWA when saved from Share); reminder rows open ?tick=. The
+  feed honours the pin server-side (validated ids narrow only; stale pins
+  fall back to prefs; folders never pinned) — server test covers pinned /
+  all / stale.
+- CONFIRM PASSWORD on sign-up, reset and change-password — mismatch stops
+  the submit with the suite-toned error.
+- Sean's sizing pass 2: ring+pill 28, pie up to 24 inside, sections 16,
+  the tab bar's icons pull to a 420px centre on web only.
+- 127 core + 22 server + 22 gesture tests.
+
+## In flight (iteration 29 — start here)
+- WatchConnectivity end-to-end: the phone did sign in and add natively, but
+  the watch sim kept its empty state (the watch app also got UNINSTALLED
+  between launches once — sim flakiness). Debug path: WCSession activation
+  logs on both sides, then a real-device check with Sean.
 - Sean to decide: sim/dev builds defaulting to the live test server.
-- Periodic full two-instance regression (web + both sims) before any talk
-  of promoting /test/calmind toward prod.
 
 ## Next, in pain order
 1. Habits month view (day pies + its legend) + Manage-sections window +

@@ -62,7 +62,7 @@ export function CalendarPick() {
   return (
     <>
       <Pressable onPress={() => setOpen(true)} hitSlop={8}>
-        <PieDot colors={visible.map((c) => c.payload.color)} />
+        <PieDot colors={visible.map((c) => c.payload.color)} size={24} />
       </Pressable>
 
       {open && (

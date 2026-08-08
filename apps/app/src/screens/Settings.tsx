@@ -11,6 +11,7 @@ import { useStore } from '../store';
 import { CircleBtn, Field, Pill, ErrorLine } from '../ui';
 import { applyTheme, currentTheme, themed, T, THEMES, type ThemeName } from '../theme';
 import { ShareModal } from '../components/ShareModal';
+import { WidgetSetup } from './WidgetSetup';
 
 export function Settings({ onClose }: { onClose: () => void }) {
   const { session, setSession, signOut, recs, mutate } = useStore();
@@ -21,19 +22,26 @@ export function Settings({ onClose }: { onClose: () => void }) {
   };
   const [oldPass, setOldPass] = useState('');
   const [newPass, setNewPass] = useState('');
+  const [confirmPass, setConfirmPass] = useState('');
   const [msg, setMsg] = useState('');
   const [err, setErr] = useState('');
   const [note, setNote] = useState('');
   const [shareOpen, setShareOpen] = useState(false);
+  const [widgetOpen, setWidgetOpen] = useState(false);
 
   const change = async () => {
     setErr('');
     setMsg('');
+    if (newPass !== confirmPass) {
+      setErr("those passwords don't match");
+      return;
+    }
     try {
       const r = await changePassword(session!, oldPass, newPass);
       await setSession({ ...session!, token: r.token });
       setOldPass('');
       setNewPass('');
+      setConfirmPass('');
       setMsg('Password changed — other devices sign in again.');
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'something went wrong');
@@ -42,6 +50,7 @@ export function Settings({ onClose }: { onClose: () => void }) {
 
   // The suite closes settings before the share window opens — one layer.
   if (shareOpen) return <ShareModal onClose={onClose} />;
+  if (widgetOpen) return <WidgetSetup onClose={onClose} />;
 
   return (
     <Modal transparent animationType="fade" onRequestClose={onClose}>
@@ -51,6 +60,7 @@ export function Settings({ onClose }: { onClose: () => void }) {
           <Text style={s.who}>{session?.username}</Text>
           <Field value={oldPass} onChangeText={setOldPass} placeholder="Current password" secureTextEntry />
           <Field value={newPass} onChangeText={setNewPass} placeholder="New password" secureTextEntry />
+          <Field value={confirmPass} onChangeText={setConfirmPass} placeholder="Confirm new password" secureTextEntry />
           <Pill label="Change password" onPress={change} />
           {msg ? <Text style={s.ok}>{msg}</Text> : null}
           <ErrorLine text={err} />
@@ -72,19 +82,7 @@ export function Settings({ onClose }: { onClose: () => void }) {
               Widget say where they are on the roadmap until those land. */}
           <View style={s.footer}>
             <CircleBtn testID="open-share" glyph="⇗" size={40} onPress={() => setShareOpen(true)} />
-            <CircleBtn
-              glyph="▤"
-              size={40}
-              onPress={async () => {
-                try {
-                  const r = await apiPost<{ token: string }>(session!.serverUrl, { action: 'widget_token' }, session!.token);
-                  const base = session!.serverUrl.replace(/\/api\/index\.php$/, '');
-                  setNote(`Widget feed (paste into tools/scriptable-widget.js):\n${base}/api/index.php?feed=1&t=${r.token}`);
-                } catch {
-                  setNote('Could not mint the widget token — try again online.');
-                }
-              }}
-            />
+            <CircleBtn testID="open-widget" glyph="▤" size={40} onPress={() => setWidgetOpen(true)} />
             <CircleBtn glyph="✓" size={40} color={T.accent} active onPress={onClose} />
           </View>
           <View style={s.row}>

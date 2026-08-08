@@ -685,7 +685,7 @@ const s = themed(() => StyleSheet.create({
   section: { gap: 6 },
   secHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 },
   chevron: { color: T.muted, fontSize: 12, width: 14, textAlign: 'center' },
-  secName: { color: T.gold, fontSize: 18, lineHeight: 22, fontWeight: '600' },
+  secName: { color: T.gold, fontSize: 16, lineHeight: 20, fontWeight: '600' },
   secRename: { flex: 1, paddingVertical: 4 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: T.lineSoft },
   rowLast: { borderBottomWidth: 0, paddingBottom: 2 },

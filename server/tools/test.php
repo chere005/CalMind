@@ -205,6 +205,30 @@ t('the feed follows the suite: rolled repeats keep future dates, hidden folders 
     ok(!in_array('invisible', $all, true), 'a hidden folder never feeds');
     ok(count($all) <= 12, 'the suite cap of 12 rows holds');
 });
+t('the cals= pin narrows the feed to the calendars baked at copy time', function () use ($tokenA) {
+    global $port;
+    api(['action' => 'sync', 'cursor' => 0, 'changes' => [
+        ['id' => 'calA', 'type' => 'calendar', 'updated' => 8200, 'payload' => ['name' => 'Home', 'color' => '#0379f6', 'ord' => 'a']],
+        ['id' => 'calB', 'type' => 'calendar', 'updated' => 8200, 'payload' => ['name' => 'Work', 'color' => '#ed0d10', 'ord' => 'b']],
+        ['id' => 'evA', 'type' => 'event', 'updated' => 8200, 'payload' => ['text' => 'home thing', 'date' => date('Y-m-d'), 'time' => null, 'repeat' => null, 'calendarId' => 'calA', 'ord' => 'a']],
+        ['id' => 'evB', 'type' => 'event', 'updated' => 8200, 'payload' => ['text' => 'work thing', 'date' => date('Y-m-d'), 'time' => null, 'repeat' => null, 'calendarId' => 'calB', 'ord' => 'b']],
+    ]], $tokenA);
+    $wt = api(['action' => 'widget_token'], $tokenA)['body']['token'];
+    $texts = function (string $extra) use ($wt) {
+        global $port;
+        $feed = json_decode((string) @file_get_contents("http://127.0.0.1:$port/api/index.php?feed=1&t=$wt$extra"), true);
+        $out = [];
+        foreach (($feed['days'] ?? []) as $rows) { foreach ($rows as $r) { $out[] = $r['text']; } }
+        return $out;
+    };
+    $pinned = $texts('&cals=calA');
+    ok(in_array('home thing', $pinned, true), 'the pinned calendar feeds');
+    ok(!in_array('work thing', $pinned, true), 'the unpinned one does not');
+    $all = $texts('&cals=all');
+    ok(in_array('work thing', $all, true), 'cals=all follows prefs as before');
+    $stale = $texts('&cals=ghost1,ghost2');
+    ok(in_array('work thing', $stale, true), 'a fully-stale pin falls back to prefs');
+});
 t('a bad feed token is a 401 and a bearer token does not work as one', function () use ($tokenA) {
     global $port;
     $r1 = json_decode((string) @file_get_contents("http://127.0.0.1:$port/api/index.php?feed=1&t=" . str_repeat('0', 48)), true);
