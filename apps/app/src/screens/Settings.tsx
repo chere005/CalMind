@@ -7,7 +7,7 @@ import React, { useState } from 'react';
 import { Modal, StyleSheet, Text, View } from 'react-native';
 import { changePassword, logout } from '../api';
 import { useStore } from '../store';
-import { Field, Pill, ErrorLine } from '../ui';
+import { CircleBtn, Field, Pill, ErrorLine } from '../ui';
 import { T } from '../theme';
 
 export function Settings({ onClose }: { onClose: () => void }) {
@@ -16,6 +16,7 @@ export function Settings({ onClose }: { onClose: () => void }) {
   const [newPass, setNewPass] = useState('');
   const [msg, setMsg] = useState('');
   const [err, setErr] = useState('');
+  const [note, setNote] = useState('');
 
   const change = async () => {
     setErr('');
@@ -42,6 +43,15 @@ export function Settings({ onClose }: { onClose: () => void }) {
           <Pill label="Change password" onPress={change} />
           {msg ? <Text style={s.ok}>{msg}</Text> : null}
           <ErrorLine text={err} />
+          {note ? <Text style={s.note}>{note}</Text> : null}
+          {/* The suite's settings footer: one row of three identical round icon
+              buttons — Share, Widget, Done (the accent checkmark). Share and
+              Widget say where they are on the roadmap until those land. */}
+          <View style={s.footer}>
+            <CircleBtn glyph="⇗" size={40} onPress={() => setNote('Sharing lands with partner lists — next on the roadmap.')} />
+            <CircleBtn glyph="▤" size={40} onPress={() => setNote('The widget feed arrives with the iOS build.')} />
+            <CircleBtn glyph="✓" size={40} color={T.accent} active onPress={onClose} />
+          </View>
           <View style={s.row}>
             <Pill
               label="Log out"
@@ -50,7 +60,6 @@ export function Settings({ onClose }: { onClose: () => void }) {
                 await signOut();
               }}
             />
-            <Pill primary label="Done" onPress={onClose} />
           </View>
         </View>
       </View>
@@ -73,5 +82,7 @@ const s = StyleSheet.create({
   h2: { color: T.text, fontSize: 18, fontWeight: '700' },
   who: { color: T.dim, fontSize: 13 },
   ok: { color: T.accent, fontSize: 13 },
-  row: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },
+  note: { color: T.dim, fontSize: 13 },
+  footer: { flexDirection: 'row', justifyContent: 'space-around', marginTop: 10 },
+  row: { flexDirection: 'row', justifyContent: 'center', marginTop: 8 },
 });

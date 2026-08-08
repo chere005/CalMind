@@ -31,11 +31,11 @@ export function TopBar({
         <Text style={s.appname}>{title}</Text>
         <View style={s.right}>
           {controls}
-          <View style={[s.status, { backgroundColor: syncState === 'offline' ? T.gold : T.accent }]} />
           {picker}
           <Pressable onPress={() => setMenuOpen(true)} hitSlop={8}>
             <Text style={s.who}>{session?.username}</Text>
           </Pressable>
+          <View style={[s.status, { backgroundColor: syncState === 'offline' ? T.gold : T.accent }]} />
         </View>
       </View>
       <Rule />
