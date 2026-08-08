@@ -169,13 +169,31 @@ honest — the next iteration trusts it.
   manager-window rename pencil too, which had the same latent race.
 - 114 core + 17 server + 10 gesture tests.
 
-## In flight (iteration 11 — start here)
-- Measured-position upgrade for ROW drags (retire uniform-height math).
+## Iteration 11 shipped
+- Row drags are MEASURED: useRowDrag records every entry's midpoint at grant
+  and moves when the row's DISPLACED midpoint crosses another's (grab point
+  cancels out; direction-aware tie bias). Placeholders stay zero-height in a
+  drag — growing them at grant shifted the list under the finger; the drop
+  line is the only feedback, as the suite demands. All five call sites.
+- Duplicate buttons: duplicateItem in core (reminder = whole outline block,
+  fresh ids, consecutive ords directly under the original; note/event = one
+  copy; 3 tests) — wired as ⧉ in the Reminders edit cluster (top-level, the
+  suite's spot between ✎ and +), on Notes rows, and on all three day-panel
+  row kinds.
+- THE INFRA FIND: e2e specs had NEVER exercised their own scratch API — the
+  web app hardcoded localhost:8788 for any localhost hostname, so ten
+  iterations of green runs leaned on a long-dead manually-started dev server.
+  Same-origin api/ everywhere except metro now; drag specs measure their
+  destinations instead of assuming pixel constants.
+- 117 core + 17 server + 11 gesture tests.
+
+## In flight (iteration 12 — start here)
 - Week mode: swipe up on the grid, wk paging across month edges, sideways
   swipe paging (a week in week mode, a month otherwise), tap-only selection.
 - Rendered rich text in notes (markers → styled runs).
-- Duplicate buttons (block copy w/ fresh ids: rem rows, notes, day panel).
 - Swipe-a-row-left to delete (armed two-press control).
+- Notes rows show ⧉ always — gate it behind an edit mode when Notes gets one
+  (the suite hides row controls outside edit mode).
 
 ## Next, in pain order
 1. Habits month view (day pies + its legend) + Manage-sections window +

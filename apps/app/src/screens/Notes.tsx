@@ -5,7 +5,7 @@
  */
 import React, { useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { byOrd, moveNote, moveSection, moveSectionEmptyingFolder, newId, ordBetween, parseDateFromText, parseWhenFromText, todayStr, type Rec } from '@calmind/core';
+import { byOrd, duplicateItem, moveNote, moveSection, moveSectionEmptyingFolder, newId, ordBetween, parseDateFromText, parseWhenFromText, todayStr, type Rec } from '@calmind/core';
 import { useStore } from '../store';
 import { T } from '../theme';
 import { TopBar } from '../chrome';
@@ -289,6 +289,10 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
                         <Text style={s.rowTitle} numberOfLines={1}>{n.payload.title}</Text>
                         <Text style={s.chev}>›</Text>
                       </Pressable>
+                      <CircleBtn glyph="⧉" size={22} onPress={() => {
+                        const res = duplicateItem(recs, n.id, newId);
+                        if (!('error' in res)) mutate((e) => res.put.forEach((p) => e.put(p)));
+                      }} />
                     </View>
                   </View>
                 ))}

@@ -8,7 +8,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import {
+import { duplicateItem,
   cellMarks,
   dayItems,
   monthGrid,
@@ -153,6 +153,7 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
             <Text style={s.rowText}>{e.payload.text}</Text>
             {e.payload.time && <Text style={s.chip}>{e.payload.time}</Text>}
             <CircleBtn glyph="✎" size={24} onPress={() => setModal({ mode: 'edit', kind: 'event', rec: e })} />
+            <CircleBtn glyph="⧉" size={24} onPress={() => { const res = duplicateItem(recs, e.id, newId); if (!('error' in res)) mutate((en) => res.put.forEach((p) => en.put(p))); }} />
             <ConfirmDelete onDelete={() => mutate((en) => en.del(e.id))} />
           </View>
         ))}
@@ -172,6 +173,7 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
             {rider && <Text style={s.chip}>every day</Text>}
             {r.payload.time && <Text style={s.chip}>{r.payload.time}</Text>}
             <CircleBtn glyph="✎" size={24} onPress={() => setModal({ mode: 'edit', kind: 'reminder', rec: r })} />
+            <CircleBtn glyph="⧉" size={24} onPress={() => { const res = duplicateItem(recs, r.id, newId); if (!('error' in res)) mutate((en) => res.put.forEach((p) => en.put(p))); }} />
           </View>
         ))}
         {items.notes.length > 0 && (
@@ -185,6 +187,7 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
             <Text style={[s.markGlyph, { color: T.dim }]}>▤</Text>
             <Text style={s.rowText}>{n.payload.title}</Text>
             <CircleBtn glyph="✎" size={24} onPress={() => setModal({ mode: 'edit', kind: 'note', rec: n })} />
+            <CircleBtn glyph="⧉" size={24} onPress={() => { const res = duplicateItem(recs, n.id, newId); if (!('error' in res)) mutate((en) => res.put.forEach((p) => en.put(p))); }} />
           </View>
         ))}
         {items.events.length + items.reminders.length + items.notes.length === 0 && (

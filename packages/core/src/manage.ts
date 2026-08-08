@@ -329,6 +329,46 @@ export function moveSectionEmptyingFolder(
  * convert both ways. Converting removes the source — unless a reminder has
  * subtasks, which can't ride along, so it stays behind as their home.
  */
+/**
+ * The suite's duplicate button: a copy directly under the original, fresh
+ * ids throughout. A reminder copies its whole outline block (parent and
+ * subtasks travel together); a note or event is a single copy. `mkId` is
+ * called once per copied row so callers control id generation.
+ */
+export function duplicateItem(recs: AnyRec[], id: string, mkId: () => string): ManageResult {
+  const src = recs.find((x) => x.id === id && !x.deleted);
+  if (!src) return { error: 'no such item' };
+  if (src.type === 'event') {
+    return { put: [{ ...src, id: mkId(), payload: { ...(src as Rec<'event'>).payload } }] };
+  }
+  if (src.type === 'note') {
+    const n = src as Rec<'note'>;
+    const rows = of(recs, 'note')
+      .filter((x) => x.payload.sectionId === n.payload.sectionId)
+      .sort((a, b) => byOrd(a.payload, b.payload));
+    const at = rows.findIndex((x) => x.id === id);
+    const ord = ordBetween(n.payload.ord, rows[at + 1]?.payload.ord ?? null);
+    return { put: [{ ...n, id: mkId(), payload: { ...n.payload, ord } }] };
+  }
+  if (src.type !== 'reminder') return { error: 'not duplicable' };
+  const block = reminderBlock(recs, id);
+  if (block.length === 0) return { error: 'no such item' };
+  const last = block[block.length - 1]!;
+  const rows = of(recs, 'reminder')
+    .filter((x) => x.payload.sectionId === last.payload.sectionId)
+    .sort((a, b) => byOrd(a.payload, b.payload));
+  const at = rows.findIndex((x) => x.id === last.id);
+  const hi = rows[at + 1]?.payload.ord ?? null;
+  let lo: string | null = last.payload.ord;
+  const put: AnyRec[] = [];
+  for (const b of block) {
+    const ord = ordBetween(lo, hi);
+    put.push({ ...b, id: mkId(), payload: { ...b.payload, ord } });
+    lo = ord;
+  }
+  return { put };
+}
+
 export function convertToNote(recs: AnyRec[], sourceId: string, destSectionId: string, newNoteId: string): ManageResult {
   const src = of(recs, 'reminder').find((r) => r.id === sourceId) ?? of(recs, 'event').find((r) => r.id === sourceId);
   if (!src) return { error: 'no such item' };

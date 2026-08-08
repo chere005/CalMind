@@ -232,3 +232,20 @@ test('editing a reminder into a Note converts one-way', async ({ page }) => {
   await page.getByTestId('tab-notes').click();
   await expect(page.getByTestId('note-row').filter({ hasText: 'becomes a note' })).toBeVisible();
 });
+
+test('the ⧉ copies a reminder directly under itself', async ({ page }) => {
+  await signup(page);
+  await page.getByTestId('tab-reminders').click();
+  await page.getByTestId('secadd-General').first().click();
+  await page.getByTestId('rem-add-field').fill('twin me');
+  await page.getByTestId('rem-add-field').press('Enter');
+  const body = page.getByTestId('rem-body').filter({ hasText: 'twin me' });
+  const box = (await body.boundingBox())!;
+  await page.mouse.move(box.x + 20, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.waitForTimeout(500);
+  await page.mouse.up();
+  await expect(page.getByTestId('rem-edit')).toBeVisible();
+  await page.getByTestId('rem-dup').click();
+  await expect(page.getByTestId('rem-row').filter({ hasText: 'twin me' })).toHaveCount(2);
+});

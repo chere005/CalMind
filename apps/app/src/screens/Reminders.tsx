@@ -9,7 +9,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import {
+import { duplicateItem,
   byOrd,
   moveReminderBlock,
   moveSection,
@@ -419,6 +419,13 @@ export function Reminders() {
                                 onSubmitEditing={() => { saveEdit(r); setEditing(null); }}
                               />
                               <CircleBtn testID="rem-pencil" glyph="✎" size={24} onPressIn={() => { holdCluster.current = true; }} onPress={() => { saveEdit(r); setEditing(null); setModalRec(r); }} />
+                              {r.payload.indent === 0 && (
+                                <CircleBtn testID="rem-dup" glyph="⧉" size={24} onPressIn={() => { holdCluster.current = true; }} onPress={() => {
+                                  saveEdit(r); setEditing(null);
+                                  const res = duplicateItem(recs, r.id, newId);
+                                  if (!('error' in res)) mutate((e) => res.put.forEach((p) => e.put(p)));
+                                }} />
+                              )}
                               {r.payload.indent === 0 ? (
                                 <CircleBtn glyph="+" size={24} onPressIn={() => { holdCluster.current = true; }} onPress={() => { saveEdit(r); addSubtask(r); }} />
                               ) : (

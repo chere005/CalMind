@@ -5,7 +5,7 @@
  * and taken names. One implementation, every platform.
  */
 import { describe, it, expect } from 'vitest';
-import { deleteCalendar, deleteFolder, deleteHabitSection, deleteSection, moveNote, moveReminderBlock, moveSection, convertEventToReminder, convertReminderToEvent, convertToNote, moveSectionEmptyingFolder, reminderBlock, renameCalendar, renameFolder, renameSection, prefsOf, prefsPut } from '../src/manage';
+import { deleteCalendar, duplicateItem, deleteFolder, deleteHabitSection, deleteSection, moveNote, moveReminderBlock, moveSection, convertEventToReminder, convertReminderToEvent, convertToNote, moveSectionEmptyingFolder, reminderBlock, renameCalendar, renameFolder, renameSection, prefsOf, prefsPut } from '../src/manage';
 import { prefsId } from '../src/types';
 import type { AnyRec, Rec } from '../src/types';
 
@@ -328,5 +328,45 @@ describe('kind conversions — one-way into notes, both ways reminder⇄event', 
     expect(r.payload.due).toBe('2026-08-10');
     expect(r.payload.time).toBe('09:00');
     expect((res.put.find((x) => x.id === 'e1') as Rec<'event'>).deleted).toBe(true);
+  });
+});
+
+describe('duplicateItem — a copy directly under the original, fresh ids', () => {
+  const mk = () => { let n = 0; return () => 'dup' + ++n; };
+
+  it('copies a reminder BLOCK under the original, family intact', () => {
+    const recs = [...base(),
+      reminder('r1', 'fa', 'sa'),
+      { ...reminder('r2', 'fa', 'sa'), payload: { ...reminder('r2', 'fa', 'sa').payload, indent: 1 } },
+      reminder('r9', 'fa', 'sa'), // ord 'r9' sorts after 'r2'
+    ];
+    const res = duplicateItem(recs, 'r1', mk());
+    if ('error' in res) throw new Error(res.error);
+    expect(res.put.map((p) => p.id)).toEqual(['dup1', 'dup2']);
+    const [p, sub] = res.put as Rec<'reminder'>[];
+    expect(p!.payload.text).toBe('r1');
+    expect(sub!.payload.indent).toBe(1);
+    // Ords land strictly between the block's end and the next row.
+    expect(p!.payload.ord > 'r2' && p!.payload.ord < 'r9').toBe(true);
+    expect(sub!.payload.ord > p!.payload.ord && sub!.payload.ord < 'r9').toBe(true);
+  });
+
+  it('copies a note directly under itself', () => {
+    const note = (id: string): Rec<'note'> => ({ id, type: 'note', updated: 0, payload: { title: id, body: '', date: null, folderId: 'nf', sectionId: 'ns', ord: id } });
+    const recs = [...base(), note('n1'), note('n3')];
+    const res = duplicateItem(recs, 'n1', mk());
+    if ('error' in res) throw new Error(res.error);
+    const copy = res.put[0] as Rec<'note'>;
+    expect(copy.id).toBe('dup1');
+    expect(copy.payload.ord > 'n1' && copy.payload.ord < 'n3').toBe(true);
+  });
+
+  it('copies an event as one fresh-id row and refuses a missing id', () => {
+    const ev: Rec<'event'> = { id: 'e1', type: 'event', updated: 0, payload: { text: 'party', date: '2026-08-08', time: null, repeat: null, calendarId: 'c1' } };
+    const res = duplicateItem([...base(), ev], 'e1', mk());
+    if ('error' in res) throw new Error(res.error);
+    expect(res.put[0]!.id).toBe('dup1');
+    expect((res.put[0] as Rec<'event'>).payload.text).toBe('party');
+    expect('error' in duplicateItem(base(), 'ghost', mk())).toBe(true);
   });
 });
