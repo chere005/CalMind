@@ -11,7 +11,7 @@ storage, so it opens offline like the phones do.
 ## Build (macOS)
 
 ```sh
-npm -w app exec expo export -- -p web   # refresh the web export first
+npm run export:web                      # refresh the web export first
 cd desktop && npm run build             # → src-tauri/target/release/bundle/macos/CalMind.app
 ```
 

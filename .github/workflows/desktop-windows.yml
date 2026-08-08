@@ -17,8 +17,10 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - name: Install deps
         run: npm ci
+      # export:web, not a bare `expo export` — the head patch rides in it, and
+      # the Windows bundle should carry the same index.html the site serves.
       - name: Export the web app
-        run: npm -w app exec expo export -- -p web
+        run: npm run export:web
       - name: Build the Windows bundle
         uses: tauri-apps/tauri-action@v0
         with:

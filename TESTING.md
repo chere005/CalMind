@@ -12,7 +12,9 @@ neither list and nobody is looking at it.
 npm -w @calmind/core test     # core: vitest, ~1s
 php server/tools/test.php     # server: real php -S + HTTP on a scratch dir, ~10s
 npx playwright test           # gestures: the EXPORTED app + real API, real mouse, ~30s
-                              #   (npm -w app exec expo export -- -p web first)
+                              #   (npm run export:web first — export PLUS the head
+                              #    patch; a bare `expo export` ships an index.html
+                              #    with no manifest and no status-bar metas)
 ```
 
 All three must be green before `./server/deploy-test.sh`.
