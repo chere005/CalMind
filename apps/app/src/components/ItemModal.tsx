@@ -286,7 +286,7 @@ export function ItemModal({
             </View>
             {mode === 'create' && sharedPartner && (kind === 'event' ? sharedChoices.cals.length : sharedChoices.secs.length) > 0 && (
               <>
-                <Text style={s.label}>@{sharedPartner}'s</Text>
+                <Text style={s.ownerBadge}>{sharedPartner}</Text>
                 <View style={s.rowWrap}>
                   <Dropdown
                     value={sharedDest ? `~${sharedDest.id}` : null}
@@ -322,6 +322,7 @@ const s = themed(() => StyleSheet.create({
   card: { width: '100%', maxWidth: 440, maxHeight: '90%', backgroundColor: T.surface, borderWidth: 1, borderColor: T.line, borderRadius: 16 },
   scroll: { padding: 18, gap: 12 },
   h2: { color: T.text, fontSize: 18, fontWeight: '700' },
+  ownerBadge: { alignSelf: 'flex-start', color: T.accent, fontSize: 12, fontWeight: '700', backgroundColor: T.accentSoft, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3, overflow: 'hidden' },
   label: { color: T.dim, fontSize: 13 },
   rowWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center' },
   miniField: { minWidth: 90, paddingVertical: 6 },

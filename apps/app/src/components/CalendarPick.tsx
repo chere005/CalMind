@@ -344,7 +344,8 @@ function CalendarManager({ onClose }: { onClose: () => void }) {
                       const cur = prefsOf(recs, 'calendar').sharedColors ?? {};
                       mutate((e) => e.put(prefsPut(recs, 'calendar', { sharedColors: { ...cur, [key]: hex } })));
                     }} />
-                    <Text style={s.sharedCalName}>@{sharedPartnerLabel}: {c.payload.name}</Text>
+                    <Text style={s.sharedCalName}>{c.payload.name}</Text>
+                    <Text style={s.ownerBadge}>{sharedPartnerLabel}</Text>
                   </View>
                 ))}
               </>
@@ -389,6 +390,7 @@ const s = themed(() => StyleSheet.create({
   label: { color: T.dim, fontSize: 13, marginTop: 6 },
   rowWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   mlabel: { color: T.gold, fontSize: 13, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 12 },
+  ownerBadge: { color: T.accent, fontSize: 12, fontWeight: '700', backgroundColor: T.accentSoft, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3, overflow: 'hidden', marginLeft: 'auto' },
   sharedCalName: { color: T.dim, fontSize: 15, flex: 1 },
   err: { color: T.danger, fontSize: 13 },
   doneRow: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 4 },

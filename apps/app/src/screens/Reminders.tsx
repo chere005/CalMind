@@ -544,7 +544,9 @@ export function Reminders() {
             .map((f) => (
               <View key={`sh${f.id}`} style={s.folderBlock}>
                 <View style={s.folderHead}>
-                  <Text style={[s.folderName, { backgroundColor: f.payload.color + '33' }]}>@{sharedPartnerLabel}: {f.payload.name}</Text>
+                  <Text style={[s.folderName, { backgroundColor: f.payload.color + '33' }]}>{f.payload.name}</Text>
+                  <View style={s.folderRule} />
+                  <Text style={s.ownerBadge}>{sharedPartnerLabel}</Text>
                   <View style={s.folderRule} />
                 </View>
                 {sharedRecs
@@ -704,6 +706,7 @@ const s = themed(() => StyleSheet.create({
     borderRadius: 999,
     overflow: 'hidden',
   },
+  ownerBadge: { color: T.accent, fontSize: 12, fontWeight: '700', backgroundColor: T.accentSoft, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3, overflow: 'hidden' },
   folderRule: { flex: 1, height: 1, backgroundColor: T.lineSoft },
   section: { gap: 6 },
   secHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 },

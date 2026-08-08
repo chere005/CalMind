@@ -39,7 +39,7 @@ const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 let calDay: string | null = null;
 
 export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => void }) {
-  const { recs, mutate, sharedRecs, sharedPartner, sharedPartnerLabel, sharedPut } = useStore();
+  const { recs, mutate, sharedRecs, sharedPartner, sharedPartnerLabel, sharedPut, session } = useStore();
   const { visible: visibleCals, calendars, visibleShared } = useCalendarView();
   const today = todayStr();
   const [ym, setYm] = useState((calDay ?? today).slice(0, 7));
@@ -215,20 +215,30 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
       <Rule />
       {!weekMode && (legend.length > 0 || sharedLegend.length > 0) && (
         <ScrollView style={s.legend} contentContainerStyle={s.legendInner} horizontal={false}>
-          <View style={s.legendWrap}>
-            {legend.map((l) => (
-              <View key={`${l.kind}:${l.id}`} style={s.legendItem}>
-                {l.kind === 'event' ? <CalGlyph color={l.color} /> : l.kind === 'reminder' ? <TickBoxGlyph color={l.color} /> : <PageGlyph color={l.color} />}
-                <Text style={s.legendText}>{l.name}</Text>
-              </View>
-            ))}
-            {sharedLegend.map((l) => (
-              <View key={`sh:${l.kind}:${l.id}`} style={s.legendItem}>
-                {l.kind === 'event' ? <CalGlyph color={l.color} /> : l.kind === 'reminder' ? <TickBoxGlyph color={l.color} /> : <PageGlyph color={l.color} />}
-                <Text style={[s.legendText, s.legendShared]}>@{sharedPartnerLabel}: {l.name}</Text>
-              </View>
-            ))}
-          </View>
+          {/* One row per owner, the owner named ONCE in small caps — the
+              suite's legend, not a soup of @-prefixed items. */}
+          {legend.length > 0 && (
+            <View style={s.legendRowLine}>
+              <Text style={s.legendOwner}>{(session?.username ?? 'me').toUpperCase()}</Text>
+              {legend.map((l) => (
+                <View key={`${l.kind}:${l.id}`} style={s.legendItem}>
+                  {l.kind === 'event' ? <CalGlyph color={l.color} size={14} /> : l.kind === 'reminder' ? <TickBoxGlyph color={l.color} size={14} /> : <PageGlyph color={l.color} size={14} />}
+                  <Text style={s.legendText}>{l.name}</Text>
+                </View>
+              ))}
+            </View>
+          )}
+          {sharedLegend.length > 0 && (
+            <View style={s.legendRowLine}>
+              <Text style={s.legendOwner}>{(sharedPartnerLabel ?? '').toUpperCase()}</Text>
+              {sharedLegend.map((l) => (
+                <View key={`sh:${l.kind}:${l.id}`} style={s.legendItem}>
+                  {l.kind === 'event' ? <CalGlyph color={l.color} size={14} /> : l.kind === 'reminder' ? <TickBoxGlyph color={l.color} size={14} /> : <PageGlyph color={l.color} size={14} />}
+                  <Text style={s.legendText}>{l.name}</Text>
+                </View>
+              ))}
+            </View>
+          )}
         </ScrollView>
       )}
       <Rule />
@@ -384,10 +394,11 @@ const s = themed(() => StyleSheet.create({
   markMore: { color: T.dim, fontSize: 10, lineHeight: 11 },
   legend: { maxHeight: 88, flexGrow: 0 },
   legendInner: { paddingHorizontal: 16, paddingVertical: 6 },
-  legendWrap: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 14, rowGap: 4 },
+  legendRowLine: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 14, rowGap: 4, paddingVertical: 2 },
+  legendOwner: { color: T.muted, fontSize: 11, fontWeight: '800', letterSpacing: 0.6 },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   legendShared: { color: T.muted },
-  legendText: { color: T.dim, fontSize: 12 },
+  legendText: { color: T.text, fontSize: 13 },
   groupHead: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 },
   chev: { color: T.muted, fontSize: 12, width: 14, textAlign: 'center' },
   groupTitleShared: { color: T.muted },
