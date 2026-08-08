@@ -133,22 +133,38 @@ export function formatRecipe(pages: string[]): RecipeResult {
   }
 
   const out: string[] = [];
-  let inIngredients = false;
+  // Which block the reader is standing in. Plenty of recipe cards NUMBER
+  // nothing — a Method heading and then prose, one instruction to a line —
+  // and those lines used to fall through as loose text, which meant the
+  // structured page showed no instructions at all for them. Under a
+  // directions heading a line is a step whether it wears a number or not.
+  let block: 'none' | 'ingredients' | 'steps' = 'none';
+  let stepNo = 0;
   for (let i = 0; i < lines.length; i++) {
     if (i === titleAt) continue;
     const l = lines[i]!;
     if (HEADING.test(l)) {
-      inIngredients = /^ingredients?/i.test(l) || /^for the /i.test(l);
+      block = /^(ingredients?|for the )/i.test(l) ? 'ingredients' : 'steps';
       if (out.length) out.push('');
       out.push('**' + l.replace(/\s*:\s*$/, '') + '**');
       continue;
     }
     if (STEP.test(l)) {
-      inIngredients = false;
-      out.push(l);
+      // A numbered line ends an ingredient list but does NOT open the steps
+      // block: only a heading does that. Otherwise one stray "1." partway
+      // down a card turns every remaining line — the note at the bottom
+      // about Grandma doubling the butter — into an instruction.
+      if (block === 'ingredients') block = 'none';
+      // Renumber as they come: OCR skips and repeats numbers, and a step
+      // list that reads 1, 3, 3, 7 is worse than no numbers at all.
+      out.push(`${++stepNo}. ${l.replace(STEP, '')}`);
       continue;
     }
-    if (inIngredients || QTY.test(l)) {
+    if (block === 'steps') {
+      out.push(`${++stepNo}. ${l}`);
+      continue;
+    }
+    if (block === 'ingredients' || QTY.test(l)) {
       out.push('- ' + l);
       continue;
     }

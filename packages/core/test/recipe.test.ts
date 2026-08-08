@@ -37,6 +37,36 @@ DIRECTIONS
   it('no obvious title stays null', () => {
     expect(formatRecipe(['1 cup sugar\n2 cups flour']).title).toBeNull();
   });
+
+  it('a method that numbers NOTHING still comes out as steps', () => {
+    // Plenty of cards write the method as prose, one instruction per line.
+    // Those lines used to fall through as loose text, so the structured page
+    // opened with an empty Instructions section and the method sitting in
+    // the leftovers.
+    const r = recipeFromPages([
+      'Skillet Beans\nINGREDIENTS\n1 can beans\nMETHOD\nHeat the pan.\nAdd the beans.\nSimmer until thick.',
+    ]);
+    expect(r.ingredients).toEqual(['1 can beans']);
+    expect(r.steps).toEqual(['Heat the pan.', 'Add the beans.', 'Simmer until thick.']);
+    expect(r.extra).toEqual([]);
+  });
+
+  it('a stray numbered line does not turn the rest of the card into steps', () => {
+    // Only a heading opens the method. Without that rule the closing note on
+    // a card — the bit about Grandma doubling the butter — became step two,
+    // and the Recipe page's "include notes" checkbox had nothing left to
+    // shed because the free text had been eaten.
+    const r = recipeFromPages(['2 cups flour\n1. Mix well\nGrandma always doubled the butter.']);
+    expect(r.steps).toEqual(['Mix well']);
+    expect(r.extra).toEqual(['Grandma always doubled the butter.']);
+  });
+
+  it('OCR that skips and repeats step numbers is renumbered, not echoed', () => {
+    const r = recipeFromPages(['Stew\nDIRECTIONS\n1. Brown it.\n3. Add stock.\n3. Simmer.']);
+    expect(r.steps).toEqual(['Brown it.', 'Add stock.', 'Simmer.']);
+    expect(formatRecipe(['Stew\nDIRECTIONS\n1. Brown it.\n3. Add stock.\n3. Simmer.']).body)
+      .toContain('2. Add stock.');
+  });
 });
 
 describe('parseIngredient — units spaced, canonical, fractions typographic', () => {
