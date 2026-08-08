@@ -150,14 +150,32 @@ honest — the next iteration trusts it.
   surfaced as the suite's confirm modal when a drag would empty a folder.
 - 110 core + 17 server + 9 gesture tests.
 
-## In flight (iteration 10 — start here)
-- Notes section drag (same hook, same rules).
+## Iteration 10 shipped
+- Kind conversions in core: convertToNote (reminder|event → note, one-way,
+  a reminder with subtasks stays behind as their home — reminderBlock length
+  decides), convertReminderToEvent (undated converts onto today),
+  convertEventToReminder (date→due, time carried). 4 new tests.
+- ItemModal's kind row is live in EDIT now (notes never convert out — the row
+  hides for a note); a changed kind routes through the core conversions.
+- Notes section drag: same measured hook as Reminders, grips + drop lines +
+  the last-section-out ask (moveSectionEmptyingFolder) — full rule parity.
+- THE BUG THIS ITERATION FOUND (a real phone bug, not a test artifact): a
+  glyph button beside a focused field stole focus on pointerdown → blur
+  unmounted the cluster mid-press → the tap died. rn-web never even delivers
+  onPressIn before the teardown. Fix in ui.tsx: noSteal — CircleBtn and
+  ConfirmDelete preventDefault() mousedown on web (focus never moves), and
+  onPressIn doubles onto onTouchStart for the touch path, with a holdCluster
+  ref in Reminders letting blur skip teardown once. This protected every
+  manager-window rename pencil too, which had the same latent race.
+- 114 core + 17 server + 10 gesture tests.
+
+## In flight (iteration 11 — start here)
 - Measured-position upgrade for ROW drags (retire uniform-height math).
-- Then down the pain list: week mode + swipe paging, rendered rich text,
-  kind conversions, sharing, themes.
-- Notes row drag (same flat model) + section drag as blocks with the suite's
-  cross-folder rules (duplicate-name refusal, last-section-out ask).
-- Empty-section drop targets (a boundary per section head).
+- Week mode: swipe up on the grid, wk paging across month edges, sideways
+  swipe paging (a week in week mode, a month otherwise), tap-only selection.
+- Rendered rich text in notes (markers → styled runs).
+- Duplicate buttons (block copy w/ fresh ids: rem rows, notes, day panel).
+- Swipe-a-row-left to delete (armed two-press control).
 
 ## Next, in pain order
 1. Habits month view (day pies + its legend) + Manage-sections window +
@@ -166,12 +184,10 @@ honest — the next iteration trusts it.
    pan-gesture implementation that works on web + native.
 3. Week mode (swipe up on grid; wk paging), sideways swipe paging.
 4. Rendered rich text in notes (markers → styled runs); suite rt parity later.
-5. Reminders full-edit kind conversions (reminder⇄event, →note one-way,
-   subtasks keep the reminder home rule); duplicate buttons; swipe-delete.
-6. Sharing: partner lists, share window, @partner views, live ticks in All,
+5. Sharing: partner lists, share window, @partner views, live ticks in All,
    shared recolour overrides (APP_PALETTES_SHARED staged).
-7. Themes: midnight/sage/forest/olive full palettes; login stays midnight.
-8. Widget/feed + quick-add equivalents; watch target wiring; simulators.
+6. Themes: midnight/sage/forest/olive full palettes; login stays midnight.
+7. Widget/feed + quick-add equivalents; watch target wiring; simulators.
 
 ## Suite notes still to honour (from CLAUDE.md read-through)
 - Cells: fixed two-row well, 3/row phone; >6 icons → five + '+'.

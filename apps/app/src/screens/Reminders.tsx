@@ -51,6 +51,7 @@ export function Reminders() {
   const [addText, setAddText] = useState('');
   const [editing, setEditing] = useState<string | null>(null); // reminder id in inline edit
   const [editText, setEditText] = useState('');
+  const holdCluster = React.useRef(false);
   const [addingSection, setAddingSection] = useState<string | null>(null); // folderId
   const [newName, setNewName] = useState('');
   const [renamingSec, setRenamingSec] = useState<string | null>(null);
@@ -407,16 +408,24 @@ export function Reminders() {
                                 onChangeText={setEditText}
                                 autoFocus
                                 style={s.editField}
-                                onBlur={() => { saveEdit(r); if (editText.trim() === '' && r.payload.text === '') mutate((e) => e.del(r.id)); setEditing(null); }}
+                                onBlur={() => {
+                                  saveEdit(r);
+                                  // A pointer already down on a cluster button: keep the
+                                  // cluster mounted so its press can land (blur fires between
+                                  // pointerdown and click, and unmounting kills the tap).
+                                  if (holdCluster.current) { holdCluster.current = false; return; }
+                                  if (editText.trim() === '' && r.payload.text === '') mutate((e) => e.del(r.id));
+                                  setEditing(null);
+                                }}
                                 onSubmitEditing={() => { saveEdit(r); setEditing(null); }}
                               />
-                              <CircleBtn glyph="✎" size={24} onPress={() => { saveEdit(r); setEditing(null); setModalRec(r); }} />
+                              <CircleBtn testID="rem-pencil" glyph="✎" size={24} onPressIn={() => { holdCluster.current = true; }} onPress={() => { saveEdit(r); setEditing(null); setModalRec(r); }} />
                               {r.payload.indent === 0 ? (
-                                <CircleBtn glyph="+" size={24} onPress={() => { saveEdit(r); addSubtask(r); }} />
+                                <CircleBtn glyph="+" size={24} onPressIn={() => { holdCluster.current = true; }} onPress={() => { saveEdit(r); addSubtask(r); }} />
                               ) : (
-                                <CircleBtn glyph="‹" size={24} onPress={() => { saveEdit(r); setEditing(null); outdent(r); }} />
+                                <CircleBtn glyph="‹" size={24} onPressIn={() => { holdCluster.current = true; }} onPress={() => { saveEdit(r); setEditing(null); outdent(r); }} />
                               )}
-                              <ConfirmDelete onDelete={() => { setEditing(null); mutate((e) => e.del(r.id)); }} />
+                              <ConfirmDelete onPressIn={() => { holdCluster.current = true; }} onDelete={() => { setEditing(null); mutate((e) => e.del(r.id)); }} />
                             </>
                           ) : (
                             <Pressable

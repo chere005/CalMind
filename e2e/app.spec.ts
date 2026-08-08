@@ -216,3 +216,26 @@ test('a SECTION drags between folders; a duplicate name refuses', async ({ page 
   // Reminders folder still holds its General (it renders before Calendar).
   expect(after.indexOf('General')).toBeLessThan(after.indexOf('Calendar'));
 });
+
+test('editing a reminder into a Note converts one-way', async ({ page }) => {
+  await signup(page);
+  await page.getByTestId('tab-reminders').click();
+  await page.getByTestId('secadd-General').first().click();
+  await page.getByTestId('rem-add-field').fill('becomes a note');
+  await page.getByTestId('rem-add-field').press('Enter');
+  const body = page.getByTestId('rem-body').filter({ hasText: 'becomes a note' });
+  // Long-press into inline edit, then the ✎ opens the full window.
+  const box = (await body.boundingBox())!;
+  await page.mouse.move(box.x + 20, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.waitForTimeout(500);
+  await page.mouse.up();
+  await expect(page.getByTestId('rem-edit')).toBeVisible();
+  await page.getByTestId('rem-pencil').click();
+  await page.getByTestId('kind-note').click();
+  await page.getByText('Save', { exact: true }).click();
+  // Gone from Reminders, present in Notes.
+  await expect(page.getByTestId('rem-row').filter({ hasText: 'becomes a note' })).toBeHidden();
+  await page.getByTestId('tab-notes').click();
+  await expect(page.getByTestId('note-row').filter({ hasText: 'becomes a note' })).toBeVisible();
+});

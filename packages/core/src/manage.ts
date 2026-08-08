@@ -320,3 +320,76 @@ export function moveSectionEmptyingFolder(
   if ('error' in moved) return moved;
   return { put: [...moved.put, { ...srcFolder, deleted: true }] };
 }
+
+// ---------------------------------------------------------------- kind conversions
+
+/**
+ * The suite's conversion rules, one place: a reminder or event can become the
+ * title of a NEW note (one-way — a note never converts out); reminder⇄event
+ * convert both ways. Converting removes the source — unless a reminder has
+ * subtasks, which can't ride along, so it stays behind as their home.
+ */
+export function convertToNote(recs: AnyRec[], sourceId: string, destSectionId: string, newNoteId: string): ManageResult {
+  const src = of(recs, 'reminder').find((r) => r.id === sourceId) ?? of(recs, 'event').find((r) => r.id === sourceId);
+  if (!src) return { error: 'no such item' };
+  const dest = of(recs, 'section').find((s) => s.id === destSectionId);
+  if (!dest) return { error: 'no such section' };
+  const first = of(recs, 'note')
+    .filter((n) => n.payload.sectionId === destSectionId)
+    .sort((a, b) => byOrd(a.payload, b.payload))[0];
+  const title = src.type === 'reminder' ? src.payload.text : src.payload.text;
+  const put: AnyRec[] = [
+    {
+      id: newNoteId, type: 'note', updated: 0,
+      payload: { title, body: '', date: null, folderId: dest.payload.folderId, sectionId: destSectionId, ord: ordBetween(null, first?.payload.ord ?? null) },
+    },
+  ];
+  const keepHome = src.type === 'reminder' && reminderBlock(recs, sourceId).length > 1;
+  if (!keepHome) put.push({ ...src, deleted: true } as AnyRec);
+  return { put };
+}
+
+export function convertReminderToEvent(recs: AnyRec[], reminderId: string, calendarId: string, today: string, newEventId: string): ManageResult {
+  const r = of(recs, 'reminder').find((x) => x.id === reminderId);
+  if (!r) return { error: 'no such reminder' };
+  if (!of(recs, 'calendar').some((c) => c.id === calendarId)) return { error: 'no such calendar' };
+  const put: AnyRec[] = [
+    {
+      id: newEventId, type: 'event', updated: 0,
+      payload: {
+        text: r.payload.text,
+        date: r.payload.due ?? today, // an undated reminder converts onto today
+        time: r.payload.time,
+        repeat: r.payload.repeat,
+        calendarId,
+        ord: ordBetween(null, null),
+      },
+    },
+  ];
+  const keepHome = reminderBlock(recs, reminderId).length > 1;
+  if (!keepHome) put.push({ ...r, deleted: true });
+  return { put };
+}
+
+export function convertEventToReminder(recs: AnyRec[], eventId: string, destSectionId: string, newReminderId: string): ManageResult {
+  const ev = of(recs, 'event').find((x) => x.id === eventId);
+  if (!ev) return { error: 'no such event' };
+  const dest = of(recs, 'section').find((s) => s.id === destSectionId);
+  if (!dest) return { error: 'no such section' };
+  const first = of(recs, 'reminder')
+    .filter((x) => x.payload.sectionId === destSectionId)
+    .sort((a, b) => byOrd(a.payload, b.payload))[0];
+  return {
+    put: [
+      {
+        id: newReminderId, type: 'reminder', updated: 0,
+        payload: {
+          text: ev.payload.text, due: ev.payload.date, time: ev.payload.time, done: false,
+          repeat: ev.payload.repeat, folderId: dest.payload.folderId, sectionId: destSectionId,
+          indent: 0, ord: ordBetween(null, first?.payload.ord ?? null),
+        },
+      },
+      { ...ev, deleted: true },
+    ],
+  };
+}

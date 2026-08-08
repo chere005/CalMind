@@ -4,7 +4,7 @@
  * default here), and the two-press delete that replaces every confirm box.
  */
 import React, { useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, type TextInputProps, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, TextInput, type TextInputProps, View } from 'react-native';
 import { T } from './theme';
 
 export function Pill({
@@ -32,9 +32,20 @@ export function Pill({
   );
 }
 
+/**
+ * A glyph button never steals focus: preventing mousedown's default keeps a
+ * focused field (inline rename, note body) from blurring under it — the blur
+ * handler would unmount the button mid-press and the tap would die. Touch has
+ * no such default to prevent, so callers arm onPressIn instead (wired to
+ * touchstart below, which fires before any blur).
+ */
+const noSteal =
+  Platform.OS === 'web' ? ({ onMouseDown: (e: { preventDefault(): void }) => e.preventDefault() } as object) : null;
+
 export function CircleBtn({
   glyph,
   onPress,
+  onPressIn,
   color = T.dim,
   size = 26,
   bg,
@@ -43,6 +54,7 @@ export function CircleBtn({
 }: {
   glyph: string;
   onPress: () => void;
+  onPressIn?: () => void; // fires on pointerdown, BEFORE a focused field's blur
   color?: string;
   size?: number;
   bg?: string; // filled circle (colour swatches)
@@ -51,8 +63,11 @@ export function CircleBtn({
 }) {
   return (
     <Pressable
+      {...noSteal}
       testID={testID}
       onPress={onPress}
+      onPressIn={onPressIn}
+      onTouchStart={onPressIn}
       hitSlop={8}
       style={({ pressed }) => [
         s.circle,
@@ -68,12 +83,15 @@ export function CircleBtn({
 }
 
 /** Two-press delete: first press fills red (label never changes), second fires. */
-export function ConfirmDelete({ onDelete, size = 26, testID }: { onDelete: () => void; size?: number; testID?: string }) {
+export function ConfirmDelete({ onDelete, onPressIn, size = 26, testID }: { onDelete: () => void; onPressIn?: () => void; size?: number; testID?: string }) {
   const [armed, setArmed] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   return (
     <Pressable
+      {...noSteal}
       testID={testID}
+      onPressIn={onPressIn}
+      onTouchStart={onPressIn}
       onPress={() => {
         if (armed) {
           clearTimeout(timer.current);

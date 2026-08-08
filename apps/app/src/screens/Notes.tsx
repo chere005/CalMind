@@ -4,8 +4,8 @@
  * convert out and never repeat; a date in the title puts one on the calendar.
  */
 import React, { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { byOrd, moveNote, newId, ordBetween, parseDateFromText, parseWhenFromText, todayStr, type Rec } from '@calmind/core';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { byOrd, moveNote, moveSection, moveSectionEmptyingFolder, newId, ordBetween, parseDateFromText, parseWhenFromText, todayStr, type Rec } from '@calmind/core';
 import { useStore } from '../store';
 import { T } from '../theme';
 import { TopBar } from '../chrome';
@@ -13,6 +13,7 @@ import { FolderPick, useFolderView } from '../components/FolderPick';
 import { CircleBtn, ConfirmDelete, Field, Pill, Rule } from '../ui';
 import { Dropdown } from '../components/Dropdown';
 import { useRowDrag } from '../components/rowdrag';
+import { useSectionDrag, type SectionSlot } from '../components/sectiondrag';
 
 export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | null; onOpenConsumed?: () => void }) {
   const { recs, mutate } = useStore();
@@ -77,6 +78,16 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
   });
   const flatIdxOf = (id: string) => flatRows.findIndex((x) => x.kind === 'row' && x.rec.id === id);
   const emptyIdxOf = (sectionId: string) => flatRows.findIndex((x) => x.kind === 'empty' && x.sectionId === sectionId);
+
+  const [emptyAsk, setEmptyAsk] = useState<{ sectionId: string; slot: SectionSlot } | null>(null);
+  const secDrag = useSectionDrag((sectionId, slot) => {
+    const res = moveSection(recs, sectionId, slot.folderId, slot.beforeSectionId);
+    if (!('error' in res)) {
+      mutate((e) => res.put.forEach((r) => e.put(r)));
+      return;
+    }
+    if (res.error === 'a folder keeps its last section') setEmptyAsk({ sectionId, slot });
+  });
 
   const open = openId ? (recs.find((r) => r.id === openId) as Rec<'note'> | undefined) : undefined;
 
@@ -247,7 +258,14 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
             </View>
             {sectionsOf(f.id).map((sec) => (
               <View key={sec.id} style={s.section}>
-                <View style={s.secHead}>
+                {secDrag.lineKey === `before:${sec.id}` && <View style={s.dropLine} />}
+                <View
+                  ref={secDrag.registerHeader(sec.id, f.id)}
+                  style={[s.secHead, secDrag.dragging === sec.id && { opacity: 0.55 }]}
+                >
+                  <View testID={`nsec-grip-${sec.payload.name}`} {...secDrag.gripFor(sec.id, f.id)} style={s.rowGrip} hitSlop={6}>
+                    <Text style={s.rowGripText}>≡</Text>
+                  </View>
                   <Text style={s.secName}>{sec.payload.name}</Text>
                   <CircleBtn testID={`secadd-${sec.payload.name}`} glyph="+" color={T.accent} size={22} onPress={() => { setAdding(sec.id); setAddText(''); }} />
                 </View>
@@ -278,9 +296,31 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
                 ))}
               </View>
             ))}
+            {secDrag.lineKey === `end:${f.id}` && <View style={s.dropLine} />}
           </View>
         ))}
       </ScrollView>
+      {emptyAsk && (
+        <Modal transparent animationType="fade" onRequestClose={() => setEmptyAsk(null)}>
+          <Pressable style={s.askBackdrop} onPress={() => setEmptyAsk(null)}>
+            <Pressable style={s.askCard} onPress={() => {}}>
+              <Text style={s.askText}>That's the folder's last section — move it and delete the emptied folder?</Text>
+              <View style={s.askRow}>
+                <Pill label="Cancel" onPress={() => setEmptyAsk(null)} />
+                <Pill
+                  label="Move & delete"
+                  primary
+                  onPress={() => {
+                    const res = moveSectionEmptyingFolder(recs, emptyAsk.sectionId, emptyAsk.slot.folderId, emptyAsk.slot.beforeSectionId);
+                    if (!('error' in res)) mutate((e) => res.put.forEach((r) => e.put(r)));
+                    setEmptyAsk(null);
+                  }}
+                />
+              </View>
+            </Pressable>
+          </Pressable>
+        </Modal>
+      )}
     </View>
   );
 }
@@ -306,6 +346,10 @@ const s = StyleSheet.create({
   emptySlot: { height: 0, overflow: 'hidden' },
   emptySlotLive: { height: 44, borderWidth: 1, borderColor: T.lineSoft, borderStyle: 'dashed', borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   emptySlotText: { color: T.muted, fontSize: 13 },
+  askBackdrop: { flex: 1, backgroundColor: '#000a', alignItems: 'center', justifyContent: 'center', padding: 24 },
+  askCard: { width: '100%', maxWidth: 360, backgroundColor: T.surface, borderWidth: 1, borderColor: T.line, borderRadius: 16, padding: 20, gap: 14 },
+  askText: { color: T.text, fontSize: 15, lineHeight: 22 },
+  askRow: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8 },
   rowTitle: { color: T.text, fontSize: 16, flex: 1 },
   chev: { color: T.muted, fontSize: 16, marginLeft: 'auto' },
   editor: { padding: 16, gap: 10 },

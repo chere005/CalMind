@@ -5,7 +5,7 @@
  * and taken names. One implementation, every platform.
  */
 import { describe, it, expect } from 'vitest';
-import { deleteCalendar, deleteFolder, deleteHabitSection, deleteSection, moveNote, moveReminderBlock, moveSection, moveSectionEmptyingFolder, reminderBlock, renameCalendar, renameFolder, renameSection, prefsOf, prefsPut } from '../src/manage';
+import { deleteCalendar, deleteFolder, deleteHabitSection, deleteSection, moveNote, moveReminderBlock, moveSection, convertEventToReminder, convertReminderToEvent, convertToNote, moveSectionEmptyingFolder, reminderBlock, renameCalendar, renameFolder, renameSection, prefsOf, prefsPut } from '../src/manage';
 import { prefsId } from '../src/types';
 import type { AnyRec, Rec } from '../src/types';
 
@@ -283,5 +283,50 @@ describe('moveSectionEmptyingFolder — the ask-first flow, as one write', () =>
     expect('error' in moveSectionEmptyingFolder(ride, 's1', 'other', null)).toBe(true);
     const last: AnyRec[] = [f('f1'), sct('s1', 'f1', 'Only')];
     expect('error' in moveSectionEmptyingFolder(last, 's1', 'f1', null)).toBe(true);
+  });
+});
+
+describe('kind conversions — one-way into notes, both ways reminder⇄event', () => {
+  const cf = (id: string, app: 'reminders' | 'notes'): Rec<'folder'> => ({
+    id, type: 'folder', updated: 0, payload: { name: id, color: '#fff', ord: id, app },
+  });
+  const cs = (id: string, folderId: string): Rec<'section'> => ({
+    id, type: 'section', updated: 0, payload: { name: id, folderId, ord: 'V' },
+  });
+  const cr = (id: string, opts: Partial<Rec<'reminder'>['payload']> = {}): Rec<'reminder'> => ({
+    id, type: 'reminder', updated: 0,
+    payload: { text: id, due: null, time: null, done: false, repeat: null, folderId: 'rf', sectionId: 'rs', indent: 0, ord: 'M', ...opts },
+  });
+  const cal = (id: string): Rec<'calendar'> => ({ id, type: 'calendar', updated: 0, payload: { name: id, color: '#fff', ord: 'V' } });
+  const world = (): AnyRec[] => [cf('rf', 'reminders'), cs('rs', 'rf'), cf('nf', 'notes'), cs('ns', 'nf'), cal('c1')];
+
+  it('a reminder becomes a note and the source goes', () => {
+    const res = convertToNote([...world(), cr('r1')], 'r1', 'ns', 'note1');
+    if ('error' in res) throw new Error(res.error);
+    expect((res.put.find((x) => x.id === 'note1') as Rec<'note'>).payload.title).toBe('r1');
+    expect((res.put.find((x) => x.id === 'r1') as Rec<'reminder'>).deleted).toBe(true);
+  });
+
+  it('a reminder WITH subtasks stays behind as their home', () => {
+    const recs = [...world(), cr('r1', { ord: 'B' }), cr('sub', { indent: 1, ord: 'D' })];
+    const res = convertToNote(recs, 'r1', 'ns', 'note1');
+    if ('error' in res) throw new Error(res.error);
+    expect(res.put.find((x) => x.id === 'r1')).toBeUndefined(); // not deleted
+  });
+
+  it('an undated reminder converts onto today as an event', () => {
+    const res = convertReminderToEvent([...world(), cr('r1')], 'r1', 'c1', '2026-08-08', 'ev1');
+    if ('error' in res) throw new Error(res.error);
+    expect((res.put.find((x) => x.id === 'ev1') as Rec<'event'>).payload.date).toBe('2026-08-08');
+  });
+
+  it('an event becomes a dated reminder and the event goes', () => {
+    const ev: Rec<'event'> = { id: 'e1', type: 'event', updated: 0, payload: { text: 'e1', date: '2026-08-10', time: '09:00', repeat: null, calendarId: 'c1', ord: 'V' } };
+    const res = convertEventToReminder([...world(), ev], 'e1', 'rs', 'r9');
+    if ('error' in res) throw new Error(res.error);
+    const r = res.put.find((x) => x.id === 'r9') as Rec<'reminder'>;
+    expect(r.payload.due).toBe('2026-08-10');
+    expect(r.payload.time).toBe('09:00');
+    expect((res.put.find((x) => x.id === 'e1') as Rec<'event'>).deleted).toBe(true);
   });
 });

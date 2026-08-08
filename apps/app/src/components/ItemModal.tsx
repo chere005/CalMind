@@ -10,6 +10,9 @@ import React, { useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import {
   byOrd,
+  convertEventToReminder,
+  convertReminderToEvent,
+  convertToNote,
   newId,
   ordBetween,
   parseDateFromText,
@@ -117,6 +120,25 @@ export function ItemModal({
       setErr('nowhere to put it');
       return;
     }
+    // A changed kind on an existing item is a conversion — core's rules:
+    // one-way into notes, reminder⇄event, subtasks keep the reminder home.
+    if (mode === 'edit' && rec && kind !== rec.type) {
+      const freshId = newId();
+      const res =
+        kind === 'note'
+          ? convertToNote(recs, rec.id, (resolvedDest as Rec<'section'>).id, freshId)
+          : kind === 'event'
+            ? convertReminderToEvent(recs, rec.id, (resolvedDest as Rec<'calendar'>).id, today, freshId)
+            : convertEventToReminder(recs, rec.id, (resolvedDest as Rec<'section'>).id, freshId);
+      if ('error' in res) {
+        setErr(res.error);
+        return;
+      }
+      mutate((e) => res.put.forEach((r) => e.put(r)));
+      onSaved?.(freshId, kind);
+      onClose();
+      return;
+    }
     const id = mode === 'edit' && rec ? rec.id : newId();
     mutate((e) => {
       if (kind === 'event') {
@@ -162,10 +184,10 @@ export function ItemModal({
         <Pressable style={s.card} onPress={() => {}}>
           <ScrollView contentContainerStyle={s.scroll}>
             <Text style={s.h2}>{mode === 'create' ? 'New' : 'Edit'}</Text>
-            {mode === 'create' && (
+            {(mode === 'create' || rec?.type !== 'note') && (
               <View style={s.rowWrap}>
                 {(['event', 'reminder', 'note'] as ItemKind[]).map((k) => (
-                  <Pill key={k} label={k[0]!.toUpperCase() + k.slice(1)} primary={kind === k} onPress={() => { setKind(k); setDest(null); }} />
+                  <Pill key={k} testID={`kind-${k}`} label={k[0]!.toUpperCase() + k.slice(1)} primary={kind === k} onPress={() => { setKind(k); setDest(null); }} />
                 ))}
               </View>
             )}
