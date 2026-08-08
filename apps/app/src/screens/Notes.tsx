@@ -4,6 +4,7 @@
  * convert out and never repeat; a date in the title puts one on the calendar.
  */
 import React, { useEffect, useMemo, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { byOrd, richLines, duplicateItem, prefsPut, moveNote, moveSection, moveSectionEmptyingFolder, newId, ordBetween, parseDateFromText, parseWhenFromText, todayStr, type Rec } from '@calmind/core';
 import { useStore } from '../store';
@@ -28,6 +29,24 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
   // The suite's page edit mode: long-press a row to enter, tap away or
   // Escape to leave; grips and row controls exist only inside it.
   const [pageEdit, setPageEdit] = useState(false);
+  const [nfolded, setNFolded] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    AsyncStorage.getItem('calmind.folded.notes').then((raw) => raw && setNFolded(new Set(JSON.parse(raw))));
+  }, []);
+  const foldSave = (next: Set<string>) => {
+    setNFolded(next);
+    AsyncStorage.setItem('calmind.folded.notes', JSON.stringify([...next])).catch(() => {});
+  };
+  const collapseAllNotes = () => {
+    const all = folders.flatMap((f) => sectionsOf(f.id).map((x) => x.id));
+    foldSave(all.every((id) => nfolded.has(id)) ? new Set<string>() : new Set(all));
+  };
+  const toggleNFold = (id: string) => {
+    const next = new Set(nfolded);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    foldSave(next);
+  };
   useEffect(() => {
     if (!pageEdit || typeof document === 'undefined') return;
     const onKey = (ev: KeyboardEvent) => { if (ev.key === 'Escape') setPageEdit(false); };
@@ -298,6 +317,9 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
     <View style={s.page}>
       <TopBar title="Notes" picker={<FolderPick app="notes" />} />
       <ScrollView contentContainerStyle={s.scroll}>
+        <View style={s.toolbarRow}>
+          <CircleBtn glyph="⌄" size={26} onPress={collapseAllNotes} />
+        </View>
         {folders.map((f) => (
           <View key={f.id} style={s.folderBlock}>
             <View style={s.folderHead}>
@@ -314,20 +336,23 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
                   <View testID={`nsec-grip-${sec.payload.name}`} {...(pageEdit ? secDrag.gripFor(sec.id, f.id) : {})} style={[s.rowGrip, !pageEdit && s.gripHidden]} pointerEvents={pageEdit ? 'auto' : 'none'} hitSlop={6}>
                     <Text style={s.rowGripText}>≡</Text>
                   </View>
+                  <Pressable onPress={() => toggleNFold(sec.id)} hitSlop={8}>
+                    <Text style={s.chevron}>{nfolded.has(sec.id) ? '▸' : '▾'}</Text>
+                  </Pressable>
                   <Text style={s.secName}>{sec.payload.name}</Text>
                   <CircleBtn testID={`secadd-${sec.payload.name}`} glyph="+" color={T.accent} size={22} onPress={() => { setAdding(sec.id); setAddText(''); }} />
                 </View>
                 {adding === sec.id && (
                   <Field value={addText} onChangeText={setAddText} placeholder="New note" autoFocus onBlur={() => addNote(sec)} onSubmitEditing={() => addNote(sec)} />
                 )}
-                {notesOf(sec.id).length === 0 && (
+                {!nfolded.has(sec.id) && notesOf(sec.id).length === 0 && (
                   <View>
                     {drag.slot !== null && emptyIdxOf(sec.id) === drag.slot && <View style={s.dropLine} />}
                     <View testID={`nsecempty-${sec.payload.name}`} ref={drag.registerRow(emptyIdxOf(sec.id))} style={s.emptySlot}>
                     </View>
                   </View>
                 )}
-                {notesOf(sec.id).map((n) => (
+                {!nfolded.has(sec.id) && notesOf(sec.id).map((n) => (
                   <View key={n.id}>
                     {drag.slot !== null && flatIdxOf(n.id) === drag.slot && <View style={s.dropLine} />}
                     <View ref={drag.registerRow(flatIdxOf(n.id))} {...(pageEdit ? {} : swipe.handlersFor(n.id))} style={[s.row, s.rowNoSelect, drag.dragIdx !== null && flatIdxOf(n.id) === drag.dragIdx && { opacity: 0.55, transform: [{ translateY: drag.dragDy }] }]}>
@@ -545,6 +570,8 @@ const s = themed(() => StyleSheet.create({
   section: { gap: 6 },
   secHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
   secName: { color: T.gold, fontSize: 18, lineHeight: 22, fontWeight: '600' },
+  chevron: { color: T.muted, fontSize: 12, width: 14, textAlign: 'center' },
+  toolbarRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingBottom: 2 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 8, height: 44 },
   rowBody: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
   rowNoSelect: { userSelect: 'none' } as import('react-native').ViewStyle,

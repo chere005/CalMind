@@ -522,6 +522,19 @@ function handle_feed(array $cfg): never
     foreach ($days as $d => &$rows) {
         usort($rows, fn($a, $b) => ($a['kind'] === $b['kind']) ? strcmp((string) ($a['time'] ?? ''), (string) ($b['time'] ?? '')) : ($a['kind'] === 'reminder' ? -1 : 1));
     }
+    // Stored times are HH:MM; the widget speaks the suite's style (3pm, 2:30pm).
+    $spoken = function (?string $t): ?string {
+        if (!$t) { return $t; }
+        [$h, $m] = array_map('intval', explode(':', $t));
+        $ap = $h >= 12 ? 'pm' : 'am';
+        $h12 = $h % 12 === 0 ? 12 : $h % 12;
+        return $m ? sprintf('%d:%02d%s', $h12, $m, $ap) : $h12 . $ap;
+    };
+    foreach ($days as &$rows0) {
+        foreach ($rows0 as &$r0) { $r0['time'] = $spoken($r0['time']); }
+    }
+    unset($rows0, $r0);
+
     // The suite's widget carries at most 12 rows across the window.
     $kept = 0;
     foreach ($days as $d => &$rows) {

@@ -10,6 +10,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { duplicateItem,
+  timeLabel,
   byOrd,
   moveReminderBlock,
   moveSection,
@@ -268,7 +269,7 @@ export function Reminders() {
     const overdue = !done && due !== null && due < todayStr();
     const bits = [
       due ? new Date(`${due}T12:00:00`).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) : '',
-      time ?? '',
+      timeLabel(time),
       repeatLabel(repeat),
     ].filter(Boolean);
     return <Text style={[s.chip, overdue && s.chipOverdue]}>{bits.join(' · ')}</Text>;
@@ -648,7 +649,7 @@ function SharedReminders({ viewKey, partner }: { viewKey: string; partner: strin
 function dueChipStatic(r: ReminderRec, today: string) {
   if (!r.payload.due) return null;
   const overdue = r.payload.due < today && !r.payload.done;
-  return <Text style={[s.chip, overdue && s.chipOverdue]}>{r.payload.due}{r.payload.time ? ` ${r.payload.time}` : ''}</Text>;
+  return <Text style={[s.chip, overdue && s.chipOverdue]}>{r.payload.due}{r.payload.time ? ` ${timeLabel(r.payload.time)}` : ''}</Text>;
 }
 
 const s = themed(() => StyleSheet.create({

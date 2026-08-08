@@ -5,6 +5,7 @@
  * exactly `repeat_next($due, $rep, max($due, date('Y-m-d')))`.
  */
 import { describe, it, expect } from 'vitest';
+import { timeLabel } from '../src/parse';
 import { reminderToggle, sectionNameTaken } from '../src/rules';
 import type { AnyRec, Rec, Reminder } from '../src/types';
 
@@ -72,5 +73,15 @@ describe('sectionNameTaken — a folder never holds two same-named sections', ()
 
   it('a tombstoned section frees its name', () => {
     expect(sectionNameTaken([sec('s1', 'f1', 'Old', true)], 'f1', 'Old')).toBe(false);
+  });
+});
+
+describe('timeLabel — stored HH:MM back in the suite spoken style', () => {
+  it('drops zero minutes and speaks 12-hour', () => {
+    expect(timeLabel('15:00')).toBe('3pm');
+    expect(timeLabel('14:30')).toBe('2:30pm');
+    expect(timeLabel('00:00')).toBe('12am');
+    expect(timeLabel('12:05')).toBe('12:05pm');
+    expect(timeLabel(null)).toBe('');
   });
 });

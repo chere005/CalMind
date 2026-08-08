@@ -9,6 +9,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { PanResponder, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { duplicateItem,
+  timeLabel,
   addDays,
   cellMarks,
   dayItems,
@@ -219,7 +220,7 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
           <View key={e.id} {...swipe.handlersFor(e.id)} style={[s.row, s.rowNoSelect]}>
             <View style={[s.dot, s.rowDot, { backgroundColor: calById.get(e.payload.calendarId)?.color ?? T.folderBlue }]} />
             <Text style={s.rowText}>{e.payload.text}</Text>
-            {e.payload.time && <Text style={s.chip}>{e.payload.time}</Text>}
+            {e.payload.time && <Text style={s.chip}>{timeLabel(e.payload.time)}</Text>}
             <CircleBtn glyph="✎" size={24} onPress={() => setModal({ mode: 'edit', kind: 'event', rec: e })} />
             <CircleBtn glyph="⧉" size={24} onPress={() => { const res = duplicateItem(recs, e.id, newId); if (!('error' in res)) mutate((en) => res.put.forEach((p) => en.put(p))); }} />
             <ConfirmDelete forceArmed={swipe.swiped === e.id} onDelete={() => { swipe.clear(); mutate((en) => en.del(e.id)); }} />
@@ -241,7 +242,7 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
           <View key={`sh${e.id}`} style={s.row}>
             <View style={[s.dot, s.rowDot, { backgroundColor: sharedCalById.get(e.payload.calendarId)?.color ?? T.folderBlue }]} />
             <Text style={s.rowText}>{e.payload.text}</Text>
-            {e.payload.time && <Text style={s.chip}>{e.payload.time}</Text>}
+            {e.payload.time && <Text style={s.chip}>{timeLabel(e.payload.time)}</Text>}
           </View>
         ))}
         {!folded.has('reminders') && items.reminders.filter(({ rec: r }) => showDone || !r.payload.done).map(({ rec: r, overdue, rider }) => (
@@ -252,7 +253,7 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
             <Text style={[s.rowText, r.payload.done && s.rowDone]}>{r.payload.text}</Text>
             {overdue && <Text style={[s.chip, { color: T.overdue }]}>{r.payload.due}</Text>}
             {rider && <Text style={s.chip}>every day</Text>}
-            {r.payload.time && <Text style={s.chip}>{r.payload.time}</Text>}
+            {r.payload.time && <Text style={s.chip}>{timeLabel(r.payload.time)}</Text>}
             <CircleBtn glyph="✎" size={24} onPress={() => setModal({ mode: 'edit', kind: 'reminder', rec: r })} />
             <CircleBtn glyph="⧉" size={24} onPress={() => { const res = duplicateItem(recs, r.id, newId); if (!('error' in res)) mutate((en) => res.put.forEach((p) => en.put(p))); }} />
             {swipe.swiped === r.id && <ConfirmDelete forceArmed onDelete={() => { swipe.clear(); mutate((en) => en.del(r.id)); }} />}
@@ -274,7 +275,7 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
             />
             <Text style={s.rowText}>{r.payload.text}</Text>
             {overdue && <Text style={[s.chip, { color: T.overdue }]}>{r.payload.due}</Text>}
-            {r.payload.time && <Text style={s.chip}>{r.payload.time}</Text>}
+            {r.payload.time && <Text style={s.chip}>{timeLabel(r.payload.time)}</Text>}
           </View>
         ))}
         {items.notes.length > 0 && (
@@ -326,7 +327,7 @@ const s = themed(() => StyleSheet.create({
   cellToday: { color: T.accentInk, backgroundColor: T.accent, borderRadius: 9, minWidth: 18, height: 18, textAlign: 'center', lineHeight: 18, fontWeight: '700', overflow: 'hidden' },
   markWell: { flexDirection: 'row', flexWrap: 'wrap', gap: 1.5, marginTop: 1, alignItems: 'center', justifyContent: 'center', maxWidth: 40, minHeight: 22 },
   markMore: { color: T.dim, fontSize: 10, lineHeight: 11 },
-  legend: { maxHeight: 88 },
+  legend: { maxHeight: 88, flexGrow: 0 },
   legendInner: { paddingHorizontal: 16, paddingVertical: 6 },
   legendWrap: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 14, rowGap: 4 },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },

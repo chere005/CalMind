@@ -64,3 +64,12 @@ export function parseWhenFromText(text: string, today: string): [string, string 
 export function todayStr(d = new Date()): string {
   return `${pad(d.getFullYear(), 4)}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
+
+/** A stored 'HH:MM' back in the suite's spoken style: '3pm', '2:30pm'. */
+export function timeLabel(t: string | null | undefined): string {
+  if (!t) return '';
+  const [h0, m] = t.split(':').map(Number) as [number, number];
+  const ap = h0 >= 12 ? 'pm' : 'am';
+  const h = h0 % 12 === 0 ? 12 : h0 % 12;
+  return m ? `${h}:${String(m).padStart(2, '0')}${ap}` : `${h}${ap}`;
+}

@@ -355,12 +355,25 @@ honest — the next iteration trusts it.
   sections are targets, sections drag, Notes rows drag.
 - 126 core + 21 server + 18 gesture tests.
 
-## In flight (iteration 21 — start here)
-- By-eye pass on test against prod, side by side, page by page (spacing,
-  icon centring — the CLAUDE.md pre-deploy rule — fonts, empty states).
-- Scriptable script parity check (tools/scriptable-widget.js vs the suite's
-  generated script: day headings, tick links, rolled tint).
+## Iteration 21 shipped — the by-eye pass
+- Screenshot sweep of all five tabs at phone width, three finds fixed and
+  re-verified by eye: the calendar legend hugged its content (flexGrow 0 —
+  it sat on ~70px of dead black), every time chip speaks the suite's style
+  now (timeLabel in core: '3pm', '2:30pm' — day panel, due chips; the FEED
+  formats server-side too so an old widget script follows), and Notes got
+  its missing fold story (section chevrons + collapse-all above the top
+  folder, persisted like Reminders').
+- Scriptable check: day headings ('Today · …'), tick boxes and event dots
+  match; ours uses a text ☐ where the suite draws SFSymbol square, and the
+  tick link (quick.php equivalent) is still open — both noted below.
+- 127 core + 21 server + 18 gesture tests.
+
+## In flight (iteration 22 — start here)
+- Widget tick-back: a quick.php equivalent (session page or a guarded
+  token-POST is NOT allowed — the suite's rule: the read token never
+  writes; the tick must go through a signed-in page).
 - Native targets: expo run:ios / run:android smoke, watch bridge check.
+- Empty states pass (fresh account, every tab) against prod's wording.
 
 ## Next, in pain order
 1. Habits month view (day pies + its legend) + Manage-sections window +
