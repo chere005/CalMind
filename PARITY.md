@@ -392,11 +392,30 @@ honest — the next iteration trusts it.
   window don't rename yet (suite has per-entry labels) — queued.
 - 127 core + 21 server + 21 gesture tests.
 
-## In flight (iteration 24 — start here)
-- Partner entry rename labels in the share window.
-- Native targets: expo run:ios / run:android smoke, watch bridge check —
-  needs simulators; coordinate with Sean for a session on the Mac.
+## Iteration 24 shipped — iOS BOOTS NATIVE
+- CALMIND RUNS ON THE IPHONE SIMULATOR: expo run:ios builds, installs and
+  boots on the iPhone 17 Pro sim — verified end-to-end by signing up
+  against a local API (php -S on 8788, the sim default) and landing on the
+  Calendar, today ringed, exactly the suite's landing rule. To reproduce:
+  `npm run ios` in apps/app (LANG=en_US.UTF-8 for CocoaPods — gem install
+  fails without it and expo's auto-install path hit exactly that), plus
+  `npx expo start` for metro and the php server. ios/ stays prebuild
+  output, gitignored.
+- PARTNER RENAME LABELS: the share window's pencil renames an entry — a
+  display label in MY share record's labels map, worn by the window, the
+  pickers, the shared-view chips, the owner headings and the legend, while
+  the username stays the partnership key. Spec renames to 'Buddy' and finds
+  it on the picker row.
+- 127 core + 21 server + 21 gesture tests.
+
+## In flight (iteration 25 — start here)
+- Android emulator smoke (expo run:android) — same pattern as iOS.
+- Watch target wiring (ios/ prebuild has no watch target; the watch sources
+  from the early scaffold need an xcode target added post-prebuild or a
+  config plugin — investigate which).
 - Empty states pass (fresh account, every tab) against prod's wording.
+- Point the sim/dev builds at the LIVE test server by default? (config.ts
+  override exists; decide with Sean.)
 
 ## Next, in pain order
 1. Habits month view (day pies + its legend) + Manage-sections window +
