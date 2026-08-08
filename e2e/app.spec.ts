@@ -610,6 +610,27 @@ test('the widget setup page bakes the pin and carries the whole script', async (
   await expect(page.getByText(/every calendar/)).toBeVisible();
 });
 
+test('the month cell keeps a fixed two-row mark well, busy day or empty', async ({ page }) => {
+  // The suite's rule: the icons sit in a FIXED two-row well, so every cell
+  // stands the same height however busy its day. A one-row minimum let a
+  // quiet day's cell sit shorter than a busy one's.
+  await signup(page);
+  await page.getByText('+ Add', { exact: true }).click();
+  await page.getByTestId('kind-event').click();
+  await page.getByPlaceholder(/What\?/).fill('one mark');
+  await page.getByText('Save', { exact: true }).click();
+
+  const wells = page.getByTestId('cal-mark-well');
+  const heights = new Set<number>();
+  for (let i = 0; i < (await wells.count()); i++) {
+    const box = await wells.nth(i).boundingBox();
+    heights.add(Math.round(box!.height * 2) / 2);
+  }
+  // Every well the same, and that height is two 11px rows plus the 1.5 gap —
+  // not the single row a marked-up cell would otherwise collapse to.
+  expect([...heights]).toEqual([23.5]);
+});
+
 test('a fresh add through the day-panel modal is visible immediately', async ({ page }) => {
   // showAgain's single-view and hidden cases are pinned in core tests; this
   // holds the visible outcome end-to-end.

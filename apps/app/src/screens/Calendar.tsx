@@ -177,7 +177,7 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
     const all = (marks.get(d) ?? []).filter((m) => showDone || m.state !== 'done');
     const shown = all.length > 6 ? all.slice(0, 5) : all;
     return (
-      <View style={s.markWell}>
+      <View testID="cal-mark-well" style={s.markWell}>
         {shown.map((m, i) => {
           if (m.kind === 'event') return <CalGlyph key={i} color={m.color} />;
           if (m.kind === 'note') return <PageGlyph key={i} color={m.color} />;
@@ -408,7 +408,13 @@ const s = themed(() => StyleSheet.create({
   cellNumOther: { color: T.muted, opacity: 0.55 },
   cellNum: { color: T.text, fontSize: 13 },
   cellToday: { color: T.accentInk, backgroundColor: T.accent, borderRadius: 9, minWidth: 18, height: 18, textAlign: 'center', lineHeight: 18, fontWeight: '700', overflow: 'hidden' },
-  markWell: { flexDirection: 'row', flexWrap: 'wrap', gap: 1.5, marginTop: 1, alignItems: 'center', justifyContent: 'center', maxWidth: 40, minHeight: 22 },
+  // The suite's FIXED two-row well: 11px glyphs, three to a row, the height
+  // nailed to two rows (11 + 1.5 + 11) so every cell stands the same height
+  // however busy its day. alignContent centres one row inside the two.
+  // The suite's FIXED two-row well: 11px glyphs, three to a row, the height
+  // nailed to two rows (11 + 1.5 + 11) so every cell stands the same height
+  // however busy its day. alignContent centres one row inside the two.
+  markWell: { flexDirection: 'row', flexWrap: 'wrap', gap: 1.5, marginTop: 1, alignItems: 'center', alignContent: 'center', justifyContent: 'center', maxWidth: 40, height: 23.5 },
   markMore: { color: T.dim, fontSize: 10, lineHeight: 11 },
   legend: { maxHeight: 88, flexGrow: 0 },
   legendInner: { paddingHorizontal: 16, paddingVertical: 6 },
