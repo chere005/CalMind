@@ -47,7 +47,7 @@ const FOLD_KEY = 'calmind.folded.reminders';
 
 export function Reminders() {
   const { recs, session, mutate, sharedRecs, sharedPut, sharedPartnerLabel } = useStore();
-  const { view, visible: visibleFolders, sharedView, sharedPartner } = useFolderView('reminders');
+  const { view, visible: visibleFolders, visibleShared, sharedView, sharedPartner } = useFolderView('reminders');
   const [showDone, setShowDone] = useState(false);
   const [adding, setAdding] = useState<string | null>(null); // sectionId with the open add row
   const [addText, setAddText] = useState('');
@@ -515,8 +515,8 @@ export function Reminders() {
         ))}
 
         {view === 'all' && sharedPartner &&
-          sharedRecs
-            .filter((r): r is Rec<'folder'> => r.type === 'folder' && (r.payload.app ?? 'reminders') === 'reminders')
+          visibleShared
+            .slice()
             .sort((a, b) => byOrd(a.payload, b.payload))
             .map((f) => (
               <View key={`sh${f.id}`} style={s.folderBlock}>

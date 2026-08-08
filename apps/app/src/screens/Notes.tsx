@@ -19,7 +19,7 @@ import { useSwipeLeft } from '../components/swiperow';
 
 export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | null; onOpenConsumed?: () => void }) {
   const { recs, mutate, sharedRecs, sharedPartnerLabel } = useStore();
-  const { view, visible: visibleFolders, sharedView, sharedPartner } = useFolderView('notes');
+  const { view, visible: visibleFolders, visibleShared, sharedView, sharedPartner } = useFolderView('notes');
   const setNotePrefs = (lastView: string) => mutate((e) => e.put(prefsPut(recs, 'notes', { lastView })));
   const [openId, setOpenId] = useState<string | null>(null);
   const [sel, setSel] = useState({ start: 0, end: 0 });
@@ -390,8 +390,8 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
           </View>
         ))}
         {view === 'all' && sharedPartner &&
-          sharedRecs
-            .filter((r): r is Rec<'folder'> => r.type === 'folder' && (r.payload.app ?? 'reminders') === 'notes')
+          visibleShared
+            .slice()
             .sort((a, b) => byOrd(a.payload, b.payload))
             .map((f) => (
               <View key={`sh${f.id}`} style={s.folderBlock}>

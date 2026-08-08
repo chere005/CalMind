@@ -16,6 +16,8 @@ import { PieDot } from './PieDot';
 
 export type FolderView = {
   sharedFolders: Rec<'folder'>[];
+  hiddenShared: string[];
+  visibleShared: Rec<'folder'>[];
   sharedPartner: string | null;
   sharedView: string | null; view: string; hidden: string[]; folders: Rec<'folder'>[]; visible: Rec<'folder'>[] };
 
@@ -42,13 +44,15 @@ export function useFolderView(app: 'reminders' | 'notes'): FolderView {
     const view = sharedView ?? (prefs.lastView && ids.has(prefs.lastView) ? prefs.lastView : 'all');
     const hidden = (prefs.hidden ?? []).filter((id) => ids.has(id));
     const visible = view === 'all' ? folders.filter((f) => !hidden.includes(f.id)) : folders.filter((f) => f.id === view);
-    return { view, hidden, folders, visible, sharedFolders, sharedPartner, sharedView };
+    const hiddenShared = (prefs.hiddenShared ?? []).filter((id) => sharedFolders.some((f) => f.id === id));
+    const visibleShared = sharedFolders.filter((f) => !hiddenShared.includes(f.id));
+    return { view, hidden, folders, visible, sharedFolders, hiddenShared, visibleShared, sharedPartner, sharedView };
   }, [recs, sharedRecs, sharedPartner, app]);
 }
 
 export function FolderPick({ app }: { app: 'reminders' | 'notes' }) {
   const { recs, mutate, sharedPartnerLabel } = useStore();
-  const { view, hidden, folders, visible, sharedFolders, sharedPartner, sharedView } = useFolderView(app);
+  const { view, hidden, folders, visible, sharedFolders, hiddenShared, sharedPartner, sharedView } = useFolderView(app);
   const [open, setOpen] = useState(false);
   const [manage, setManage] = useState(false);
 
@@ -68,17 +72,19 @@ export function FolderPick({ app }: { app: 'reminders' | 'notes' }) {
             <Pressable style={s.menu} onPress={() => {}}>
               <ScrollView>
                 {(() => {
-                  const allOn = hidden.length === 0;
+                  const allOn = hidden.length === 0 && hiddenShared.length === 0;
                   return (
                     <View style={s.row}>
-                      <Pressable style={s.rowMain} onPress={() => { setPrefs({ lastView: 'all', hidden: [] }); setOpen(false); }}>
+                      <Pressable style={s.rowMain} onPress={() => { setPrefs({ lastView: 'all', hidden: [], hiddenShared: [] }); setOpen(false); }}>
                         <PieDot colors={folders.map((f) => f.payload.color)} size={14} />
                         <Text style={[s.rowText, view === 'all' && s.rowActive]}>All</Text>
                       </Pressable>
                       <Pressable
                         testID={`fold-all-box-${app}`}
                         hitSlop={8}
-                        onPress={() => setPrefs(allOn ? { hidden: folders.map((f) => f.id) } : { lastView: 'all', hidden: [] })}
+                        onPress={() => setPrefs(allOn
+                          ? { hidden: folders.map((f) => f.id), hiddenShared: sharedFolders.map((f) => f.id) }
+                          : { lastView: 'all', hidden: [], hiddenShared: [] })}
                       >
                         <Text style={[s.box, allOn && s.boxOn]}>{allOn ? '☑' : '☐'}</Text>
                       </Pressable>
@@ -108,12 +114,21 @@ export function FolderPick({ app }: { app: 'reminders' | 'notes' }) {
                 {sharedFolders.length > 0 && <Text style={s.groupHead}>Shared with me</Text>}
                 {sharedFolders.map((f) => {
                   const key = `@${sharedPartner}:${f.id}`;
+                  const off = hiddenShared.includes(f.id);
                   return (
-                    <Pressable key={key} testID={`pick-shared-${f.payload.name}`} style={s.row} onPress={() => { setPrefs({ lastView: key }); setOpen(false); }}>
-                      <View style={[s.dot, { backgroundColor: f.payload.color }]} />
-                      <Text style={s.sharedMark}>⇗</Text>
-                      <Text style={[s.rowText, sharedView === key && s.rowActive]}>@{sharedPartnerLabel}: {f.payload.name}</Text>
-                    </Pressable>
+                    <View key={key} style={s.row}>
+                      <Pressable testID={`pick-shared-${f.payload.name}`} style={s.rowMain} onPress={() => { setPrefs({ lastView: key }); setOpen(false); }}>
+                        <View style={[s.dot, { backgroundColor: f.payload.color }]} />
+                        <Text style={[s.rowText, sharedView === key && s.rowActive]}>{f.payload.name}</Text>
+                        <Text style={s.partnerChip}>{sharedPartnerLabel}</Text>
+                      </Pressable>
+                      <Pressable
+                        hitSlop={8}
+                        onPress={() => setPrefs({ hiddenShared: off ? hiddenShared.filter((id) => id !== f.id) : [...hiddenShared, f.id], lastView: 'all' })}
+                      >
+                        <Text style={[s.box, !off && s.boxOn]}>{off ? '☐' : '☑'}</Text>
+                      </Pressable>
+                    </View>
                   );
                 })}
                 <Pressable style={[s.row, s.manageRow]} onPress={() => { setOpen(false); setManage(true); }}>
@@ -161,7 +176,7 @@ const s = themed(() => StyleSheet.create({
   rowActive: { color: T.accent, fontWeight: '700' },
   box: { color: T.muted, fontSize: 16 },
   boxOn: { color: T.accent },
-  sharedMark: { color: '#a78bfa', fontSize: 12, fontWeight: '800', marginLeft: -4 },
+  partnerChip: { color: '#c4b5fd', backgroundColor: '#3b3355', fontSize: 12, fontWeight: '700', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999, overflow: 'hidden' },
   groupHead: { color: T.muted, fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5, paddingHorizontal: 12, paddingTop: 10 },
   manageRow: { borderTopWidth: 1, borderTopColor: T.lineSoft, marginTop: 4 },
   manageText: { color: T.dim, fontSize: 14 },
