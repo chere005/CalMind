@@ -48,6 +48,27 @@ describe('parseIngredient — units spaced, canonical, fractions typographic', (
     expect(parseIngredient('2 eggs')).toBe('2 eggs');
     expect(parseIngredient('salt to taste')).toBe('salt to taste');
   });
+
+  it('a RANGE keeps its shape and still finds its unit', () => {
+    // Without the range, '2-3' parsed as a bare 2 and the rest of the range
+    // was left sitting in the name — '2 -3 cloves garlic', worse than the
+    // line went in, and the unit never found at all.
+    expect(parseIngredient('2-3 cloves garlic')).toBe('2-3 cloves garlic');
+    expect(parseIngredient('1-2 tsp salt')).toBe('1-2 tsp salt');
+    expect(parseIngredient('1 - 2 teaspoons salt')).toBe('1-2 tsp salt');
+    // 'to' is the author's word, so it survives as written.
+    expect(parseIngredient('2 to 3 tablespoons water')).toBe('2 to 3 tbsp water');
+    expect(parseIngredient('1 1/2 to 2 cups stock')).toBe('1 ½ to 2 cups stock');
+  });
+
+  it('a whole number and a typographic fraction read as one quantity', () => {
+    expect(parseIngredient('1 ½ tablespoons butter')).toBe('1 ½ tbsp butter');
+  });
+
+  it("a sentence that merely contains 'to' is not a range", () => {
+    expect(parseIngredient('Salt and pepper to taste')).toBe('Salt and pepper to taste');
+    expect(parseIngredient('1 onion, chopped to order')).toBe('1 onion, chopped to order');
+  });
 });
 
 describe('recipeBody + recipeFromPages — the structured round trip', () => {

@@ -23,23 +23,47 @@ const UNIT_MAP: Record<string, string> = {
 };
 const FRACTIONS: Record<string, string> = { '1/2': '½', '1/4': '¼', '3/4': '¾', '1/3': '⅓', '2/3': '⅔', '1/8': '⅛' };
 
-/** '2tbsp olive oil' → '2 tbsp olive oil'; '1/2 CUP milk' → '½ cup milk' —
- *  the quantity spaced, the unit canonical, fractions typographic. */
-export function parseIngredient(text: string): string {
-  let t = text.replace(/\s+/g, ' ').trim();
-  if (t === '') return '';
-  const m = t.match(/^(\d+\s+\d\/\d|\d\/\d|\d+([.,]\d+)?|[½¼¾⅓⅔⅛])\s*([a-zA-Z]+)?\s*(.*)$/);
-  if (!m) return t;
-  let qty = m[1]!.replace(',', '.');
-  qty = qty.replace(/(\d)\s+(\d\/\d)/, (_s, a, f) => `${a} ${FRACTIONS[f] ?? f}`);
-  qty = FRACTIONS[qty] ?? qty;
-  const unitRaw = (m[3] ?? '').toLowerCase();
-  const rest = (m[4] ?? '').trim();
-  const unit = UNIT_MAP[unitRaw];
-  if (unit) return [qty, unit, rest].filter(Boolean).join(' ');
-  // Not a known unit: the word belongs to the ingredient itself.
-  return [qty, [m[3], rest].filter(Boolean).join(' ').trim()].filter(Boolean).join(' ');
+/** One quantity token, normalised: decimal commas to points, fractions
+ *  typographic, a whole-plus-fraction left as the pair it reads as. */
+function oneQty(raw: string): string {
+  const q = raw.trim().replace(',', '.').replace(/(\d)\s+(\d\/\d)/, (_s, a, f) => `${a} ${FRACTIONS[f] ?? f}`);
+  return FRACTIONS[q] ?? q;
 }
+
+// A quantity is a fraction, a decimal, a whole number, or a whole number
+// followed by either kind of fraction ('2 1/2', '1 ½'). Longest forms first,
+// so '2 1/2 cups' can't be read as a bare 2 with '1/2' left in the name.
+const NUM = String.raw`\d+\s+\d\/\d|\d+\s+[½¼¾⅓⅔⅛]|\d\/\d|\d+(?:[.,]\d+)?|[½¼¾⅓⅔⅛]`;
+// …and a RANGE of two of them, written with a dash or the word 'to'. A range
+// is a pattern worth seeing: without it '2-3 cloves garlic' parsed as the
+// bare 2 and left '-3 cloves garlic' as the ingredient's name, so the unit
+// was never found and the text came back worse than it went in.
+const LEAD = new RegExp(`^(${NUM})(?:(\\s*-\\s*|\\s+to\\s+)(${NUM}))?\\s*([a-zA-Z]+)?\\s*(.*)$`);
+
+/** '2tbsp olive oil' → '2 tbsp olive oil'; '1/2 CUP milk' → '½ cup milk';
+ *  '2-3 cloves garlic' keeps its range and finds its unit. */
+export function parseIngredient(text: string): string {
+  const t = text.replace(/\s+/g, ' ').trim();
+  if (t === '') return '';
+  const m = t.match(LEAD);
+  if (!m) return t;
+  // A range keeps the separator it was written with — 'to' is the author's
+  // word, not ours to rewrite into a dash.
+  const qty = m[3]
+    ? oneQty(m[1]!) + (/to/.test(m[2]!) ? ' to ' : '-') + oneQty(m[3])
+    : oneQty(m[1]!);
+  const unitRaw = (m[4] ?? '').toLowerCase();
+  const rest = (m[5] ?? '').trim();
+  const unit = UNIT_MAP[unitRaw];
+  if (unit) return tidy([qty, unit, rest].filter(Boolean).join(' '));
+  // Not a known unit: the word belongs to the ingredient itself.
+  return tidy([qty, [m[4], rest].filter(Boolean).join(' ').trim()].filter(Boolean).join(' '));
+}
+
+/** The pieces are re-joined with spaces, so a rest that began with a comma
+ *  ('1 onion, chopped' → word 'onion', rest ', chopped') would come back
+ *  holding a space before its punctuation. Close it up. */
+const tidy = (s: string) => s.replace(/\s+([,.;:!?)])/g, '$1');
 
 /** The marker body the structured page saves: bold headings, ingredient
  *  bullets, numbered steps — the same shape the reader renders. */
