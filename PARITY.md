@@ -640,6 +640,35 @@ honest — the next iteration trusts it.
   every other first row.
 - 154 core + 22 server + 32 gesture. Deployed, live == local.
 
+## Iteration 40 shipped — Sean's live batch from the phone
+- THE WHITE STATUS BAR, root-caused: the Expo export's head carried no
+  viewport-fit=cover, so env(safe-area-inset-*) read 0 on iOS,
+  react-native-safe-area-context reported no inset, the app never padded
+  for the notch, and iOS painted its OWN status bar on top — light by
+  default. Head now carries viewport-fit=cover, the translucent style and
+  the standalone flags, patched after export by tools/patch-web-html.mjs
+  (Expo gives a non-Router app no documented head hook; checked against
+  the v57 docs). No colour is hardcoded — App.tsx's SafeAreaView already
+  paints the inset with T.bg, so the strip follows the theme.
+  NOT VERIFIED on an installed PWA: the sim refuses synthetic taps in the
+  bottom strip (Safari's too, so it's the harness, not our tab bar), so
+  Add to Home Screen was out of reach. Sean must DELETE and re-add the
+  icon — iOS caches the head at install. Caveat for him: translucent
+  forces white status-bar text, poor on the cream Sage theme.
+- HABITS: five day columns on a phone, seven from 700px — a width
+  breakpoint, not a Platform check, so a tablet gets the full week too.
+  Paging now steps by the columns SHOWN; a fixed seven-day step at five
+  wide dropped two days between pages.
+- THE LEGEND BALANCES: core balanceLines — greedy for the line count,
+  a DP minimising squared leftover space for the split, ties breaking
+  toward filling the earlier line. BalancedRow measures real widths, so
+  nothing is hardcoded. Sean's orphaned "Calendar" is gone: 2+3, same
+  line count. Confirmed on the sim against his own store.
+- 162 core + 22 server + 34 gesture. Deployed to test, live == local.
+- One export path now: `npm run export:web` (export + head patch), used by
+  both deploy-test.sh and the gesture harness, so the HTML the specs drive
+  is the HTML that ships.
+
 ## NEXT: the Add-Recipe page (Sean's spec, precise)
 - A structured page in Notes, the akisbookshelf add-quote shape: Title;
   an INGREDIENTS section whose + parses units (grams, cups, tsp, tbsp…)

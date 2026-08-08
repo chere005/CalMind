@@ -6,6 +6,26 @@ Standing rules: behavior lives in packages/core, RN primitives only, the old
 suite (seancheren-reminders) IS the spec — grep its CSS/PHP before guessing a
 visual. Deploy to **test only** (`./server/deploy-test.sh`) as changes land.
 
+## 0 · Sean's live batch (from the phone, via Dispatch)
+
+- [x] **"On mobile only show 5 days of habits in weeks"** — a real width
+      breakpoint (7 from 700px, 5 below), not a platform check, so a tablet
+      keeps the full week. Window ends on TOMORROW, so today stays in view
+      with a day of headroom — that's the window native already used; say so
+      in case he wants it ending on today instead. Paging steps by the
+      columns shown, since a fixed 7-day step at 5 wide skipped two days.
+- [x] **Legend line balancing** — core `balanceLines`, measured widths, no
+      hardcoded counts. Confirmed on his own store on the sim: 2+3, no
+      orphan.
+- [~] **"iOS web app shouldn't be white on the top bar"** — fix shipped to
+      test, NOT verified on an installed PWA. The export carried no
+      `viewport-fit=cover`, so `env(safe-area-inset-*)` was 0, the app never
+      padded, and iOS drew its own light bar. Head now patched at export.
+      **Sean must delete the home-screen icon and re-add it** — iOS caches
+      the head at install time. Open question for him: the translucent style
+      forces WHITE status-bar text, which will read poorly on the cream Sage
+      theme. iOS offers no "match my background, choose my own text colour".
+
 ## 1 · In flight
 
 - [x] **Overdue date chips in the Calendar day panel** — landed, deployed,
