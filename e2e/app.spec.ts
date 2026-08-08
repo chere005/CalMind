@@ -533,3 +533,36 @@ test('?tick= opens the one-reminder Done page and rolls a repeat', async ({ page
   await page.getByTestId('tab-reminders').click();
   await expect(page.getByTestId('rem-row').filter({ hasText: 'stretch' })).toBeHidden();
 });
+
+test('a ticked repeat ROLLS and flashes instead of checking off', async ({ page }) => {
+  await signup(page);
+  await page.getByTestId('tab-reminders').click();
+  await page.getByTestId('secadd-General').first().click();
+  await page.getByTestId('rem-add-field').fill('water ferns 12/1');
+  await page.getByTestId('rem-add-field').press('Enter');
+  // Give it a weekly repeat through the full-edit window.
+  await longPress(page, page.getByTestId('rem-body').filter({ hasText: 'water ferns' }));
+  await page.getByTestId('rem-pencil').click();
+  await page.getByText('+ Repeat', { exact: true }).click();
+  await page.getByText('Save', { exact: true }).click();
+  await page.keyboard.press('Escape');
+  // Tick it: the row STAYS (rolled, not done) and flashes.
+  const row = page.getByTestId('rem-row').filter({ hasText: 'water ferns' });
+  await row.getByTestId('tick').click();
+  await expect(row).toBeVisible();
+  const bg = await row.evaluate((el) => getComputedStyle(el).backgroundColor);
+  expect(bg).not.toBe('rgba(0, 0, 0, 0)'); // the accent-soft flash is on
+  await page.waitForTimeout(2400);
+  const after = await row.evaluate((el) => getComputedStyle(el).backgroundColor);
+  expect(after).toBe('rgba(0, 0, 0, 0)'); // and it fades back out
+});
+
+test('the selected day survives a trip to another tab', async ({ page }) => {
+  await signup(page);
+  // Pick a different day than today (the 15th is always on the grid).
+  await page.getByTestId('cal-cell').filter({ hasText: /^15$/ }).first().click();
+  await expect(page.getByText(/15/).first()).toBeVisible();
+  await page.getByTestId('tab-notes').click();
+  await page.getByTestId('tab-calendar').click();
+  await expect(page.getByText(/, .* 15/)).toBeVisible(); // the panel heading still says the 15th
+});

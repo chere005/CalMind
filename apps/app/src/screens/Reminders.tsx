@@ -178,7 +178,19 @@ export function Reminders() {
   };
 
   // Ticking rolls a repeat instead of finishing it — the rule lives in core.
-  const tick = (r: ReminderRec) => mutate((e) => e.put({ ...r, payload: reminderToggle(r.payload, todayStr()) }));
+  // A ticked repeat doesn't check off — it ROLLS to its next date, and the
+  // roll must be visible or the checkbox reads as dead: the row flashes for
+  // the suite's 2.2s and its date chip lights in the accent.
+  const [rolledId, setRolledId] = useState<string | null>(null);
+  const rollTimer = React.useRef<ReturnType<typeof setTimeout>>(undefined);
+  const tick = (r: ReminderRec) => {
+    mutate((e) => e.put({ ...r, payload: reminderToggle(r.payload, todayStr()) }));
+    if (r.payload.repeat && !r.payload.done) {
+      setRolledId(r.id);
+      clearTimeout(rollTimer.current);
+      rollTimer.current = setTimeout(() => setRolledId(null), 2200);
+    }
+  };
 
   const saveEdit = (r: ReminderRec) => {
     const raw = editText.trim();
@@ -272,7 +284,7 @@ export function Reminders() {
       timeLabel(time),
       repeatLabel(repeat),
     ].filter(Boolean);
-    return <Text style={[s.chip, overdue && s.chipOverdue]}>{bits.join(' · ')}</Text>;
+    return <Text style={[s.chip, overdue && s.chipOverdue, rolledId === r.id && s.chipRolled]}>{bits.join(' · ')}</Text>;
   };
 
   const repeatEditor = (r: ReminderRec) => {
@@ -408,6 +420,7 @@ export function Reminders() {
                           {...(pageEdit ? {} : swipe.handlersFor(r.id))}
                           style={[
                             s.row,
+                            rolledId === r.id && s.rowRolled,
                             ri === rows.length - 1 && s.rowLast,
                             editing !== r.id && s.rowNoSelect,
                             r.payload.indent > 0 && s.rowIndented,
@@ -706,6 +719,8 @@ const s = themed(() => StyleSheet.create({
   tickMark: { color: T.accent, fontSize: 13, fontWeight: '700' },
   chip: { color: T.dim, fontSize: 13 },
   chipOverdue: { color: T.overdue, fontWeight: '600' },
+  rowRolled: { backgroundColor: T.accentSoft, borderRadius: 8 },
+  chipRolled: { color: T.accent, fontWeight: '700' },
   repRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingLeft: 34, paddingBottom: 6, alignItems: 'center' },
   repCount: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   toolbar: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingTop: 10 },

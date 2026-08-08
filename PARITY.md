@@ -377,13 +377,26 @@ honest — the next iteration trusts it.
   face to the app. Spec: create → open ?tick= → Done → row gone.
 - 127 core + 21 server + 19 gesture tests.
 
-## In flight (iteration 23 — start here)
+## Iteration 23 shipped — the CLAUDE.md sweep
+- THE ROLLED FLASH: a ticked repeat rolls instead of checking off, and the
+  roll is VISIBLE now — the row washes accent-soft and its date chip lights
+  in the accent for the suite's 2.2s, in the Reminders list and the day
+  panel both. Spec proves the flash comes on and fades back out. (An
+  undated repeat still just checks off — no anchor to roll from, the
+  suite's own rule, and writing the spec re-confirmed it.)
+- THE REMEMBERED DAY (calDay): the selected day survives a trip to another
+  tab and comes back; a fresh load lands on today; paging never rewrites it.
+- Sweep verdicts: the '.folder-empty hides empty sections' paragraph in the
+  suite's CLAUDE.md is STALE — no such class in prod's code any more; our
+  always-visible sections match current prod. Partner entries in the share
+  window don't rename yet (suite has per-entry labels) — queued.
+- 127 core + 21 server + 21 gesture tests.
+
+## In flight (iteration 24 — start here)
+- Partner entry rename labels in the share window.
 - Native targets: expo run:ios / run:android smoke, watch bridge check —
   needs simulators; coordinate with Sean for a session on the Mac.
 - Empty states pass (fresh account, every tab) against prod's wording.
-- Remaining large parity: measured drags for the DAY-PANEL lists? (check
-  the suite — panel rows don't drag); rename flows in shared views 403
-  client-side check; anything CLAUDE.md names that the ledger doesn't.
 
 ## Next, in pain order
 1. Habits month view (day pies + its legend) + Manage-sections window +

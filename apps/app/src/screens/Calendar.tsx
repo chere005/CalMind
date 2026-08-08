@@ -34,12 +34,17 @@ import { CircleBtn, ConfirmDelete, Pill, Rule } from '../ui';
 
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
+// The suite's remembered day (calDay): restored when you come back to the
+// tab, reset by a fresh load — deliberate paging never rewrites it.
+let calDay: string | null = null;
+
 export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => void }) {
   const { recs, mutate, sharedRecs, sharedPartner, sharedPut } = useStore();
   const { visible: visibleCals, calendars, visibleShared } = useCalendarView();
   const today = todayStr();
-  const [ym, setYm] = useState(today.slice(0, 7));
-  const [day, setDay] = useState(today);
+  const [ym, setYm] = useState((calDay ?? today).slice(0, 7));
+  const [day, setDayState] = useState(calDay ?? today);
+  const setDay = (d: string) => { calDay = d; setDayState(d); };
   const [folded, setFolded] = useState<Set<string>>(new Set());
   useEffect(() => {
     AsyncStorage.getItem('calmind.calFold').then((raw) => raw && setFolded(new Set(JSON.parse(raw))));
@@ -133,7 +138,16 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
   const pageRef = useRef(page);
   pageRef.current = page;
 
-  const tick = (r: Rec<'reminder'>) => mutate((e) => e.put({ ...r, payload: reminderToggle(r.payload, todayStr()) }));
+  const [rolledId, setRolledId] = useState<string | null>(null);
+  const rollTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const tick = (r: Rec<'reminder'>) => {
+    mutate((e) => e.put({ ...r, payload: reminderToggle(r.payload, todayStr()) }));
+    if (r.payload.repeat && !r.payload.done) {
+      setRolledId(r.id);
+      clearTimeout(rollTimer.current);
+      rollTimer.current = setTimeout(() => setRolledId(null), 2200);
+    }
+  };
 
   const cellMark = (d: string) => {
     const all = marks.get(d) ?? [];
@@ -246,7 +260,7 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
           </View>
         ))}
         {!folded.has('reminders') && items.reminders.filter(({ rec: r }) => showDone || !r.payload.done).map(({ rec: r, overdue, rider }) => (
-          <View key={r.id} {...swipe.handlersFor(r.id)} style={[s.row, s.rowNoSelect]}>
+          <View key={r.id} {...swipe.handlersFor(r.id)} style={[s.row, s.rowNoSelect, rolledId === r.id && s.rowRolled]}>
             <Pressable onPress={() => tick(r)} hitSlop={8} style={[s.tickBox, r.payload.done && s.tickDone, overdue && s.tickOverdue]}>
               {r.payload.done && <Text style={s.tickMark}>✓</Text>}
             </Pressable>
@@ -346,6 +360,7 @@ const s = themed(() => StyleSheet.create({
   panelTitle: { color: T.gold, fontSize: 15, fontWeight: '700' },
   row: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 4 },
   rowNoSelect: { userSelect: 'none' } as import('react-native').ViewStyle,
+  rowRolled: { backgroundColor: T.accentSoft, borderRadius: 8 },
   rowText: { color: T.text, fontSize: 15, flex: 1 },
   rowDone: { color: T.muted, textDecorationLine: 'line-through' },
   chip: { color: T.dim, fontSize: 12 },
