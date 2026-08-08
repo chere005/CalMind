@@ -21,9 +21,18 @@ for (const d of days) {
   for (const row of res.days[d]) {
     if (shown >= 9) break;
     const line = w.addStack();
-    const mark = line.addText(row.kind === "reminder" ? "☐ " : "• ");
-    mark.font = Font.systemFont(11);
-    mark.textColor = row.rolled ? new Color("#fb923c") : new Color("#34d399");
+    line.centerAlignContent();
+    if (row.kind === "reminder") {
+      // The suite's empty tick box: SFSymbol square, overdue-orange when rolled.
+      const box = line.addImage(SFSymbol.named("square").image);
+      box.imageSize = new Size(10, 10);
+      box.tintColor = row.rolled ? new Color("#f0a860") : new Color("#34d399");
+    } else {
+      const dot = line.addText("• ");
+      dot.font = Font.systemFont(11);
+      dot.textColor = new Color("#60a5fa");
+    }
+    line.addSpacer(4);
     const t = line.addText((row.time ? row.time + " " : "") + row.text);
     t.font = Font.systemFont(11);
     t.textColor = new Color("#eeeeee");

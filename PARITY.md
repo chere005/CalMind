@@ -428,13 +428,31 @@ honest — the next iteration trusts it.
   an @expo/config-plugins addition (prebuild emits none) — next.
 - 127 core + 21 server + 21 gesture tests.
 
-## In flight (iteration 26 — start here)
-- Watch target config plugin (apps/watch sources into a prebuild-added
-  watchOS target; WatchConnectivity end-to-end on sims).
-- Point the sim/dev builds at the LIVE test server by default? (config.ts
-  override exists; decide with Sean.)
-- Scriptable: SFSymbol square + rolled-orange tint to match the suite's
-  generated script exactly.
+## Iteration 26 shipped — the watch target GENERATES
+- @bacons/apple-targets landed: the three watch Swift sources moved into
+  apps/app/targets/watch/ beside their expo-target.config.js (type watch,
+  bundle .watchkitapp, watchOS 10), and expo prebuild --clean now emits the
+  CalMindWatch target into the Xcode project every run — the hand-add
+  README instructions are retired. FULL BUILD GREEN: the phone app compiles
+  with the watch app embedded (xcodebuild exit 0).
+- The one trap, recorded: passing -sdk iphonesimulator to xcodebuild
+  OVERRIDES every target's SDKROOT — the watch target then compiles against
+  the iPhone SDK and fails WCSessionDelegate conformance (iOS requires the
+  two inactive/deactivate methods watchOS doesn't have). Let the
+  destination pick per-target SDKs; the plugin's SDKROOT=watchos is right.
+- Scriptable matches the suite's generated script exactly now: SFSymbol
+  square boxes (kind-palette #f0a860 when rolled), blue event dots,
+  centre-aligned rows.
+- 127 core + 21 server + 21 gesture tests; web untouched this pass.
+
+## In flight (iteration 27 — start here)
+- Run the watch app on a paired watch simulator; push a list from the
+  phone through WatchConnectivity and see rows draw (the last unproven
+  link in the bridge).
+- Sean to decide: sim/dev builds defaulting to the live test server
+  (config.ts override exists either way).
+- Periodic full two-instance regression (web + both sims) before any talk
+  of promoting /test/calmind toward prod.
 
 ## Next, in pain order
 1. Habits month view (day pies + its legend) + Manage-sections window +
