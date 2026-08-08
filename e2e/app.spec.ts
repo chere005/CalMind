@@ -276,3 +276,25 @@ test('week mode: swipe up folds the grid, arrows page by week, swipe down restor
   await page.mouse.up();
   await expect.poll(countCells).toBeGreaterThan(7);
 });
+
+test('note body renders its markers as styled text when you tap away', async ({ page }) => {
+  await signup(page);
+  await page.getByTestId('tab-notes').click();
+  await page.getByTestId('secadd-General').first().click();
+  await page.getByPlaceholder('New note').fill('styled');
+  await page.getByPlaceholder('New note').press('Enter');
+  // The editor auto-opens. Tap the body, type markers, then tap the title.
+  await page.getByTestId('note-body-view').click();
+  await page.getByTestId('note-body-edit').fill('**loud** and *slanted*\n- milk\n> wisdom');
+  await page.getByPlaceholder('Title').click();
+  const view = page.getByTestId('note-body-view');
+  await expect(view).toBeVisible();
+  const text = await view.innerText();
+  expect(text).toContain('loud');
+  expect(text).not.toContain('**');
+  expect(text).toContain('•');
+  expect(text).toContain('milk');
+  expect(text).not.toContain('- milk');
+  expect(text).toContain('wisdom');
+  expect(text).not.toContain('> wisdom');
+});

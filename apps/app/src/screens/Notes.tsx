@@ -5,7 +5,7 @@
  */
 import React, { useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { byOrd, duplicateItem, moveNote, moveSection, moveSectionEmptyingFolder, newId, ordBetween, parseDateFromText, parseWhenFromText, todayStr, type Rec } from '@calmind/core';
+import { byOrd, richLines, duplicateItem, moveNote, moveSection, moveSectionEmptyingFolder, newId, ordBetween, parseDateFromText, parseWhenFromText, todayStr, type Rec } from '@calmind/core';
 import { useStore } from '../store';
 import { T } from '../theme';
 import { TopBar } from '../chrome';
@@ -21,6 +21,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
   const [openId, setOpenId] = useState<string | null>(null);
   const [sel, setSel] = useState({ start: 0, end: 0 });
   const [dateOpen, setDateOpen] = useState(false);
+  const [bodyEditing, setBodyEditing] = useState(false);
   const [dateField, setDateField] = useState('');
   const [goesOpen, setGoesOpen] = useState(false);
   const [delArmed, setDelArmed] = useState(false);
@@ -217,15 +218,46 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
             </View>
           )}
 
-          <TextInput
-            style={s.body}
-            value={open.payload.body}
-            placeholder="Write…"
-            placeholderTextColor={T.muted}
-            multiline
-            onSelectionChange={(ev) => setSel(ev.nativeEvent.selection)}
-            onChangeText={(t) => mutate((e) => e.put({ ...open, payload: { ...open.payload, body: t } }))}
-          />
+          {bodyEditing ? (
+            <TextInput
+              testID="note-body-edit"
+              style={s.body}
+              value={open.payload.body}
+              placeholder="Write…"
+              placeholderTextColor={T.muted}
+              multiline
+              autoFocus
+              onBlur={() => setBodyEditing(false)}
+              onSelectionChange={(ev) => setSel(ev.nativeEvent.selection)}
+              onChangeText={(t) => mutate((e) => e.put({ ...open, payload: { ...open.payload, body: t } }))}
+            />
+          ) : (
+            <Pressable testID="note-body-view" style={s.body} onPress={() => setBodyEditing(true)}>
+              {open.payload.body === '' ? (
+                <Text style={s.bodyPlaceholder}>Write…</Text>
+              ) : (
+                richLines(open.payload.body).map((ln, i) => (
+                  <View key={i} style={[s.rtLine, ln.kind === 'quote' && s.rtQuote]}>
+                    {ln.kind === 'bullet' && <Text style={s.rtDot}>•</Text>}
+                    <Text style={[s.rtText, ln.kind === 'quote' && s.rtQuoteText]}>
+                      {ln.runs.map((r, j) => (
+                        <Text
+                          key={j}
+                          style={[
+                            r.bold && s.rtBold,
+                            r.italic && s.rtItalic,
+                            r.under && s.rtUnder,
+                          ]}
+                        >
+                          {r.text || (ln.runs.length === 1 ? ' ' : '')}
+                        </Text>
+                      ))}
+                    </Text>
+                  </View>
+                ))
+              )}
+            </Pressable>
+          )}
 
           {/* Saved sits bottom-left; the two-press delete bottom-right. */}
           <View style={s.footRow}>
@@ -382,6 +414,15 @@ const s = StyleSheet.create({
     paddingVertical: 10,
   },
   chip: { color: T.dim, fontSize: 12 },
+  bodyPlaceholder: { color: T.muted, fontSize: 16, lineHeight: 24 },
+  rtLine: { flexDirection: 'row', alignItems: 'flex-start' },
+  rtQuote: { borderLeftWidth: 3, borderLeftColor: '#a78bfa', paddingLeft: 10, marginVertical: 2 },
+  rtQuoteText: { color: T.dim, fontStyle: 'italic' },
+  rtDot: { color: T.dim, fontSize: 16, lineHeight: 24, marginRight: 8 },
+  rtText: { color: T.text, fontSize: 16, lineHeight: 24, flexShrink: 1 },
+  rtBold: { fontWeight: '700' },
+  rtItalic: { fontStyle: 'italic' },
+  rtUnder: { textDecorationLine: 'underline' },
   body: {
     color: T.text,
     fontSize: 16,

@@ -202,8 +202,14 @@ honest — the next iteration trusts it.
   SELECTION, which TERMINATES the pan — the grid wears userSelect: 'none'.
 - 121 core + 17 server + 12 gesture tests.
 
-## In flight (iteration 12 continues — start here)
-- Rendered rich text in notes (markers → styled runs).
+- RENDERED RICH TEXT: richLines in core (markers → styled runs; toggles
+  never cross a line break, unclosed styles the rest of its line — 5 tests).
+  The note body READS rendered (quote bar in the suite's purple, bullet
+  dots, bold/italic/underline runs) and swaps to the marker field on tap;
+  Pill joined the noSteal club so the toolbar can't blur the field away.
+- 126 core + 17 server + 13 gesture tests.
+
+## In flight (iteration 13 — start here)
 - Swipe-a-row-left to delete (armed two-press control).
 - Notes rows show ⧉ always — gate it behind an edit mode when Notes gets one
   (the suite hides row controls outside edit mode).

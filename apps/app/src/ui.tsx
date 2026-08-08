@@ -7,6 +7,16 @@ import React, { useRef, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, TextInput, type TextInputProps, View } from 'react-native';
 import { T } from './theme';
 
+/**
+ * A glyph button never steals focus: preventing mousedown's default keeps a
+ * focused field (inline rename, note body) from blurring under it — the blur
+ * handler would unmount the button mid-press and the tap would die. Touch has
+ * no such default to prevent, so callers arm onPressIn instead (wired to
+ * touchstart below, which fires before any blur).
+ */
+const noSteal =
+  Platform.OS === 'web' ? ({ onMouseDown: (e: { preventDefault(): void }) => e.preventDefault() } as object) : null;
+
 export function Pill({
   label,
   onPress,
@@ -22,6 +32,7 @@ export function Pill({
 }) {
   return (
     <Pressable
+      {...noSteal}
       testID={testID}
       onPress={onPress}
       disabled={disabled}
@@ -31,16 +42,6 @@ export function Pill({
     </Pressable>
   );
 }
-
-/**
- * A glyph button never steals focus: preventing mousedown's default keeps a
- * focused field (inline rename, note body) from blurring under it — the blur
- * handler would unmount the button mid-press and the tap would die. Touch has
- * no such default to prevent, so callers arm onPressIn instead (wired to
- * touchstart below, which fires before any blur).
- */
-const noSteal =
-  Platform.OS === 'web' ? ({ onMouseDown: (e: { preventDefault(): void }) => e.preventDefault() } as object) : null;
 
 export function CircleBtn({
   glyph,
