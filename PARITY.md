@@ -661,6 +661,15 @@ honest — the next iteration trusts it.
 - Sean approved the conic rainbow ("there finally the folder icon is
   correct") — picker iconography is settled.
 
+## Iteration 20 shipped — the tree is CLEAN
+- The RecipeEditor extraction landed whole (the other session went quiet
+  ~30min; its Notes.tsx + untracked RecipeEditor.tsx were coherent, so this
+  session finished the landing): Recipe button → structured page, photos
+  from its own 📷, include-notes checkbox, scrubbed OCR intake.
+- The ocr spec walks the REAL flow now and passes — 30/30 gesture specs,
+  first fully green full-suite run since the refactor began. Deployed.
+- Working tree carries no held work for the first time in the loop.
+
 ## Next, in pain order
 1. Habits month view (day pies + its legend) + Manage-sections window +
    habit rename in place + collapse-all wiring.
