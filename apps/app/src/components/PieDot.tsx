@@ -19,10 +19,10 @@ export function PieDot({ colors, size = 22, rainbow = false }: { colors: string[
           {/* Stops compressed into the circle's visible band — a diagonal
               gradient's 0/1 corners get CLIPPED by the disc, which is how a
               rainbow reads as plain orange. Pastels per Sean's reference. */}
-          <LinearGradient id="pierainbow" x1="0.15" y1="0" x2="0.85" y2="1">
+          <LinearGradient id="pierainbow" x1="0.2" y1="0" x2="0.8" y2="1">
             <Stop offset="0" stopColor="#f9a8d4" />
-            <Stop offset="0.33" stopColor="#fdba74" />
-            <Stop offset="0.6" stopColor="#fde68a" />
+            <Stop offset="0.3" stopColor="#c4b5fd" />
+            <Stop offset="0.62" stopColor="#fde68a" />
             <Stop offset="1" stopColor="#86efac" />
           </LinearGradient>
         </Defs>
