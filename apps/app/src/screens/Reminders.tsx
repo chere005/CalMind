@@ -332,7 +332,8 @@ export function Reminders() {
         {session?.username === 'sean' && <CircleBtn glyph="⧉" onPress={copyMarkdown} />}
       </View>
 
-      <ScrollView contentContainerStyle={s.scroll}>
+      {/* A live drag holds the scroll still — see Habits for the why. */}
+      <ScrollView contentContainerStyle={s.scroll} scrollEnabled={drag.dragIdx === null && secDrag.dragging === null}>
         {folders.map((f) => (
           <View key={f.id} style={s.folderBlock}>
             <View style={s.folderHead}>

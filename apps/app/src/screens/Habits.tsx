@@ -250,7 +250,10 @@ export function Habits() {
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={s.scroll}>
+      {/* A live drag holds the scroll still. Refusing the responder hand-over
+          is what keeps the gesture, but on a touch device a list that also
+          scrolls under the finger fights the drop line for the same pixels. */}
+      <ScrollView contentContainerStyle={s.scroll} scrollEnabled={drag.dragIdx === null && secDrag.dragging === null}>
         {view === 'week' && (
           <>
             <View style={s.headRow}>

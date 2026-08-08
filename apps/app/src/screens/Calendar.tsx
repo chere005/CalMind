@@ -411,10 +411,13 @@ const s = themed(() => StyleSheet.create({
   // The suite's FIXED two-row well: 11px glyphs, three to a row, the height
   // nailed to two rows (11 + 1.5 + 11) so every cell stands the same height
   // however busy its day. alignContent centres one row inside the two.
-  // The suite's FIXED two-row well: 11px glyphs, three to a row, the height
-  // nailed to two rows (11 + 1.5 + 11) so every cell stands the same height
-  // however busy its day. alignContent centres one row inside the two.
-  markWell: { flexDirection: 'row', flexWrap: 'wrap', gap: 1.5, marginTop: 1, alignItems: 'center', alignContent: 'center', justifyContent: 'center', maxWidth: 40, height: 23.5 },
+  // The suite's FIXED two-row well (.cell .dots: height 23px, three to a row,
+  // align-content flex-start), so every cell stands the same height however
+  // busy its day AND a quiet day's icons sit on the same line as everyone
+  // else's first row — centring them would float a single row out of step
+  // with the rest of the grid. 11px glyphs at a 1.5 gap make the same 36px
+  // row the suite's 10px-at-3 does.
+  markWell: { flexDirection: 'row', flexWrap: 'wrap', gap: 1.5, marginTop: 1, alignItems: 'center', alignContent: 'flex-start', justifyContent: 'center', maxWidth: 40, height: 23.5 },
   markMore: { color: T.dim, fontSize: 10, lineHeight: 11 },
   legend: { maxHeight: 88, flexGrow: 0 },
   legendInner: { paddingHorizontal: 16, paddingVertical: 6 },
