@@ -5,14 +5,16 @@
  * roll repeats, and the add row files a reminder or event by kind. A day is
  * selected by a tap and nothing else.
  */
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { PanResponder, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { duplicateItem,
+  addDays,
   cellMarks,
   dayItems,
   monthGrid,
   monthLegend,
+  weekOf,
   newId,
   ordBetween,
   parseWhenFromText,
@@ -48,6 +50,19 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
     AsyncStorage.setItem('calmind.calFold', JSON.stringify([...next])).catch(() => {});
   };
   const [showDone, setShowDone] = useState(false);
+  // Week mode sticks per device, like the suite's localStorage calWeekMode.
+  const [weekMode, setWeekMode] = useState(false);
+  const [wkAnchor, setWkAnchor] = useState(today);
+  useEffect(() => {
+    AsyncStorage.getItem('calmind.calWeekMode').then((raw) => raw === '1' && setWeekMode(true));
+  }, []);
+  const setWeek = (on: boolean) => {
+    setWeekMode(on);
+    // Fold onto the selected day when it's in the shown month, else onto the
+    // shown month itself — folding must never yank the view somewhere else.
+    if (on) setWkAnchor(day.startsWith(ym) ? day : `${ym}-01`);
+    AsyncStorage.setItem('calmind.calWeekMode', on ? '1' : '').catch(() => {});
+  };
   const [modal, setModal] = useState<null | { mode: 'create' } | { mode: 'edit'; kind: ItemKind; rec: Rec<'event'> | Rec<'reminder'> | Rec<'note'> }>(null);
 
   const [year, month] = ym.split('-').map(Number) as [number, number];
@@ -57,18 +72,50 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
     const on = new Set(visibleCals.map((c) => c.id));
     return on.size === calendars.length ? recs : recs.filter((r) => r.type !== 'event' || on.has(r.payload.calendarId));
   }, [recs, visibleCals, calendars]);
-  const cells = useMemo(() => monthGrid(year, month), [year, month]);
+  const monthCells = useMemo(() => monthGrid(year, month), [year, month]);
+  const cells = useMemo(() => (weekMode ? weekOf(wkAnchor).cells : monthCells), [weekMode, wkAnchor, monthCells]);
   const marks = useMemo(() => new Map(cells.filter(Boolean).map((d) => [d!, cellMarks(drawn, d!, today)])), [drawn, cells, today]);
   const legend = useMemo(() => monthLegend(drawn, cells, today), [drawn, cells, today]);
   const items = useMemo(() => dayItems(drawn, day, today), [drawn, day, today]);
   const calById = useMemo(() => new Map(recs.filter((r): r is Rec<'calendar'> => r.type === 'calendar').map((c) => [c.id, c.payload])), [recs]);
 
   const page = (dir: -1 | 1) => {
+    // The arrows and a sideways swipe do the same thing: a week in week
+    // mode (crossing into the neighbour month's row), a month otherwise.
+    if (weekMode) {
+      const next = addDays(wkAnchor, dir * 7);
+      setWkAnchor(next);
+      setYm(next.slice(0, 7));
+      return;
+    }
     const m0 = month - 1 + dir;
     const y = year + Math.floor(m0 / 12);
     const m = ((m0 % 12) + 12) % 12 + 1;
     setYm(`${y}-${String(m).padStart(2, '0')}`);
   };
+
+  // Swipes on the grid: up folds to a week, down opens the month back up,
+  // a firm sideways one pages. Taking the responder past 10px of travel is
+  // also what keeps a swipe from selecting the cell it ends on — a day is
+  // selected by a tap and nothing else.
+  const gridPan = useRef(
+    PanResponder.create({
+      // Capture phase: an ancestor can't reliably wrestle the responder off
+      // a pressed cell on web, so the grid claims the gesture itself once
+      // there's real travel — which is also what keeps a swipe from
+      // selecting the cell it ends on.
+      onMoveShouldSetPanResponderCapture: (_e, g) => Math.abs(g.dx) > 10 || Math.abs(g.dy) > 10,
+      onPanResponderRelease: (_e, g) => {
+        const { dx, dy } = g;
+        if (Math.abs(dy) > 40 && Math.abs(dy) > 1.5 * Math.abs(dx)) setWeekRef.current(dy < 0);
+        else if (Math.abs(dx) > 50 && Math.abs(dx) > 1.5 * Math.abs(dy)) pageRef.current(dx < 0 ? 1 : -1);
+      },
+    }),
+  ).current;
+  const setWeekRef = useRef(setWeek);
+  setWeekRef.current = setWeek;
+  const pageRef = useRef(page);
+  pageRef.current = page;
 
   const tick = (r: Rec<'reminder'>) => mutate((e) => e.put({ ...r, payload: reminderToggle(r.payload, todayStr()) }));
 
@@ -92,16 +139,16 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
 
   return (
     <View style={s.page}>
-      <TopBar title="Calendar" picker={<CalendarPick />} />
+      <TopBar title="Calendar" picker={weekMode ? undefined : <CalendarPick />} />
       {/* The date centred over the grid; ◉ jumps home to today. */}
       <View style={s.pagerRow}>
         <CircleBtn glyph="‹" onPress={() => page(-1)} />
-        <Text style={s.ymLabel}>{new Date(`${ym}-15T12:00:00`).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</Text>
-        <CircleBtn glyph="›" onPress={() => page(1)} />
+        <Text testID="cal-ym" style={s.ymLabel}>{new Date(`${ym}-15T12:00:00`).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</Text>
+        <CircleBtn testID="cal-next" glyph="›" onPress={() => page(1)} />
         <CircleBtn glyph="◉" color={T.accent} onPress={() => { setYm(today.slice(0, 7)); setDay(today); }} />
       </View>
 
-      <View style={s.grid}>
+      <View testID="cal-grid" style={s.grid} {...gridPan.panHandlers}>
         {WEEKDAYS.map((w, i) => (
           <Text key={i} style={s.weekday}>{w}</Text>
         ))}
@@ -109,7 +156,7 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
           d === null ? (
             <View key={`b${i}`} style={s.cell} />
           ) : (
-            <Pressable key={d} onPress={() => setDay(d)} style={s.cell}>
+            <Pressable key={d} testID="cal-cell" onPress={() => setDay(d)} style={s.cell}>
               <View style={[s.cellInner, d === day && s.cellPicked]}>
                 <Text style={[s.cellNum, d === today && s.cellToday]}>{Number(d.slice(8))}</Text>
                 {cellMark(d)}
@@ -119,7 +166,7 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
         )}
       </View>
       <Rule />
-      {legend.length > 0 && (
+      {!weekMode && legend.length > 0 && (
         <ScrollView style={s.legend} contentContainerStyle={s.legendInner} horizontal={false}>
           <View style={s.legendWrap}>
             {legend.map((l) => (
@@ -212,7 +259,9 @@ const s = StyleSheet.create({
   page: { flex: 1, backgroundColor: T.bg },
   pagerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, paddingVertical: 4 },
   ymLabel: { color: T.text, fontSize: 15, fontWeight: '600', minWidth: 150, textAlign: 'center' },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 8, paddingVertical: 6 },
+  // userSelect none: a swipe across the cell numbers must never start a
+  // text selection — on web a selection TERMINATES the pan mid-gesture.
+  grid: { userSelect: 'none', flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 8, paddingVertical: 6 },
   weekday: { width: `${100 / 7}%`, textAlign: 'center', color: T.muted, fontSize: 11, paddingVertical: 2 },
   cell: { width: `${100 / 7}%` },
   cellInner: { margin: 1.5, minHeight: 46, alignItems: 'center', paddingTop: 3, paddingBottom: 2, borderRadius: 8 },

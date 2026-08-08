@@ -187,9 +187,22 @@ honest — the next iteration trusts it.
   destinations instead of assuming pixel constants.
 - 117 core + 17 server + 11 gesture tests.
 
-## In flight (iteration 12 — start here)
-- Week mode: swipe up on the grid, wk paging across month edges, sideways
-  swipe paging (a week in week mode, a month otherwise), tap-only selection.
+## Iteration 12 shipped (so far)
+- WEEK MODE: weekOf/addDays in core (a month ROW, null-padded — stepping the
+  anchor across an edge lands on the neighbour month's first/last row, the
+  suite's ?wk=first|last; 4 tests). Swipe up on the grid folds to the week,
+  swipe down opens the month, a firm sideways swipe pages what the arrows
+  page (a week in week mode, a month otherwise); sticks per device
+  (calmind.calWeekMode); legend + calendar picker hide in week mode; folding
+  anchors on the selected day only when it's in the shown month.
+- Two web gesture truths learned (both in Calendar.tsx comments): an
+  ancestor cannot wrestle the responder off a pressed cell on rn-web — claim
+  with onMoveShouldSetPanResponderCapture past 10px of travel (which is also
+  what makes day-selection tap-only); and a swipe across cell text starts a
+  SELECTION, which TERMINATES the pan — the grid wears userSelect: 'none'.
+- 121 core + 17 server + 12 gesture tests.
+
+## In flight (iteration 12 continues — start here)
 - Rendered rich text in notes (markers → styled runs).
 - Swipe-a-row-left to delete (armed two-press control).
 - Notes rows show ⧉ always — gate it behind an edit mode when Notes gets one

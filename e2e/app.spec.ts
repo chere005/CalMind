@@ -249,3 +249,30 @@ test('the ⧉ copies a reminder directly under itself', async ({ page }) => {
   await page.getByTestId('rem-dup').click();
   await expect(page.getByTestId('rem-row').filter({ hasText: 'twin me' })).toHaveCount(2);
 });
+
+test('week mode: swipe up folds the grid, arrows page by week, swipe down restores', async ({ page }) => {
+  await signup(page);
+  // Land on Calendar; the grid shows a full month (>7 day cells).
+  const grid = page.getByTestId('cal-grid');
+  const box = (await grid.boundingBox())!;
+  const cx = box.x + box.width / 2;
+  const countCells = () => page.getByTestId('cal-cell').count();
+  expect(await countCells()).toBeGreaterThan(7);
+  // A firm swipe UP on the grid folds to one week.
+  await page.mouse.move(cx, box.y + 120);
+  await page.mouse.down();
+  for (let i = 1; i <= 6; i++) await page.mouse.move(cx, box.y + 120 - i * 15);
+  await page.mouse.up();
+  await expect.poll(countCells).toBe(7);
+  // Arrows page a week at a time; five presses always cross a month edge.
+  const label = () => page.getByTestId('cal-ym').innerText();
+  const before = await label();
+  for (let i = 0; i < 5; i++) await page.getByTestId('cal-next').click();
+  expect(await label()).not.toBe(before);
+  // Swipe DOWN opens the month back up.
+  await page.mouse.move(cx, box.y + 30);
+  await page.mouse.down();
+  for (let i = 1; i <= 6; i++) await page.mouse.move(cx, box.y + 30 + i * 15);
+  await page.mouse.up();
+  await expect.poll(countCells).toBeGreaterThan(7);
+});
