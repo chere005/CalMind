@@ -551,6 +551,33 @@ honest — the next iteration trusts it.
   target got the CalMind icon.
 - 132 core + 22 server + 25 gesture tests.
 
+## Iteration 34–35 shipped — back/tab, the calendar rework, OCR recipes
+- BACK + REMEMBERED TAB: a tab-history stack behind NavCtx — the top bar's
+  ‹ pops it, refresh restores the tab (persisted); the status dot moved
+  into Settings as a labelled row; the picker pie sits icon-sized.
+- THE CALENDAR REWORK (Sean's spec, verified by screenshot in both modes):
+  the grid fills edge to edge with the neighbours' days LIGHTENED
+  (monthGridFilled), picking one never changes the shown month; swipe-up
+  folds to TWO weeks — the selected day's and the next (twoWeeksFrom, 14
+  real dates) — paging a week there, a month in full view.
+- OCR RECIPE IMPORT (v1): 📷 Recipe in the note editor picks photos
+  (expo-image-picker), reads them (tesseract.js, web; native says
+  not-yet politely), and formatRecipe in core (4 tests) lands title +
+  **INGREDIENTS** bullets + numbered steps in the note. PROVEN end-to-end:
+  a generated recipe card image OCRs into title/bullets/steps in the spec.
+- iOS rebuilt clean → the full-bleed icon is on the phone sim.
+- 136 core + 22 server + 26 gesture tests.
+
+## NEXT: the Add-Recipe page (Sean's spec, precise)
+- A structured page in Notes, the akisbookshelf add-quote shape: Title;
+  an INGREDIENTS section whose + parses units (grams, cups, tsp, tbsp…)
+  and formats them nicely, new ingredients landing at the TOP; an
+  INSTRUCTIONS section whose + appends the next NUMBERED step at the
+  BOTTOM; and the 📷 image button lives ON THIS PAGE — OCR fills the
+  structured entries themselves, not raw text. Saving writes the marker-
+  formatted note. Core work: parseIngredient + a structured
+  recipeFromPages (formatRecipe becomes a wrapper).
+
 ## Still queued from Sean
 - A back control returning to the previous screen (top-right; needs a small
   tab-history context) + refresh restoring the active tab.

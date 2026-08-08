@@ -6,7 +6,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { byOrd, richLines, duplicateItem, prefsPut, moveNote, moveSection, moveSectionEmptyingFolder, newId, ordBetween, parseDateFromText, parseWhenFromText, todayStr, type Rec } from '@calmind/core';
+import { byOrd, richLines, duplicateItem, formatRecipe, prefsPut, moveNote, moveSection, moveSectionEmptyingFolder, newId, ordBetween, parseDateFromText, parseWhenFromText, todayStr, type Rec } from '@calmind/core';
 import { useStore } from '../store';
 import { themed, T } from '../theme';
 import { TopBar } from '../chrome';
@@ -17,6 +17,7 @@ import { useRowDrag } from '../components/rowdrag';
 import { useSectionDrag, type SectionSlot } from '../components/sectiondrag';
 import { useSwipeLeft } from '../components/swiperow';
 import { Chevron } from '../components/Chevron';
+import { ocrImages } from '../components/ocr';
 
 export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | null; onOpenConsumed?: () => void }) {
   const { recs, mutate, sharedRecs, sharedPartnerLabel } = useStore();
@@ -26,6 +27,31 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
   const [sel, setSel] = useState({ start: 0, end: 0 });
   const [dateOpen, setDateOpen] = useState(false);
   const [bodyEditing, setBodyEditing] = useState(false);
+  const [ocrBusy, setOcrBusy] = useState('');
+  // The recipe importer: pick photos, read their text, format, land it in
+  // THIS note — title too when one is obvious and ours is still blank.
+  const importRecipe = async () => {
+    if (!open) return;
+    try {
+      const ImagePicker = await import('expo-image-picker');
+      const picked = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsMultipleSelection: true,
+        quality: 0.9,
+      });
+      if (picked.canceled || picked.assets.length === 0) return;
+      setOcrBusy(`Reading 0/${picked.assets.length}…`);
+      const pages = await ocrImages(picked.assets.map((a) => a.uri), (d, t) => setOcrBusy(`Reading ${d}/${t}…`));
+      const r = formatRecipe(pages);
+      const nextTitle = r.title && (!open.payload.title || open.payload.title === 'Untitled') ? r.title : open.payload.title;
+      const nextBody = open.payload.body ? open.payload.body + '\n\n' + r.body : r.body;
+      mutate((e) => e.put({ ...open, payload: { ...open.payload, title: nextTitle, body: nextBody } }));
+      setOcrBusy('');
+    } catch (err) {
+      setOcrBusy(err instanceof Error ? err.message : 'could not read the photos');
+      setTimeout(() => setOcrBusy(''), 4000);
+    }
+  };
   const swipe = useSwipeLeft();
   // The suite's page edit mode: long-press a row to enter, tap away or
   // Escape to leave; grips and row controls exist only inside it.
@@ -245,6 +271,8 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
             <Pill label="I" onPress={() => wrapSel('*')} />
             <Pill label="U" onPress={() => wrapSel('__')} />
             <Pill label="· List" onPress={() => linePrefix('- ')} />
+            <Pill testID="recipe-import" label="📷 Recipe" onPress={() => void importRecipe()} />
+            {ocrBusy !== '' && <Text style={s.ocrBusy}>{ocrBusy}</Text>}
           </View>
           {dateOpen && (
             <View style={s.metaRow}>
@@ -638,6 +666,7 @@ const s = themed(() => StyleSheet.create({
     paddingVertical: 10,
   },
   chip: { color: T.dim, fontSize: 12 },
+  ocrBusy: { color: T.dim, fontSize: 13, alignSelf: 'center' },
   bodyPlaceholder: { color: T.muted, fontSize: 16, lineHeight: 24 },
   rtLine: { flexDirection: 'row', alignItems: 'flex-start' },
   rtQuote: { borderLeftWidth: 3, borderLeftColor: '#a78bfa', paddingLeft: 10, marginVertical: 2 },
