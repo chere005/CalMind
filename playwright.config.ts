@@ -8,6 +8,10 @@ import { defineConfig } from '@playwright/test';
  */
 export default defineConfig({
   testDir: './e2e',
+  // Stop before the first spec if the export is older than the source: these
+  // specs drive apps/app/dist, so a stale bundle makes the run a lie in
+  // either direction. See e2e/freshness.ts.
+  globalSetup: './e2e/freshness.ts',
   timeout: 30_000,
   retries: 0,
   workers: 1, // one scratch server, serialized specs — state stays explicable

@@ -19,6 +19,15 @@ npx playwright test           # gestures: the EXPORTED app + real API, real mous
 
 All three must be green before `./server/deploy-test.sh`.
 
+The gesture run now **refuses to start against a stale export** (`e2e/
+freshness.ts`, wired in as playwright's globalSetup): if anything under
+`apps/app/src`, `apps/app/App.tsx`, `apps/app/index.ts` or
+`packages/core/src` is newer than `apps/app/dist/index.html`, it stops and
+tells you to run `npm run export:web`. The specs drive the EXPORT, not the
+source, so a stale bundle makes the run a lie in either direction — a pass
+for code that isn't there, or a failure for a fix that is. That is worse
+than a red run, because it looks like an answer.
+
 ## packages/core — the behavior itself (vitest)
 
 - Spec replay: the parser (slash-only US dates, times, tokens leaving
