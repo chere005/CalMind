@@ -568,6 +568,21 @@ honest — the next iteration trusts it.
 - iOS rebuilt clean → the full-bleed icon is on the phone sim.
 - 136 core + 22 server + 26 gesture tests.
 
+## Iteration 36 shipped — the day panel reads like the suite
+- OVERDUE CHIPS in the day panel wear the suite's date ("Tue, Aug 4"), not
+  raw ISO — a dueLabel() mirroring Reminders' chip, at both sites (own and
+  shared rows). The landing the previous session left in the tree.
+- THE PANEL'S GROUP ORDER is the suite's again. It builds one group per kind
+  AND owner up front, kinds in the legend's order, mine before theirs; three
+  drifts fixed: the own-Reminders heading sat above the PARTNER's events with
+  its rows stranded below it; a partner's dated notes were never drawn at all
+  (though the empty check counted them, so a day holding only their note went
+  blank — no rows, no "Nothing on this day"); and the Reminders heading
+  survived a day whose every reminder was ticked with Completed off.
+- The order is now pinned by spec, not by eye: dp-group-head text reads
+  Events · A's events · Reminders · A's notes.
+- 145 core + 22 server + 30 gesture. Deployed to test, live == local.
+
 ## NEXT: the Add-Recipe page (Sean's spec, precise)
 - A structured page in Notes, the akisbookshelf add-quote shape: Title;
   an INGREDIENTS section whose + parses units (grams, cups, tsp, tbsp…)
@@ -670,24 +685,30 @@ honest — the next iteration trusts it.
   first fully green full-suite run since the refactor began. Deployed.
 - Working tree carries no held work for the first time in the loop.
 
-## Next, in pain order
-1. Habits month view (day pies + its legend) + Manage-sections window +
-   habit rename in place + collapse-all wiring.
-2. Drag-reorder (rows/sections/folders; ord keys are ready) — needs a
-   pan-gesture implementation that works on web + native.
-3. Week mode (swipe up on grid; wk paging), sideways swipe paging.
-4. Rendered rich text in notes (markers → styled runs); suite rt parity later.
-5. Sharing: partner lists, share window, @partner views, live ticks in All,
-   shared recolour overrides (APP_PALETTES_SHARED staged).
-6. Themes: midnight/sage/forest/olive full palettes; login stays midnight.
-7. Widget/feed + quick-add equivalents; watch target wiring; simulators.
+## Next, in pain order — RETIRED (all seven shipped; audited iteration 36)
+Kept for the trail. Every line of the old list is in and verified in the
+tree: the Habits month view with its pies and key, the section manager,
+rename-in-place and collapse-all (Habits.tsx, HabitSectionManager.tsx);
+drag-reorder on a PanResponder that works web and native, wired into both
+Reminders and Notes (rowdrag.ts, sectiondrag.ts); week mode with the
+two-week fold and sideways paging (Calendar.tsx gridPan); rendered rich
+text (core richtext.ts, 5 tests, pinned by the shared-notes spec); the
+whole sharing arc; all four themes (midnight/sage/forest/olive); and the
+widget/feed, quick-add and watch target.
+**TODO.md at the repo root is the live list now** — this file stays the
+ledger of what shipped.
+
+Genuinely left over from that list's ambitions:
+- Habits rows and sections do not drag; Reminders and Notes do. The ord
+  keys and both drag hooks are ready, so this is wiring, not design.
 
 ## Suite notes still to honour (from CLAUDE.md read-through)
 - Cells: fixed two-row well, 3/row phone; >6 icons → five + '+'.
 - Reminder cell icon: worst state of ITS colour that day; grey only when all
   its colour's are done (and hidden unless Completed shown).
 - Legend: kinds events→reminders→notes; hidden when empty; caps height.
-- Day-panel fold keys per kind(+owner later); partner dimming when sharing.
+- ~~Day-panel fold keys per kind(+owner later)~~ — done in 36, order pinned
+  by spec. Partner DIMMING when sharing is still owed.
 - A day is selected by tap only (pointerup near pointerdown) once swipes land.
 - Icon buttons: circles, flex-centred, one size per row — re-check by eye
   before every deploy.

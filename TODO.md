@@ -8,13 +8,22 @@ visual. Deploy to **test only** (`./server/deploy-test.sh`) as changes land.
 
 ## 1 · In flight
 
-- [ ] **Overdue date chips in the Calendar day panel** — Calendar.tsx renders
-      raw ISO (`2026-08-04`) where the suite shows "Tue, Aug 4". The fix is in
-      the working tree (a `dueLabel()` helper mirroring Reminders.tsx:295,
-      applied at both chip sites, own + shared rows) but **not yet committed,
-      exported, or deployed**. Finish: `npm -w app exec expo export -- -p web`,
-      `npx playwright test app.spec` (from repo root, no cd-chains), deploy to
-      test, commit with the explicit path, ledger entry in PARITY.md.
+- [x] **Overdue date chips in the Calendar day panel** — landed, deployed,
+      ledgered (iteration 36). `dueLabel()` at both chip sites.
+- [x] **The day panel's group order** — one group per kind AND owner, kinds
+      in the legend's order, mine before theirs, a group skipped when the
+      Completed filter empties it; a partner's dated notes now draw at all.
+      Pinned by spec (`dp-group-head`), deployed.
+
+Next up on web, in order:
+
+- [ ] **Partner dimming when sharing** — the last unhonoured line of the
+      suite-notes list: a partner's rows/marks read dimmer than my own so
+      whose day it is never needs reading. Applies to the day panel rows,
+      the month-cell marks, and the legend.
+- [ ] **Habits rows and sections don't drag** — Reminders and Notes both do,
+      the ord keys and both drag hooks (rowdrag/sectiondrag) are ready. This
+      is wiring, not design.
 
 ## 2 · Steady state (every iteration)
 
