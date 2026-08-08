@@ -628,6 +628,16 @@ honest — the next iteration trusts it.
 - Picker ring: 32px with marginHorizontal 4 (Sean: more space around the
   circle). 28 gesture specs green.
 
+## Iteration 15 shipped
+- The ALL rainbow matches Sean's reference exactly now: pink → violet →
+  yellow → green pastel (violet was missing), stops compressed inside the
+  disc so the circle can't clip them, disc ≈ 56% of the ringed 32px button.
+  Proofed at 240px before shipping; verified live on test.
+- Fresh full-suite audit: 145 core + 22 server + 28 gesture green; the one
+  red is the other session's in-flight ocr.spec (filechooser rework).
+  Audit confirmed week mode, per-kind+owner day-panel folds and rendered
+  rich-text lines are all present — the old queue items are done.
+
 ## Next, in pain order
 1. Habits month view (day pies + its legend) + Manage-sections window +
    habit rename in place + collapse-all wiring.
