@@ -601,6 +601,25 @@ honest — the next iteration trusts it.
   Worth knowing: a green gesture suite did not mean the drag worked.
 - 151 core + 22 server + 32 gesture. Deployed, live == local.
 
+## Iteration 38 shipped — the ingredient parser learns ranges
+- A RANGE is a pattern worth seeing: '2-3 cloves garlic' had parsed as the
+  bare 2, leaving '-3 cloves garlic' in the NAME — so the unit was never
+  found and the line came back worse than it went in. Ranges written with
+  a dash or with 'to' now parse, each side normalised, the separator kept
+  as the author wrote it ('2 to 3 tbsp water', not a dash). A whole number
+  with a typographic fraction ('1 ½ tbsp') reads as one quantity too.
+- Writing the "a sentence that merely contains 'to' is not a range" case
+  turned up an older bug beside it: the pieces re-join with spaces, so
+  '1 onion, chopped' came back '1 onion , chopped'. Space before
+  punctuation is the junk the scrub gate exists to stop; the join closes
+  it up now.
+- The Recipe page was re-read against Sean's spec and matches it whole:
+  ingredients land at the TOP through parseIngredient, instructions
+  append numbered at the BOTTOM, 📷 fills the structured entries, the
+  include-notes checkbox is honoured on the one save path. Dead
+  formatRecipe import dropped.
+- 154 core + 22 server + 32 gesture. Deployed, live == local.
+
 ## NEXT: the Add-Recipe page (Sean's spec, precise)
 - A structured page in Notes, the akisbookshelf add-quote shape: Title;
   an INGREDIENTS section whose + parses units (grams, cups, tsp, tbsp…)

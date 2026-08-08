@@ -10,7 +10,7 @@
  */
 import React, { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { formatRecipe, parseIngredient, recipeBody, recipeFromPages, type Rec } from '@calmind/core';
+import { parseIngredient, recipeBody, recipeFromPages, type Rec } from '@calmind/core';
 import { useStore } from '../store';
 import { themed, T } from '../theme';
 import { CircleBtn, ConfirmDelete, Field, Pill } from '../ui';
