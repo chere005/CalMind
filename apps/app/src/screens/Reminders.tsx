@@ -229,17 +229,13 @@ export function Reminders() {
 
   return (
     <View style={s.page}>
-      <TopBar
-        title="Reminders"
-        controls={
-          <View style={s.tools}>
-            <CircleBtn glyph="⌄" onPress={collapseAll} />
-            <CircleBtn glyph="☑" active={showDone} onPress={() => setShowDone(!showDone)} />
-            {session?.username === 'sean' && <CircleBtn glyph="⧉" onPress={copyMarkdown} />}
-            <FolderPick app="reminders" />
-          </View>
-        }
-      />
+      <TopBar title="Reminders" picker={<FolderPick app="reminders" />} />
+      {/* The suite's toolbar row: under the divider, immediately above the folders. */}
+      <View style={s.toolbar}>
+        <CircleBtn glyph="⌄" onPress={collapseAll} />
+        <CircleBtn glyph="☑" active={showDone} onPress={() => setShowDone(!showDone)} />
+        {session?.username === 'sean' && <CircleBtn glyph="⧉" onPress={copyMarkdown} />}
+      </View>
 
       <ScrollView contentContainerStyle={s.scroll}>
         {folders.map((f) => (
@@ -374,6 +370,6 @@ const s = StyleSheet.create({
   chipOverdue: { color: T.overdue, fontWeight: '600' },
   repRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingLeft: 34, paddingBottom: 6, alignItems: 'center' },
   repCount: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  tools: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  toolbar: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingTop: 10 },
   repN: { color: T.text, fontSize: 14, minWidth: 20, textAlign: 'center' },
 });

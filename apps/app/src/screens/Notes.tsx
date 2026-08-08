@@ -112,7 +112,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
 
   return (
     <View style={s.page}>
-      <TopBar title="Notes" controls={<FolderPick app="notes" />} />
+      <TopBar title="Notes" picker={<FolderPick app="notes" />} />
       <ScrollView contentContainerStyle={s.scroll}>
         {folders.map((f) => (
           <View key={f.id} style={s.folderBlock}>

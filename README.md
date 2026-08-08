@@ -1,9 +1,17 @@
 # CalMind
 
+I haven't been quite happy with subtle things like not being able to have reminders from previous days on the calendar not continue to show until they are checked off.. I also wanted to tie together reminders, notes, and my calendar.. I also like enforcing date and time patterns.
+
+Feel free to deploy this on your own website, build and deploy the iOS version, etc.
+
+**This is a personal project to have some fun with claude code, which generated essentially all of the code, and the rest of this readme:**
+
 One codebase for web, iOS, Android — and a SwiftUI watch app — for the CalMind
 suite (Reminders first; Calendar, Notes, Habits and Add port onto the same
-skeleton). The successor architecture to the plain-PHP suite: everything the
-product *does* is written once, in TypeScript, and every surface renders it.
+skeleton). The successor architecture to the plain-PHP suite at
+[chere005/seancheren-site](https://github.com/chere005/seancheren-site):
+everything the product *does* is written once, in TypeScript, and every
+surface renders it.
 
 ## The map
 

@@ -9,6 +9,7 @@ import { login, signup, recover, reset } from '../api';
 import { useStore } from '../store';
 import { Field, Pill, ErrorLine } from '../ui';
 import { T } from '../theme';
+import { Logo } from '../Logo';
 
 type Mode = 'signin' | 'signup' | 'recover' | 'reset';
 
@@ -55,6 +56,7 @@ export function Login() {
   return (
     <KeyboardAvoidingView style={s.page} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <View style={s.card}>
+        <View style={s.mark}><Logo size={64} /></View>
         <Text style={s.logo}>CalMind</Text>
         <Field value={username} onChangeText={setUsername} placeholder="Username" autoCapitalize="none" autoCorrect={false} />
         {mode === 'signup' && (
@@ -106,7 +108,8 @@ const s = StyleSheet.create({
     padding: 20,
     gap: 10,
   },
-  logo: { color: T.accent, fontSize: 28, fontWeight: '700', textAlign: 'center', marginBottom: 6 },
+  mark: { alignItems: 'center', marginBottom: 2 },
+  logo: { color: T.accent, fontSize: 24, fontWeight: '700', textAlign: 'center', marginBottom: 6 },
   hint: { color: T.dim, fontSize: 13 },
   actions: { marginTop: 4, alignItems: 'stretch' },
   links: { flexDirection: 'row', gap: 8, justifyContent: 'center', marginTop: 4 },

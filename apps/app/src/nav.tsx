@@ -8,6 +8,7 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { T, PAGE_MAX_WIDTH } from './theme';
+import { PieIcon } from './Logo';
 
 export type Tab = 'reminders' | 'calendar' | 'add' | 'notes' | 'habits';
 
@@ -33,7 +34,8 @@ export function TabBar({ tab, onTab }: { tab: Tab; onTab: (t: Tab) => void }) {
           ) : (
             <Pressable key={key} onPress={() => onTab(key)} style={s.tab} hitSlop={6}>
               <View style={[s.halo, tab === key && s.haloOn]}>
-                <Text style={s.icon}>{icon}</Text>
+                {/* The Calendar tab wears the month-pie, in the mark's language. */}
+                {key === 'calendar' ? <PieIcon size={20} /> : <Text style={s.icon}>{icon}</Text>}
               </View>
             </Pressable>
           ),
