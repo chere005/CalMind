@@ -78,3 +78,8 @@ the widget setup page's pin.
 - Scriptable on a real phone (the widget itself, tick links, the PWA hop).
 - Anything the export can't exercise: iOS keyboard behavior, safe areas,
   home-screen PWA standalone mode.
+- **Desktop** (desktop/): the shell holds NO behavior — it is the same web
+  bundle the e2e suite drives, so the three runs above cover it. The by-eye
+  residue is only the shell itself: window opens, CM dock icon, signs into
+  the live test API, quits clean. Windows: trigger the manual
+  desktop-windows workflow and smoke the artifact when one is wanted.

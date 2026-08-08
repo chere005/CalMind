@@ -42,6 +42,10 @@ server/            The sync API in PHP — deployable to NearlyFreeSpeech
                    re-checked on every request).
 e2e/               Playwright: the exported web app + the real PHP API on a
                    scratch dir, driven by real mouse events.
+desktop/           CalMind Desktop — a Tauri 2 shell around the identical web
+                   export. Rust opens the window; everything else is the
+                   shared code. macOS builds locally (desktop/README.md);
+                   Windows builds on a manual GitHub Actions job.
 ```
 
 ## The sync model
@@ -75,16 +79,18 @@ codes land in `data/mail.log`, which is also how the server tests read them.
 
 ```sh
 npm install                                  # once, at the root
-npm run test:core                            # vitest: 61 tests incl. the spec replay
+npm run test:core                            # vitest: 145 tests incl. the spec replay
 npm run test:server                          # boots php -S on a scratch dir, drives real HTTP
 php -S 127.0.0.1:8788 -t server/public       # the API
 npm run web                                  # Expo web on :8081 (proxies nothing — talks to :8788)
 cd apps/app && npx expo start                # then i / a for the iOS / Android simulator
 ```
 
-The app finds the API at `127.0.0.1:8788` in dev (`10.0.2.2` from the Android
-emulator) — override lives in `apps/app/src/config.ts`. The watch target is a
-one-time Xcode wiring step: `apps/watch/README.md`.
+Where the app finds the API (`apps/app/src/config.ts`): the deployed site and
+the e2e router use same-origin `api/`; metro dev uses `127.0.0.1:8788`; the
+iOS/Android sims and the desktop shell default to the LIVE test instance —
+same data and logins as the site — with a Settings override for local work.
+The watch target is a one-time Xcode wiring step: `apps/watch/README.md`.
 
 ## Deploying to the NFSN test instance
 
