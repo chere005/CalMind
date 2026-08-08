@@ -138,6 +138,21 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
   const pageRef = useRef(page);
   pageRef.current = page;
 
+  // The suite's two-step: a long-press or double-tap only turns edit mode
+  // on, revealing each own row's icon cluster; tap away or Escape leaves.
+  const [panelEdit, setPanelEdit] = useState(false);
+  const lastRowTap = useRef<{ id: string; at: number }>({ id: '', at: 0 });
+  const rowPress = (id: string) => {
+    const now = Date.now();
+    if (lastRowTap.current.id === id && now - lastRowTap.current.at < 300) setPanelEdit(true);
+    lastRowTap.current = { id, at: now };
+  };
+  useEffect(() => {
+    if (!panelEdit || typeof document === 'undefined') return;
+    const onKey = (ev: KeyboardEvent) => { if (ev.key === 'Escape') setPanelEdit(false); };
+    document.addEventListener('keydown', onKey, true);
+    return () => document.removeEventListener('keydown', onKey, true);
+  }, [panelEdit]);
   const [rolledId, setRolledId] = useState<string | null>(null);
   const rollTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const tick = (r: Rec<'reminder'>) => {
@@ -150,7 +165,9 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
   };
 
   const cellMark = (d: string) => {
-    const all = marks.get(d) ?? [];
+    // The suite's cell rule: a reminder icon only greys out once every one
+    // of its colour is ticked — and then it HIDES unless Completed is shown.
+    const all = (marks.get(d) ?? []).filter((m) => showDone || m.state !== 'done');
     const shown = all.length > 6 ? all.slice(0, 5) : all;
     return (
       <View style={s.markWell}>
@@ -221,7 +238,7 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
         <View style={s.panelHead}>
           <Text style={s.panelTitle}>{dayLabel}</Text>
           <View style={s.panelBtns}>
-            <CircleBtn glyph="☑" active={showDone} onPress={() => setShowDone(!showDone)} />
+            <CircleBtn testID="cal-completed" glyph="☑" active={showDone} onPress={() => setShowDone(!showDone)} />
             <Pill label="+ Add" primary onPress={() => setModal({ mode: 'create' })} />
           </View>
         </View>
@@ -234,11 +251,19 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
         {!folded.has('events') && items.events.map((e) => (
           <View key={e.id} {...swipe.handlersFor(e.id)} style={[s.row, s.rowNoSelect]}>
             <View style={[s.dot, s.rowDot, { backgroundColor: calById.get(e.payload.calendarId)?.color ?? T.folderBlue }]} />
-            <Text style={s.rowText}>{e.payload.text}</Text>
+            <Pressable style={s.rowBodyFlex} onPress={() => rowPress(e.id)} onLongPress={() => setPanelEdit(true)} delayLongPress={350}>
+              <Text style={s.rowText}>{e.payload.text}</Text>
+            </Pressable>
             {e.payload.time && <Text style={s.chip}>{timeLabel(e.payload.time)}</Text>}
-            <CircleBtn glyph="✎" size={24} onPress={() => setModal({ mode: 'edit', kind: 'event', rec: e })} />
-            <CircleBtn glyph="⧉" size={24} onPress={() => { const res = duplicateItem(recs, e.id, newId); if (!('error' in res)) mutate((en) => res.put.forEach((p) => en.put(p))); }} />
-            <ConfirmDelete forceArmed={swipe.swiped === e.id} onDelete={() => { swipe.clear(); mutate((en) => en.del(e.id)); }} />
+            {panelEdit && (
+              <>
+                <CircleBtn glyph="✎" size={24} onPress={() => setModal({ mode: 'edit', kind: 'event', rec: e })} />
+                <CircleBtn glyph="⧉" size={24} onPress={() => { const res = duplicateItem(recs, e.id, newId); if (!('error' in res)) mutate((en) => res.put.forEach((p) => en.put(p))); }} />
+              </>
+            )}
+            {(panelEdit || swipe.swiped === e.id) && (
+              <ConfirmDelete forceArmed={swipe.swiped === e.id} onDelete={() => { swipe.clear(); mutate((en) => en.del(e.id)); }} />
+            )}
           </View>
         ))}
         {items.reminders.length > 0 && (
@@ -262,15 +287,22 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
         ))}
         {!folded.has('reminders') && items.reminders.filter(({ rec: r }) => showDone || !r.payload.done).map(({ rec: r, overdue, rider }) => (
           <View key={r.id} {...swipe.handlersFor(r.id)} style={[s.row, s.rowNoSelect, rolledId === r.id && s.rowRolled]}>
-            <Pressable onPress={() => tick(r)} hitSlop={8} style={[s.tickBox, r.payload.done && s.tickDone, overdue && s.tickOverdue]}>
+            <Pressable testID="day-tick" onPress={() => tick(r)} hitSlop={8} style={[s.tickBox, r.payload.done && s.tickDone, overdue && s.tickOverdue]}>
               {r.payload.done && <Text style={s.tickMark}>✓</Text>}
             </Pressable>
-            <Text style={[s.rowText, r.payload.done && s.rowDone]}>{r.payload.text}</Text>
+            <Pressable style={s.rowBodyFlex} onPress={() => rowPress(r.id)} onLongPress={() => setPanelEdit(true)} delayLongPress={350}>
+              <Text style={[s.rowText, r.payload.done && s.rowDone]}>{r.payload.text}</Text>
+            </Pressable>
             {overdue && <Text style={[s.chip, { color: T.overdue }]}>{r.payload.due}</Text>}
             {rider && <Text style={s.chip}>every day</Text>}
             {r.payload.time && <Text style={s.chip}>{timeLabel(r.payload.time)}</Text>}
-            <CircleBtn glyph="✎" size={24} onPress={() => setModal({ mode: 'edit', kind: 'reminder', rec: r })} />
-            <CircleBtn glyph="⧉" size={24} onPress={() => { const res = duplicateItem(recs, r.id, newId); if (!('error' in res)) mutate((en) => res.put.forEach((p) => en.put(p))); }} />
+            {panelEdit && (
+              <>
+                <CircleBtn glyph="✎" size={24} onPress={() => setModal({ mode: 'edit', kind: 'reminder', rec: r })} />
+                <CircleBtn glyph="⧉" size={24} onPress={() => { const res = duplicateItem(recs, r.id, newId); if (!('error' in res)) mutate((en) => res.put.forEach((p) => en.put(p))); }} />
+                <ConfirmDelete onDelete={() => mutate((en) => en.del(r.id))} />
+              </>
+            )}
             {swipe.swiped === r.id && <ConfirmDelete forceArmed onDelete={() => { swipe.clear(); mutate((en) => en.del(r.id)); }} />}
           </View>
         ))}
@@ -302,9 +334,16 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
         {!folded.has('notes') && items.notes.map((n) => (
           <View key={n.id} {...swipe.handlersFor(n.id)} style={[s.row, s.rowNoSelect]}>
             <Text style={[s.markGlyph, { color: T.dim }]}>▤</Text>
-            <Text style={s.rowText}>{n.payload.title}</Text>
-            <CircleBtn glyph="✎" size={24} onPress={() => setModal({ mode: 'edit', kind: 'note', rec: n })} />
-            <CircleBtn glyph="⧉" size={24} onPress={() => { const res = duplicateItem(recs, n.id, newId); if (!('error' in res)) mutate((en) => res.put.forEach((p) => en.put(p))); }} />
+            <Pressable style={s.rowBodyFlex} onPress={() => rowPress(n.id)} onLongPress={() => setPanelEdit(true)} delayLongPress={350}>
+              <Text style={s.rowText}>{n.payload.title}</Text>
+            </Pressable>
+            {panelEdit && (
+              <>
+                <CircleBtn glyph="✎" size={24} onPress={() => setModal({ mode: 'edit', kind: 'note', rec: n })} />
+                <CircleBtn glyph="⧉" size={24} onPress={() => { const res = duplicateItem(recs, n.id, newId); if (!('error' in res)) mutate((en) => res.put.forEach((p) => en.put(p))); }} />
+                <ConfirmDelete onDelete={() => mutate((en) => en.del(n.id))} />
+              </>
+            )}
             {swipe.swiped === n.id && <ConfirmDelete forceArmed onDelete={() => { swipe.clear(); mutate((en) => en.del(n.id)); }} />}
           </View>
         ))}
@@ -362,6 +401,8 @@ const s = themed(() => StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 4 },
   rowNoSelect: { userSelect: 'none' } as import('react-native').ViewStyle,
   rowRolled: { backgroundColor: T.accentSoft, borderRadius: 8 },
+  rowBodyFlex: { flex: 1 },
+  editBackdropFill: { minHeight: 120 },
   rowText: { color: T.text, fontSize: 15, flex: 1 },
   rowDone: { color: T.muted, textDecorationLine: 'line-through' },
   chip: { color: T.dim, fontSize: 12 },

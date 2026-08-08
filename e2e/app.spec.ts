@@ -597,3 +597,32 @@ test('a fresh add through the day-panel modal is visible immediately', async ({ 
   await page.getByText('Save', { exact: true }).click();
   await expect(page.getByText('resurfaced')).toBeVisible();
 });
+
+test('a fully-done colour leaves the month cell unless Completed is shown', async ({ page }) => {
+  await signup(page);
+  await page.getByText('+ Add', { exact: true }).click();
+  await page.getByTestId('kind-reminder').click();
+  await page.getByPlaceholder(/What\?/).fill('cellgate');
+  await page.getByText('Save', { exact: true }).click();
+  const cellIcons = page.locator('[data-testid="cal-cell"] svg');
+  await expect.poll(() => cellIcons.count()).toBeGreaterThan(0); // the open box marks today
+  await page.getByTestId('day-tick').first().click(); // its colour is fully done now
+  await expect.poll(() => cellIcons.count()).toBe(0); // hidden, not greyed
+  await page.getByTestId('cal-completed').click();
+  await expect.poll(() => cellIcons.count()).toBeGreaterThan(0); // Completed brings it back
+});
+
+
+test('the day panel cluster waits for a double-click, like the suite', async ({ page }) => {
+  await signup(page);
+  await page.getByText('+ Add', { exact: true }).click();
+  await page.getByTestId('kind-event').click();
+  await page.getByPlaceholder(/What\?/).fill('two step');
+  await page.getByText('Save', { exact: true }).click();
+  await expect(page.getByText('two step')).toBeVisible();
+  await expect(page.getByText('✎')).toBeHidden();
+  await page.getByText('two step').dblclick();
+  await expect(page.getByText('✎')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByText('✎')).toBeHidden();
+});

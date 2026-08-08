@@ -98,6 +98,7 @@ export function CalendarPick() {
                     <View key={c.id} style={s.row}>
                       <View style={s.rowMain}>
                         <View style={[s.dot, { backgroundColor: c.payload.color }]} />
+                        <Text style={s.sharedMark}>⇗</Text>
                         <Text style={s.rowText}>@{sharedPartnerLabel}: {c.payload.name}</Text>
                       </View>
                       <Pressable
@@ -280,6 +281,7 @@ const s = themed(() => StyleSheet.create({
   rowActive: { color: T.accent, fontWeight: '700' },
   box: { color: T.muted, fontSize: 16 },
   boxOn: { color: T.accent },
+  sharedMark: { color: '#a78bfa', fontSize: 12, fontWeight: '800', marginLeft: -4 },
   groupHead: { color: T.muted, fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5, paddingHorizontal: 12, paddingTop: 10 },
   manageRow: { borderTopWidth: 1, borderTopColor: T.lineSoft, marginTop: 4 },
   manageText: { color: T.dim, fontSize: 14 },

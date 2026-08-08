@@ -510,6 +510,22 @@ honest — the next iteration trusts it.
   what the three harnesses watch and what stays by-eye.
 - 130 core + 22 server + 23 gesture tests.
 
+## Iteration 32 shipped — the third sweep + Sean's live batch
+- CELL RULE completed: a fully-done colour's tick icon now LEAVES the month
+  cell unless Completed is shown (it drew grey regardless) — spec drives
+  add → tick → gone → ☑ → back.
+- DAY-PANEL TWO-STEP: the suite's rule lands — ✎ ⧉ × appear only after a
+  double-click or long-press on a row, Escape or empty space leaves; the
+  tick and swipe-delete stay free-standing. (One replacement had silently
+  missed the events block — the spec caught the always-visible pencil.)
+- SHARE MARKS (Sean's ask): the pickers' 'Shared with me' rows wear a ⇗ in
+  the suite's shared-badge purple, so someone else's container reads at a
+  glance.
+- server/tools/usagelog.sh: the suite's log reader ported (tail/-f/--real
+  over SSH against the test instance's usage.log) — proven live, and it
+  showed Sean actively syncing while it ran.
+- 130 core + 22 server + 25 gesture tests.
+
 ## Iteration 31 shipped — the promote-readiness pass
 - LIVE SMOKE against the deployed test instance (real NFSN PHP, htaccess,
   TLS — what the local harness can't see): signup, sync round-trip, widget
