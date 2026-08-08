@@ -5,6 +5,18 @@
  */
 import { test, expect, type Page } from '@playwright/test';
 
+
+/** A vertical drag in steps, from a grip, by a measured dy. */
+async function dragVert(page: Page, grip: ReturnType<Page['getByTestId']>, dy: number) {
+  const box = (await grip.boundingBox())!;
+  const x = box.x + box.width / 2;
+  const y = box.y + box.height / 2;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  for (let i = 1; i <= 8; i++) await page.mouse.move(x, y + (i * dy) / 8);
+  await page.mouse.up();
+}
+
 let seq = 0;
 async function signup(page: Page): Promise<string> {
   const user = `e2e${Date.now()}${seq++}`;
@@ -46,14 +58,9 @@ test('the folder manager reorders with a REAL drag, and it survives a reload', a
   await expect(rows).toHaveCount(2);
   await expect(rows.first()).toContainText('Reminders');
 
-  const grip = page.getByTestId('grip').first();
-  const box = (await grip.boundingBox())!;
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-  await page.mouse.down();
-  for (let i = 1; i <= 8; i++) {
-    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2 + (i * 56) / 8);
-  }
-  await page.mouse.up();
+  const b0 = (await rows.nth(0).boundingBox())!;
+  const b1 = (await rows.nth(1).boundingBox())!;
+  await dragVert(page, page.getByTestId('grip').first(), b1.y + b1.height / 2 - (b0.y + b0.height / 2) + 8);
   await expect(rows.first()).toContainText('Calendar');
 
   // The order is a synced record, not screen state — a fresh load agrees.
@@ -106,14 +113,9 @@ test('a reminder row drags to a new spot and the order survives a reload', async
   // New rows prepend: the list reads beta, alpha. Drag beta below alpha.
   const rows = page.getByTestId('rem-row');
   await expect(rows.first()).toContainText('beta');
-  const grip = rows.first().getByTestId('row-grip');
-  const box = (await grip.boundingBox())!;
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-  await page.mouse.down();
-  for (let i = 1; i <= 8; i++) {
-    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2 + (i * 46) / 8);
-  }
-  await page.mouse.up();
+  const r0 = (await rows.nth(0).boundingBox())!;
+  const r1 = (await rows.nth(1).boundingBox())!;
+  await dragVert(page, rows.first().getByTestId('row-grip'), r1.y + r1.height / 2 - (r0.y + r0.height / 2) + 8);
   await expect(rows.first()).toContainText('alpha');
 
   await page.reload();
@@ -143,14 +145,9 @@ test('a note drags between folders and re-files', async ({ page }) => {
   // Drag the first note down past the second (into the Recipes General).
   const rows = page.getByTestId('note-row');
   await expect(rows).toHaveCount(2);
-  const grip = page.getByTestId('note-grip').first();
-  const box = (await grip.boundingBox())!;
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-  await page.mouse.down();
-  for (let i = 1; i <= 10; i++) {
-    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2 + (i * 90) / 10);
-  }
-  await page.mouse.up();
+  const n0 = (await rows.nth(0).boundingBox())!;
+  const n1 = (await rows.nth(1).boundingBox())!;
+  await dragVert(page, page.getByTestId('note-grip').first(), n1.y + n1.height / 2 - (n0.y + n0.height / 2) + 8);
   // Both notes now sit under the second folder block; first row is 'second note'.
   await expect(rows.first()).toContainText('second note');
 });
@@ -166,15 +163,11 @@ test('a reminder drags into an EMPTY section', async ({ page }) => {
   await page.getByTestId('secadd-General').first().click();
   await page.getByTestId('rem-add-field').fill('wander');
   await page.getByTestId('rem-add-field').press('Enter');
-  const grip = page.getByTestId('row-grip').first();
-  const box = (await grip.boundingBox())!;
-  // Target sits ABOVE General (new sections prepend): drag the row UP into it.
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-  await page.mouse.down();
-  for (let i = 1; i <= 8; i++) {
-    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2 - (i * 46) / 8);
-  }
-  await page.mouse.up();
+  // Target sits ABOVE General (new sections prepend): drag the row UP into
+  // its placeholder, by the placeholder's measured position.
+  const hole = (await page.getByTestId('secempty-Target').boundingBox())!;
+  const row = (await page.getByTestId('rem-row').first().boundingBox())!;
+  await dragVert(page, page.getByTestId('row-grip').first(), hole.y + hole.height / 2 - (row.y + row.height / 2) - 8);
   // DOM order proves the re-file: 'wander' now renders inside Target's block,
   // before the General heading.
   const body = await page.locator('body').innerText();

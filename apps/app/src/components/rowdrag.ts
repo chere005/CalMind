@@ -1,18 +1,26 @@
 /**
- * A portable row drag for equal-height lists — PanResponder, so it works on
- * web and native alike. The suite's feedback rule carries over: nothing moves
- * while you drag; a single drop line is the only hint, and the list reorders
- * on release. The dragged row just dims and rides the finger.
+ * A portable row drag — PanResponder, so it works on web and native alike.
+ * The suite's feedback rule carries over: nothing moves while you drag; a
+ * single drop line is the only hint, and the list reorders on release. The
+ * dragged row just dims and rides the finger.
+ *
+ * MEASURED, like the section drag: every flat entry (row or empty-section
+ * placeholder) registers a ref, the grant measures them all in window space,
+ * and the pointer's absolute Y picks the nearest boundary — so wrapped rows,
+ * section headers and folder heads between rows never bend the math the way
+ * the old uniform-height model did.
  *
  * The responders are created ONCE per row index and read live values through
  * a ref — a responder rebuilt mid-gesture drops the gesture on the floor,
  * which showed up as text selection instead of a drag.
  */
 import { useRef, useState } from 'react';
-import { PanResponder, type PanResponderInstance } from 'react-native';
+import { PanResponder, type PanResponderInstance, type View } from 'react-native';
 import { ordBetween } from '@calmind/core';
 
 export type RowDrag = {
+  /** Attach to flat entry `i`'s View so the grant can measure it. */
+  registerRow: (i: number) => (ref: View | null) => void;
   /** Pan handlers for the ≡ handle of row `i`. */
   handleFor: (i: number) => PanResponderInstance['panHandlers'];
   dragIdx: number | null;
@@ -21,44 +29,78 @@ export type RowDrag = {
   slot: number | null;
 };
 
-export function useRowDrag(count: number, rowHeight: number, onDrop: (from: number, to: number) => void): RowDrag {
+export function useRowDrag(count: number, onDrop: (from: number, to: number) => void): RowDrag {
   const [ui, setUi] = useState<{ dragIdx: number | null; dragDy: number; slot: number | null }>({
     dragIdx: null,
     dragDy: 0,
     slot: null,
   });
-  const cfg = useRef({ count, rowHeight, onDrop });
-  cfg.current = { count, rowHeight, onDrop };
+  const cfg = useRef({ count, onDrop });
+  cfg.current = { count, onDrop };
+  const rows = useRef(new Map<number, View>());
+  // Each registered entry's midpoint in window space, filled at grant.
+  const mids = useRef(new Map<number, number>());
   const responders = useRef(new Map<number, PanResponderInstance>());
+
+  const registerRow = (i: number) => (ref: View | null) => {
+    if (ref) rows.current.set(i, ref);
+    else rows.current.delete(i);
+  };
+
+  const measure = async () => {
+    const entries = [...rows.current.entries()];
+    const measured = await Promise.all(
+      entries.map(
+        ([i, ref]) =>
+          new Promise<{ i: number; mid: number }>((res) =>
+            ref.measureInWindow((_x, y, _w, h) => res({ i, mid: y + h / 2 })),
+          ),
+      ),
+    );
+    mids.current = new Map(measured.map((m) => [m.i, m.mid]));
+  };
+
+  /** The classic sortable rule, on measured geometry: the dragged row's
+   *  DISPLACED midpoint (its own mid + total travel — so where you grabbed it
+   *  cancels out) is compared against every other row's midpoint, and the
+   *  count it has passed is its destination index. Crossing a row's centre is
+   *  what swaps with it, whatever anyone's height is. */
+  const destFor = (i: number, dy: number): number | null => {
+    const own = mids.current.get(i);
+    if (own === undefined) return null;
+    // A hair of direction-aware bias so an exact tie of centres resolves the
+    // way the drag is heading instead of falling dead on the knife edge.
+    const c = own + dy + (dy > 0 ? 0.5 : -0.5);
+    let k = 0;
+    for (const [j, mid] of mids.current) {
+      if (j !== i && mid < c) k++;
+    }
+    return k === i ? null : k;
+  };
 
   const handleFor = (i: number) => {
     if (!responders.current.has(i)) {
-      const live = { from: i, to: i };
       responders.current.set(
         i,
         PanResponder.create({
           onStartShouldSetPanResponder: () => true,
           onMoveShouldSetPanResponder: () => true,
           onPanResponderGrant: () => {
-            live.from = i;
-            live.to = i;
             setUi({ dragIdx: i, dragDy: 0, slot: null });
+            void measure();
           },
           onPanResponderMove: (_e, g) => {
-            const { count: n, rowHeight: h } = cfg.current;
-            const to = Math.max(0, Math.min(n - 1, i + Math.round(g.dy / h)));
-            live.to = to;
-            // The line draws where the row would LAND: below `to` when sinking,
-            // above when rising — as a boundary index 0..count.
-            setUi({ dragIdx: i, dragDy: g.dy, slot: to > i ? to + 1 : to });
+            const to = destFor(i, g.dy);
+            setUi({ dragIdx: i, dragDy: g.dy, slot: to === null ? null : to > i ? to + 1 : to });
           },
           onPanResponderRelease: (_e, g) => {
             // Compute from the RELEASE's own travel, not the last move — a
             // fast flick can land with barely any move events processed.
-            const { count: n, rowHeight: h } = cfg.current;
-            const to = Math.max(0, Math.min(n - 1, i + Math.round(g.dy / h)));
+            const to = destFor(i, g.dy);
             setUi({ dragIdx: null, dragDy: 0, slot: null });
-            if (i !== to) cfg.current.onDrop(i, to);
+            if (to === null) return;
+            const bounded = Math.max(0, Math.min(cfg.current.count - 1, to));
+            if (i !== bounded) cfg.current.onDrop(i, bounded);
           },
           onPanResponderTerminate: () => setUi({ dragIdx: null, dragDy: 0, slot: null }),
         }),
@@ -67,7 +109,7 @@ export function useRowDrag(count: number, rowHeight: number, onDrop: (from: numb
     return responders.current.get(i)!.panHandlers;
   };
 
-  return { ...ui, handleFor };
+  return { ...ui, registerRow, handleFor };
 }
 
 /** The ord key a row takes when it moves from index `from` to `to` in a list

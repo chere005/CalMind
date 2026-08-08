@@ -31,7 +31,7 @@ export function HabitSectionManager({ onClose }: { onClose: () => void }) {
   };
 
   const ROW_H = 44;
-  const drag = useRowDrag(sections.length, ROW_H, (from, to) => {
+  const drag = useRowDrag(sections.length, (from: number, to: number) => {
     const item = sections[from];
     if (!item) return;
     const ord = ordForMove(sections, from, to);
@@ -79,7 +79,7 @@ export function HabitSectionManager({ onClose }: { onClose: () => void }) {
             {sections.map((sec, i) => (
               <View key={sec.id}>
                 {drag.slot === i && <View style={s.dropLine} />}
-                <View style={[s.row, drag.dragIdx === i && { opacity: 0.55, transform: [{ translateY: drag.dragDy }] }]}>
+                <View ref={drag.registerRow(i)} style={[s.row, drag.dragIdx === i && { opacity: 0.55, transform: [{ translateY: drag.dragDy }] }]}>
                 <View {...drag.handleFor(i)} style={s.grip} hitSlop={8}><Text style={s.gripText}>≡</Text></View>
                 <CircleBtn
                   glyph=" "

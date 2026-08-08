@@ -9,8 +9,11 @@ import { Platform } from 'react-native';
  */
 export function defaultServerUrl(): string {
   if (Platform.OS === 'web' && typeof location !== 'undefined') {
-    const local = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
-    if (!local) return new URL('api/index.php', location.href).toString();
+    // Only the Expo dev server (metro) needs the absolute fallback — its port
+    // serves no api/. Anything else (deployed, the e2e router, a local php -S)
+    // serves api/ beside the page, so same-origin relative is the truth.
+    const metro = ['8081', '19006'].includes(location.port);
+    if (!metro) return new URL('api/index.php', location.href).toString();
     return 'http://127.0.0.1:8788/api/index.php';
   }
   if (Platform.OS === 'android') return 'http://10.0.2.2:8788/api/index.php';

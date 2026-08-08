@@ -64,8 +64,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
     }
     return out;
   }, [folders, sectionsOf, notesOf]);
-  const ROW_H = 44;
-  const drag = useRowDrag(flatRows.length, ROW_H, (from, to) => {
+  const drag = useRowDrag(flatRows.length, (from, to) => {
     const src = flatRows[from];
     if (src?.kind !== 'row') return;
     const slotIdx = to > from ? to + 1 : to;
@@ -275,15 +274,14 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
                 {notesOf(sec.id).length === 0 && (
                   <View>
                     {drag.slot !== null && emptyIdxOf(sec.id) === drag.slot && <View style={s.dropLine} />}
-                    <View style={[s.emptySlot, drag.dragIdx !== null && s.emptySlotLive]}>
-                      {drag.dragIdx !== null && <Text style={s.emptySlotText}>drop here</Text>}
+                    <View testID={`nsecempty-${sec.payload.name}`} ref={drag.registerRow(emptyIdxOf(sec.id))} style={s.emptySlot}>
                     </View>
                   </View>
                 )}
                 {notesOf(sec.id).map((n) => (
                   <View key={n.id}>
                     {drag.slot !== null && flatIdxOf(n.id) === drag.slot && <View style={s.dropLine} />}
-                    <View style={[s.row, drag.dragIdx !== null && flatIdxOf(n.id) === drag.dragIdx && { opacity: 0.55, transform: [{ translateY: drag.dragDy }] }]}>
+                    <View ref={drag.registerRow(flatIdxOf(n.id))} style={[s.row, drag.dragIdx !== null && flatIdxOf(n.id) === drag.dragIdx && { opacity: 0.55, transform: [{ translateY: drag.dragDy }] }]}>
                       <View testID="note-grip" {...drag.handleFor(flatIdxOf(n.id))} style={s.rowGrip} hitSlop={6}>
                         <Text style={s.rowGripText}>≡</Text>
                       </View>
@@ -344,8 +342,6 @@ const s = StyleSheet.create({
   rowGripText: { color: T.lineSoft, fontSize: 13, userSelect: 'none' },
   dropLine: { height: 2, backgroundColor: T.accent, borderRadius: 1, marginVertical: 1 },
   emptySlot: { height: 0, overflow: 'hidden' },
-  emptySlotLive: { height: 44, borderWidth: 1, borderColor: T.lineSoft, borderStyle: 'dashed', borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  emptySlotText: { color: T.muted, fontSize: 13 },
   askBackdrop: { flex: 1, backgroundColor: '#000a', alignItems: 'center', justifyContent: 'center', padding: 24 },
   askCard: { width: '100%', maxWidth: 360, backgroundColor: T.surface, borderWidth: 1, borderColor: T.line, borderRadius: 16, padding: 20, gap: 14 },
   askText: { color: T.text, fontSize: 15, lineHeight: 22 },

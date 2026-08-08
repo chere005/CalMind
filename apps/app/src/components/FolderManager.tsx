@@ -51,7 +51,7 @@ export function FolderManager({ app, onClose }: { app: 'reminders' | 'notes'; on
   };
 
   const ROW_H = 44;
-  const drag = useRowDrag(folders.length, ROW_H, (from, to) => {
+  const drag = useRowDrag(folders.length, (from: number, to: number) => {
     const item = folders[from];
     if (!item) return;
     const ord = ordForMove(folders, from, to);
@@ -115,7 +115,7 @@ export function FolderManager({ app, onClose }: { app: 'reminders' | 'notes'; on
             {folders.map((f, i) => (
               <View key={f.id}>
                 {drag.slot === i && <View style={s.dropLine} />}
-                <View testID="mgr-row" style={[s.row, drag.dragIdx === i && { opacity: 0.55, transform: [{ translateY: drag.dragDy }] }]}>
+                <View testID="mgr-row" ref={drag.registerRow(i)} style={[s.row, drag.dragIdx === i && { opacity: 0.55, transform: [{ translateY: drag.dragDy }] }]}>
                 <View testID="grip" {...drag.handleFor(i)} style={s.grip} hitSlop={8}><Text style={s.gripText}>≡</Text></View>
                 <CircleBtn glyph=" " size={22} color={f.payload.color} onPress={() => recolor(f)} bg={f.payload.color} />
                 {renaming === f.id ? (

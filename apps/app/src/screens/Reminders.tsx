@@ -106,8 +106,7 @@ export function Reminders() {
     return out;
   }, [folders, sectionsOf, remindersOf, folded, showDone]);
 
-  const ROW_H = 46;
-  const drag = useRowDrag(flatRows.length, ROW_H, (from, to) => {
+  const drag = useRowDrag(flatRows.length, (from, to) => {
     const src = flatRows[from];
     if (src?.kind !== 'row') return;
     const slotIdx = to > from ? to + 1 : to;
@@ -377,8 +376,7 @@ export function Reminders() {
                   {!isFolded && rows.length === 0 && (
                     <View>
                       {drag.slot !== null && emptyIdxOf(sec.id) === drag.slot && <View style={s.dropLine} />}
-                      <View style={[s.emptySlot, drag.dragIdx !== null && s.emptySlotLive]}>
-                        {drag.dragIdx !== null && <Text style={s.emptySlotText}>drop here</Text>}
+                      <View testID={`secempty-${sec.payload.name}`} ref={drag.registerRow(emptyIdxOf(sec.id))} style={s.emptySlot}>
                       </View>
                     </View>
                   )}
@@ -388,6 +386,7 @@ export function Reminders() {
                         {drag.slot !== null && flatIdxOf(r.id) === drag.slot && <View style={s.dropLine} />}
                         <View
                           testID="rem-row"
+                          ref={drag.registerRow(flatIdxOf(r.id))}
                           style={[
                             s.row,
                             r.payload.indent > 0 && s.rowIndented,
@@ -511,8 +510,6 @@ const s = StyleSheet.create({
   rowGripText: { color: T.lineSoft, fontSize: 13, userSelect: 'none' },
   dropLine: { height: 2, backgroundColor: T.accent, borderRadius: 1, marginVertical: 1 },
   emptySlot: { height: 0, overflow: 'hidden' },
-  emptySlotLive: { height: 46, borderWidth: 1, borderColor: T.lineSoft, borderStyle: 'dashed', borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  emptySlotText: { color: T.muted, fontSize: 13 },
   askBackdrop: { flex: 1, backgroundColor: '#000a', alignItems: 'center', justifyContent: 'center', padding: 24 },
   askCard: { width: '100%', maxWidth: 360, backgroundColor: T.surface, borderWidth: 1, borderColor: T.line, borderRadius: 16, padding: 20, gap: 14 },
   askText: { color: T.text, fontSize: 15, lineHeight: 22 },

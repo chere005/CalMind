@@ -108,7 +108,7 @@ function CalendarManager({ onClose }: { onClose: () => void }) {
   };
 
   const ROW_H = 44;
-  const drag = useRowDrag(calendars.length, ROW_H, (from, to) => {
+  const drag = useRowDrag(calendars.length, (from: number, to: number) => {
     const item = calendars[from];
     if (!item) return;
     const ord = ordForMove(calendars, from, to);
@@ -170,7 +170,7 @@ function CalendarManager({ onClose }: { onClose: () => void }) {
             {calendars.map((c, i) => (
               <View key={c.id}>
                 {drag.slot === i && <View style={s.dropLine} />}
-                <View style={[s.mrow, drag.dragIdx === i && { opacity: 0.55, transform: [{ translateY: drag.dragDy }] }]}>
+                <View ref={drag.registerRow(i)} style={[s.mrow, drag.dragIdx === i && { opacity: 0.55, transform: [{ translateY: drag.dragDy }] }]}>
                 <View {...drag.handleFor(i)} style={s.grip} hitSlop={8}><Text style={s.gripText}>≡</Text></View>
                 <CircleBtn glyph=" " size={22} bg={c.payload.color} onPress={() => recolor(c)} />
                 {renaming === c.id ? (
