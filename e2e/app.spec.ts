@@ -120,3 +120,37 @@ test('a reminder row drags to a new spot and the order survives a reload', async
   await page.getByTestId('tab-reminders').click();
   await expect(page.getByTestId('rem-row').first()).toContainText('alpha', { timeout: 10_000 });
 });
+
+test('a note drags between folders and re-files', async ({ page }) => {
+  await signup(page);
+  await page.getByTestId('tab-notes').click();
+  // The fresh account has one notes folder; make a second via the manager.
+  await page.getByTestId('pick-notes').click();
+  await page.getByText('Manage folders…').click();
+  await page.getByPlaceholder('New folder').fill('Recipes');
+  await page.getByPlaceholder('New folder').press('Enter');
+  await page.getByText('Done', { exact: true }).click();
+  // One note in each folder's General.
+  const adds = page.getByTestId('secadd-General');
+  await adds.first().click();
+  await page.getByPlaceholder('New note').fill('first note');
+  await page.getByPlaceholder('New note').press('Enter');
+  await page.getByText('← All notes').click(); // the editor auto-opens on create
+  await adds.nth(1).click();
+  await page.getByPlaceholder('New note').fill('second note');
+  await page.getByPlaceholder('New note').press('Enter');
+  await page.getByText('← All notes').click();
+  // Drag the first note down past the second (into the Recipes General).
+  const rows = page.getByTestId('note-row');
+  await expect(rows).toHaveCount(2);
+  const grip = page.getByTestId('note-grip').first();
+  const box = (await grip.boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  for (let i = 1; i <= 10; i++) {
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2 + (i * 90) / 10);
+  }
+  await page.mouse.up();
+  // Both notes now sit under the second folder block; first row is 'second note'.
+  await expect(rows.first()).toContainText('second note');
+});

@@ -114,7 +114,25 @@ honest — the next iteration trusts it.
 - Reminders: prod type scale; rows AND section names edit by double-click or
   long-press.
 
-## In flight (iteration 7 — start here)
+## Iteration 7 shipped
+- Core: moveNote (cross-folder note row moves) and moveSection (blocks with
+  the suite's refusals: duplicate name in the destination, a folder's last
+  section stays — the ask-then-delete-emptied-folder flow arrives with the
+  section-drag UI). 108 tests.
+- Notes rows drag (grips + drop-line, same flat model), proven by a real-mouse
+  e2e spec incl. cross-folder re-file (7 gesture specs green).
+- Habits is prod's page: Week|Month segmented left, labelled ‹ This week ›
+  pager right, collapse-all above the grid, colour-wash section pills, tinted
+  habit name boxes and big tinted tick cells, today's column pilled+ringed,
+  and the folder-style SECTION dropdown (pie button → All + visibility boxes
+  + Manage sections…). Month pies draw CONTIGUOUS per-section arcs now.
+- The Scriptable widget lives again: read-only widget tokens (never a bearer
+  token — tested), GET ?feed=1&t=… serving 21 days of reminders+events
+  (riders + rolled-overdue on today, repeats expanded, notes never), Settings'
+  Widget button mints and shows the URL, tools/scriptable-widget.js is the
+  script. TopBar titles at prod scale (24/800). Ralph state gitignored.
+
+## In flight (iteration 8 — start here)
 - Notes row drag (same flat model) + section drag as blocks with the suite's
   cross-folder rules (duplicate-name refusal, last-section-out ask).
 - Empty-section drop targets (a boundary per section head).

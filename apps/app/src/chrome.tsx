@@ -76,7 +76,7 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  appname: { color: T.text, fontSize: 18, fontWeight: '700' },
+  appname: { color: T.text, fontSize: 24, fontWeight: '800' },
   right: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   status: { width: 8, height: 8, borderRadius: 4 },
   who: { color: T.accent, fontSize: 14, fontWeight: '600' },

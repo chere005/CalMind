@@ -28,6 +28,10 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') {
     http_response_code(204);
     exit;
 }
+// The one GET: the widget feed, behind its read-only token (suite's feed.php).
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET' && ($_GET['feed'] ?? '') === '1') {
+    handle_feed(app_config());
+}
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
     fail(405, 'POST only');
 }
@@ -46,6 +50,7 @@ match ((string) ($in['action'] ?? '')) {
     'recover'         => handle_recover($cfg, $in),
     'reset'           => handle_reset($cfg, $in),
     'whoami'          => handle_whoami($cfg),
+    'widget_token'    => handle_widget_token($cfg),
     'sync'            => handle_sync($cfg, $in),
     default           => fail(400, 'unknown action'),
 };

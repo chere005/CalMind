@@ -5,7 +5,7 @@
  */
 import React, { useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
-import { changePassword, logout } from '../api';
+import { apiPost, changePassword, logout } from '../api';
 import { useStore } from '../store';
 import { CircleBtn, Field, Pill, ErrorLine } from '../ui';
 import { T } from '../theme';
@@ -49,7 +49,19 @@ export function Settings({ onClose }: { onClose: () => void }) {
               Widget say where they are on the roadmap until those land. */}
           <View style={s.footer}>
             <CircleBtn glyph="⇗" size={40} onPress={() => setNote('Sharing lands with partner lists — next on the roadmap.')} />
-            <CircleBtn glyph="▤" size={40} onPress={() => setNote('The widget feed arrives with the iOS build.')} />
+            <CircleBtn
+              glyph="▤"
+              size={40}
+              onPress={async () => {
+                try {
+                  const r = await apiPost<{ token: string }>(session!.serverUrl, { action: 'widget_token' }, session!.token);
+                  const base = session!.serverUrl.replace(/\/api\/index\.php$/, '');
+                  setNote(`Widget feed (paste into tools/scriptable-widget.js):\n${base}/api/index.php?feed=1&t=${r.token}`);
+                } catch {
+                  setNote('Could not mint the widget token — try again online.');
+                }
+              }}
+            />
             <CircleBtn glyph="✓" size={40} color={T.accent} active onPress={onClose} />
           </View>
           <View style={s.row}>

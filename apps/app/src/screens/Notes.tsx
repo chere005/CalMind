@@ -5,13 +5,14 @@
  */
 import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { byOrd, newId, ordBetween, parseDateFromText, parseWhenFromText, todayStr, type Rec } from '@calmind/core';
+import { byOrd, moveNote, newId, ordBetween, parseDateFromText, parseWhenFromText, todayStr, type Rec } from '@calmind/core';
 import { useStore } from '../store';
 import { T } from '../theme';
 import { TopBar } from '../chrome';
 import { FolderPick, useFolderView } from '../components/FolderPick';
 import { CircleBtn, ConfirmDelete, Field, Pill, Rule } from '../ui';
 import { Dropdown } from '../components/Dropdown';
+import { useRowDrag } from '../components/rowdrag';
 
 export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | null; onOpenConsumed?: () => void }) {
   const { recs, mutate } = useStore();
@@ -47,6 +48,29 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
       notesOf: (sid: string) => notes.filter((x) => x.payload.sectionId === sid),
     };
   }, [recs, visibleFolders]);
+
+  // Every visible row in render order — the drag's coordinate space.
+  const flatRows = useMemo(() => {
+    const out: { rec: Rec<'note'>; sectionId: string }[] = [];
+    for (const f of folders) {
+      for (const sec of sectionsOf(f.id)) {
+        for (const n of notesOf(sec.id)) out.push({ rec: n, sectionId: sec.id });
+      }
+    }
+    return out;
+  }, [folders, sectionsOf, notesOf]);
+  const ROW_H = 44;
+  const drag = useRowDrag(flatRows.length, ROW_H, (from, to) => {
+    const src = flatRows[from];
+    if (!src) return;
+    const slotIdx = to > from ? to + 1 : to;
+    const before = flatRows[slotIdx];
+    const destSectionId = before?.sectionId ?? flatRows[flatRows.length - 1]?.sectionId ?? src.sectionId;
+    const res = moveNote(recs, src.rec.id, destSectionId, before?.rec.id ?? null);
+    if ('error' in res) return;
+    mutate((e) => res.put.forEach((r) => e.put(r)));
+  });
+  const flatIdxOf = (id: string) => flatRows.findIndex((x) => x.rec.id === id);
 
   const open = openId ? (recs.find((r) => r.id === openId) as Rec<'note'> | undefined) : undefined;
 
@@ -219,16 +243,24 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
               <View key={sec.id} style={s.section}>
                 <View style={s.secHead}>
                   <Text style={s.secName}>{sec.payload.name}</Text>
-                  <CircleBtn glyph="+" color={T.accent} size={22} onPress={() => { setAdding(sec.id); setAddText(''); }} />
+                  <CircleBtn testID={`secadd-${sec.payload.name}`} glyph="+" color={T.accent} size={22} onPress={() => { setAdding(sec.id); setAddText(''); }} />
                 </View>
                 {adding === sec.id && (
                   <Field value={addText} onChangeText={setAddText} placeholder="New note" autoFocus onBlur={() => addNote(sec)} onSubmitEditing={() => addNote(sec)} />
                 )}
                 {notesOf(sec.id).map((n) => (
-                  <Pressable key={n.id} onPress={() => setOpenId(n.id)} style={s.row}>
-                    <Text style={s.rowTitle} numberOfLines={1}>{n.payload.title}</Text>
-                    <Text style={s.chev}>›</Text>
-                  </Pressable>
+                  <View key={n.id}>
+                    {drag.slot !== null && flatIdxOf(n.id) === drag.slot && <View style={s.dropLine} />}
+                    <View style={[s.row, drag.dragIdx !== null && flatIdxOf(n.id) === drag.dragIdx && { opacity: 0.55, transform: [{ translateY: drag.dragDy }] }]}>
+                      <View testID="note-grip" {...drag.handleFor(flatIdxOf(n.id))} style={s.rowGrip} hitSlop={6}>
+                        <Text style={s.rowGripText}>≡</Text>
+                      </View>
+                      <Pressable testID="note-row" onPress={() => setOpenId(n.id)} style={s.rowBody}>
+                        <Text style={s.rowTitle} numberOfLines={1}>{n.payload.title}</Text>
+                        <Text style={s.chev}>›</Text>
+                      </Pressable>
+                    </View>
+                  </View>
                 ))}
               </View>
             ))}
@@ -252,7 +284,11 @@ const s = StyleSheet.create({
   section: { gap: 6 },
   secHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
   secName: { color: T.gold, fontSize: 14, fontWeight: '700' },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 8, height: 44 },
+  rowBody: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  rowGrip: { width: 16, alignItems: 'center', justifyContent: 'center' },
+  rowGripText: { color: T.lineSoft, fontSize: 13, userSelect: 'none' },
+  dropLine: { height: 2, backgroundColor: T.accent, borderRadius: 1, marginVertical: 1 },
   rowTitle: { color: T.text, fontSize: 16, flex: 1 },
   chev: { color: T.muted, fontSize: 16, marginLeft: 'auto' },
   editor: { padding: 16, gap: 10 },

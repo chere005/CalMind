@@ -5,7 +5,7 @@
  * and taken names. One implementation, every platform.
  */
 import { describe, it, expect } from 'vitest';
-import { deleteCalendar, deleteFolder, deleteHabitSection, deleteSection, moveReminderBlock, reminderBlock, renameCalendar, renameFolder, renameSection, prefsOf, prefsPut } from '../src/manage';
+import { deleteCalendar, deleteFolder, deleteHabitSection, deleteSection, moveNote, moveReminderBlock, moveSection, reminderBlock, renameCalendar, renameFolder, renameSection, prefsOf, prefsPut } from '../src/manage';
 import { prefsId } from '../src/types';
 import type { AnyRec, Rec } from '../src/types';
 
@@ -214,5 +214,50 @@ describe('the outline drag — blocks travel, exactly as the suite moves them', 
 
   it('a block refuses to land inside itself', () => {
     expect('error' in moveReminderBlock(world(), 'p1', 'sA', 'c1')).toBe(true);
+  });
+});
+
+describe('moveNote and moveSection — the rest of the outline drag rules', () => {
+  const nsec = (id: string, folderId: string, name: string, ord = 'V'): Rec<'section'> => ({
+    id, type: 'section', updated: 0, payload: { name, folderId, ord },
+  });
+  const nfold = (id: string, app: 'reminders' | 'notes' = 'notes'): Rec<'folder'> => ({
+    id, type: 'folder', updated: 0, payload: { name: id, color: '#fff', ord: id, app },
+  });
+  const note = (id: string, folderId: string, sectionId: string, ord: string): Rec<'note'> => ({
+    id, type: 'note', updated: 0, payload: { title: id, body: '', date: null, folderId, sectionId, ord },
+  });
+
+  it('a note re-files across folders and lands before its target', () => {
+    const recs: AnyRec[] = [
+      nfold('f1'), nfold('f2'), nsec('sA', 'f1', 'A'), nsec('sB', 'f2', 'B'),
+      note('n1', 'f1', 'sA', 'B'), note('n2', 'f2', 'sB', 'B'),
+    ];
+    const res = moveNote(recs, 'n1', 'sB', 'n2');
+    if ('error' in res) throw new Error(res.error);
+    const moved = res.put[0] as Rec<'note'>;
+    expect(moved.payload.folderId).toBe('f2');
+    expect(moved.payload.ord < 'B').toBe(true);
+  });
+
+  it('a section refuses to move into a folder holding its name', () => {
+    const recs: AnyRec[] = [nfold('f1'), nfold('f2'), nsec('s1', 'f1', 'General'), nsec('s1b', 'f1', 'Extra'), nsec('s2', 'f2', 'general')];
+    expect('error' in moveSection(recs, 's1', 'f2', null)).toBe(true);
+  });
+
+  it("a folder's last section stays put", () => {
+    const recs: AnyRec[] = [nfold('f1'), nfold('f2'), nsec('s1', 'f1', 'Only'), nsec('s2', 'f2', 'Other')];
+    expect('error' in moveSection(recs, 's1', 'f2', null)).toBe(true);
+  });
+
+  it('a legal section move re-points its rows to the new folder', () => {
+    const recs: AnyRec[] = [
+      nfold('f1'), nfold('f2'), nsec('s1', 'f1', 'Recipes'), nsec('s1b', 'f1', 'Extra'), nsec('s2', 'f2', 'Other'),
+      note('n1', 'f1', 's1', 'B'),
+    ];
+    const res = moveSection(recs, 's1', 'f2', null);
+    if ('error' in res) throw new Error(res.error);
+    expect((res.put.find((r) => r.id === 's1') as Rec<'section'>).payload.folderId).toBe('f2');
+    expect((res.put.find((r) => r.id === 'n1') as Rec<'note'>).payload.folderId).toBe('f2');
   });
 });

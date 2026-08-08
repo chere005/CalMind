@@ -232,3 +232,61 @@ export function moveReminderBlock(
   }
   return { put };
 }
+
+/** Drop a note into a section, before `beforeId` (null = end) — the row move,
+ *  cross-folder re-filing included. Notes have no blocks. */
+export function moveNote(recs: AnyRec[], noteId: string, destSectionId: string, beforeId: string | null): ManageResult {
+  const n = of(recs, 'note').find((x) => x.id === noteId);
+  if (!n) return { error: 'no such note' };
+  const dest = of(recs, 'section').find((s) => s.id === destSectionId);
+  if (!dest) return { error: 'no such section' };
+  const destRows = of(recs, 'note')
+    .filter((x) => x.payload.sectionId === destSectionId && x.id !== noteId)
+    .sort((a, b) => byOrd(a.payload, b.payload));
+  const at = beforeId === null ? destRows.length : destRows.findIndex((x) => x.id === beforeId);
+  if (at === -1) return { error: 'no such landing row' };
+  const ord = ordBetween(destRows[at - 1]?.payload.ord ?? null, destRows[at]?.payload.ord ?? null);
+  return { put: [{ ...n, payload: { ...n.payload, ord, sectionId: destSectionId, folderId: dest.payload.folderId } }] };
+}
+
+/**
+ * Move a section (with everything in it) into a folder, before another
+ * section (null = end). The suite's refusals carry over: a folder whose
+ * STAYING sections already hold the name refuses (a duplicate loses items on
+ * delete), and a folder never gives up its last section (the suite asks and
+ * deletes the emptied folder — that confirm flow arrives with the UI).
+ */
+export function moveSection(recs: AnyRec[], sectionId: string, destFolderId: string, beforeSectionId: string | null): ManageResult {
+  const sec = of(recs, 'section').find((s) => s.id === sectionId);
+  if (!sec) return { error: 'no such section' };
+  const dest = of(recs, 'folder').find((f) => f.id === destFolderId);
+  if (!dest) return { error: 'no such folder' };
+  const srcFolderId = sec.payload.folderId;
+  if (srcFolderId !== destFolderId) {
+    const srcSections = of(recs, 'section').filter((s) => s.payload.folderId === srcFolderId);
+    if (srcSections.length <= 1) return { error: 'a folder keeps its last section' };
+    const staying = of(recs, 'section').filter((s) => s.payload.folderId === destFolderId && s.id !== sectionId);
+    if (staying.some((s) => s.payload.name.trim().toLowerCase() === sec.payload.name.trim().toLowerCase())) {
+      return { error: 'that folder already has a section by that name' };
+    }
+  }
+  const destSecs = of(recs, 'section')
+    .filter((s) => s.payload.folderId === destFolderId && s.id !== sectionId)
+    .sort((a, b) => byOrd(a.payload, b.payload));
+  const at = beforeSectionId === null ? destSecs.length : destSecs.findIndex((s) => s.id === beforeSectionId);
+  if (at === -1) return { error: 'no such landing section' };
+  const ord = ordBetween(destSecs[at - 1]?.payload.ord ?? null, destSecs[at]?.payload.ord ?? null);
+  const put: AnyRec[] = [{ ...sec, payload: { ...sec.payload, ord, folderId: destFolderId } }];
+  // The rows follow their section; only their folderId needs re-pointing.
+  for (const r of of(recs, 'reminder')) {
+    if (r.payload.sectionId === sectionId && r.payload.folderId !== destFolderId) {
+      put.push({ ...r, payload: { ...r.payload, folderId: destFolderId } });
+    }
+  }
+  for (const n of of(recs, 'note')) {
+    if (n.payload.sectionId === sectionId && n.payload.folderId !== destFolderId) {
+      put.push({ ...n, payload: { ...n.payload, folderId: destFolderId } });
+    }
+  }
+  return { put };
+}

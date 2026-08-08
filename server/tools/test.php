@@ -156,6 +156,33 @@ t('logout revokes exactly that token', function () {
     eq(200, api(['action' => 'whoami'], $t2)['status'], 'the other device stays signed in');
 });
 
+echo "\n\033[1mwidget feed\033[0m\n";
+t('the widget token reads the feed — dated rows in, undated non-riders out', function () use ($tokenA) {
+    $dated = ['id' => 'wfeed', 'type' => 'reminder', 'updated' => 8000,
+              'payload' => ['text' => 'feed me', 'due' => date('Y-m-d'), 'time' => null, 'done' => false,
+                            'repeat' => null, 'folderId' => 'f', 'sectionId' => 's', 'indent' => 0, 'ord' => 'V']];
+    $loose = ['id' => 'wloose', 'type' => 'reminder', 'updated' => 8000,
+              'payload' => ['text' => 'not on the widget', 'due' => null, 'time' => null, 'done' => false,
+                            'repeat' => null, 'folderId' => 'f', 'sectionId' => 's', 'indent' => 0, 'ord' => 'W']];
+    api(['action' => 'sync', 'cursor' => 0, 'changes' => [$dated, $loose]], $tokenA);
+    $wt = api(['action' => 'widget_token'], $tokenA)['body']['token'];
+    ok(strlen($wt) === 48, 'a widget token minted');
+    global $port;
+    $feed = json_decode((string) @file_get_contents("http://127.0.0.1:$port/api/index.php?feed=1&t=$wt"), true);
+    ok(!empty($feed['ok']), 'the feed answers the token');
+    $texts = [];
+    foreach (($feed['days'] ?? []) as $rows) { foreach ($rows as $r) { $texts[] = $r['text']; } }
+    ok(in_array('feed me', $texts, true), 'a dated reminder feeds');
+    ok(!in_array('not on the widget', $texts, true), 'an undated non-rider stays off the widget');
+});
+t('a bad feed token is a 401 and a bearer token does not work as one', function () use ($tokenA) {
+    global $port;
+    $r1 = json_decode((string) @file_get_contents("http://127.0.0.1:$port/api/index.php?feed=1&t=" . str_repeat('0', 48)), true);
+    ok(empty($r1['ok']), 'garbage refused');
+    $r2 = json_decode((string) @file_get_contents("http://127.0.0.1:$port/api/index.php?feed=1&t=$tokenA"), true);
+    ok(empty($r2['ok']), 'a WRITE bearer token is not a feed token');
+});
+
 echo "\n\033[1mpasswords\033[0m\n";
 t('change_password needs the old one and revokes other tokens', function () use (&$tokenA) {
     eq(403, api(['action' => 'change_password', 'old' => 'wrong', 'new' => 'alicepass2'], $tokenA)['status'], 'wrong old');

@@ -267,3 +267,111 @@ function handle_sync(array $cfg, array $in): never
     usage_log($cfg, 'sync', $user);
     reply(200, ['ok' => true, 'cursor' => $out['cursor'], 'changes' => $out['changes']]);
 }
+
+// ---------------------------------------------------------------- the widget feed
+
+function widget_tokens_file(array $cfg): string { return $cfg['data_dir'] . '/widgettokens.json'; }
+
+/** The user's READ-ONLY widget token, minted once — the suite's rule holds:
+ *  the feed token is a read credential, and nothing behind it may write. */
+function handle_widget_token(array $cfg): never
+{
+    $user = require_auth($cfg);
+    $t = with_lock($cfg, 'widgettokens', function () use ($cfg, $user) {
+        $all = store_read($cfg, widget_tokens_file($cfg));
+        foreach ($all as $hash => $u) {
+            if ($u === $user) { return null; }   // already minted; the client keeps its copy
+        }
+        $token = bin2hex(random_bytes(24));
+        $all[hash('sha256', $token)] = $user;
+        store_write($cfg, widget_tokens_file($cfg), $all);
+        return $token;
+    });
+    // A re-mint replaces nothing: one token per user, handed out once. If it
+    // was minted before and lost, rotate by deleting the file server-side.
+    if ($t === null) {
+        $t = with_lock($cfg, 'widgettokens', function () use ($cfg, $user) {
+            $all = store_read($cfg, widget_tokens_file($cfg));
+            $all = array_filter($all, fn($u) => $u !== $user);
+            $token = bin2hex(random_bytes(24));
+            $all[hash('sha256', $token)] = $user;
+            store_write($cfg, widget_tokens_file($cfg), $all);
+            return $token;
+        });
+    }
+    usage_log($cfg, 'widget_token', $user);
+    reply(200, ['ok' => true, 'token' => $t]);
+}
+
+/** GET feed: the widget's 21 days — reminders (undated riders + dated + the
+ *  overdue on today) and events, repeats expanded, grouped by day. Notes never
+ *  reach the widget. Token-read only, exactly the suite's feed.php contract. */
+function handle_feed(array $cfg): never
+{
+    $tok = (string) ($_GET['t'] ?? '');
+    $all = store_read($cfg, widget_tokens_file($cfg));
+    $user = $all[hash('sha256', $tok)] ?? '';
+    if ($user === '') { fail(401, 'bad token'); }
+    $db = store_read($cfg, records_file($cfg, $user));
+    $recs = array_filter($db['recs'] ?? [], fn($r) => empty($r['deleted']));
+    $today = date('Y-m-d');
+    $days = [];
+    for ($i = 0; $i < 21; $i++) { $days[date('Y-m-d', strtotime("+$i days"))] = []; }
+
+    $rideAlong = [];
+    foreach ($recs as $r) {
+        if ($r['type'] === 'folder' && !empty($r['payload']['rideAlong'])) { $rideAlong[$r['id']] = true; }
+    }
+    $step = function (string $start, array $rep, int $i): string {
+        [$y, $m, $d] = array_map('intval', explode('-', $start));
+        $n = $rep['n'] * $i;
+        return match ($rep['unit']) {
+            'day' => date('Y-m-d', mktime(0, 0, 0, $m, $d + $n, $y)),
+            'week' => date('Y-m-d', mktime(0, 0, 0, $m, $d + $n * 7, $y)),
+            default => (function () use ($y, $m, $d, $n, $rep) {
+                $mm = $rep['unit'] === 'month' ? $m + $n : $m;
+                $yy = $rep['unit'] === 'year' ? $y + $n : $y;
+                $first = mktime(0, 0, 0, $mm, 1, $yy);
+                return date('Y-m-d', mktime(0, 0, 0, (int) date('n', $first), min($d, (int) date('t', $first)), (int) date('Y', $first)));
+            })(),
+        };
+    };
+    $expand = function (?string $start, $rep) use ($days, $step, $today): array {
+        if (!$start) { return []; }
+        if (!is_array($rep)) { return isset($days[$start]) ? [$start] : []; }
+        $out = [];
+        $to = date('Y-m-d', strtotime('+20 days'));
+        for ($i = 0; $i < 400; $i++) {
+            $d = $step($start, $rep, $i);
+            if ($d > $to) { break; }
+            if (isset($days[$d])) { $out[] = $d; }
+        }
+        return $out;
+    };
+
+    foreach ($recs as $r) {
+        $p = $r['payload'];
+        if ($r['type'] === 'reminder' && empty($p['done'])) {
+            $rolled = !empty($p['due']) && $p['due'] < $today;
+            if (empty($p['due']) && isset($rideAlong[$p['folderId'] ?? ''])) {
+                $days[$today][] = ['kind' => 'reminder', 'id' => $r['id'], 'text' => $p['text'], 'time' => $p['time'] ?? null, 'rolled' => false];
+            } elseif ($rolled) {
+                $days[$today][] = ['kind' => 'reminder', 'id' => $r['id'], 'text' => $p['text'], 'time' => $p['time'] ?? null, 'rolled' => true];
+            } else {
+                foreach ($expand($p['due'] ?? null, $p['repeat'] ?? null) as $d) {
+                    $days[$d][] = ['kind' => 'reminder', 'id' => $r['id'], 'text' => $p['text'], 'time' => $p['time'] ?? null, 'rolled' => false];
+                }
+            }
+        }
+        if ($r['type'] === 'event') {
+            foreach ($expand($p['date'] ?? null, $p['repeat'] ?? null) as $d) {
+                $days[$d][] = ['kind' => 'event', 'id' => $r['id'], 'text' => $p['text'], 'time' => $p['time'] ?? null];
+            }
+        }
+    }
+    // Reminders before events within each day, the suite's widget order.
+    foreach ($days as $d => &$rows) {
+        usort($rows, fn($a, $b) => ($a['kind'] === $b['kind']) ? strcmp((string) ($a['time'] ?? ''), (string) ($b['time'] ?? '')) : ($a['kind'] === 'reminder' ? -1 : 1));
+    }
+    reply(200, ['ok' => true, 'today' => $today, 'days' => array_filter($days)]);
+}
