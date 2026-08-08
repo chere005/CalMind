@@ -30,6 +30,17 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
   // Escape to leave; grips and row controls exist only inside it.
   const [pageEdit, setPageEdit] = useState(false);
   const [nfolded, setNFolded] = useState<Set<string>>(new Set());
+  const [foldedFolders, setFoldedFolders] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    AsyncStorage.getItem('calmind.foldedFolders.notes').then((raw) => raw && setFoldedFolders(new Set(JSON.parse(raw))));
+  }, []);
+  const toggleFolderFold = (id: string) => {
+    const next = new Set(foldedFolders);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setFoldedFolders(next);
+    AsyncStorage.setItem('calmind.foldedFolders.notes', JSON.stringify([...next])).catch(() => {});
+  };
   useEffect(() => {
     AsyncStorage.getItem('calmind.folded.notes').then((raw) => raw && setNFolded(new Set(JSON.parse(raw))));
   }, []);
@@ -323,10 +334,13 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
         {folders.map((f) => (
           <View key={f.id} style={s.folderBlock}>
             <View style={s.folderHead}>
+              <Pressable onPress={() => toggleFolderFold(f.id)} hitSlop={8}>
+                <Text style={s.chevron}>{foldedFolders.has(f.id) ? '▸' : '▾'}</Text>
+              </Pressable>
               <Text style={[s.folderName, { backgroundColor: f.payload.color + '33' }]}>{f.payload.name}</Text>
               <View style={s.folderRule} />
             </View>
-            {sectionsOf(f.id).map((sec) => (
+            {!foldedFolders.has(f.id) && sectionsOf(f.id).map((sec) => (
               <View key={sec.id} style={s.section}>
                 {secDrag.lineKey === `before:${sec.id}` && <View style={s.dropLine} />}
                 <View

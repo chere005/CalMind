@@ -145,7 +145,7 @@ export function FolderManager({ app, onClose }: { app: 'reminders' | 'notes'; on
                 ) : (
                   <Text style={s.rowText}>
                     {f.payload.name}
-                    {f.payload.rideAlong ? '  ·  rides on today' : ''}
+                    
                   </Text>
                 )}
                 <CircleBtn glyph="✎" size={26} onPress={() => { setRenaming(f.id); setRenameText(f.payload.name); }} />

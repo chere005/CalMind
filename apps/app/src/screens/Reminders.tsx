@@ -71,6 +71,17 @@ export function Reminders() {
   const [renameSecText, setRenameSecText] = useState('');
   const lastSecTap = React.useRef<{ id: string; at: number }>({ id: '', at: 0 });
   const [folded, setFolded] = useState<Set<string>>(new Set());
+  const [foldedFolders, setFoldedFolders] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    AsyncStorage.getItem('calmind.foldedFolders.reminders').then((raw) => raw && setFoldedFolders(new Set(JSON.parse(raw))));
+  }, []);
+  const toggleFolderFold = (id: string) => {
+    const next = new Set(foldedFolders);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setFoldedFolders(next);
+    AsyncStorage.setItem('calmind.foldedFolders.reminders', JSON.stringify([...next])).catch(() => {});
+  };
   const lastTap = React.useRef<{ id: string; at: number }>({ id: '', at: 0 });
   const [modalRec, setModalRec] = useState<ReminderRec | null>(null); // the full-edit window
 
@@ -325,6 +336,9 @@ export function Reminders() {
           <View key={f.id} style={s.folderBlock}>
             <View style={s.folderHead}>
               {/* The folder's colour is the wash behind its name, not a dot beside it. */}
+              <Pressable onPress={() => toggleFolderFold(f.id)} hitSlop={8}>
+                <Text style={s.chevron}>{foldedFolders.has(f.id) ? '▸' : '▾'}</Text>
+              </Pressable>
               <Text style={[s.folderName, { backgroundColor: f.payload.color + '33' }]}>{f.payload.name}</Text>
               <CircleBtn testID={`foldadd-${f.payload.name}`} glyph="+" color={T.accent} size={22} onPress={() => { setAddingSection(f.id); setNewName(''); }} />
               <View style={s.folderRule} />
@@ -340,7 +354,7 @@ export function Reminders() {
               />
             )}
             {/* level-0 landing at this folder's end */}
-            {sectionsOf(f.id).map((sec) => {
+            {!foldedFolders.has(f.id) && sectionsOf(f.id).map((sec) => {
               const rows = remindersOf(sec.id).filter((r) => showDone || !r.payload.done);
               const isFolded = folded.has(sec.id);
               return (

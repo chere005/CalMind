@@ -25,6 +25,7 @@ export function TopBar({
   const { session, syncState, signOut } = useStore();
   const [menuOpen, setMenuOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [tipOpen, setTipOpen] = useState(false);
   return (
     <>
       <View style={s.topbar}>
@@ -36,7 +37,19 @@ export function TopBar({
             <Text style={s.who}>{session?.username}</Text>
             <Text style={s.whoCaret}>▾</Text>
           </Pressable>
-          <View style={[s.status, { backgroundColor: syncState === 'offline' ? T.gold : T.accent }]} />
+          <Pressable
+            onHoverIn={() => setTipOpen(true)}
+            onHoverOut={() => setTipOpen(false)}
+            onLongPress={() => setTipOpen(true)}
+            onPress={() => setTipOpen(false)}
+          >
+            <View style={[s.status, { backgroundColor: syncState === 'offline' ? T.gold : T.accent }]} />
+            {tipOpen && (
+              <View style={s.tip}>
+                <Text style={s.tipText}>{syncState === 'offline' ? 'Offline — changes sync when you are back' : syncState === 'syncing' ? 'Syncing…' : 'Online — synced'}</Text>
+              </View>
+            )}
+          </Pressable>
         </View>
       </View>
       <Rule />
@@ -80,6 +93,8 @@ const s = themed(() => StyleSheet.create({
   appname: { color: T.text, fontSize: 24, fontWeight: '800' },
   right: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   status: { width: 8, height: 8, borderRadius: 4 },
+  tip: { position: 'absolute', top: 14, right: 0, backgroundColor: T.surface2, borderWidth: 1, borderColor: T.line, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5, zIndex: 40, minWidth: 150 },
+  tipText: { color: T.text, fontSize: 12 },
   // Prod's header controls: the picker sits in a dark ringed circle, the
   // username in a thin outlined pill — header nav .who, carried over.
   // One row, one scale: ring and pill both 32 high, the suite's bar height.
