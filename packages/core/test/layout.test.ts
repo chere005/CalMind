@@ -57,6 +57,15 @@ describe('balanceLines — Sean\'s rule for the legend', () => {
     }
   });
 
+  it('filtering the legend down collapses two lines back into one', () => {
+    // The legend only lists what actually occurs in the view, so paging to a
+    // quieter month drops chips. Once they fit, the second line goes away —
+    // the layout must follow the filter, not keep yesterday's shape.
+    const five = [100, 100, 100, 100, 100];
+    expect(counts(five, 500)).toEqual([3, 2]);
+    expect(counts(five.slice(0, 3), 500)).toEqual([3]); // two dropped → one line
+  });
+
   it('empty stays empty', () => {
     expect(balanceLines([], 400, 10)).toEqual([]);
   });

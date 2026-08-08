@@ -120,6 +120,24 @@ describe('monthLegend — every calendar/folder with an item in the window', () 
   it('is empty for an empty window', () => {
     expect(monthLegend([cal('c1', 'P', '#0379f6', 'B')], ['2026-08-10'], '2026-08-01')).toEqual([]);
   });
+
+  it("reads the days through the SAME tri-state the grid draws through", () => {
+    // Sean's rule: only what actually occurs in the view earns a chip. A
+    // folder switched to 'none' draws no mark on any cell, so listing it was
+    // naming something with no occurrence anywhere in the window.
+    const recs: AnyRec[] = [folder('f'), rem('r1', '2026-08-11')];
+    const dates = ['2026-08-10', '2026-08-11'];
+    expect(monthLegend(recs, dates, '2026-08-01').map((l) => l.name)).toEqual(['f']);
+    expect(monthLegend(recs, dates, '2026-08-01', { f: 'none' })).toEqual([]);
+  });
+
+  it("a rideAlong folder earns its chip only on a day it actually rides", () => {
+    // 'all' rides today and nothing else, so a window without today has no
+    // occurrence to show — and one WITH today does.
+    const recs: AnyRec[] = [folder('f', true), rem('r1', null)];
+    expect(monthLegend(recs, ['2026-08-10'], TODAY, { f: 'all' })).toEqual([]);
+    expect(monthLegend(recs, [TODAY], TODAY, { f: 'all' }).map((l) => l.name)).toEqual(['f']);
+  });
 });
 
 describe('weekOf — a month row, not a floating seven days', () => {

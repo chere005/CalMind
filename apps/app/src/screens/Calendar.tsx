@@ -99,8 +99,10 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
     () => new Map(cells.filter(Boolean).map((d) => [d!, [...cellMarks(drawn, d!, today, folderModes), ...cellMarks(sharedDrawn, d!, today, folderModes)]])),
     [drawn, sharedDrawn, cells, today, folderModes],
   );
-  const legend = useMemo(() => monthLegend(drawn, cells, today), [drawn, cells, today]);
-  const sharedLegend = useMemo(() => monthLegend(sharedDrawn, cells, today), [sharedDrawn, cells, today]);
+  // Same modes the grid draws through, so the key can only name things the
+  // window actually holds.
+  const legend = useMemo(() => monthLegend(drawn, cells, today, folderModes), [drawn, cells, today, folderModes]);
+  const sharedLegend = useMemo(() => monthLegend(sharedDrawn, cells, today, folderModes), [sharedDrawn, cells, today, folderModes]);
   const items = useMemo(() => dayItems(drawn, day, today, folderModes), [drawn, day, today, folderModes]);
   // The suite drops a group whose every item is filtered out, so a day of
   // finished reminders wears no stray heading until Completed is switched on.
@@ -250,7 +252,10 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
           )}
         </ScrollView>
       )}
-      <Rule />
+      {/* The legend's closing rule belongs to the legend. A month holding
+          nothing shows no key at all, and two hairlines stacked on each
+          other is what it looked like when this rule stayed behind. */}
+      {!weekMode && (legend.length > 0 || sharedLegend.length > 0) && <Rule />}
 
       <ScrollView style={s.panel} contentContainerStyle={s.panelInner}>
         <View style={s.panelHead}>

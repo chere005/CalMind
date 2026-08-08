@@ -629,8 +629,12 @@ test('habits shows five day columns on a phone and seven with room, paging witho
   // down the crack between the two pages.
   await page.setViewportSize({ width: 390, height: 900 });
   const heads = () => page.getByTestId('habit-dayhead').allTextContents();
+  await expect.poll(async () => (await heads()).length).toBe(5);
   const shown = await heads();
   await page.getByTestId('habits-prev').click();
+  // The window re-renders on its own clock; wait for it to actually turn over
+  // rather than reading the outgoing one and calling it the previous page.
+  await expect.poll(async () => (await heads())[0]).not.toBe(shown[0]);
   const prev = await heads();
   expect(prev).toHaveLength(5);
   expect(prev.some((d) => shown.includes(d))).toBe(false); // no overlap…
