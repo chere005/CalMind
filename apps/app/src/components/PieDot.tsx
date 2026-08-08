@@ -16,11 +16,14 @@ export function PieDot({ colors, size = 22, rainbow = false }: { colors: string[
     return (
       <Svg width={size} height={size}>
         <Defs>
-          <LinearGradient id="pierainbow" x1="0" y1="0" x2="1" y2="1">
-            <Stop offset="0" stopColor="#f472b6" />
-            <Stop offset="0.35" stopColor="#fb923c" />
-            <Stop offset="0.65" stopColor="#fde047" />
-            <Stop offset="1" stopColor="#4ade80" />
+          {/* Stops compressed into the circle's visible band — a diagonal
+              gradient's 0/1 corners get CLIPPED by the disc, which is how a
+              rainbow reads as plain orange. Pastels per Sean's reference. */}
+          <LinearGradient id="pierainbow" x1="0.15" y1="0" x2="0.85" y2="1">
+            <Stop offset="0" stopColor="#f9a8d4" />
+            <Stop offset="0.33" stopColor="#fdba74" />
+            <Stop offset="0.6" stopColor="#fde68a" />
+            <Stop offset="1" stopColor="#86efac" />
           </LinearGradient>
         </Defs>
         <Circle cx={r} cy={r} r={r} fill="url(#pierainbow)" />
