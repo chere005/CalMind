@@ -642,6 +642,64 @@ test('habits shows five day columns on a phone and seven with room, paging witho
   expect(dayNum(shown[0]!) - dayNum(prev[4]!)).toBe(1); // …and no gap either
 });
 
+test("a folder's colour is one source of truth: manage menu → legend chip → the date's mark", async ({ page }) => {
+  // Sean's chain. The folder colour set in the manage menu is authoritative;
+  // the legend chip and the marker on the day must both read it, and both
+  // must follow when it changes.
+  await signup(page);
+  // Filed from the day panel so it is DUE today and therefore lands on the
+  // grid — an undated reminder never reaches a cell to be coloured.
+  await page.getByText('+ Add', { exact: true }).click();
+  await page.getByTestId('kind-reminder').click();
+  await page.getByPlaceholder(/What\?/).fill('paint the day');
+  await page.getByText('Save', { exact: true }).click();
+
+  // The mark on a day and the chip in the key, as the SVG strokes they are.
+  const markColor = async () =>
+    page.getByTestId('cal-mark-well').locator('rect').first().getAttribute('stroke');
+  const chipColor = async () =>
+    page.getByTestId('legend-me').locator('rect').first().getAttribute('stroke');
+
+  const before = await markColor();
+  expect(before).toBeTruthy();
+  expect(await chipColor()).toBe(before); // they agree to start with
+
+  // Repaint the folder in the manage menu and watch both ends of the chain.
+  await page.getByTestId('tab-reminders').click();
+  await page.getByTestId('pick-reminders').click();
+  await page.getByText('Manage folders…').click();
+  await page.getByTestId('mgr-swatch-Reminders').click();
+  const options = page.getByTestId(/^mgr-swatch-Reminders-/);
+  const hexes = (await options.evaluateAll((els) =>
+    els.map((el) => '#' + (el.getAttribute('data-testid') ?? '').split('-').pop()),
+  )).filter((h) => h.toLowerCase() !== (before ?? '').toLowerCase());
+  const picked = hexes[0]!; // any colour it isn't already wearing
+  await page.getByTestId(`mgr-swatch-Reminders-${picked.slice(1)}`).click();
+  await page.getByText('Done', { exact: true }).click();
+  await page.getByTestId('tab-calendar').click();
+
+  await expect.poll(markColor).toBe(picked);
+  expect(await chipColor()).toBe(picked);
+
+  // And an OVERDUE one keeps the folder's colour too. This is the case that
+  // was actually wrong: the mark was swapped for the theme's overdue orange,
+  // so a late day's square stopped matching its own chip in the key. The
+  // suite paints the icon its folder's colour and lets the `overdue` class
+  // change nothing; only a finished colour greys, and that hides anyway.
+  // A bare m/d means the NEXT such date, so a past day needs its year said
+  // out loud or it lands a year ahead and is never overdue at all.
+  const n = new Date();
+  await page.getByText('+ Add', { exact: true }).click();
+  await page.getByTestId('kind-reminder').click();
+  await page.getByPlaceholder(/What\?/).fill('late thing');
+  await page.getByPlaceholder('m/d').fill(`${n.getMonth() + 1}/${n.getDate()}/${n.getFullYear() - 1}`);
+  await page.getByText('Save', { exact: true }).click();
+
+  await expect(page.getByText('late thing')).toBeVisible();
+  expect(await markColor()).toBe(picked);
+  expect(await chipColor()).toBe(picked);
+});
+
 test('the page carries the web-app head an installed iOS PWA needs', async ({ page }) => {
   // Without viewport-fit=cover, env(safe-area-inset-*) is 0 on iOS, the app
   // never pads for the notch, and iOS paints its own LIGHT status bar over

@@ -184,7 +184,15 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
         {shown.map((m, i) => {
           if (m.kind === 'event') return <CalGlyph key={i} color={m.color} />;
           if (m.kind === 'note') return <PageGlyph key={i} color={m.color} />;
-          const color = m.state === 'overdue' ? T.overdue : m.state === 'done' ? T.muted : m.color;
+          // One colour, one source: the folder's, as set in the manage menu.
+          // The suite paints every reminder icon in its folder's colour
+          // inline — an overdue one included; the `overdue` class it adds
+          // changes no colour. Only a FINISHED colour greys out, and that is
+          // hidden altogether unless Completed is showing. Swapping overdue
+          // for the theme's orange broke the chain Sean asked for: the
+          // manage-menu colour, the legend chip and the date's own mark all
+          // have to be the same colour.
+          const color = m.state === 'done' ? T.muted : m.color;
           return <TickBoxGlyph key={i} color={color} done={m.state === 'done'} />;
         })}
         {all.length > 6 && <Text style={s.markMore}>+</Text>}
