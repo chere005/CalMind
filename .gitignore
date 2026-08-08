@@ -19,3 +19,4 @@ server/data/
 *.log
 .DS_Store
 .claude/ralph-loop.local.md
+desktop/src-tauri/target/

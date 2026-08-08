@@ -3,7 +3,8 @@
   "private": true,
   "workspaces": [
     "packages/*",
-    "apps/app"
+    "apps/app",
+    "desktop"
   ],
   "scripts": {
     "test": "npm run test:core && npm run test:server",

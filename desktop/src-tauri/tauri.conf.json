@@ -1,0 +1,30 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "CalMind",
+  "version": "0.1.0",
+  "identifier": "com.seancheren.calmind.desktop",
+  "build": {
+    "frontendDist": "../../apps/app/dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "CalMind",
+        "width": 1160,
+        "height": 800,
+        "minWidth": 420,
+        "minHeight": 600,
+        "backgroundColor": "#111111"
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["app"],
+    "icon": ["icons/icon.icns", "icons/icon.png"],
+    "category": "Productivity"
+  }
+}

@@ -9,6 +9,11 @@ import { Platform } from 'react-native';
  */
 export function defaultServerUrl(): string {
   if (Platform.OS === 'web' && typeof location !== 'undefined') {
+    // The Tauri desktop shell serves the bundle from its own origin, so
+    // same-origin api/ points nowhere — it talks to the live test API.
+    if (location.protocol === 'tauri:' || location.hostname === 'tauri.localhost') {
+      return 'https://seancheren.com/test/calmind/api/index.php';
+    }
     // Only the Expo dev server (metro) needs the absolute fallback — its port
     // serves no api/. Anything else (deployed, the e2e router, a local php -S)
     // serves api/ beside the page, so same-origin relative is the truth.
