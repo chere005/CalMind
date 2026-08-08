@@ -13,6 +13,7 @@ import {
   byOrd,
   moveReminderBlock,
   newId,
+  renameSection,
   ordBetween,
   parseWhenFromText,
   repeatLabel,
@@ -49,7 +50,11 @@ export function Reminders() {
   const [editText, setEditText] = useState('');
   const [addingSection, setAddingSection] = useState<string | null>(null); // folderId
   const [newName, setNewName] = useState('');
+  const [renamingSec, setRenamingSec] = useState<string | null>(null);
+  const [renameSecText, setRenameSecText] = useState('');
+  const lastSecTap = React.useRef<{ id: string; at: number }>({ id: '', at: 0 });
   const [folded, setFolded] = useState<Set<string>>(new Set());
+  const lastTap = React.useRef<{ id: string; at: number }>({ id: '', at: 0 });
   const [modalRec, setModalRec] = useState<ReminderRec | null>(null); // the full-edit window
 
   // Collapse state survives visits, per the suite's localStorage habit.
@@ -297,7 +302,39 @@ export function Reminders() {
                     <Pressable onPress={() => toggleFold(sec.id)} hitSlop={8}>
                       <Text style={s.chevron}>{isFolded ? '▸' : '▾'}</Text>
                     </Pressable>
-                    <Text style={s.secName}>{sec.payload.name}</Text>
+                    {renamingSec === sec.id ? (
+                      <Field
+                        value={renameSecText}
+                        onChangeText={setRenameSecText}
+                        autoFocus
+                        style={s.secRename}
+                        onBlur={() => {
+                          setRenamingSec(null);
+                          const res = renameSection(recs, sec.id, renameSecText);
+                          if (!('error' in res)) mutate((e) => res.put.forEach((r) => e.put(r)));
+                        }}
+                        onSubmitEditing={() => {
+                          setRenamingSec(null);
+                          const res = renameSection(recs, sec.id, renameSecText);
+                          if (!('error' in res)) mutate((e) => res.put.forEach((r) => e.put(r)));
+                        }}
+                      />
+                    ) : (
+                      <Pressable
+                        onPress={() => {
+                          const now = Date.now();
+                          if (lastSecTap.current.id === sec.id && now - lastSecTap.current.at < 300) {
+                            setRenamingSec(sec.id);
+                            setRenameSecText(sec.payload.name);
+                          }
+                          lastSecTap.current = { id: sec.id, at: now };
+                        }}
+                        onLongPress={() => { setRenamingSec(sec.id); setRenameSecText(sec.payload.name); }}
+                        delayLongPress={350}
+                      >
+                        <Text style={s.secName}>{sec.payload.name}</Text>
+                      </Pressable>
+                    )}
                     <CircleBtn testID={`secadd-${sec.payload.name}`} glyph="+" color={T.accent} size={22} onPress={() => { setAdding(sec.id); setAddText(''); if (isFolded) toggleFold(sec.id); }} />
                   </View>
                   {adding === sec.id && (
@@ -352,6 +389,15 @@ export function Reminders() {
                             <Pressable
                               testID="rem-body"
                               style={s.rowBody}
+                              onPress={() => {
+                                // Double-click on desktop, as prod: two taps inside 300ms.
+                                const now = Date.now();
+                                if (lastTap.current.id === r.id && now - lastTap.current.at < 300) {
+                                  setEditing(r.id);
+                                  setEditText(r.payload.text);
+                                }
+                                lastTap.current = { id: r.id, at: now };
+                              }}
                               onLongPress={() => { setEditing(r.id); setEditText(r.payload.text); }}
                               delayLongPress={350}
                             >
@@ -383,7 +429,7 @@ const s = StyleSheet.create({
   folderHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   folderName: {
     color: T.text,
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: '700',
     paddingHorizontal: 10,
     paddingVertical: 3,
@@ -394,14 +440,15 @@ const s = StyleSheet.create({
   section: { gap: 6 },
   secHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
   chevron: { color: T.muted, fontSize: 12, width: 14, textAlign: 'center' },
-  secName: { color: T.gold, fontSize: 14, fontWeight: '700' },
+  secName: { color: T.gold, fontSize: 15, fontWeight: '700' },
+  secRename: { flex: 1, paddingVertical: 4 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 10, height: 46 },
   rowGrip: { width: 16, alignItems: 'center', justifyContent: 'center' },
   rowGripText: { color: T.lineSoft, fontSize: 13, userSelect: 'none' },
   dropLine: { height: 2, backgroundColor: T.accent, borderRadius: 1, marginVertical: 1 },
   rowIndented: { paddingLeft: 28 },
   rowBody: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
-  rowText: { color: T.text, fontSize: 16, flexShrink: 1 },
+  rowText: { color: T.text, fontSize: 17, flexShrink: 1 },
   rowTextDone: { color: T.muted, textDecorationLine: 'line-through' },
   editField: { flex: 1 },
   tick: {
@@ -415,7 +462,7 @@ const s = StyleSheet.create({
   },
   tickDone: { backgroundColor: T.accentInk, borderColor: T.accent },
   tickMark: { color: T.accent, fontSize: 13, fontWeight: '700' },
-  chip: { color: T.dim, fontSize: 12 },
+  chip: { color: T.dim, fontSize: 13 },
   chipOverdue: { color: T.overdue, fontWeight: '600' },
   repRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingLeft: 34, paddingBottom: 6, alignItems: 'center' },
   repCount: { flexDirection: 'row', alignItems: 'center', gap: 6 },

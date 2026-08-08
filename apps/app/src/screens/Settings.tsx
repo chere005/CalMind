@@ -4,7 +4,7 @@
  * one modal.
  */
 import React, { useState } from 'react';
-import { Modal, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { changePassword, logout } from '../api';
 import { useStore } from '../store';
 import { CircleBtn, Field, Pill, ErrorLine } from '../ui';
@@ -34,8 +34,8 @@ export function Settings({ onClose }: { onClose: () => void }) {
 
   return (
     <Modal transparent animationType="fade" onRequestClose={onClose}>
-      <View style={s.backdrop}>
-        <View style={s.card}>
+      <Pressable style={s.backdrop} onPress={onClose}>
+        <Pressable style={s.card} onPress={() => {}}>
           <Text style={s.h2}>Settings</Text>
           <Text style={s.who}>{session?.username}</Text>
           <Field value={oldPass} onChangeText={setOldPass} placeholder="Current password" secureTextEntry />
@@ -61,8 +61,8 @@ export function Settings({ onClose }: { onClose: () => void }) {
               }}
             />
           </View>
-        </View>
-      </View>
+        </Pressable>
+      </Pressable>
     </Modal>
   );
 }

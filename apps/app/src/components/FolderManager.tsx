@@ -6,7 +6,7 @@
  * items" as folder·section pills. All rules come from core/manage.
  */
 import React, { useMemo, useState } from 'react';
-import { Modal, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import {
   byOrd,
   deleteFolder,
@@ -21,6 +21,7 @@ import {
 import { useStore } from '../store';
 import { APP_PALETTES, T } from '../theme';
 import { CircleBtn, ConfirmDelete, Field, Pill } from '../ui';
+import { Dropdown } from './Dropdown';
 import { ordForMove, useRowDrag } from './rowdrag';
 
 export function FolderManager({ app, onClose }: { app: 'reminders' | 'notes'; onClose: () => void }) {
@@ -102,8 +103,8 @@ export function FolderManager({ app, onClose }: { app: 'reminders' | 'notes'; on
 
   return (
     <Modal transparent animationType="fade" onRequestClose={onClose}>
-      <View style={s.backdrop}>
-        <View style={s.card}>
+      <Pressable style={s.backdrop} onPress={onClose}>
+        <Pressable style={s.card} onPress={() => {}}>
           <ScrollView contentContainerStyle={s.scroll}>
             <Text style={s.h2}>Folders</Text>
             <View style={s.addRow}>
@@ -140,24 +141,20 @@ export function FolderManager({ app, onClose }: { app: 'reminders' | 'notes'; on
             {drag.slot === folders.length && <View style={s.dropLine} />}
 
             <Text style={s.label}>Default for new items</Text>
-            <View style={s.rowWrap}>
-              {sectionChoices.map((c) => (
-                <Pill
-                  key={c.sec.id}
-                  label={c.label}
-                  primary={defaultSectionId ? defaultSectionId === c.sec.id : false}
-                  onPress={() => mutate((e) => e.put(prefsPut(recs, app, { defaultSectionId: c.sec.id })))}
-                />
-              ))}
-            </View>
+            <Dropdown
+              value={defaultSectionId ?? null}
+              options={sectionChoices.map((c) => ({ id: c.sec.id, label: c.label }))}
+              onPick={(id) => mutate((e) => e.put(prefsPut(recs, app, { defaultSectionId: id })))}
+              gold
+            />
 
             {err !== '' && <Text style={s.err}>{err}</Text>}
             <View style={s.doneRow}>
               <Pill label="Done" primary onPress={onClose} />
             </View>
           </ScrollView>
-        </View>
-      </View>
+        </Pressable>
+      </Pressable>
     </Modal>
   );
 }

@@ -1,7 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96">
-  <!-- CalMind: the pie-C with the nested M. Canonical mark; app renders it via src/Logo.tsx. -->
+  <!-- CalMind: the one-stroke CM — one line flows from the C into the M. Sean's pick (option C). -->
   <rect width="96" height="96" rx="20" fill="#111111"/>
-  <path d="M 48 48 L 73 33 A 29 29 0 1 0 73 63 Z" fill="#06251b"/>
-  <path d="M 72.5 33.8 A 29 29 0 1 0 72.5 62.2" fill="none" stroke="#34d399" stroke-width="9" stroke-linecap="round"/>
-  <polyline points="35,60 35,40 47,52 59,40 59,60" fill="none" stroke="#eeeeee" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M 58 26 A 27 27 0 1 0 58 70 L 58 44 L 69 57 L 80 44 L 80 70"
+        fill="none" stroke="#34d399" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>

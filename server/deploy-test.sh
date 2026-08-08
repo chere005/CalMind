@@ -58,6 +58,8 @@ rsync -avL $DRY server/public/api/ "$SSH_DEST:$WEB_DEST/api/"
 
 if [ "$WEB" = 1 ] && [ -d apps/app/dist ]; then
   echo "==> [TEST] web client -> $WEB_DEST/"
+  ICOV=$(shasum apps/app/dist/favicon.ico | cut -c1-8)
+  perl -i -pe "s|favicon\.ico(\?v=[0-9a-f]*)?|favicon.ico?v=$ICOV|" apps/app/dist/index.html
   rsync -avL $DRY --exclude 'api' apps/app/dist/ "$SSH_DEST:$WEB_DEST/"
   # index.html must revalidate; the hashed bundles cache forever.
   rsync -avL $DRY server/public/web.htaccess "$SSH_DEST:$WEB_DEST/.htaccess"

@@ -96,6 +96,24 @@ honest — the next iteration trusts it.
   empty sections can't be drop targets yet; SECTION drag (blocks between
   folders, last-section-out ask) still open. Notes rows don't drag yet.
 
+## Iteration 6.5 shipped (Sean's live steering batch)
+- The mark is Sean's pick: option C, the one-stroke CM — logo.svg, Logo.tsx,
+  favicon/icon/splash/adaptive all re-rendered; favicon.ico deploys with a
+  ?v=<hash> stamp and hourly cache so a changed icon always shows.
+- Add is prod's page: date line, kind CARDS with icons, +Folder/Section
+  +Date/Time +Repeat reveals, full-width accent Done that adds and returns,
+  the typed-patterns help block.
+- The note editor is prod's: dropdown-styled header (← All notes · folder ·
+  gold section dropdowns), boxed title + dashed +Add date, pill toolbar
+  (" B I U ·List) under the name, outlined tinted body, Saved left /
+  text Delete (two-press) right.
+- Dropdown is the one select everywhere (ItemModal, Add, managers, note
+  header) — no more pill walls. Every modal closes on outside click.
+- Calendar: tighter cells with an inner tile so the picked day breathes,
+  ☑ completed toggle on the panel, spurious ◉ gone (month label taps home).
+- Reminders: prod type scale; rows AND section names edit by double-click or
+  long-press.
+
 ## In flight (iteration 7 — start here)
 - Notes row drag (same flat model) + section drag as blocks with the suite's
   cross-folder rules (duplicate-name refusal, last-section-out ask).

@@ -20,6 +20,7 @@ import {
 import { useStore } from '../store';
 import { APP_PALETTES, T } from '../theme';
 import { CircleBtn, ConfirmDelete, Field, Pill } from '../ui';
+import { Dropdown } from './Dropdown';
 import { ordForMove, useRowDrag } from './rowdrag';
 import { PieDot } from './PieDot';
 
@@ -158,8 +159,8 @@ function CalendarManager({ onClose }: { onClose: () => void }) {
 
   return (
     <Modal transparent animationType="fade" onRequestClose={onClose}>
-      <View style={s.backdrop2}>
-        <View style={s.card}>
+      <Pressable style={s.backdrop2} onPress={onClose}>
+        <Pressable style={s.card} onPress={() => {}}>
           <ScrollView contentContainerStyle={s.scroll}>
             <Text style={s.h2}>Calendars</Text>
             <View style={s.addRow}>
@@ -191,23 +192,18 @@ function CalendarManager({ onClose }: { onClose: () => void }) {
             ))}
             {drag.slot === calendars.length && <View style={s.dropLine} />}
             <Text style={s.label}>Default for new events</Text>
-            <View style={s.rowWrap}>
-              {calendars.map((c) => (
-                <Pill
-                  key={c.id}
-                  label={c.payload.name}
-                  primary={defaultCalendarId === c.id}
-                  onPress={() => mutate((e) => e.put(prefsPut(recs, 'calendar', { defaultCalendarId: c.id })))}
-                />
-              ))}
-            </View>
+            <Dropdown
+              value={defaultCalendarId ?? null}
+              options={calendars.map((c) => ({ id: c.id, label: c.payload.name }))}
+              onPick={(id) => mutate((e) => e.put(prefsPut(recs, 'calendar', { defaultCalendarId: id })))}
+            />
             {err !== '' && <Text style={s.err}>{err}</Text>}
             <View style={s.doneRow}>
               <Pill label="Done" primary onPress={onClose} />
             </View>
           </ScrollView>
-        </View>
-      </View>
+        </Pressable>
+      </Pressable>
     </Modal>
   );
 }

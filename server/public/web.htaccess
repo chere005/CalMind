@@ -4,6 +4,9 @@
 <Files "index.html">
   Header set Cache-Control "no-cache"
 </Files>
-<FilesMatch "\.(js|png|ico)$">
+<FilesMatch "\.(js|png)$">
   Header set Cache-Control "public, max-age=31536000, immutable"
 </FilesMatch>
+<Files "favicon.ico">
+  Header set Cache-Control "public, max-age=3600"
+</Files>

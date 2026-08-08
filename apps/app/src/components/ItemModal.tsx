@@ -7,7 +7,7 @@
  * it was an instruction, not part of the name.
  */
 import React, { useMemo, useState } from 'react';
-import { Modal, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import {
   byOrd,
   newId,
@@ -25,6 +25,7 @@ import {
 import { useStore } from '../store';
 import { T } from '../theme';
 import { CircleBtn, ConfirmDelete, Field, Pill } from '../ui';
+import { Dropdown } from './Dropdown';
 
 export type ItemKind = 'event' | 'reminder' | 'note';
 type ItemRec = Rec<'event'> | Rec<'reminder'> | Rec<'note'>;
@@ -157,8 +158,8 @@ export function ItemModal({
 
   return (
     <Modal transparent animationType="fade" onRequestClose={onClose}>
-      <View style={s.backdrop}>
-        <View style={s.card}>
+      <Pressable style={s.backdrop} onPress={onClose}>
+        <Pressable style={s.card} onPress={() => {}}>
           <ScrollView contentContainerStyle={s.scroll}>
             <Text style={s.h2}>{mode === 'create' ? 'New' : 'Edit'}</Text>
             {mode === 'create' && (
@@ -206,13 +207,20 @@ export function ItemModal({
 
             <Text style={s.label}>{kind === 'event' ? 'Calendar' : 'Goes in'}</Text>
             <View style={s.rowWrap}>
-              {kind === 'event'
-                ? calendars.map((c) => (
-                    <Pill key={c.id} label={c.payload.name} primary={resolvedDest?.id === c.id} onPress={() => setDest(c.id)} />
-                  ))
-                : sectionChoices.map((c) => (
-                    <Pill key={c.sec.id} label={c.label} primary={resolvedDest?.id === c.sec.id} onPress={() => setDest(c.sec.id)} />
-                  ))}
+              {kind === 'event' ? (
+                <Dropdown
+                  value={resolvedDest?.id ?? null}
+                  options={calendars.map((c) => ({ id: c.id, label: c.payload.name }))}
+                  onPick={setDest}
+                />
+              ) : (
+                <Dropdown
+                  value={resolvedDest?.id ?? null}
+                  options={sectionChoices.map((c) => ({ id: c.sec.id, label: c.label }))}
+                  onPick={setDest}
+                  gold
+                />
+              )}
             </View>
 
             {err !== '' && <Text style={s.err}>{err}</Text>}
@@ -224,8 +232,8 @@ export function ItemModal({
               </View>
             </View>
           </ScrollView>
-        </View>
-      </View>
+        </Pressable>
+      </Pressable>
     </Modal>
   );
 }

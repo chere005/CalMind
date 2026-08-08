@@ -5,7 +5,7 @@
  * refusals (the last section stays) surface from core.
  */
 import React, { useMemo, useState } from 'react';
-import { Modal, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { byOrd, deleteHabitSection, newId, ordBetween, type Rec } from '@calmind/core';
 import { useStore } from '../store';
 import { APP_PALETTES, T } from '../theme';
@@ -68,8 +68,8 @@ export function HabitSectionManager({ onClose }: { onClose: () => void }) {
 
   return (
     <Modal transparent animationType="fade" onRequestClose={onClose}>
-      <View style={s.backdrop}>
-        <View style={s.card}>
+      <Pressable style={s.backdrop} onPress={onClose}>
+        <Pressable style={s.card} onPress={() => {}}>
           <ScrollView contentContainerStyle={s.scroll}>
             <Text style={s.h2}>Sections</Text>
             <View style={s.addRow}>
@@ -122,8 +122,8 @@ export function HabitSectionManager({ onClose }: { onClose: () => void }) {
               <Pill label="Done" primary onPress={onClose} />
             </View>
           </ScrollView>
-        </View>
-      </View>
+        </Pressable>
+      </Pressable>
     </Modal>
   );
 }

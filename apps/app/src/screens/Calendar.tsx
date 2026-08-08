@@ -47,6 +47,7 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
     setFolded(next);
     AsyncStorage.setItem('calmind.calFold', JSON.stringify([...next])).catch(() => {});
   };
+  const [showDone, setShowDone] = useState(false);
   const [modal, setModal] = useState<null | { mode: 'create' } | { mode: 'edit'; kind: ItemKind; rec: Rec<'event'> | Rec<'reminder'> | Rec<'note'> }>(null);
 
   const [year, month] = ym.split('-').map(Number) as [number, number];
@@ -108,9 +109,11 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
           d === null ? (
             <View key={`b${i}`} style={s.cell} />
           ) : (
-            <Pressable key={d} onPress={() => setDay(d)} style={[s.cell, d === day && s.cellPicked]}>
-              <Text style={[s.cellNum, d === today && s.cellToday]}>{Number(d.slice(8))}</Text>
-              {cellMark(d)}
+            <Pressable key={d} onPress={() => setDay(d)} style={s.cell}>
+              <View style={[s.cellInner, d === day && s.cellPicked]}>
+                <Text style={[s.cellNum, d === today && s.cellToday]}>{Number(d.slice(8))}</Text>
+                {cellMark(d)}
+              </View>
             </Pressable>
           ),
         )}
@@ -133,7 +136,10 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
       <ScrollView style={s.panel} contentContainerStyle={s.panelInner}>
         <View style={s.panelHead}>
           <Text style={s.panelTitle}>{dayLabel}</Text>
-          <Pill label="+ Add" primary onPress={() => setModal({ mode: 'create' })} />
+          <View style={s.panelBtns}>
+            <CircleBtn glyph="☑" active={showDone} onPress={() => setShowDone(!showDone)} />
+            <Pill label="+ Add" primary onPress={() => setModal({ mode: 'create' })} />
+          </View>
         </View>
         {items.events.length > 0 && (
           <Pressable style={s.groupHead} onPress={() => toggleFold('events')}>
@@ -156,7 +162,7 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
             <Text style={s.groupTitle}>Reminders</Text>
           </Pressable>
         )}
-        {!folded.has('reminders') && items.reminders.map(({ rec: r, overdue, rider }) => (
+        {!folded.has('reminders') && items.reminders.filter(({ rec: r }) => showDone || !r.payload.done).map(({ rec: r, overdue, rider }) => (
           <View key={r.id} style={s.row}>
             <Pressable onPress={() => tick(r)} hitSlop={8} style={[s.tickBox, r.payload.done && s.tickDone, overdue && s.tickOverdue]}>
               {r.payload.done && <Text style={s.tickMark}>✓</Text>}
@@ -205,11 +211,13 @@ const s = StyleSheet.create({
   ymLabel: { color: T.text, fontSize: 15, fontWeight: '600', minWidth: 150, textAlign: 'center' },
   grid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 8, paddingVertical: 6 },
   weekday: { width: `${100 / 7}%`, textAlign: 'center', color: T.muted, fontSize: 11, paddingVertical: 2 },
-  cell: { width: `${100 / 7}%`, minHeight: 52, alignItems: 'center', paddingTop: 4, borderRadius: 8 },
+  cell: { width: `${100 / 7}%` },
+  cellInner: { margin: 1.5, minHeight: 46, alignItems: 'center', paddingTop: 3, paddingBottom: 2, borderRadius: 8 },
   cellPicked: { backgroundColor: T.surface2 },
+  panelBtns: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   cellNum: { color: T.text, fontSize: 13 },
   cellToday: { color: T.accentInk, backgroundColor: T.accent, borderRadius: 9, minWidth: 18, height: 18, textAlign: 'center', lineHeight: 18, fontWeight: '700', overflow: 'hidden' },
-  markWell: { flexDirection: 'row', flexWrap: 'wrap', gap: 2, marginTop: 2, alignItems: 'center', justifyContent: 'center', maxWidth: 44, minHeight: 24 },
+  markWell: { flexDirection: 'row', flexWrap: 'wrap', gap: 1.5, marginTop: 1, alignItems: 'center', justifyContent: 'center', maxWidth: 40, minHeight: 22 },
   markMore: { color: T.dim, fontSize: 10, lineHeight: 11 },
   legend: { maxHeight: 88 },
   legendInner: { paddingHorizontal: 16, paddingVertical: 6 },
