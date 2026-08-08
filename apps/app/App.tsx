@@ -1,5 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { SafeAreaView, StatusBar, StyleSheet, View } from 'react-native';
+import { StatusBar, StyleSheet, View } from 'react-native';
+// RN's own SafeAreaView is iOS-only — on Android the top bar sat under the
+// status bar and the tab bar under the gesture bar. This one insets on both.
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { StoreProvider, useStore } from './src/store';
 import { TabBar, NavCtx, type Tab } from './src/nav';
 import { Login } from './src/screens/Login';
@@ -98,10 +101,12 @@ export default function App() {
   const light = THEMES_LIGHT.includes(currentTheme());
   return (
     <StoreProvider>
-      <SafeAreaView key={themeGen} testID="page-root" style={s.page}>
-        <StatusBar barStyle={light ? 'dark-content' : 'light-content'} backgroundColor={T.bg} />
-        <Root />
-      </SafeAreaView>
+      <SafeAreaProvider>
+        <SafeAreaView key={themeGen} testID="page-root" style={s.page} edges={['top', 'bottom', 'left', 'right']}>
+          <StatusBar barStyle={light ? 'dark-content' : 'light-content'} backgroundColor={T.bg} />
+          <Root />
+        </SafeAreaView>
+      </SafeAreaProvider>
     </StoreProvider>
   );
 }

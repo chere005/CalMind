@@ -11,12 +11,75 @@ const QTY = /^\s*(\d+([./]\d+)?|½|¼|¾|⅓|⅔|⅛)\s*(cups?|cup|tsp|tbsp|teas
 const STEP = /^\s*(\d+)[.)]\s+/;
 
 export type RecipeResult = { title: string | null; body: string };
+export type RecipeParts = { title: string | null; ingredients: string[]; steps: string[]; extra: string[] };
+
+const UNIT_MAP: Record<string, string> = {
+  gram: 'g', grams: 'g', g: 'g', kilogram: 'kg', kilograms: 'kg', kg: 'kg',
+  milliliter: 'ml', milliliters: 'ml', ml: 'ml', liter: 'l', liters: 'l', l: 'l',
+  teaspoon: 'tsp', teaspoons: 'tsp', tsp: 'tsp', tablespoon: 'tbsp', tablespoons: 'tbsp', tbsp: 'tbsp',
+  ounce: 'oz', ounces: 'oz', oz: 'oz', pound: 'lb', pounds: 'lb', lb: 'lb', lbs: 'lb',
+  cup: 'cup', cups: 'cups', clove: 'clove', cloves: 'cloves', can: 'can', cans: 'cans',
+  pinch: 'pinch', dash: 'dash', stick: 'stick', sticks: 'sticks', slice: 'slice', slices: 'slices',
+};
+const FRACTIONS: Record<string, string> = { '1/2': '½', '1/4': '¼', '3/4': '¾', '1/3': '⅓', '2/3': '⅔', '1/8': '⅛' };
+
+/** '2tbsp olive oil' → '2 tbsp olive oil'; '1/2 CUP milk' → '½ cup milk' —
+ *  the quantity spaced, the unit canonical, fractions typographic. */
+export function parseIngredient(text: string): string {
+  let t = text.replace(/\s+/g, ' ').trim();
+  if (t === '') return '';
+  const m = t.match(/^(\d+\s+\d\/\d|\d\/\d|\d+([.,]\d+)?|[½¼¾⅓⅔⅛])\s*([a-zA-Z]+)?\s*(.*)$/);
+  if (!m) return t;
+  let qty = m[1]!.replace(',', '.');
+  qty = qty.replace(/(\d)\s+(\d\/\d)/, (_s, a, f) => `${a} ${FRACTIONS[f] ?? f}`);
+  if (FRACTIONS[qty]) qty = FRACTIONS[qty];
+  const unitRaw = (m[3] ?? '').toLowerCase();
+  const rest = (m[4] ?? '').trim();
+  const unit = UNIT_MAP[unitRaw];
+  if (unit) return [qty, unit, rest].filter(Boolean).join(' ');
+  // Not a known unit: the word belongs to the ingredient itself.
+  return [qty, [m[3], rest].filter(Boolean).join(' ').trim()].filter(Boolean).join(' ');
+}
+
+/** The marker body the structured page saves: bold headings, ingredient
+ *  bullets, numbered steps — the same shape the reader renders. */
+export function recipeBody(ingredients: string[], steps: string[]): string {
+  const out: string[] = [];
+  if (ingredients.length) {
+    out.push('**Ingredients**');
+    for (const i of ingredients) out.push('- ' + i);
+  }
+  if (steps.length) {
+    if (out.length) out.push('');
+    out.push('**Directions**');
+    steps.forEach((s, i) => out.push(`${i + 1}. ${s.replace(/^\s*\d+[.)]\s*/, '')}`));
+  }
+  return out.join('\n');
+}
+
+/**
+ * OCR junk never reaches the note: smart quotes and long dashes normalise,
+ * bullet glyphs become plain markers, and anything that isn't a letter,
+ * number, cooking fraction or ordinary punctuation goes. Imperfect words are
+ * fine — the user fixes those — but stray symbol noise is not.
+ */
+export function scrubLine(raw: string): string {
+  return raw
+    .replace(/[\u2019\u2018`\u00b4]/g, "'")
+    .replace(/[\u201c\u201d\u00ab\u00bb]/g, '"')
+    .replace(/[\u2013\u2014\u2015]/g, '-')
+    .replace(/[\u2022\u25cf\u25aa\u2023\u00b7\u25e6*]/g, ' ')
+    .replace(/[^\p{L}\p{N}\s,.:;!?()/&%\u00b0'"\u00bd\u00bc\u00be\u2153\u2154\u215b-]/gu, ' ')
+    .replace(/([,.:;!?/-])\1+/g, '$1')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
 
 export function formatRecipe(pages: string[]): RecipeResult {
   const lines: string[] = [];
   for (const page of pages) {
     for (const raw of page.split('\n')) {
-      const l = raw.replace(/\s+/g, ' ').trim();
+      const l = scrubLine(raw);
       if (l !== '') lines.push(l);
     }
   }
@@ -68,4 +131,20 @@ export function formatRecipe(pages: string[]): RecipeResult {
     out.push(l);
   }
   return { title, body: out.join('\n').replace(/\n{3,}/g, '\n\n').trim() };
+}
+
+/** OCR pages into the structured parts the Add-Recipe page edits. */
+export function recipeFromPages(pages: string[]): RecipeParts {
+  const flat = formatRecipe(pages);
+  const ingredients: string[] = [];
+  const steps: string[] = [];
+  const extra: string[] = [];
+  for (const line of flat.body.split('\n')) {
+    const l = line.trim();
+    if (l === '' || /^\*\*.*\*\*$/.test(l)) continue;
+    if (l.startsWith('- ')) ingredients.push(parseIngredient(l.slice(2)));
+    else if (/^\d+[.)]\s/.test(l)) steps.push(l.replace(/^\d+[.)]\s*/, ''));
+    else extra.push(l);
+  }
+  return { title: flat.title, ingredients, steps, extra };
 }
