@@ -418,6 +418,28 @@ test('sharing: mutual handshake, @partner view, a tick lands in their store', as
   await expect(pageB.getByText('chop onions')).toBeVisible({ timeout: 15_000 });
   await pageB.getByTestId('all-shared-tick').first().click();
   await expect(pageB.getByText('chop onions')).toBeHidden({ timeout: 10_000 });
+
+  // The shared recolour: my override, my prefs, their data untouched.
+  await pageB.getByTestId('pick-reminders').click();
+  await pageB.getByText('Manage folders…').click();
+  const swatch = pageB.getByTestId('shared-swatch-Reminders');
+  const before = await swatch.evaluate((el) => getComputedStyle(el).backgroundColor);
+  await swatch.click();
+  await expect.poll(() => swatch.evaluate((el) => getComputedStyle(el).backgroundColor)).not.toBe(before);
+  await pageB.getByText('Done', { exact: true }).click();
+
+  // The add window's partner pair: a reminder dropped straight into A's
+  // shared section, exactly one owner selected.
+  await pageB.getByTestId('tab-calendar').click();
+  await pageB.getByText('+ Add', { exact: true }).click();
+  await pageB.getByTestId('kind-reminder').click();
+  await pageB.getByPlaceholder(/What\?/).fill('buy bread');
+  await pageB.getByText('—', { exact: true }).click();
+  await pageB.getByText('Reminders · General', { exact: true }).last().click();
+  await pageB.getByText('Save', { exact: true }).click();
+  await pageA.reload();
+  await pageA.getByTestId('tab-reminders').click();
+  await expect(pageA.getByTestId('rem-row').filter({ hasText: 'buy bread' })).toBeVisible({ timeout: 10_000 });
   await ctxA.close();
   await ctxB.close();
 });

@@ -321,12 +321,28 @@ honest — the next iteration trusts it.
   shared body and A reads 'then onions' in their own editor.
 - 126 core + 20 server + 18 gesture tests.
 
-## In flight (iteration 19 — start here)
-- Shared recolour overrides (viewer-side, APP_PALETTES_SHARED lighter tier).
-- Add app: a shared destination picker pair (mine / partner's, exactly one
-  owner selected), like the suite's day-panel add window.
-- Widget feed: partner riders? (check the suite — feed is own-data only).
+## Iteration 19 shipped
+- SHARED RECOLOURS: the viewer's override (Prefs.sharedColors, keyed
+  @partner:id) resolves in the STORE, so the picker, shared views, All
+  blocks, cells and legend all follow from one place — the suite's
+  folder_shared_color chain, owner colour as the fallback, owner data never
+  touched. The folder manager's read-only 'Shared with me' rows carry the
+  swatch, cycling APP_PALETTES_SHARED's lighter tier.
+- PARTNER DESTINATIONS in the add window: the suite's per-owner picker
+  pair — my dropdown and an @partner's dropdown led by the blank '—',
+  exactly one owner ever selected ('~'-prefixed ids so a shared choice can
+  never be mistaken for mine); a shared pick writes THEIR store via
+  sharedPut. Create mode only, as the suite offers.
+- Specs extended in place: the swatch cycles under a real click, and B's
+  'buy bread' dropped into A's shared section shows in A's own list.
+- 126 core + 20 server + 18 gesture tests.
+
+## In flight (iteration 20 — start here)
+- Widget feed: confirm own-data-only against the suite's feed.php (riders,
+  rolled, 21 days) — write the comparison note either way.
 - Habits 8th wide-only column; drag known-simplifications sweep.
+- Calendar shared-calendar recolour rows (folders shipped; calendars still
+  show owner colour only in the manager).
 
 ## Next, in pain order
 1. Habits month view (day pies + its legend) + Manage-sections window +

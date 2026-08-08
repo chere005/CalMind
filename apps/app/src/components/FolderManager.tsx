@@ -20,12 +20,27 @@ import {
 } from '@calmind/core';
 import { useStore } from '../store';
 import { themed, APP_PALETTES, T } from '../theme';
+import { APP_PALETTES_SHARED } from '../theme';
 import { CircleBtn, ConfirmDelete, Field, Pill } from '../ui';
 import { Dropdown } from './Dropdown';
 import { ordForMove, useRowDrag } from './rowdrag';
 
 export function FolderManager({ app, onClose }: { app: 'reminders' | 'notes'; onClose: () => void }) {
-  const { recs, mutate } = useStore();
+  const { recs, mutate, sharedRecs, sharedPartner } = useStore();
+  // The suite's shared recolour: a read-only row per shared folder whose
+  // swatch cycles the LIGHTER shared palette — the override is mine, stored
+  // in my prefs, and never touches the owner's data.
+  const sharedFolders = sharedPartner
+    ? sharedRecs.filter((r): r is Rec<'folder'> => r.type === 'folder' && (r.payload.app ?? 'reminders') === app)
+    : [];
+  const sharedPal = APP_PALETTES_SHARED[app];
+  const recolorShared = (f: Rec<'folder'>) => {
+    const key = `@${sharedPartner}:${f.id}`;
+    const cur = prefsOf(recs, app).sharedColors ?? {};
+    const at = sharedPal.indexOf(cur[key] ?? f.payload.color);
+    const next = sharedPal[(at + 1) % sharedPal.length]!;
+    mutate((e) => e.put(prefsPut(recs, app, { sharedColors: { ...cur, [key]: next } })));
+  };
   const [newName, setNewName] = useState('');
   const [renaming, setRenaming] = useState<string | null>(null);
   const [renameText, setRenameText] = useState('');
@@ -140,6 +155,18 @@ export function FolderManager({ app, onClose }: { app: 'reminders' | 'notes'; on
             ))}
             {drag.slot === folders.length && <View style={s.dropLine} />}
 
+            {sharedFolders.length > 0 && (
+              <>
+                <Text style={s.label}>Shared with me</Text>
+                {sharedFolders.map((f) => (
+                  <View key={f.id} style={s.row}>
+                    <CircleBtn testID={`shared-swatch-${f.payload.name}`} glyph=" " size={22} onPress={() => recolorShared(f)} bg={f.payload.color} />
+                    <Text style={s.sharedName}>@{sharedPartner}: {f.payload.name}</Text>
+                  </View>
+                ))}
+              </>
+            )}
+
             <Text style={s.label}>Default for new items</Text>
             <Dropdown
               value={defaultSectionId ?? null}
@@ -172,6 +199,7 @@ const s = themed(() => StyleSheet.create({
   dropLine: { height: 2, backgroundColor: T.accent, borderRadius: 1, marginVertical: 1 },
   rowText: { color: T.text, fontSize: 15, flex: 1 },
   renameField: { flex: 1, paddingVertical: 6 },
+  sharedName: { color: T.dim, fontSize: 15, flex: 1 },
   label: { color: T.dim, fontSize: 13, marginTop: 6 },
   rowWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   err: { color: T.danger, fontSize: 13 },

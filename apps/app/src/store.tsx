@@ -8,7 +8,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { SyncEngine, normalize, prefsOf, type AnyRec } from '@calmind/core';
+import { SyncEngine, normalize, prefsOf, folderApp, type AnyRec, type Rec } from '@calmind/core';
 import { apiPost, type Session, syncTransport, ApiError } from './api';
 import { pushWatchList } from './watch';
 import { applyTheme, type ThemeName } from './theme';
@@ -50,7 +50,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [syncState, setSyncState] = useState<SyncState>('idle');
   const [partners, setPartners] = useState<PartnerBadge[]>([]);
   const [sharedPartner, setSharedPartner] = useState<string | null>(null);
-  const [sharedRecs, setSharedRecs] = useState<AnyRec[]>([]);
+  const [sharedRaw, setSharedRaw] = useState<AnyRec[]>([]);
   const timers = useRef<{ persist?: ReturnType<typeof setTimeout>; sync?: ReturnType<typeof setTimeout> }>({});
 
   // Seeding starters against an EMPTY engine that simply hasn't pulled yet would
@@ -86,7 +86,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       );
       setPartners(r.partners);
       setSharedPartner(r.partner);
-      setSharedRecs(r.records);
+      setSharedRaw(r.records);
     } catch {
       // Offline: the last pulled copy stands, like any local-first read.
     }
@@ -156,6 +156,25 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     [refresh, syncNow],
   );
 
+  // The suite's folder_shared_color(): the viewer's own recolour override
+  // wins over the owner's colour, resolved HERE so the picker, the shared
+  // views, the All blocks, the cells and the legend all follow for free.
+  const sharedRecs = React.useMemo(() => {
+    if (!sharedPartner || sharedRaw.length === 0) return sharedRaw;
+    const key = (id: string) => `@${sharedPartner}:${id}`;
+    return sharedRaw.map((r) => {
+      if (r.type === 'folder') {
+        const over = prefsOf(recs, folderApp((r as Rec<'folder'>).payload))?.sharedColors?.[key(r.id)];
+        return over ? { ...r, payload: { ...r.payload, color: over } } : r;
+      }
+      if (r.type === 'calendar') {
+        const over = prefsOf(recs, 'calendar').sharedColors?.[key(r.id)];
+        return over ? { ...r, payload: { ...r.payload, color: over } } : r;
+      }
+      return r;
+    }) as AnyRec[];
+  }, [sharedRaw, sharedPartner, recs]);
+
   useEffect(() => {
     const t = prefsOf(recs, 'suite').theme;
     if (t) applyTheme(t as ThemeName);
@@ -169,7 +188,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setRecs([]);
     setPartners([]);
     setSharedPartner(null);
-    setSharedRecs([]);
+    setSharedRaw([]);
     applyTheme('midnight'); // the login page always renders midnight
   }, []);
 
