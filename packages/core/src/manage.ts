@@ -290,3 +290,33 @@ export function moveSection(recs: AnyRec[], sectionId: string, destFolderId: str
   }
   return { put };
 }
+
+/**
+ * The suite's "dragging a folder's last section out asks first" flow: OK
+ * means move the section AND delete the folder it emptied — one result, so
+ * the two writes can't race. The rideAlong folder and an app's last folder
+ * still refuse (they were never offered in the suite either).
+ */
+export function moveSectionEmptyingFolder(
+  recs: AnyRec[],
+  sectionId: string,
+  destFolderId: string,
+  beforeSectionId: string | null,
+): ManageResult {
+  const sec = of(recs, 'section').find((s) => s.id === sectionId);
+  if (!sec) return { error: 'no such section' };
+  const srcFolder = of(recs, 'folder').find((f) => f.id === sec.payload.folderId);
+  if (!srcFolder) return { error: 'no such folder' };
+  if (srcFolder.payload.rideAlong) return { error: 'the Calendar folder is permanent' };
+  const app = folderApp(srcFolder.payload);
+  if (foldersOf(recs, app).length <= 1) return { error: 'an app keeps at least one folder' };
+  // Pretend the section already has a sibling so the plain move goes through,
+  // then tombstone the emptied folder in the same result.
+  const ghost: Rec<'section'> = {
+    id: '__ghost__', type: 'section', updated: 0,
+    payload: { name: '__ghost__', folderId: sec.payload.folderId, ord: 'zzzz' },
+  };
+  const moved = moveSection([...recs, ghost], sectionId, destFolderId, beforeSectionId);
+  if ('error' in moved) return moved;
+  return { put: [...moved.put, { ...srcFolder, deleted: true }] };
+}

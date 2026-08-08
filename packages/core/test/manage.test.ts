@@ -5,7 +5,7 @@
  * and taken names. One implementation, every platform.
  */
 import { describe, it, expect } from 'vitest';
-import { deleteCalendar, deleteFolder, deleteHabitSection, deleteSection, moveNote, moveReminderBlock, moveSection, reminderBlock, renameCalendar, renameFolder, renameSection, prefsOf, prefsPut } from '../src/manage';
+import { deleteCalendar, deleteFolder, deleteHabitSection, deleteSection, moveNote, moveReminderBlock, moveSection, moveSectionEmptyingFolder, reminderBlock, renameCalendar, renameFolder, renameSection, prefsOf, prefsPut } from '../src/manage';
 import { prefsId } from '../src/types';
 import type { AnyRec, Rec } from '../src/types';
 
@@ -259,5 +259,29 @@ describe('moveNote and moveSection — the rest of the outline drag rules', () =
     if ('error' in res) throw new Error(res.error);
     expect((res.put.find((r) => r.id === 's1') as Rec<'section'>).payload.folderId).toBe('f2');
     expect((res.put.find((r) => r.id === 'n1') as Rec<'note'>).payload.folderId).toBe('f2');
+  });
+});
+
+describe('moveSectionEmptyingFolder — the ask-first flow, as one write', () => {
+  const f = (id: string, app: 'reminders' | 'notes' = 'notes', rideAlong = false): Rec<'folder'> => ({
+    id, type: 'folder', updated: 0, payload: { name: id, color: '#fff', ord: id, app, ...(rideAlong ? { rideAlong: true } : {}) },
+  });
+  const sct = (id: string, folderId: string, name: string): Rec<'section'> => ({
+    id, type: 'section', updated: 0, payload: { name, folderId, ord: 'V' },
+  });
+
+  it('moves the last section and tombstones the emptied folder together', () => {
+    const recs: AnyRec[] = [f('f1'), f('f2'), sct('s1', 'f1', 'Only'), sct('s2', 'f2', 'Home')];
+    const res = moveSectionEmptyingFolder(recs, 's1', 'f2', null);
+    if ('error' in res) throw new Error(res.error);
+    expect((res.put.find((r) => r.id === 's1') as Rec<'section'>).payload.folderId).toBe('f2');
+    expect((res.put.find((r) => r.id === 'f1') as Rec<'folder'>).deleted).toBe(true);
+  });
+
+  it('the rideAlong folder and the last folder of an app still refuse', () => {
+    const ride: AnyRec[] = [f('cal', 'reminders', true), f('other', 'reminders'), sct('s1', 'cal', 'Only'), sct('s2', 'other', 'X')];
+    expect('error' in moveSectionEmptyingFolder(ride, 's1', 'other', null)).toBe(true);
+    const last: AnyRec[] = [f('f1'), sct('s1', 'f1', 'Only')];
+    expect('error' in moveSectionEmptyingFolder(last, 's1', 'f1', null)).toBe(true);
   });
 });

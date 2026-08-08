@@ -139,7 +139,22 @@ honest — the next iteration trusts it.
   Proven by a real-mouse spec dragging a row UP into an empty section, with
   DOM order asserting the re-file (8 gesture specs green).
 
-## In flight (iteration 9 — start here)
+## Iteration 9 shipped
+- SECTION drag, measured: headers register refs, the grant measures them in
+  window space, the pointer's absolute Y picks the slot — variable heights
+  never bend the math (components/sectiondrag.ts). Sections land only
+  between sections; end-of-folder slots included; drop line stays the only
+  feedback. Duplicate-name refusal proven under a real mouse.
+- The ask-first flow: moveSectionEmptyingFolder in core (move + tombstone the
+  emptied folder as ONE result; rideAlong/last-folder still refuse — tested),
+  surfaced as the suite's confirm modal when a drag would empty a folder.
+- 110 core + 17 server + 9 gesture tests.
+
+## In flight (iteration 10 — start here)
+- Notes section drag (same hook, same rules).
+- Measured-position upgrade for ROW drags (retire uniform-height math).
+- Then down the pain list: week mode + swipe paging, rendered rich text,
+  kind conversions, sharing, themes.
 - Notes row drag (same flat model) + section drag as blocks with the suite's
   cross-folder rules (duplicate-name refusal, last-section-out ask).
 - Empty-section drop targets (a boundary per section head).

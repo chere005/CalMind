@@ -181,3 +181,38 @@ test('a reminder drags into an EMPTY section', async ({ page }) => {
   expect(body.indexOf('Target')).toBeLessThan(body.indexOf('wander'));
   expect(body.indexOf('wander')).toBeLessThan(body.indexOf('General'));
 });
+
+test('a SECTION drags between folders; a duplicate name refuses', async ({ page }) => {
+  await signup(page);
+  await page.getByTestId('tab-reminders').click();
+  await page.getByTestId('foldadd-Reminders').click();
+  await page.getByPlaceholder('New section').fill('Chores');
+  await page.getByPlaceholder('New section').press('Enter');
+
+  // Drag Chores down into the Calendar folder's block.
+  const grip = page.getByTestId('sec-grip-Chores');
+  const box = (await grip.boundingBox())!;
+  const calHead = await page.getByText('Calendar', { exact: true }).boundingBox();
+  const targetY = calHead!.y + calHead!.height + 60; // inside the Calendar block
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  for (let i = 1; i <= 10; i++) {
+    await page.mouse.move(box.x + box.width / 2, box.y + ((targetY - box.y) * i) / 10);
+  }
+  await page.mouse.up();
+  const body = await page.locator('body').innerText();
+  expect(body.indexOf('Calendar')).toBeLessThan(body.indexOf('Chores'));
+
+  // 'General' into the Calendar folder would collide with its General: refused.
+  const gGrip = page.getByTestId('sec-grip-General').first();
+  const gBox = (await gGrip.boundingBox())!;
+  await page.mouse.move(gBox.x + gBox.width / 2, gBox.y + gBox.height / 2);
+  await page.mouse.down();
+  for (let i = 1; i <= 10; i++) {
+    await page.mouse.move(gBox.x + gBox.width / 2, gBox.y + ((targetY + 40 - gBox.y) * i) / 10);
+  }
+  await page.mouse.up();
+  const after = await page.locator('body').innerText();
+  // Reminders folder still holds its General (it renders before Calendar).
+  expect(after.indexOf('General')).toBeLessThan(after.indexOf('Calendar'));
+});
