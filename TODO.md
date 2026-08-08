@@ -26,14 +26,26 @@ visual. Deploy to **test only** (`./server/deploy-test.sh`) as changes land.
       to the enclosing ScrollView, which had been killing every drag on a
       list long enough to scroll.
 
-Next up on web, in order:
+- [x] **The month cell's icons-per-row** — checked against the suite's CSS
+      rather than guessed: `.cell .dots` is a 23px well, three to a row, two
+      rows max, extras clipped. Three everywhere IS the rule; CalMind's 40px
+      cap already gives it. What WAS wrong: the suite packs lines with
+      `align-content: flex-start` and CalMind centred them. Fixed.
 
-- [ ] **The month cell on a phone** — the suite says three icons per row on
-      a phone; CalMind forces three everywhere via a 40px cap. Check what a
-      wide screen should do before changing anything.
-- [ ] Nothing else is known-broken on web. The next real work is the recipe
-      OCR pass (§3), which is where Sean's priority order points once web is
-      clean.
+Next up, in Sean's order:
+
+- [ ] **The native drag is unverified by hand.** iOS builds and runs, and
+      the day-panel fix is confirmed on it by screenshot, but the simulator
+      took no synthetic tap anywhere in the bottom tab strip, so Habits /
+      Notes / Reminders couldn't be reached. All three lists now freeze
+      their scroll during a drag as a by-construction guard. Worth Sean
+      trying a drag on his own phone — it is the one thing this pass could
+      not see for itself.
+- [ ] **Android** hasn't been built this pass. Same shared RN code, so the
+      same guard applies; the emulator is installed if it's worth a run.
+- [ ] macOS/Windows desktop parity is untouched this pass — the Tauri shell
+      wraps the identical web export, so everything above rides along with
+      the next desktop build.
 
 ## 2 · Steady state (every iteration)
 

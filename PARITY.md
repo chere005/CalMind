@@ -620,6 +620,26 @@ honest — the next iteration trusts it.
   formatRecipe import dropped.
 - 154 core + 22 server + 32 gesture. Deployed, live == local.
 
+## Iteration 39 — the iOS build, and what it could and couldn't prove
+- iOS BUILDS AND RUNS on the iPhone 17 Pro sim, first try, signed in as
+  sean against the live test API — his real store (Sean/AkiSean/Reminders/
+  Calendar, aki's Personal + Meal Planning in the legend).
+- CONFIRMED ON DEVICE by screenshot: the day panel's group order fix is
+  right on native. Selecting Aug 15 draws "aki's events → Work event 7am"
+  under its own heading, with no stray own-Reminders heading above it.
+- NOT CONFIRMED: the drag. The simulator would not accept a synthetic tap
+  anywhere in the bottom tab strip (mid-screen taps land fine — a day cell
+  selects and the panel follows), so Habits/Notes/Reminders were out of
+  reach by hand. Say so plainly rather than claim a green native check.
+- What was done instead of a claim: all three draggable lists now hold the
+  scroll still while a drag is live. Refusing the responder hand-over is
+  what keeps the gesture; not scrolling under the finger is what keeps the
+  drop line usable on a touch screen.
+- MARK WELL corrected off the suite's CSS: .cell .dots is align-content
+  FLEX-START, not centre — a quiet day's icons belong on the same line as
+  every other first row.
+- 154 core + 22 server + 32 gesture. Deployed, live == local.
+
 ## NEXT: the Add-Recipe page (Sean's spec, precise)
 - A structured page in Notes, the akisbookshelf add-quote shape: Title;
   an INGREDIENTS section whose + parses units (grams, cups, tsp, tbsp…)
