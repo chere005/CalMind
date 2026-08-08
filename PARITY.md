@@ -638,6 +638,19 @@ honest — the next iteration trusts it.
   Audit confirmed week mode, per-kind+owner day-panel folds and rendered
   rich-text lines are all present — the old queue items are done.
 
+## Iteration 16 shipped
+- THE RAINBOW IS THE SUITE'S OWN: prod's All dot is a CONIC gradient
+  (folders.php .fdot.all — #60a5fa → accent → #facc15 → #f472b6 → back),
+  an angular sweep no linear gradient imitates. Rendered as 48 interpolated
+  SVG slices (no conic primitive in react-native-svg), 16px dot in the 32px
+  surface ring — prod's exact proportions. Proofed at 240px, verified live.
+  LESSON: when Sean says "look at the other codebase", grep prod's CSS
+  FIRST — two guessing rounds cost what one grep would have.
+- Tri-state manager earns its gesture spec (rider silenced via None, whole
+  chain UI→prefs→core). Residue audit: shared day-panel headings already
+  dim (groupTitleShared); day cells are tap-only by Pressable construction.
+- 29 gesture specs green.
+
 ## Next, in pain order
 1. Habits month view (day pies + its legend) + Manage-sections window +
    habit rename in place + collapse-all wiring.
