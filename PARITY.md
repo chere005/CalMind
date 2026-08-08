@@ -651,6 +651,16 @@ honest — the next iteration trusts it.
   dim (groupTitleShared); day cells are tap-only by Pressable construction.
 - 29 gesture specs green.
 
+## Iteration 17 shipped — CalMind Desktop (macOS)
+- desktop/: a Tauri 2 shell around the IDENTICAL web export — Rust opens
+  the window, nothing else. tauri: origin → live test API (config.ts), so
+  same data and logins as web; the local-first snapshot makes it open
+  offline. One-stroke CM icons via `tauri icon`. Built and RUNNING on
+  Sean's Mac first try (rustup minimal was the only install).
+- Windows: tauri-action CI job when wanted (desktop/README.md).
+- Sean approved the conic rainbow ("there finally the folder icon is
+  correct") — picker iconography is settled.
+
 ## Next, in pain order
 1. Habits month view (day pies + its legend) + Manage-sections window +
    habit rename in place + collapse-all wiring.
