@@ -347,6 +347,7 @@ export function Habits() {
                         </View>
                         {renaming === h.id ? (
                           <Field
+                            testID="habit-rename"
                             value={renameText}
                             onChangeText={setRenameText}
                             autoFocus
@@ -358,6 +359,15 @@ export function Habits() {
                           <Pressable
                             style={[s.nameBox, { borderColor: tint(sec.payload.color, '55'), backgroundColor: tint(sec.payload.color, '14') }]}
                             onPress={() => {
+                              // The suite's three ways in: a double-click, a
+                              // long-press, or a SINGLE tap while the Edit
+                              // pencil is on — once you're editing, asking for
+                              // a double-tap as well is a toll for no reason.
+                              if (edit) {
+                                setRenaming(h.id);
+                                setRenameText(h.payload.name);
+                                return;
+                              }
                               const now = Date.now();
                               if (lastTap.current.id === h.id && now - lastTap.current.at < 300) {
                                 setRenaming(h.id);

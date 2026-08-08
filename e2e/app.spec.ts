@@ -752,6 +752,30 @@ test('a habit drags to a new spot, and the order survives a reload', async ({ pa
   expect(await order()).toEqual(['water', 'walk', 'stretch']);
 });
 
+test('a habit renames on ONE tap once the Edit pencil is on', async ({ page }) => {
+  // The suite offers three ways in — double-click, long-press, or a single
+  // tap while editing. Asking for a double-tap when the pencil is already on
+  // is a toll for nothing.
+  await signup(page);
+  await page.getByTestId('tab-habits').click();
+  await page.getByText('+', { exact: true }).first().click();
+  await page.getByPlaceholder('New habit').fill('stretch');
+  await page.getByPlaceholder('New habit').press('Enter');
+  await expect(page.getByTestId('habit-name')).toHaveText('stretch');
+
+  // Out of edit mode one tap does nothing — the double-tap gate still stands.
+  await page.getByTestId('habit-name').click();
+  await expect(page.getByTestId('habit-rename')).toHaveCount(0);
+
+  await page.getByTestId('habits-edit').click();
+  await page.getByTestId('habit-name').click();
+  const field = page.getByTestId('habit-rename');
+  await expect(field).toBeVisible();
+  await field.fill('stretch daily');
+  await field.press('Enter');
+  await expect(page.getByTestId('habit-name')).toHaveText('stretch daily');
+});
+
 test('the month cell keeps a fixed two-row mark well, busy day or empty', async ({ page }) => {
   // The suite's rule: the icons sit in a FIXED two-row well, so every cell
   // stands the same height however busy its day. A one-row minimum let a
