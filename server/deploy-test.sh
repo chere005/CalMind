@@ -60,6 +60,10 @@ if [ "$WEB" = 1 ] && [ -d apps/app/dist ]; then
   echo "==> [TEST] web client -> $WEB_DEST/"
   ICOV=$(shasum apps/app/dist/favicon.ico | cut -c1-8)
   perl -i -pe "s|favicon\.ico(\?v=[0-9a-f]*)?|favicon.ico?v=$ICOV|" apps/app/dist/index.html
+  # The home-screen icon: iOS reads apple-touch-icon, which expo doesn't emit.
+  sips -z 180 180 apps/app/assets/icon.png --out apps/app/dist/apple-touch-icon.png >/dev/null 2>&1
+  grep -q apple-touch-icon apps/app/dist/index.html || \
+    perl -i -pe 's|</head>|<link rel="apple-touch-icon" href="/test/calmind/apple-touch-icon.png"/></head>|' apps/app/dist/index.html
   rsync -avL $DRY --exclude 'api' apps/app/dist/ "$SSH_DEST:$WEB_DEST/"
   # index.html must revalidate; the hashed bundles cache forever.
   rsync -avL $DRY server/public/web.htaccess "$SSH_DEST:$WEB_DEST/.htaccess"

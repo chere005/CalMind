@@ -295,6 +295,20 @@ honest — the next iteration trusts it.
   (markers gone).
 - 126 core + 20 server + 18 gesture tests.
 
+## Sean's steering batch (mid-iteration 18)
+- REMINDERS TYPE SCALE, prod's exact values: folder wash chip 21/700,
+  section gold 18/600, rows 16 with the suite's 8px rhythm and soft
+  dividers (none under a section's last row). Notes' headings match.
+- EVERY ICON WAS SECRETLY PADDED: qlmanage had rendered the 96px logo.svg
+  top-left on a white 512/1024 canvas since iteration 1 — favicon, icon,
+  splash, adaptive all carried it (that was the 'wrong tab icon'). All
+  re-rendered full-bleed by scaling the SVG's declared size first; pixel-
+  verified. Android adaptive set is now proper layers: mark-only foreground
+  inset to the safe zone, #111 background, white monochrome.
+- The deploy stamps an apple-touch-icon (180px) + link tag into index.html —
+  expo emits none, and the home-screen icon read as broken without it.
+  Verified live on test.
+
 ## In flight (iteration 18 — start here)
 - All-view partner blocks in Reminders/Notes (their structure read-only,
   ticks live, like the suite's All listing).

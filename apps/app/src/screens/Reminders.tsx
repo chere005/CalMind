@@ -398,7 +398,7 @@ export function Reminders() {
                     </View>
                   )}
                   {!isFolded &&
-                    rows.map((r) => (
+                    rows.map((r, ri) => (
                       <View key={r.id}>
                         {drag.slot !== null && flatIdxOf(r.id) === drag.slot && <View style={s.dropLine} />}
                         <View
@@ -407,6 +407,7 @@ export function Reminders() {
                           {...(pageEdit ? {} : swipe.handlersFor(r.id))}
                           style={[
                             s.row,
+                            ri === rows.length - 1 && s.rowLast,
                             editing !== r.id && s.rowNoSelect,
                             r.payload.indent > 0 && s.rowIndented,
                             drag.dragIdx !== null && flatIdxOf(r.id) === drag.dragIdx && { opacity: 0.55, transform: [{ translateY: drag.dragDy }] },
@@ -618,20 +619,22 @@ const s = themed(() => StyleSheet.create({
   folderHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   folderName: {
     color: T.text,
-    fontSize: 15,
+    fontSize: 21,
+    lineHeight: 26,
     fontWeight: '700',
     paddingHorizontal: 10,
-    paddingVertical: 3,
+    paddingVertical: 2,
     borderRadius: 999,
     overflow: 'hidden',
   },
   folderRule: { flex: 1, height: 1, backgroundColor: T.lineSoft },
   section: { gap: 6 },
-  secHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
+  secHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 },
   chevron: { color: T.muted, fontSize: 12, width: 14, textAlign: 'center' },
-  secName: { color: T.gold, fontSize: 15, fontWeight: '700' },
+  secName: { color: T.gold, fontSize: 18, lineHeight: 22, fontWeight: '600' },
   secRename: { flex: 1, paddingVertical: 4 },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 10, height: 46 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: T.lineSoft },
+  rowLast: { borderBottomWidth: 0, paddingBottom: 2 },
   rowGrip: { width: 16, alignItems: 'center', justifyContent: 'center' },
   rowGripText: { color: T.lineSoft, fontSize: 13, userSelect: 'none' },
   dropLine: { height: 2, backgroundColor: T.accent, borderRadius: 1, marginVertical: 1 },
@@ -647,7 +650,7 @@ const s = themed(() => StyleSheet.create({
   editBackdropFill: { minHeight: 160 },
   rowIndented: { paddingLeft: 28 },
   rowBody: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
-  rowText: { color: T.text, fontSize: 17, flexShrink: 1 },
+  rowText: { color: T.text, fontSize: 16, flexShrink: 1 },
   rowTextDone: { color: T.muted, textDecorationLine: 'line-through' },
   editField: { flex: 1 },
   tick: {
