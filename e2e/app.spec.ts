@@ -506,3 +506,30 @@ test("sharing: a calendar shows under the partner's day-panel group; notes read 
   await ctxA.close();
   await ctxB.close();
 });
+
+test('?tick= opens the one-reminder Done page and rolls a repeat', async ({ page }) => {
+  await signup(page);
+  await page.getByTestId('tab-reminders').click();
+  await page.getByTestId('secadd-General').first().click();
+  await page.getByTestId('rem-add-field').fill('stretch 8/1');
+  await page.getByTestId('rem-add-field').press('Enter');
+  // Grab its id off the DOM-free route: the row's testID doesn't carry ids,
+  // so read it from the sync engine via the page's storage snapshot.
+  const id = await page.evaluate(async () => {
+    const keys = Object.keys(localStorage).filter((k) => k.includes('calmind.snap'));
+    for (const k of keys) {
+      const snap = JSON.parse(localStorage.getItem(k)!);
+      const rec = (snap.recs ?? snap.records ?? []).find?.((r: { type: string; payload?: { text?: string } }) => r.type === 'reminder' && r.payload?.text === 'stretch');
+      if (rec) return rec.id as string;
+    }
+    return null;
+  });
+  expect(id).toBeTruthy();
+  await page.goto(`./?tick=${id}`);
+  await expect(page.getByTestId('quick-done')).toBeVisible({ timeout: 10_000 });
+  await page.getByTestId('quick-done').click();
+  // Lands on the app; the reminder is done (hidden from the open list).
+  await expect(page.getByTestId('tab-reminders')).toBeVisible();
+  await page.getByTestId('tab-reminders').click();
+  await expect(page.getByTestId('rem-row').filter({ hasText: 'stretch' })).toBeHidden();
+});

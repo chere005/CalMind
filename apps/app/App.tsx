@@ -8,6 +8,7 @@ import { Calendar } from './src/screens/Calendar';
 import { Notes } from './src/screens/Notes';
 import { Habits } from './src/screens/Habits';
 import { Add } from './src/screens/Add';
+import { QuickTick } from './src/screens/QuickTick';
 import { themed, currentTheme, onThemeChange, T, THEMES_LIGHT, PAGE_MAX_WIDTH } from './src/theme';
 
 function Root() {
@@ -15,10 +16,21 @@ function Root() {
   // Signing in lands on the Calendar, as the suite does — "what's on today"
   // shouldn't depend on which icon you opened.
   const [tab, setTab] = useState<Tab>('calendar');
+  // The widget's row link: ?tick=<id> opens the one-reminder Done page
+  // (the suite's quick.php mode), on the signed-in session only.
+  const [tickId, setTickId] = useState<string | null>(() => {
+    if (typeof location === 'undefined') return null;
+    return new URLSearchParams(location.search).get('tick');
+  });
+  const tickDone = () => {
+    setTickId(null);
+    if (typeof history !== 'undefined') history.replaceState(null, '', location.pathname);
+  };
   // A note made anywhere opens in its editor — the Add tab hands the id over.
   const [noteToOpen, setNoteToOpen] = useState<string | null>(null);
   if (!ready) return <View style={s.page} />;
   if (!session) return <Login />;
+  if (tickId) return <QuickTick id={tickId} onDone={tickDone} />;
   return (
     <View style={s.page}>
       {/* Phone-first column, centred on a wide window — the suite's page shape. */}

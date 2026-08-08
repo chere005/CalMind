@@ -5,7 +5,11 @@
 const FEED = "PASTE_FEED_URL_HERE";
 
 const res = await new Request(FEED).loadJSON();
+// The app lives beside the api/: tapping the widget (or a reminder row)
+// opens it — a reminder row at ?tick=<id>, the suite's quick.php Done page.
+const APP = FEED.replace(/api\/index\.php.*$/, "");
 const w = new ListWidget();
+w.url = APP;
 w.backgroundColor = new Color("#111111");
 const days = Object.keys(res.days || {}).sort();
 let shown = 0;
@@ -23,6 +27,7 @@ for (const d of days) {
     const t = line.addText((row.time ? row.time + " " : "") + row.text);
     t.font = Font.systemFont(11);
     t.textColor = new Color("#eeeeee");
+    if (row.kind === "reminder" && row.id) line.url = APP + "?tick=" + row.id;
     shown++;
   }
   w.addSpacer(3);

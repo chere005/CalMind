@@ -368,12 +368,22 @@ honest — the next iteration trusts it.
   tick link (quick.php equivalent) is still open — both noted below.
 - 127 core + 21 server + 18 gesture tests.
 
-## In flight (iteration 22 — start here)
-- Widget tick-back: a quick.php equivalent (session page or a guarded
-  token-POST is NOT allowed — the suite's rule: the read token never
-  writes; the tick must go through a signed-in page).
-- Native targets: expo run:ios / run:android smoke, watch bridge check.
+## Iteration 22 shipped
+- WIDGET TICK-BACK, the suite's quick.php?tick= mode translated honestly:
+  ?tick=<id> on the web app opens the one-reminder Done page on the
+  SIGNED-IN session (a repeat rolls via reminderToggle, the label says so),
+  then lands on the Calendar. The read token still never writes — the rule
+  held. The Scriptable script links each reminder row to it and the widget
+  face to the app. Spec: create → open ?tick= → Done → row gone.
+- 127 core + 21 server + 19 gesture tests.
+
+## In flight (iteration 23 — start here)
+- Native targets: expo run:ios / run:android smoke, watch bridge check —
+  needs simulators; coordinate with Sean for a session on the Mac.
 - Empty states pass (fresh account, every tab) against prod's wording.
+- Remaining large parity: measured drags for the DAY-PANEL lists? (check
+  the suite — panel rows don't drag); rename flows in shared views 403
+  client-side check; anything CLAUDE.md names that the ledger doesn't.
 
 ## Next, in pain order
 1. Habits month view (day pies + its legend) + Manage-sections window +
