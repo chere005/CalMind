@@ -23,7 +23,7 @@ import { duplicateItem,
   type Rec,
 } from '@calmind/core';
 import { useStore } from '../store';
-import { T } from '../theme';
+import { themed, T } from '../theme';
 import { TopBar } from '../chrome';
 import { CalendarPick, useCalendarView } from '../components/CalendarPick';
 import { CalGlyph, PageGlyph, TickBoxGlyph } from '../components/KindIcons';
@@ -259,7 +259,7 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
   );
 }
 
-const s = StyleSheet.create({
+const s = themed(() => StyleSheet.create({
   page: { flex: 1, backgroundColor: T.bg },
   pagerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, paddingVertical: 4 },
   ymLabel: { color: T.text, fontSize: 15, fontWeight: '600', minWidth: 150, textAlign: 'center' },
@@ -300,4 +300,4 @@ const s = StyleSheet.create({
   tickOverdue: { borderColor: T.overdue },
   tickMark: { color: T.accent, fontSize: 12, fontWeight: '700' },
   empty: { color: T.muted, fontSize: 13, marginTop: 8 },
-});
+}));

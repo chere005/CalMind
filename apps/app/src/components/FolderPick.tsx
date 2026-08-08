@@ -10,7 +10,7 @@ import React, { useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { byOrd, prefsOf, prefsPut, type Rec } from '@calmind/core';
 import { useStore } from '../store';
-import { T } from '../theme';
+import { themed, T } from '../theme';
 import { FolderManager } from './FolderManager';
 import { PieDot } from './PieDot';
 
@@ -91,7 +91,7 @@ export function FolderPick({ app }: { app: 'reminders' | 'notes' }) {
   );
 }
 
-const s = StyleSheet.create({
+const s = themed(() => StyleSheet.create({
   dotBtn: {
     width: 22,
     height: 22,
@@ -124,4 +124,4 @@ const s = StyleSheet.create({
   boxOn: { color: T.accent },
   manageRow: { borderTopWidth: 1, borderTopColor: T.lineSoft, marginTop: 4 },
   manageText: { color: T.dim, fontSize: 14 },
-});
+}));

@@ -20,7 +20,7 @@ import {
   type RepeatUnit,
 } from '@calmind/core';
 import { useStore } from '../store';
-import { T } from '../theme';
+import { themed, T } from '../theme';
 import { TopBar } from '../chrome';
 import { CalendarIcon, PageIcon, TickCircleIcon } from '../components/KindIcons';
 import { CircleBtn, Field, Pill } from '../ui';
@@ -176,7 +176,7 @@ export function Add({ done, onNoteCreated }: { done: () => void; onNoteCreated?:
   );
 }
 
-const s = StyleSheet.create({
+const s = themed(() => StyleSheet.create({
   page: { flex: 1, backgroundColor: T.bg },
   scroll: { padding: 16, gap: 14 },
   dateLine: { color: T.dim, fontSize: 15 },
@@ -213,4 +213,4 @@ const s = StyleSheet.create({
   helpHead: { color: T.dim, fontSize: 14 },
   helpRow: { color: T.muted, fontSize: 13, lineHeight: 20 },
   helpBold: { color: T.text, fontWeight: '700' },
-});
+}));

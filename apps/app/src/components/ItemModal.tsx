@@ -26,7 +26,7 @@ import {
   type RepeatUnit,
 } from '@calmind/core';
 import { useStore } from '../store';
-import { T } from '../theme';
+import { themed, T } from '../theme';
 import { CircleBtn, ConfirmDelete, Field, Pill } from '../ui';
 import { Dropdown } from './Dropdown';
 
@@ -260,7 +260,7 @@ export function ItemModal({
   );
 }
 
-const s = StyleSheet.create({
+const s = themed(() => StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: '#000a', alignItems: 'center', justifyContent: 'center', padding: 16 },
   card: { width: '100%', maxWidth: 440, maxHeight: '90%', backgroundColor: T.surface, borderWidth: 1, borderColor: T.line, borderRadius: 16 },
   scroll: { padding: 18, gap: 12 },
@@ -272,4 +272,4 @@ const s = StyleSheet.create({
   err: { color: T.danger, fontSize: 13 },
   actions: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 6 },
   actRight: { flexDirection: 'row', gap: 8 },
-});
+}));

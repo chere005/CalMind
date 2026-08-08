@@ -18,7 +18,7 @@ import {
   type Rec,
 } from '@calmind/core';
 import { useStore } from '../store';
-import { APP_PALETTES, T } from '../theme';
+import { themed, APP_PALETTES, T } from '../theme';
 import { CircleBtn, ConfirmDelete, Field, Pill } from '../ui';
 import { Dropdown } from './Dropdown';
 import { ordForMove, useRowDrag } from './rowdrag';
@@ -208,7 +208,7 @@ function CalendarManager({ onClose }: { onClose: () => void }) {
   );
 }
 
-const s = StyleSheet.create({
+const s = themed(() => StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: '#0009', alignItems: 'center', justifyContent: 'center', padding: 24 },
   backdrop2: { flex: 1, backgroundColor: '#000a', alignItems: 'center', justifyContent: 'center', padding: 16 },
   menu: { width: '100%', maxWidth: 340, maxHeight: '70%', backgroundColor: T.surface, borderWidth: 1, borderColor: T.line, borderRadius: 14, paddingVertical: 6 },
@@ -235,4 +235,4 @@ const s = StyleSheet.create({
   rowWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   err: { color: T.danger, fontSize: 13 },
   doneRow: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 4 },
-});
+}));

@@ -29,7 +29,7 @@ import { duplicateItem,
 } from '@calmind/core';
 import * as Clipboard from 'expo-clipboard';
 import { useStore } from '../store';
-import { T } from '../theme';
+import { themed, T } from '../theme';
 import { TopBar } from '../chrome';
 import { FolderPick, useFolderView } from '../components/FolderPick';
 import { useRowDrag } from '../components/rowdrag';
@@ -505,7 +505,7 @@ export function Reminders() {
   );
 }
 
-const s = StyleSheet.create({
+const s = themed(() => StyleSheet.create({
   page: { flex: 1, backgroundColor: T.bg },
   scroll: { padding: 16, paddingBottom: 48, gap: 18 },
   folderBlock: { gap: 8 },
@@ -558,4 +558,4 @@ const s = StyleSheet.create({
   repCount: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   toolbar: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingTop: 10 },
   repN: { color: T.text, fontSize: 14, minWidth: 20, textAlign: 'center' },
-});
+}));

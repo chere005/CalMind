@@ -19,7 +19,7 @@ import {
   type Rec,
 } from '@calmind/core';
 import { useStore } from '../store';
-import { APP_PALETTES, T } from '../theme';
+import { themed, APP_PALETTES, T } from '../theme';
 import { CircleBtn, ConfirmDelete, Field, Pill } from '../ui';
 import { Dropdown } from './Dropdown';
 import { ordForMove, useRowDrag } from './rowdrag';
@@ -159,7 +159,7 @@ export function FolderManager({ app, onClose }: { app: 'reminders' | 'notes'; on
   );
 }
 
-const s = StyleSheet.create({
+const s = themed(() => StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: '#000a', alignItems: 'center', justifyContent: 'center', padding: 16 },
   card: { width: '100%', maxWidth: 420, maxHeight: '88%', backgroundColor: T.surface, borderWidth: 1, borderColor: T.line, borderRadius: 16 },
   scroll: { padding: 18, gap: 12 },
@@ -176,4 +176,4 @@ const s = StyleSheet.create({
   rowWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   err: { color: T.danger, fontSize: 13 },
   doneRow: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 4 },
-});
+}));

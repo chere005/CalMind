@@ -9,7 +9,7 @@ import React, { useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { logout } from './api';
 import { useStore } from './store';
-import { T } from './theme';
+import { themed, T } from './theme';
 import { Rule } from './ui';
 import { Settings } from './screens/Settings';
 
@@ -66,7 +66,7 @@ export function TopBar({
   );
 }
 
-const s = StyleSheet.create({
+const s = themed(() => StyleSheet.create({
   topbar: {
     height: 32,
     marginTop: 16,
@@ -94,4 +94,4 @@ const s = StyleSheet.create({
   },
   menuRow: { paddingHorizontal: 16, paddingVertical: 11 },
   menuText: { color: T.text, fontSize: 15 },
-});
+}));

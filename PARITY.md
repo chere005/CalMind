@@ -221,9 +221,28 @@ honest — the next iteration trusts it.
   gesture just set.
 - 126 core + 17 server + 14 gesture tests.
 
-## In flight (iteration 14 — start here)
+## Iteration 14 shipped
+- THEMES: the suite's four full palettes (midnight/sage/forest/olive) carried
+  over from lib/auth.php's THEMES table VERBATIM, same columns — midnight's
+  drift (surface/dim/muted/gold approximations) corrected to the suite's
+  exact values in the process. T is a mutable singleton now; every
+  StyleSheet.create in the app (19 files) is wrapped in themed(() => …), a
+  lazy Proxy sheet that re-creates itself per theme generation, so switching
+  remounts the tree (App keys on the generation) and no component knows
+  themes exist. The picker is the suite's swatch row (page colour + accent
+  dot) in Settings; the choice is a SYNCED pref (Prefs.theme under the new
+  'suite' prefs app) so every device follows; sign-out returns to midnight —
+  the login page has no user to theme. Sage flips the status bar dark.
+  Proven under a real browser: pick → repaint, reload → still cream (synced),
+  log out → midnight.
+- 126 core + 17 server + 15 gesture tests.
+
+## In flight (iteration 15 — start here)
 - Notes rows show ⧉ always — gate it behind an edit mode when Notes gets one
   (the suite hides row controls outside edit mode).
+- kind_color_css parity check: dots/chips/tags reading one kind palette.
+- Sharing (the big block): partner lists, share window, @partner views,
+  live ticks in All, shared recolour overrides (APP_PALETTES_SHARED staged).
 
 ## Next, in pain order
 1. Habits month view (day pies + its legend) + Manage-sections window +

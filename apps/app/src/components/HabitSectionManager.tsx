@@ -8,7 +8,7 @@ import React, { useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { byOrd, deleteHabitSection, newId, ordBetween, type Rec } from '@calmind/core';
 import { useStore } from '../store';
-import { APP_PALETTES, T } from '../theme';
+import { themed, APP_PALETTES, T } from '../theme';
 import { CircleBtn, ConfirmDelete, Field, Pill } from '../ui';
 import { ordForMove, useRowDrag } from './rowdrag';
 
@@ -128,7 +128,7 @@ export function HabitSectionManager({ onClose }: { onClose: () => void }) {
   );
 }
 
-const s = StyleSheet.create({
+const s = themed(() => StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: '#000a', alignItems: 'center', justifyContent: 'center', padding: 16 },
   card: { width: '100%', maxWidth: 420, maxHeight: '88%', backgroundColor: T.surface, borderWidth: 1, borderColor: T.line, borderRadius: 16 },
   scroll: { padding: 18, gap: 12 },
@@ -143,4 +143,4 @@ const s = StyleSheet.create({
   renameField: { flex: 1, paddingVertical: 6 },
   err: { color: T.danger, fontSize: 13 },
   doneRow: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 4 },
-});
+}));

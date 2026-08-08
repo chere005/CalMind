@@ -13,7 +13,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { byOrd, monthGrid, newId, ordBetween, prefsOf, prefsPut, tickId, todayStr, type Rec } from '@calmind/core';
 import { useStore } from '../store';
-import { T } from '../theme';
+import { themed, T } from '../theme';
 import { TopBar } from '../chrome';
 import { SectionPick, useHabitSections } from '../components/SectionPick';
 import { CircleBtn, ConfirmDelete, Field } from '../ui';
@@ -319,7 +319,7 @@ export function Habits() {
   );
 }
 
-const s = StyleSheet.create({
+const s = themed(() => StyleSheet.create({
   page: { flex: 1, backgroundColor: T.bg },
   controlRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 12 },
   segmented: { flexDirection: 'row', backgroundColor: T.surface, borderRadius: 999, padding: 3, borderWidth: 1, borderColor: T.lineSoft },
@@ -361,4 +361,4 @@ const s = StyleSheet.create({
   keyItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   keyDot: { width: 11, height: 11, borderRadius: 6 },
   keyText: { color: T.dim, fontSize: 12 },
-});
+}));

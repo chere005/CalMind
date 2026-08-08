@@ -5,7 +5,7 @@
  */
 import React, { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { T } from '../theme';
+import { themed, T } from '../theme';
 
 export type DropdownOption = { id: string; label: string };
 
@@ -60,7 +60,7 @@ export function Dropdown({
   );
 }
 
-const s = StyleSheet.create({
+const s = themed(() => StyleSheet.create({
   pill: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -91,4 +91,4 @@ const s = StyleSheet.create({
   row: { paddingHorizontal: 16, paddingVertical: 11 },
   rowText: { color: T.text, fontSize: 15 },
   rowActive: { color: T.accent, fontWeight: '700' },
-});
+}));

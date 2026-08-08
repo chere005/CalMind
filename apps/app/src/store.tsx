@@ -8,9 +8,10 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { SyncEngine, normalize, type AnyRec } from '@calmind/core';
+import { SyncEngine, normalize, prefsOf, type AnyRec } from '@calmind/core';
 import { type Session, syncTransport, ApiError } from './api';
 import { pushWatchList } from './watch';
+import { applyTheme, type ThemeName } from './theme';
 
 const SESSION_KEY = 'calmind.session';
 const snapKey = (user: string) => `calmind.snapshot.${user}`;
@@ -120,12 +121,18 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     [refresh, syncNow],
   );
 
+  useEffect(() => {
+    const t = prefsOf(recs, 'suite').theme;
+    if (t) applyTheme(t as ThemeName);
+  }, [recs]);
+
   const signOut = useCallback(async () => {
     await AsyncStorage.removeItem(SESSION_KEY);
     engineRef.current = new SyncEngine();
     hydratedRef.current = false;
     setSessionState(null);
     setRecs([]);
+    applyTheme('midnight'); // the login page always renders midnight
   }, []);
 
   const setSession = useCallback(async (s: Session) => {

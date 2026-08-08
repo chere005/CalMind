@@ -71,6 +71,7 @@ export type Prefs = {
   defaultSectionId?: string; // where new items land from All (reminders/notes)
   defaultCalendarId?: string; // where new events land (calendar)
   view?: 'week' | 'month'; // habits: which grid the bar above it picked
+  theme?: string; // suite: the chosen palette (midnight when absent)
 };
 
 export type RecType =
@@ -119,7 +120,9 @@ export function tickId(habitId: string, date: string): string {
 }
 
 /** The one prefs record per app — same-device and cross-device edits converge. */
-export function prefsId(app: 'reminders' | 'notes' | 'calendar' | 'habits'): string {
+export type PrefsApp = 'reminders' | 'notes' | 'calendar' | 'habits' | 'suite';
+
+export function prefsId(app: PrefsApp): string {
   return `prefs_${app}`;
 }
 

@@ -6,7 +6,7 @@
  * a string the UI can show verbatim.
  */
 import type { AnyRec, Prefs, Rec } from './types';
-import { folderApp, prefsId } from './types';
+import { folderApp, prefsId, type PrefsApp } from './types';
 import { byOrd, ordBetween } from './order';
 import { sectionNameTaken } from './rules';
 
@@ -17,13 +17,13 @@ const of = <T extends AnyRec['type']>(recs: AnyRec[], t: T) =>
 export type ManageResult = { put: AnyRec[] } | { error: string };
 
 /** The prefs record for an app, or an empty one. */
-export function prefsOf(recs: AnyRec[], app: 'reminders' | 'notes' | 'calendar' | 'habits'): Prefs {
+export function prefsOf(recs: AnyRec[], app: PrefsApp): Prefs {
   const rec = recs.find((r) => r.id === prefsId(app) && !r.deleted);
   return rec && rec.type === 'pref' ? (rec.payload as Prefs) : {};
 }
 
 /** A fresh pref record carrying `next` merged over what's stored. */
-export function prefsPut(recs: AnyRec[], app: 'reminders' | 'notes' | 'calendar' | 'habits', next: Partial<Prefs>): Rec<'pref'> {
+export function prefsPut(recs: AnyRec[], app: PrefsApp, next: Partial<Prefs>): Rec<'pref'> {
   return { id: prefsId(app), type: 'pref', updated: 0, payload: { ...prefsOf(recs, app), ...next } };
 }
 

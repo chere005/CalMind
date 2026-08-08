@@ -6,7 +6,7 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
-import { T } from '../theme';
+import { themed, T } from '../theme';
 
 export function PieDot({ colors, size = 22 }: { colors: string[]; size?: number }) {
   const r = size / 2;
@@ -33,6 +33,6 @@ export function PieDot({ colors, size = 22 }: { colors: string[]; size?: number 
   );
 }
 
-const s = StyleSheet.create({
+const s = themed(() => StyleSheet.create({
   ring: { borderWidth: 2, borderColor: T.dim },
-});
+}));

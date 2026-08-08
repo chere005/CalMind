@@ -1,24 +1,94 @@
+import { StyleSheet } from 'react-native';
+
 /**
- * Midnight — the suite's default look (#111 / #eee / #34d399), as tokens. When
- * themes arrive they become a second table with the same columns, exactly like
- * theme_vars() on the web.
+ * The suite's THEMES table (lib/auth.php), same columns, same values —
+ * midnight / sage / forest / olive, the boards Draft 3 was judged on.
+ * Midnight is the default and the login's only look. Semantic colours
+ * (overdue, danger, the event blue) stay literal across themes, exactly as
+ * the web keeps its kind palette out of theme_vars().
+ */
+export type ThemeName = 'midnight' | 'sage' | 'forest' | 'olive';
+
+type Cols = {
+  label: string;
+  bg: string; surface: string; surface2: string; line: string; lineSoft: string;
+  text: string; dim: string; muted: string; accent: string; accentInk: string;
+  accentSoft: string; gold: string;
+};
+
+export const THEMES: Record<ThemeName, Cols> = {
+  midnight: { label: 'Midnight', bg: '#111111', surface: '#1a1a1a', surface2: '#2a2a2a', line: '#333333', lineSoft: '#262626', text: '#eeeeee', dim: '#cccccc', muted: '#888888', accent: '#34d399', accentInk: '#06251b', accentSoft: '#14332a', gold: '#f0b429' },
+  sage: { label: 'Sage & Cream', bg: '#fefae0', surface: '#faedcd', surface2: '#e9edc9', line: '#ccd5ae', lineSoft: '#e4e7c9', text: '#3f3a2e', dim: '#5c5545', muted: '#776e56', accent: '#96632f', accentInk: '#fefae0', accentSoft: '#efe2c2', gold: '#8a5a12' },
+  forest: { label: 'Forest', bg: '#040303', surface: '#16201d', surface2: '#3a4e48', line: '#3a4e48', lineSoft: '#263230', text: '#e4ddd6', dim: '#beb0a7', muted: '#6a7b76', accent: '#8b9d83', accentInk: '#0a0f0d', accentSoft: '#1c2a25', gold: '#c9a227' },
+  olive: { label: 'Olive & Slate', bg: '#241e2d', surface: '#332a3e', surface2: '#443850', line: '#564a62', lineSoft: '#3b3247', text: '#eaf0ce', dim: '#c0c5c1', muted: '#848b98', accent: '#bbbe64', accentInk: '#241e2d', accentSoft: '#3a3448', gold: '#d8c46a' },
+};
+
+/** Themes whose page is lighter than their ink — native controls and the
+ *  status bar need to draw the right way round. */
+export const THEMES_LIGHT: readonly ThemeName[] = ['sage'];
+
+/**
+ * The live palette. MUTABLE on purpose: applyTheme swaps the values in place
+ * and bumps the generation, and every style sheet in the app is created
+ * through themed() below, which re-creates itself lazily per generation —
+ * so no component has to know themes exist.
  */
 export const T = {
-  bg: '#111111',
-  surface: '#1b1b1b',
-  surface2: '#242424',
-  line: '#333333',
-  lineSoft: '#2a2a2a',
-  text: '#eeeeee',
-  dim: '#9aa0a6',
-  muted: '#777777',
-  gold: '#d1a33c', // section titles, as on the web
-  accent: '#34d399',
-  accentInk: '#06251b',
+  ...THEMES.midnight,
   overdue: '#fb923c',
   danger: '#ef4444',
   folderBlue: '#60a5fa',
 };
+
+let gen = 0;
+let current: ThemeName = 'midnight';
+const listeners = new Set<() => void>();
+
+export function applyTheme(name: ThemeName): void {
+  if (!THEMES[name]) name = 'midnight';
+  if (name === current) return;
+  current = name;
+  const { label: _label, ...cols } = THEMES[name];
+  Object.assign(T, cols);
+  gen++;
+  listeners.forEach((fn) => fn());
+}
+
+export function currentTheme(): ThemeName {
+  return current;
+}
+
+/** Subscribe to theme switches; returns the unsubscribe. The app root keys
+ *  its tree on this so a switch remounts everything under the new palette. */
+export function onThemeChange(fn: () => void): () => void {
+  listeners.add(fn);
+  return () => listeners.delete(fn);
+}
+
+/**
+ * A lazily themed style sheet: pass the usual StyleSheet.create call as a
+ * factory and read the result exactly like before. The Proxy re-runs the
+ * factory when the theme generation moved, so module-level `const s = …`
+ * keeps working — values just stop being baked at import time.
+ */
+export function themed<S extends object>(factory: () => S): S {
+  let cacheGen = -1;
+  let cache: S | undefined;
+  return new Proxy({} as S, {
+    get(_t, prop) {
+      if (!cache || cacheGen !== gen) {
+        cache = factory();
+        cacheGen = gen;
+      }
+      return cache[prop as keyof S];
+    },
+  });
+}
+
+/** Ready-made lazy sheet helper so call sites read naturally. */
+export function themedSheet<S extends StyleSheet.NamedStyles<S>>(factory: () => S): S {
+  return themed(factory);
+}
 
 /**
  * The suite's per-app palettes, computed values carried over from

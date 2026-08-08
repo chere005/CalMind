@@ -5,7 +5,7 @@
  */
 import React, { useRef, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, TextInput, type TextInputProps, View } from 'react-native';
-import { T } from './theme';
+import { themed, T } from './theme';
 
 /**
  * A glyph button never steals focus: preventing mousedown's default keeps a
@@ -125,7 +125,7 @@ export function Rule() {
   return <View style={s.rule} />;
 }
 
-const s = StyleSheet.create({
+const s = themed(() => StyleSheet.create({
   pill: {
     paddingVertical: 6,
     paddingHorizontal: 14,
@@ -161,4 +161,4 @@ const s = StyleSheet.create({
   },
   error: { color: T.danger, marginTop: 8, fontSize: 13 },
   rule: { height: 1, backgroundColor: T.line, alignSelf: 'stretch' },
-});
+}));

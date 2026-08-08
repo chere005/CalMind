@@ -315,3 +315,23 @@ test('swipe a row left: the delete arrives already armed, one tap fires', async 
   await page.getByTestId('swipe-del').click();
   await expect(row).toBeHidden();
 });
+
+test('a theme picked in Settings repaints the app, syncs, and login stays midnight', async ({ page }) => {
+  const user = await signup(page);
+  const pageBg = () => page.evaluate(() => {
+    const el = document.querySelector('[data-testid="page-root"]') as HTMLElement;
+    return getComputedStyle(el).backgroundColor;
+  });
+  expect(await pageBg()).toBe('rgb(17, 17, 17)'); // midnight #111111
+  await page.getByText(user, { exact: true }).click();
+  await page.getByText('Settings', { exact: true }).click();
+  await page.getByTestId('theme-sage').click();
+  await expect.poll(pageBg).toBe('rgb(254, 250, 224)'); // sage #fefae0
+  // The pick is a synced pref: a reload comes back cream.
+  await page.reload();
+  await expect.poll(pageBg, { timeout: 10_000 }).toBe('rgb(254, 250, 224)');
+  // Logging out returns to midnight — the login page has no user to theme.
+  await page.getByText(user, { exact: true }).click();
+  await page.getByText('Log out', { exact: true }).click();
+  await expect.poll(pageBg, { timeout: 10_000 }).toBe('rgb(17, 17, 17)');
+});

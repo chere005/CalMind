@@ -8,7 +8,7 @@ import { defaultServerUrl } from '../config';
 import { login, signup, recover, reset } from '../api';
 import { useStore } from '../store';
 import { Field, Pill, ErrorLine } from '../ui';
-import { T } from '../theme';
+import { themed, T } from '../theme';
 import { Logo } from '../Logo';
 
 type Mode = 'signin' | 'signup' | 'recover' | 'reset';
@@ -96,7 +96,7 @@ export function Login() {
   );
 }
 
-const s = StyleSheet.create({
+const s = themed(() => StyleSheet.create({
   page: { flex: 1, backgroundColor: T.bg, alignItems: 'center', justifyContent: 'center', padding: 24 },
   card: {
     width: '100%',
@@ -113,4 +113,4 @@ const s = StyleSheet.create({
   hint: { color: T.dim, fontSize: 13 },
   actions: { marginTop: 4, alignItems: 'stretch' },
   links: { flexDirection: 'row', gap: 8, justifyContent: 'center', marginTop: 4 },
-});
+}));

@@ -7,7 +7,7 @@ import React, { useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { byOrd, richLines, duplicateItem, moveNote, moveSection, moveSectionEmptyingFolder, newId, ordBetween, parseDateFromText, parseWhenFromText, todayStr, type Rec } from '@calmind/core';
 import { useStore } from '../store';
-import { T } from '../theme';
+import { themed, T } from '../theme';
 import { TopBar } from '../chrome';
 import { FolderPick, useFolderView } from '../components/FolderPick';
 import { CircleBtn, ConfirmDelete, Field, Pill, Rule } from '../ui';
@@ -364,7 +364,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
   );
 }
 
-const s = StyleSheet.create({
+const s = themed(() => StyleSheet.create({
   page: { flex: 1, backgroundColor: T.bg },
   topbar: { height: 32, marginTop: 16, marginHorizontal: 16, marginBottom: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   toolRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
@@ -441,4 +441,4 @@ const s = StyleSheet.create({
     borderRadius: 12,
     padding: 12,
   },
-});
+}));

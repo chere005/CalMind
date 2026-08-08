@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { SafeAreaView, StatusBar, StyleSheet, View } from 'react-native';
 import { StoreProvider, useStore } from './src/store';
 import { TabBar, type Tab } from './src/nav';
@@ -8,7 +8,7 @@ import { Calendar } from './src/screens/Calendar';
 import { Notes } from './src/screens/Notes';
 import { Habits } from './src/screens/Habits';
 import { Add } from './src/screens/Add';
-import { T, PAGE_MAX_WIDTH } from './src/theme';
+import { themed, currentTheme, onThemeChange, T, THEMES_LIGHT, PAGE_MAX_WIDTH } from './src/theme';
 
 function Root() {
   const { ready, session } = useStore();
@@ -52,18 +52,23 @@ function Root() {
 }
 
 export default function App() {
+  // A theme switch remounts the whole tree: every themed() sheet re-creates
+  // itself under the new palette, and no component has to know.
+  const [themeGen, setThemeGen] = useState(0);
+  useEffect(() => onThemeChange(() => setThemeGen((g) => g + 1)), []);
+  const light = THEMES_LIGHT.includes(currentTheme());
   return (
     <StoreProvider>
-      <SafeAreaView style={s.page}>
-        <StatusBar barStyle="light-content" backgroundColor={T.bg} />
+      <SafeAreaView key={themeGen} testID="page-root" style={s.page}>
+        <StatusBar barStyle={light ? 'dark-content' : 'light-content'} backgroundColor={T.bg} />
         <Root />
       </SafeAreaView>
     </StoreProvider>
   );
 }
 
-const s = StyleSheet.create({
+const s = themed(() => StyleSheet.create({
   page: { flex: 1, backgroundColor: T.bg },
   centre: { flex: 1, alignItems: 'center' },
   body: { flex: 1, width: '100%', maxWidth: PAGE_MAX_WIDTH },
-});
+}));
