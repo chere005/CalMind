@@ -34,6 +34,16 @@ visual. Deploy to **test only** (`./server/deploy-test.sh`) as changes land.
       forces WHITE status-bar text, which will read poorly on the cream Sage
       theme. iOS offers no "match my background, choose my own text colour".
 
+- [x] **"Make sure the highlight color for dates matches the color it
+      appears on the calendar legend / which is ultimately the color set for
+      the folder in the manage menu"** — core was already reading the folder
+      colour for both; the Calendar screen was repainting an OVERDUE cell
+      icon in the theme's orange. Now folder-coloured like the suite does it.
+      Spec pins the chain and fails against the old code. **Open question
+      for Sean:** a FINISHED colour still greys out rather than keeping the
+      folder colour — that is the suite's own rule, and the icon hides
+      entirely unless Completed is on, but say the word and it goes.
+
 ## 1 · In flight
 
 - [x] **Overdue date chips in the Calendar day panel** — landed, deployed,

@@ -694,6 +694,24 @@ honest — the next iteration trusts it.
   heads before the window turned over) and is now hardened. A flaky spec is
   the same lie as a green suite that didn't test the drag.
 
+## Iteration 42 shipped — one colour, one source
+- SEAN'S CHAIN: manage-menu folder colour → legend chip → the date's mark.
+  Core was already honest (cellMarks and monthLegend both read
+  folder.payload.color); the RENDER broke it. Calendar.tsx swapped an
+  OVERDUE reminder's cell icon for the theme's orange while the legend
+  drew that same folder in its own colour, so a late day's square stopped
+  matching its chip — and nothing in the manage menu had said so.
+- The suite settles it: the folder colour is written INLINE on every
+  reminder icon, overdue included, and the `overdue` class recolours
+  nothing. Only a finished colour greys (and hides unless Completed is
+  shown). Done stays grey here to match — flagged to Sean as the one
+  deliberate exception, in case he wants that gone too.
+- The spec walks the chain end to end and FAILS against the old code with
+  exactly his symptom: mark #f0a860, chip #ea5853. Three cases: due today,
+  the repaint (picking any colour the folder isn't already wearing, so it
+  can't pass by accident), and the overdue case that was the real bug.
+- 165 core + 22 server + 35 gesture. Deployed, live == local.
+
 ## NEXT: the Add-Recipe page (Sean's spec, precise)
 - A structured page in Notes, the akisbookshelf add-quote shape: Title;
   an INGREDIENTS section whose + parses units (grams, cups, tsp, tbsp…)
