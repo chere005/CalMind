@@ -17,6 +17,14 @@ visual. Deploy to **test only** (`./server/deploy-test.sh`) as changes land.
 - [x] **Legend line balancing** — core `balanceLines`, measured widths, no
       hardcoded counts. Confirmed on his own store on the sim: 2+3, no
       orphan.
+- [x] **"Only show things on the legend which actually have at least one
+      occurrence in the current calendar view"** — the legend was reading
+      the days past the folder tri-state the grid draws through, so a folder
+      switched to 'none' kept a chip with no mark anywhere. Verified on
+      device by paging: Aug 5+2 chips → Sep 1+1 → Nov none at all.
+      Edge cases, both answered "the heading belongs to its chips": an owner
+      with nothing left loses its name too, and an empty month shows no
+      legend and a single rule.
 - [~] **"iOS web app shouldn't be white on the top bar"** — fix shipped to
       test, NOT verified on an installed PWA. The export carried no
       `viewport-fit=cover`, so `env(safe-area-inset-*)` was 0, the app never

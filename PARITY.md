@@ -669,6 +669,31 @@ honest — the next iteration trusts it.
   both deploy-test.sh and the gesture harness, so the HTML the specs drive
   is the HTML that ships.
 
+## Iteration 41 shipped — the legend names only what the window holds
+- THE TRI-STATE WAS BEING READ PAST. monthLegend already built itself off
+  the drawn cells, so the intent was right, but it called dayItems WITHOUT
+  the folder modes while the grid drew its marks WITH them. A folder set to
+  'none' put no mark on any cell and still earned a chip. The legend reads
+  the days through the same tri-state the grid draws through now.
+- Both edge cases settle the same way — a heading belongs to its chips: an
+  owner whose chips all filter out loses its row and its name, and a month
+  holding nothing shows no legend at all. That last case used to leave the
+  legend's closing rule behind (two hairlines stacked); the rule goes with
+  the legend now.
+- The filter runs BEFORE the layout measures: BalancedRow keys its
+  measurements by item count, so a legend that gains or loses a chip
+  re-measures rather than laying the new set out against the old widths.
+- VERIFIED ON DEVICE, paging Sean's own store: August's five-chip SEAN row
+  and two-chip AKI row become September's one and one (that month holds
+  three marks), and November — empty — shows no legend and one rule.
+- 165 core + 22 server + 34 gesture. Deployed, live == local.
+- Also: safe-area-context's web build DOES read env(safe-area-inset-*)
+  (getInset in NativeSafeAreaProvider.web), so the translucent status bar
+  can't slide content under the clock — checked, not assumed.
+- Also: the habits-columns spec flaked once in a full run (it read the day
+  heads before the window turned over) and is now hardened. A flaky spec is
+  the same lie as a green suite that didn't test the drag.
+
 ## NEXT: the Add-Recipe page (Sean's spec, precise)
 - A structured page in Notes, the akisbookshelf add-quote shape: Title;
   an INGREDIENTS section whose + parses units (grams, cups, tsp, tbsp…)
