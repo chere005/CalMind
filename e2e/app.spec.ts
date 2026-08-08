@@ -677,3 +677,21 @@ test('the Recipe page can shed the non-recipe notes with its checkbox', async ({
   await expect(body).toContainText('flour');
   await expect(body).not.toContainText('Grandma');
 });
+
+test("the tri-state silences a folder's riders on the calendar", async ({ page }) => {
+  await signup(page);
+  await page.getByTestId('tab-reminders').click();
+  // An undated reminder in the CALENDAR folder rides on today.
+  await page.getByTestId('secadd-General').nth(1).click();
+  await page.getByTestId('rem-add-field').fill('ride me');
+  await page.getByTestId('rem-add-field').press('Enter');
+  await page.getByTestId('tab-calendar').click();
+  await expect(page.getByText('ride me', { exact: true })).toBeVisible();
+  // Manage reminders → Calendar folder → None.
+  await page.getByTestId('pick-calendar').click();
+  await page.getByTestId('manage-reminders-row').click();
+  await page.getByTestId('remmode-Calendar').click();
+  await page.getByTestId('trimode-none').click();
+  await page.getByTestId('remfolders-done').click();
+  await expect(page.getByText('ride me', { exact: true })).toBeHidden();
+});
