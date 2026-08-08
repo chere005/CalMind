@@ -510,10 +510,15 @@ honest — the next iteration trusts it.
   what the three harnesses watch and what stays by-eye.
 - 130 core + 22 server + 23 gesture tests.
 
-## In flight (iteration 31 — start here)
-- Sean to decide: sim/dev builds defaulting to the live test server.
-- The loop's core is essentially at parity; remaining items are steering
-  batches from Sean and the promote-readiness regression.
+## Iteration 31 shipped — the promote-readiness pass
+- LIVE SMOKE against the deployed test instance (real NFSN PHP, htaccess,
+  TLS — what the local harness can't see): signup, sync round-trip, widget
+  token + feed, shared_pull isolation, tombstone, logout-revokes — 8/8.
+  Residue: one empty throwaway account.
+- README caught up with reality (parity, sharing scope note, e2e/ in the
+  map); all three suites re-run green: 130 core + 22 server + 23 gesture.
+- The loop's core parity stands complete. Remaining: Sean's dev-server
+  default call, and his steering batches as they come.
 
 ## Next, in pain order
 1. Habits month view (day pies + its legend) + Manage-sections window +

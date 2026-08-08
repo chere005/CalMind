@@ -7,11 +7,15 @@ Feel free to deploy this on your own website, build and deploy the iOS version, 
 **This is a personal project to have some fun with claude code, which generated essentially all of the code, and the rest of this readme:**
 
 One codebase for web, iOS, Android — and a SwiftUI watch app — for the CalMind
-suite (Reminders first; Calendar, Notes, Habits and Add port onto the same
-skeleton). The successor architecture to the plain-PHP suite at
-[chere005/seancheren-site](https://github.com/chere005/seancheren-site):
-everything the product *does* is written once, in TypeScript, and every
-surface renders it.
+suite: Reminders, Calendar, Notes, Habits and Add, at full feature parity with
+the plain-PHP suite at
+[chere005/seancheren-site](https://github.com/chere005/seancheren-site) whose
+successor architecture this is. Everything the product *does* is written once,
+in TypeScript, and every surface renders it: the outline drags, the repeat
+rolls, the four full themes, mutual-consent sharing with live ticks, the
+Scriptable widget with its setup page, the ?tick= quick-done, and the
+watch list pushed over WatchConnectivity — all proven end-to-end by the three
+test harnesses (`TESTING.md` is the map; `PARITY.md` is the build ledger).
 
 ## The map
 
@@ -32,7 +36,12 @@ apps/app/modules/watch-bridge/   iOS-only native module: WatchConnectivity push.
 apps/watch/        The SwiftUI watch app (read-only list) + wiring README.
 server/            The sync API in PHP — deployable to NearlyFreeSpeech
                    unchanged. A dumb store with auth: it merges by clear
-                   metadata and never reads a payload.
+                   metadata and stays out of payloads, except where sharing
+                   must scope a partner's reads and row-writes to the
+                   containers they opted in (both lists must name each other,
+                   re-checked on every request).
+e2e/               Playwright: the exported web app + the real PHP API on a
+                   scratch dir, driven by real mouse events.
 ```
 
 ## The sync model
