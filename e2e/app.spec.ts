@@ -298,3 +298,20 @@ test('note body renders its markers as styled text when you tap away', async ({ 
   expect(text).toContain('wisdom');
   expect(text).not.toContain('> wisdom');
 });
+
+test('swipe a row left: the delete arrives already armed, one tap fires', async ({ page }) => {
+  await signup(page);
+  await page.getByTestId('tab-reminders').click();
+  await page.getByTestId('secadd-General').first().click();
+  await page.getByTestId('rem-add-field').fill('swipe me');
+  await page.getByTestId('rem-add-field').press('Enter');
+  const row = page.getByTestId('rem-row').filter({ hasText: 'swipe me' });
+  const box = (await row.boundingBox())!;
+  const y = box.y + box.height / 2;
+  await page.mouse.move(box.x + box.width - 40, y);
+  await page.mouse.down();
+  for (let i = 1; i <= 6; i++) await page.mouse.move(box.x + box.width - 40 - i * 15, y);
+  await page.mouse.up();
+  await page.getByTestId('swipe-del').click();
+  await expect(row).toBeHidden();
+});

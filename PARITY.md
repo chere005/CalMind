@@ -209,8 +209,19 @@ honest — the next iteration trusts it.
   Pill joined the noSteal club so the toolbar can't blur the field away.
 - 126 core + 17 server + 13 gesture tests.
 
-## In flight (iteration 13 — start here)
-- Swipe-a-row-left to delete (armed two-press control).
+## Iteration 13 shipped
+- SWIPE-A-ROW-LEFT TO DELETE: useSwipeLeft (stable per-key responders,
+  capture-phase claim on clearly-horizontal leftward travel) on Reminders
+  rows, Notes rows, and all three day-panel row kinds. The swipe reveals the
+  delete already ARMED (ConfirmDelete forceArmed) — the swipe is the first
+  press, one tap fires; stands down while a row is inline-editing. Swipe
+  targets wear userSelect none (a selection terminates the pan). One more
+  web gesture truth: the browser fires a CLICK on the mouseup that ends a
+  pan, so tap handlers consult justSwiped() before clearing the state the
+  gesture just set.
+- 126 core + 17 server + 14 gesture tests.
+
+## In flight (iteration 14 — start here)
 - Notes rows show ⧉ always — gate it behind an edit mode when Notes gets one
   (the suite hides row controls outside edit mode).
 

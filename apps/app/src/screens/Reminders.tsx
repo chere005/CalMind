@@ -33,6 +33,7 @@ import { T } from '../theme';
 import { TopBar } from '../chrome';
 import { FolderPick, useFolderView } from '../components/FolderPick';
 import { useRowDrag } from '../components/rowdrag';
+import { useSwipeLeft } from '../components/swiperow';
 import { useSectionDrag, type SectionSlot } from '../components/sectiondrag';
 import { ItemModal } from '../components/ItemModal';
 import { CircleBtn, ConfirmDelete, Field, Pill } from '../ui';
@@ -52,6 +53,7 @@ export function Reminders() {
   const [editing, setEditing] = useState<string | null>(null); // reminder id in inline edit
   const [editText, setEditText] = useState('');
   const holdCluster = React.useRef(false);
+  const swipe = useSwipeLeft();
   const [addingSection, setAddingSection] = useState<string | null>(null); // folderId
   const [newName, setNewName] = useState('');
   const [renamingSec, setRenamingSec] = useState<string | null>(null);
@@ -387,8 +389,10 @@ export function Reminders() {
                         <View
                           testID="rem-row"
                           ref={drag.registerRow(flatIdxOf(r.id))}
+                          {...(editing === r.id ? {} : swipe.handlersFor(r.id))}
                           style={[
                             s.row,
+                            editing !== r.id && s.rowNoSelect,
                             r.payload.indent > 0 && s.rowIndented,
                             drag.dragIdx !== null && flatIdxOf(r.id) === drag.dragIdx && { opacity: 0.55, transform: [{ translateY: drag.dragDy }] },
                           ]}
@@ -438,6 +442,8 @@ export function Reminders() {
                               testID="rem-body"
                               style={s.rowBody}
                               onPress={() => {
+                                if (swipe.justSwiped()) return;
+                                if (swipe.swiped) { swipe.clear(); return; }
                                 // Double-click on desktop, as prod: two taps inside 300ms.
                                 const now = Date.now();
                                 if (lastTap.current.id === r.id && now - lastTap.current.at < 300) {
@@ -452,6 +458,13 @@ export function Reminders() {
                               <Text style={[s.rowText, r.payload.done && s.rowTextDone]}>{r.payload.text || '…'}</Text>
                               {dueChip(r)}
                             </Pressable>
+                          )}
+                          {swipe.swiped === r.id && editing !== r.id && (
+                            <ConfirmDelete
+                              testID="swipe-del"
+                              forceArmed
+                              onDelete={() => { swipe.clear(); mutate((e) => e.del(r.id)); }}
+                            />
                           )}
                         </View>
                         {editing === r.id && repeatEditor(r)}
@@ -521,6 +534,8 @@ const s = StyleSheet.create({
   askCard: { width: '100%', maxWidth: 360, backgroundColor: T.surface, borderWidth: 1, borderColor: T.line, borderRadius: 16, padding: 20, gap: 14 },
   askText: { color: T.text, fontSize: 15, lineHeight: 22 },
   askRow: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8 },
+  // A swipe target never starts a text selection (a selection terminates the pan).
+  rowNoSelect: { userSelect: 'none' } as import('react-native').ViewStyle,
   rowIndented: { paddingLeft: 28 },
   rowBody: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   rowText: { color: T.text, fontSize: 17, flexShrink: 1 },

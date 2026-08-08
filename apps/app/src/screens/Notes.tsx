@@ -14,6 +14,7 @@ import { CircleBtn, ConfirmDelete, Field, Pill, Rule } from '../ui';
 import { Dropdown } from '../components/Dropdown';
 import { useRowDrag } from '../components/rowdrag';
 import { useSectionDrag, type SectionSlot } from '../components/sectiondrag';
+import { useSwipeLeft } from '../components/swiperow';
 
 export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | null; onOpenConsumed?: () => void }) {
   const { recs, mutate } = useStore();
@@ -22,6 +23,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
   const [sel, setSel] = useState({ start: 0, end: 0 });
   const [dateOpen, setDateOpen] = useState(false);
   const [bodyEditing, setBodyEditing] = useState(false);
+  const swipe = useSwipeLeft();
   const [dateField, setDateField] = useState('');
   const [goesOpen, setGoesOpen] = useState(false);
   const [delArmed, setDelArmed] = useState(false);
@@ -313,11 +315,11 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
                 {notesOf(sec.id).map((n) => (
                   <View key={n.id}>
                     {drag.slot !== null && flatIdxOf(n.id) === drag.slot && <View style={s.dropLine} />}
-                    <View ref={drag.registerRow(flatIdxOf(n.id))} style={[s.row, drag.dragIdx !== null && flatIdxOf(n.id) === drag.dragIdx && { opacity: 0.55, transform: [{ translateY: drag.dragDy }] }]}>
+                    <View ref={drag.registerRow(flatIdxOf(n.id))} {...swipe.handlersFor(n.id)} style={[s.row, s.rowNoSelect, drag.dragIdx !== null && flatIdxOf(n.id) === drag.dragIdx && { opacity: 0.55, transform: [{ translateY: drag.dragDy }] }]}>
                       <View testID="note-grip" {...drag.handleFor(flatIdxOf(n.id))} style={s.rowGrip} hitSlop={6}>
                         <Text style={s.rowGripText}>≡</Text>
                       </View>
-                      <Pressable testID="note-row" onPress={() => setOpenId(n.id)} style={s.rowBody}>
+                      <Pressable testID="note-row" onPress={() => { if (swipe.justSwiped()) return; if (swipe.swiped) { swipe.clear(); return; } setOpenId(n.id); }} style={s.rowBody}>
                         <Text style={s.rowTitle} numberOfLines={1}>{n.payload.title}</Text>
                         <Text style={s.chev}>›</Text>
                       </Pressable>
@@ -325,6 +327,9 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
                         const res = duplicateItem(recs, n.id, newId);
                         if (!('error' in res)) mutate((e) => res.put.forEach((p) => e.put(p)));
                       }} />
+                      {swipe.swiped === n.id && (
+                        <ConfirmDelete forceArmed onDelete={() => { swipe.clear(); mutate((e) => e.del(n.id)); }} />
+                      )}
                     </View>
                   </View>
                 ))}
@@ -374,6 +379,7 @@ const s = StyleSheet.create({
   secName: { color: T.gold, fontSize: 14, fontWeight: '700' },
   row: { flexDirection: 'row', alignItems: 'center', gap: 8, height: 44 },
   rowBody: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  rowNoSelect: { userSelect: 'none' } as import('react-native').ViewStyle,
   rowGrip: { width: 16, alignItems: 'center', justifyContent: 'center' },
   rowGripText: { color: T.lineSoft, fontSize: 13, userSelect: 'none' },
   dropLine: { height: 2, backgroundColor: T.accent, borderRadius: 1, marginVertical: 1 },

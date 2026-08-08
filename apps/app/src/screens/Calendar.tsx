@@ -28,6 +28,7 @@ import { TopBar } from '../chrome';
 import { CalendarPick, useCalendarView } from '../components/CalendarPick';
 import { CalGlyph, PageGlyph, TickBoxGlyph } from '../components/KindIcons';
 import { ItemModal, type ItemKind } from '../components/ItemModal';
+import { useSwipeLeft } from '../components/swiperow';
 import { CircleBtn, ConfirmDelete, Pill, Rule } from '../ui';
 
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
@@ -50,6 +51,7 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
     AsyncStorage.setItem('calmind.calFold', JSON.stringify([...next])).catch(() => {});
   };
   const [showDone, setShowDone] = useState(false);
+  const swipe = useSwipeLeft();
   // Week mode sticks per device, like the suite's localStorage calWeekMode.
   const [weekMode, setWeekMode] = useState(false);
   const [wkAnchor, setWkAnchor] = useState(today);
@@ -195,13 +197,13 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
           </Pressable>
         )}
         {!folded.has('events') && items.events.map((e) => (
-          <View key={e.id} style={s.row}>
+          <View key={e.id} {...swipe.handlersFor(e.id)} style={[s.row, s.rowNoSelect]}>
             <View style={[s.dot, s.rowDot, { backgroundColor: calById.get(e.payload.calendarId)?.color ?? T.folderBlue }]} />
             <Text style={s.rowText}>{e.payload.text}</Text>
             {e.payload.time && <Text style={s.chip}>{e.payload.time}</Text>}
             <CircleBtn glyph="✎" size={24} onPress={() => setModal({ mode: 'edit', kind: 'event', rec: e })} />
             <CircleBtn glyph="⧉" size={24} onPress={() => { const res = duplicateItem(recs, e.id, newId); if (!('error' in res)) mutate((en) => res.put.forEach((p) => en.put(p))); }} />
-            <ConfirmDelete onDelete={() => mutate((en) => en.del(e.id))} />
+            <ConfirmDelete forceArmed={swipe.swiped === e.id} onDelete={() => { swipe.clear(); mutate((en) => en.del(e.id)); }} />
           </View>
         ))}
         {items.reminders.length > 0 && (
@@ -211,7 +213,7 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
           </Pressable>
         )}
         {!folded.has('reminders') && items.reminders.filter(({ rec: r }) => showDone || !r.payload.done).map(({ rec: r, overdue, rider }) => (
-          <View key={r.id} style={s.row}>
+          <View key={r.id} {...swipe.handlersFor(r.id)} style={[s.row, s.rowNoSelect]}>
             <Pressable onPress={() => tick(r)} hitSlop={8} style={[s.tickBox, r.payload.done && s.tickDone, overdue && s.tickOverdue]}>
               {r.payload.done && <Text style={s.tickMark}>✓</Text>}
             </Pressable>
@@ -221,6 +223,7 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
             {r.payload.time && <Text style={s.chip}>{r.payload.time}</Text>}
             <CircleBtn glyph="✎" size={24} onPress={() => setModal({ mode: 'edit', kind: 'reminder', rec: r })} />
             <CircleBtn glyph="⧉" size={24} onPress={() => { const res = duplicateItem(recs, r.id, newId); if (!('error' in res)) mutate((en) => res.put.forEach((p) => en.put(p))); }} />
+            {swipe.swiped === r.id && <ConfirmDelete forceArmed onDelete={() => { swipe.clear(); mutate((en) => en.del(r.id)); }} />}
           </View>
         ))}
         {items.notes.length > 0 && (
@@ -230,11 +233,12 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
           </Pressable>
         )}
         {!folded.has('notes') && items.notes.map((n) => (
-          <View key={n.id} style={s.row}>
+          <View key={n.id} {...swipe.handlersFor(n.id)} style={[s.row, s.rowNoSelect]}>
             <Text style={[s.markGlyph, { color: T.dim }]}>▤</Text>
             <Text style={s.rowText}>{n.payload.title}</Text>
             <CircleBtn glyph="✎" size={24} onPress={() => setModal({ mode: 'edit', kind: 'note', rec: n })} />
             <CircleBtn glyph="⧉" size={24} onPress={() => { const res = duplicateItem(recs, n.id, newId); if (!('error' in res)) mutate((en) => res.put.forEach((p) => en.put(p))); }} />
+            {swipe.swiped === n.id && <ConfirmDelete forceArmed onDelete={() => { swipe.clear(); mutate((en) => en.del(n.id)); }} />}
           </View>
         ))}
         {items.events.length + items.reminders.length + items.notes.length === 0 && (
@@ -287,6 +291,7 @@ const s = StyleSheet.create({
   panelHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   panelTitle: { color: T.gold, fontSize: 15, fontWeight: '700' },
   row: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 4 },
+  rowNoSelect: { userSelect: 'none' } as import('react-native').ViewStyle,
   rowText: { color: T.text, fontSize: 15, flex: 1 },
   rowDone: { color: T.muted, textDecorationLine: 'line-through' },
   chip: { color: T.dim, fontSize: 12 },

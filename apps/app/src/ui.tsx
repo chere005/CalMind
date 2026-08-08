@@ -84,8 +84,11 @@ export function CircleBtn({
 }
 
 /** Two-press delete: first press fills red (label never changes), second fires. */
-export function ConfirmDelete({ onDelete, onPressIn, size = 26, testID }: { onDelete: () => void; onPressIn?: () => void; size?: number; testID?: string }) {
-  const [armed, setArmed] = useState(false);
+export function ConfirmDelete({ onDelete, onPressIn, size = 26, testID, forceArmed = false }: { onDelete: () => void; onPressIn?: () => void; size?: number; testID?: string; forceArmed?: boolean }) {
+  // forceArmed: the swipe-to-delete flow — the swipe already counted as the
+  // first press, so the control renders red and fires on one tap.
+  const [selfArmed, setArmed] = useState(false);
+  const armed = selfArmed || forceArmed;
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   return (
     <Pressable
