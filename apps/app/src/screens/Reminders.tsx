@@ -35,6 +35,7 @@ import { TopBar } from '../chrome';
 import { FolderPick, useFolderView } from '../components/FolderPick';
 import { useRowDrag } from '../components/rowdrag';
 import { useSwipeLeft } from '../components/swiperow';
+import { Chevron } from '../components/Chevron';
 import { useSectionDrag, type SectionSlot } from '../components/sectiondrag';
 import { ItemModal } from '../components/ItemModal';
 import { CircleBtn, ConfirmDelete, Field, Pill } from '../ui';
@@ -326,7 +327,7 @@ export function Reminders() {
       <TopBar title="Reminders" picker={<FolderPick app="reminders" />} />
       {/* The suite's toolbar row: under the divider, immediately above the folders. */}
       <View style={s.toolbar}>
-        <CircleBtn glyph="⌄" onPress={collapseAll} />
+        <Pressable onPress={collapseAll} hitSlop={8} style={s.collapseAllBtn}><Chevron open size={15} /></Pressable>
         <CircleBtn glyph="☑" active={showDone} onPress={() => setShowDone(!showDone)} />
         {session?.username === 'sean' && <CircleBtn glyph="⧉" onPress={copyMarkdown} />}
       </View>
@@ -336,8 +337,8 @@ export function Reminders() {
           <View key={f.id} style={s.folderBlock}>
             <View style={s.folderHead}>
               {/* The folder's colour is the wash behind its name, not a dot beside it. */}
-              <Pressable onPress={() => toggleFolderFold(f.id)} hitSlop={8}>
-                <Text style={s.chevron}>{foldedFolders.has(f.id) ? '▸' : '▾'}</Text>
+              <Pressable onPress={() => toggleFolderFold(f.id)} hitSlop={8} style={s.chevWrap}>
+                <Chevron open={!foldedFolders.has(f.id)} size={15} color={T.text} />
               </Pressable>
               <Text style={[s.folderName, { backgroundColor: f.payload.color + '33' }]}>{f.payload.name}</Text>
               <CircleBtn testID={`foldadd-${f.payload.name}`} glyph="+" color={T.accent} size={22} onPress={() => { setAddingSection(f.id); setNewName(''); }} />
@@ -367,8 +368,8 @@ export function Reminders() {
                     <View testID={`sec-grip-${sec.payload.name}`} {...(pageEdit ? secDrag.gripFor(sec.id, f.id) : {})} style={[s.rowGrip, !pageEdit && s.gripHidden]} pointerEvents={pageEdit ? 'auto' : 'none'} hitSlop={6}>
                       <Text style={s.rowGripText}>≡</Text>
                     </View>
-                    <Pressable onPress={() => toggleFold(sec.id)} hitSlop={8}>
-                      <Text style={s.chevron}>{isFolded ? '▸' : '▾'}</Text>
+                    <Pressable onPress={() => toggleFold(sec.id)} hitSlop={8} style={s.chevWrap}>
+                      <Chevron open={!isFolded} />
                     </Pressable>
                     {renamingSec === sec.id ? (
                       <Field
@@ -699,6 +700,8 @@ const s = themed(() => StyleSheet.create({
   section: { gap: 6 },
   secHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 },
   chevron: { color: T.dim, fontSize: 16, width: 20, textAlign: 'center' },
+  chevWrap: { width: 20, alignItems: 'center', justifyContent: 'center' },
+  collapseAllBtn: { width: 26, height: 26, borderRadius: 13, borderWidth: 1, borderColor: T.line, alignItems: 'center', justifyContent: 'center' },
   secName: { color: T.gold, fontSize: 16, lineHeight: 20, fontWeight: '600' },
   secRename: { flex: 1, paddingVertical: 4 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: T.lineSoft },

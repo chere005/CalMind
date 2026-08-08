@@ -531,16 +531,35 @@ honest — the next iteration trusts it.
   phones.
 - 132 core + 22 server + 25 gesture tests.
 
-## Queued from Sean (batch B, next)
-- A back control that always returns to the previous screen (needs a small
-  tab-history context; he asked top-right).
-- Refresh restores the screen you were on (persist the active tab);
-  selected folders + fold state already persist.
-- The calendar rework: two-week fold (selected day's week + the next),
-  arrows/swipes page one week there and one month in full view; the grid
-  fills with the neighbours' days LIGHTENED, and picking one never changes
-  the shown month (core helpers monthGridFilled/twoWeeksFrom are in with
-  tests — the screen wiring is what remains).
+## Iteration 33 continued — batches B and C of Sean's steering
+- SEAN'S STORE DEDUPED: the starter Reminders/Calendar/notes-General
+  folders folded into their imported twins (their stray items moved first),
+  verified by census — no duplicate names remain.
+- Shared rows rework: the @name: prefix and ⇗ retired for a purple PARTNER
+  CHIP, and shared rows carry real visibility boxes (hiddenShared per app,
+  respected by the All canvas; the master All box covers them).
+- The day panel's 'Nothing on this day' counts the partner's items too —
+  and the old check had been double-counting notes while FORGETTING events.
+- COLOUR PICKING IS A TRAY now (the suite's swatch tray): tapping any
+  manager swatch opens the app's palette as a dot row — folders, calendars,
+  habit sections, and the shared recolours, all through one SwatchTray.
+- Obtuse SVG chevrons replace the cramped text glyphs (sections, folder
+  blocks, collapse-all); folder BLOCKS collapse in Reminders and Notes,
+  persisted; the status dot explains itself on hover/long-press; the
+  manager's 'rides on today' suffix is gone; Notes' Delete is outlined and
+  arming only recolours; Habits shows 7 columns web / 5 phone; the watch
+  target got the CalMind icon.
+- 132 core + 22 server + 25 gesture tests.
+
+## Still queued from Sean
+- A back control returning to the previous screen (top-right; needs a small
+  tab-history context) + refresh restoring the active tab.
+- The calendar rework: two-week fold, week paging there / month paging in
+  full view, neighbours' days filling the grid LIGHTENED, cross-month
+  selection never switching months (core monthGridFilled/twoWeeksFrom are
+  in with tests; screen wiring remains).
+- Native icon refresh: rebuild iOS/Android sims so the fixed full-bleed
+  icons (and the watch icon) land on home screens.
 
 ## Iteration 32 shipped — the third sweep + Sean's live batch
 - CELL RULE completed: a fully-done colour's tick icon now LEAVES the month

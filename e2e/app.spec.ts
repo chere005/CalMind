@@ -430,9 +430,9 @@ test('sharing: mutual handshake, @partner view, a tick lands in their store', as
   await pageB.getByTestId('pick-reminders').click();
   await pageB.getByText('Manage folders…').click();
   const swatch = pageB.getByTestId('shared-swatch-Reminders');
-  const before = await swatch.evaluate((el) => getComputedStyle(el).backgroundColor);
-  await swatch.click();
-  await expect.poll(() => swatch.evaluate((el) => getComputedStyle(el).backgroundColor)).not.toBe(before);
+  await swatch.click(); // opens the tray
+  await pageB.getByTestId('shared-swatch-Reminders-f6b4b2').click(); // pick the rose
+  await expect.poll(() => swatch.evaluate((el) => getComputedStyle(el).backgroundColor)).toBe('rgb(246, 180, 178)');
   await pageB.getByText('Done', { exact: true }).click();
 
   // The add window's partner pair: a reminder dropped straight into A's

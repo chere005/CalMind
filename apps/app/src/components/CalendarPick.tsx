@@ -22,6 +22,7 @@ import { themed, APP_PALETTES, T , APP_PALETTES_SHARED } from '../theme';
 import { CircleBtn, ConfirmDelete, Field, Pill } from '../ui';
 import { Dropdown } from './Dropdown';
 import { ordForMove, useRowDrag } from './rowdrag';
+import { SwatchTray } from './SwatchTray';
 import { PieDot } from './PieDot';
 
 export type CalendarView = {
@@ -232,7 +233,7 @@ function CalendarManager({ onClose }: { onClose: () => void }) {
                 {drag.slot === i && <View style={s.dropLine} />}
                 <View ref={drag.registerRow(i)} style={[s.mrow, drag.dragIdx === i && { opacity: 0.55, transform: [{ translateY: drag.dragDy }] }]}>
                 <View {...drag.handleFor(i)} style={s.grip} hitSlop={8}><Text style={s.gripText}>≡</Text></View>
-                <CircleBtn glyph=" " size={22} bg={c.payload.color} onPress={() => recolor(c)} />
+                <SwatchTray palette={APP_PALETTES.calendar} color={c.payload.color} onPick={(hex) => mutate((e) => e.put({ ...c, payload: { ...c.payload, color: hex } }))} />
                 {renaming === c.id ? (
                   <Field
                     value={renameText}
@@ -262,7 +263,11 @@ function CalendarManager({ onClose }: { onClose: () => void }) {
                 <Text style={s.mlabel}>Shared with me</Text>
                 {sharedCalRows.map((c) => (
                   <View key={c.id} style={s.mrow}>
-                    <CircleBtn glyph=" " size={22} onPress={() => recolorSharedCal(c)} bg={c.payload.color} />
+                    <SwatchTray palette={APP_PALETTES_SHARED.calendar} color={c.payload.color} onPick={(hex) => {
+                      const key = `@${sharedPartner}:${c.id}`;
+                      const cur = prefsOf(recs, 'calendar').sharedColors ?? {};
+                      mutate((e) => e.put(prefsPut(recs, 'calendar', { sharedColors: { ...cur, [key]: hex } })));
+                    }} />
                     <Text style={s.sharedCalName}>@{sharedPartnerLabel}: {c.payload.name}</Text>
                   </View>
                 ))}

@@ -19,8 +19,8 @@ import {
   type Rec,
 } from '@calmind/core';
 import { useStore } from '../store';
-import { themed, APP_PALETTES, T } from '../theme';
-import { APP_PALETTES_SHARED } from '../theme';
+import { themed, APP_PALETTES, APP_PALETTES_SHARED, T } from '../theme';
+import { SwatchTray } from './SwatchTray';
 import { CircleBtn, ConfirmDelete, Field, Pill } from '../ui';
 import { Dropdown } from './Dropdown';
 import { ordForMove, useRowDrag } from './rowdrag';
@@ -132,7 +132,7 @@ export function FolderManager({ app, onClose }: { app: 'reminders' | 'notes'; on
                 {drag.slot === i && <View style={s.dropLine} />}
                 <View testID="mgr-row" ref={drag.registerRow(i)} style={[s.row, drag.dragIdx === i && { opacity: 0.55, transform: [{ translateY: drag.dragDy }] }]}>
                 <View testID="grip" {...drag.handleFor(i)} style={s.grip} hitSlop={8}><Text style={s.gripText}>≡</Text></View>
-                <CircleBtn glyph=" " size={22} color={f.payload.color} onPress={() => recolor(f)} bg={f.payload.color} />
+                <SwatchTray palette={APP_PALETTES[app]} color={f.payload.color} onPick={(hex) => mutate((e) => e.put({ ...f, payload: { ...f.payload, color: hex } }))} />
                 {renaming === f.id ? (
                   <Field
                     value={renameText}
@@ -160,7 +160,11 @@ export function FolderManager({ app, onClose }: { app: 'reminders' | 'notes'; on
                 <Text style={s.label}>Shared with me</Text>
                 {sharedFolders.map((f) => (
                   <View key={f.id} style={s.row}>
-                    <CircleBtn testID={`shared-swatch-${f.payload.name}`} glyph=" " size={22} onPress={() => recolorShared(f)} bg={f.payload.color} />
+                    <SwatchTray testID={`shared-swatch-${f.payload.name}`} palette={APP_PALETTES_SHARED[app]} color={f.payload.color} onPick={(hex) => {
+                      const key = `@${sharedPartner}:${f.id}`;
+                      const cur = prefsOf(recs, app).sharedColors ?? {};
+                      mutate((e) => e.put(prefsPut(recs, app, { sharedColors: { ...cur, [key]: hex } })));
+                    }} />
                     <Text style={s.sharedName}>@{sharedPartner}: {f.payload.name}</Text>
                   </View>
                 ))}

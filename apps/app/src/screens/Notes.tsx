@@ -16,6 +16,7 @@ import { Dropdown } from '../components/Dropdown';
 import { useRowDrag } from '../components/rowdrag';
 import { useSectionDrag, type SectionSlot } from '../components/sectiondrag';
 import { useSwipeLeft } from '../components/swiperow';
+import { Chevron } from '../components/Chevron';
 
 export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | null; onOpenConsumed?: () => void }) {
   const { recs, mutate, sharedRecs, sharedPartnerLabel } = useStore();
@@ -329,13 +330,13 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
       <TopBar title="Notes" picker={<FolderPick app="notes" />} />
       <ScrollView contentContainerStyle={s.scroll}>
         <View style={s.toolbarRow}>
-          <CircleBtn glyph="⌄" size={26} onPress={collapseAllNotes} />
+          <Pressable onPress={collapseAllNotes} hitSlop={8} style={s.collapseAllBtn}><Chevron open size={15} /></Pressable>
         </View>
         {folders.map((f) => (
           <View key={f.id} style={s.folderBlock}>
             <View style={s.folderHead}>
-              <Pressable onPress={() => toggleFolderFold(f.id)} hitSlop={8}>
-                <Text style={s.chevron}>{foldedFolders.has(f.id) ? '▸' : '▾'}</Text>
+              <Pressable onPress={() => toggleFolderFold(f.id)} hitSlop={8} style={s.chevWrap}>
+                <Chevron open={!foldedFolders.has(f.id)} size={15} color={T.text} />
               </Pressable>
               <Text style={[s.folderName, { backgroundColor: f.payload.color + '33' }]}>{f.payload.name}</Text>
               <View style={s.folderRule} />
@@ -350,8 +351,8 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
                   <View testID={`nsec-grip-${sec.payload.name}`} {...(pageEdit ? secDrag.gripFor(sec.id, f.id) : {})} style={[s.rowGrip, !pageEdit && s.gripHidden]} pointerEvents={pageEdit ? 'auto' : 'none'} hitSlop={6}>
                     <Text style={s.rowGripText}>≡</Text>
                   </View>
-                  <Pressable onPress={() => toggleNFold(sec.id)} hitSlop={8}>
-                    <Text style={s.chevron}>{nfolded.has(sec.id) ? '▸' : '▾'}</Text>
+                  <Pressable onPress={() => toggleNFold(sec.id)} hitSlop={8} style={s.chevWrap}>
+                    <Chevron open={!nfolded.has(sec.id)} />
                   </Pressable>
                   <Text style={s.secName}>{sec.payload.name}</Text>
                   <CircleBtn testID={`secadd-${sec.payload.name}`} glyph="+" color={T.accent} size={22} onPress={() => { setAdding(sec.id); setAddText(''); }} />
@@ -586,6 +587,8 @@ const s = themed(() => StyleSheet.create({
   secHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
   secName: { color: T.gold, fontSize: 16, lineHeight: 20, fontWeight: '600' },
   chevron: { color: T.dim, fontSize: 16, width: 20, textAlign: 'center' },
+  chevWrap: { width: 20, alignItems: 'center', justifyContent: 'center' },
+  collapseAllBtn: { width: 26, height: 26, borderRadius: 13, borderWidth: 1, borderColor: T.line, alignItems: 'center', justifyContent: 'center' },
   toolbarRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingBottom: 2 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 8, height: 44 },
   rowBody: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
