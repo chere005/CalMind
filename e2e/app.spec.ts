@@ -465,6 +465,13 @@ test("sharing: a calendar shows under the partner's day-panel group; notes read 
   await pageA.getByTestId('kind-event').click();
   await pageA.getByPlaceholder(/What\?/).fill('joint dinner');
   await pageA.getByText('Save', { exact: true }).click();
+  // A dated note, filed from the day panel so it lands on today: the suite
+  // shows a partner's dated notes on their day exactly like my own.
+  await pageA.getByText('+ Add', { exact: true }).click();
+  await pageA.getByTestId('kind-note').click();
+  await pageA.getByPlaceholder(/What\?/).fill('shopping list');
+  await pageA.getByText('Save', { exact: true }).click();
+  await pageA.getByText('← All notes').click();
   await pageA.getByTestId('tab-notes').click();
   await pageA.getByTestId('secadd-General').first().click();
   await pageA.getByPlaceholder('New note').fill('the recipe');
@@ -493,11 +500,27 @@ test("sharing: a calendar shows under the partner's day-panel group; notes read 
   await pageB.getByTestId('tab-calendar').click();
   await expect(pageB.getByText(`${userA}'s events`)).toBeVisible({ timeout: 10_000 });
   await expect(pageB.getByText('joint dinner')).toBeVisible();
+  await expect(pageB.getByText(`${userA}'s notes`)).toBeVisible();
+  await expect(pageB.getByText('shopping list')).toBeVisible();
+
+  // B files an event of their own, and the panel's groups fall in the suite's
+  // fixed order: one group per kind AND owner, mine before theirs, kinds in
+  // the legend's order — never reshuffled by what the day happens to hold.
+  await pageB.getByText('+ Add', { exact: true }).click();
+  await pageB.getByTestId('kind-event').click();
+  await pageB.getByPlaceholder(/What\?/).fill('my own thing');
+  await pageB.getByText('Save', { exact: true }).click();
+  await pageB.getByText('+ Add', { exact: true }).click();
+  await pageB.getByTestId('kind-reminder').click();
+  await pageB.getByPlaceholder(/What\?/).fill('my own errand');
+  await pageB.getByText('Save', { exact: true }).click();
+  const heads = (await pageB.getByTestId('dp-group-head').allTextContents()).map((h) => h.replace(/^[▸▾]\s*/, ''));
+  expect(heads).toEqual(['Events', `${userA}'s events`, 'Reminders', `${userA}'s notes`]);
 
   await pageB.getByTestId('tab-notes').click();
   await pageB.getByTestId('pick-notes').click();
   await pageB.getByTestId('pick-shared-General').click();
-  await pageB.getByTestId('shared-note-row').click();
+  await pageB.getByTestId('shared-note-row').filter({ hasText: 'the recipe' }).click();
   await expect(pageB.getByText('garlic')).toBeVisible();
   const body = await pageB.getByText('garlic').textContent();
   expect(body).not.toContain('**');

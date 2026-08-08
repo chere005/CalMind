@@ -101,6 +101,10 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
   const legend = useMemo(() => monthLegend(drawn, cells, today), [drawn, cells, today]);
   const sharedLegend = useMemo(() => monthLegend(sharedDrawn, cells, today), [sharedDrawn, cells, today]);
   const items = useMemo(() => dayItems(drawn, day, today, folderModes), [drawn, day, today, folderModes]);
+  // The suite drops a group whose every item is filtered out, so a day of
+  // finished reminders wears no stray heading until Completed is switched on.
+  const myReminders = useMemo(() => items.reminders.filter(({ rec: r }) => showDone || !r.payload.done), [items, showDone]);
+  const theirReminders = useMemo(() => sharedItems.reminders.filter(({ rec: r }) => !r.payload.done), [sharedItems]);
   const calById = useMemo(() => new Map(recs.filter((r): r is Rec<'calendar'> => r.type === 'calendar').map((c) => [c.id, c.payload])), [recs]);
 
   const page = (dir: -1 | 1) => {
@@ -254,7 +258,7 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
           </View>
         </View>
         {items.events.length > 0 && (
-          <Pressable style={s.groupHead} onPress={() => toggleFold('events')}>
+          <Pressable testID="dp-group-head" style={s.groupHead} onPress={() => toggleFold('events')}>
             <Text style={s.chev}>{folded.has('events') ? '▸' : '▾'}</Text>
             <Text style={s.groupTitle}>Events</Text>
           </Pressable>
@@ -277,14 +281,8 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
             )}
           </View>
         ))}
-        {items.reminders.length > 0 && (
-          <Pressable style={s.groupHead} onPress={() => toggleFold('reminders')}>
-            <Text style={s.chev}>{folded.has('reminders') ? '▸' : '▾'}</Text>
-            <Text style={s.groupTitle}>Reminders</Text>
-          </Pressable>
-        )}
         {sharedItems.events.length > 0 && (
-          <Pressable style={s.groupHead} onPress={() => toggleFold('events:@')}>
+          <Pressable testID="dp-group-head" style={s.groupHead} onPress={() => toggleFold('events:@')}>
             <Text style={s.chev}>{folded.has('events:@') ? '▸' : '▾'}</Text>
             <Text style={[s.groupTitle, s.groupTitleShared]}>{sharedPartnerLabel}'s events</Text>
           </Pressable>
@@ -296,7 +294,13 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
             {e.payload.time && <Text style={s.chip}>{timeLabel(e.payload.time)}</Text>}
           </View>
         ))}
-        {!folded.has('reminders') && items.reminders.filter(({ rec: r }) => showDone || !r.payload.done).map(({ rec: r, overdue, rider }) => (
+        {myReminders.length > 0 && (
+          <Pressable testID="dp-group-head" style={s.groupHead} onPress={() => toggleFold('reminders')}>
+            <Text style={s.chev}>{folded.has('reminders') ? '▸' : '▾'}</Text>
+            <Text style={s.groupTitle}>Reminders</Text>
+          </Pressable>
+        )}
+        {!folded.has('reminders') && myReminders.map(({ rec: r, overdue, rider }) => (
           <View key={r.id} {...swipe.handlersFor(r.id)} style={[s.row, s.rowNoSelect, rolledId === r.id && s.rowRolled]}>
             <Pressable testID="day-tick" onPress={() => tick(r)} hitSlop={8} style={[s.tickBox, r.payload.done && s.tickDone, overdue && s.tickOverdue]}>
               {r.payload.done && <Text style={s.tickMark}>✓</Text>}
@@ -317,13 +321,13 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
             {swipe.swiped === r.id && <ConfirmDelete forceArmed onDelete={() => { swipe.clear(); mutate((en) => en.del(r.id)); }} />}
           </View>
         ))}
-        {sharedItems.reminders.filter(({ rec: r }) => !r.payload.done).length > 0 && (
-          <Pressable style={s.groupHead} onPress={() => toggleFold('reminders:@')}>
+        {theirReminders.length > 0 && (
+          <Pressable testID="dp-group-head" style={s.groupHead} onPress={() => toggleFold('reminders:@')}>
             <Text style={s.chev}>{folded.has('reminders:@') ? '▸' : '▾'}</Text>
             <Text style={[s.groupTitle, s.groupTitleShared]}>{sharedPartnerLabel}'s reminders</Text>
           </Pressable>
         )}
-        {!folded.has('reminders:@') && sharedItems.reminders.filter(({ rec: r }) => !r.payload.done).map(({ rec: r, overdue }) => (
+        {!folded.has('reminders:@') && theirReminders.map(({ rec: r, overdue }) => (
           <View key={`sh${r.id}`} style={s.row}>
             <Pressable
               testID="shared-day-tick"
@@ -337,7 +341,7 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
           </View>
         ))}
         {items.notes.length > 0 && (
-          <Pressable style={s.groupHead} onPress={() => toggleFold('notes')}>
+          <Pressable testID="dp-group-head" style={s.groupHead} onPress={() => toggleFold('notes')}>
             <Text style={s.chev}>{folded.has('notes') ? '▸' : '▾'}</Text>
             <Text style={s.groupTitle}>Notes</Text>
           </Pressable>
@@ -356,6 +360,18 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
               </>
             )}
             {swipe.swiped === n.id && <ConfirmDelete forceArmed onDelete={() => { swipe.clear(); mutate((en) => en.del(n.id)); }} />}
+          </View>
+        ))}
+        {sharedItems.notes.length > 0 && (
+          <Pressable testID="dp-group-head" style={s.groupHead} onPress={() => toggleFold('notes:@')}>
+            <Text style={s.chev}>{folded.has('notes:@') ? '▸' : '▾'}</Text>
+            <Text style={[s.groupTitle, s.groupTitleShared]}>{sharedPartnerLabel}'s notes</Text>
+          </Pressable>
+        )}
+        {!folded.has('notes:@') && sharedItems.notes.map((n) => (
+          <View key={`sh${n.id}`} style={s.row}>
+            <Text style={[s.markGlyph, { color: T.dim }]}>▤</Text>
+            <Text style={s.rowText}>{n.payload.title}</Text>
           </View>
         ))}
         {items.events.length + items.reminders.length + items.notes.length +
