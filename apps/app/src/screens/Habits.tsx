@@ -8,7 +8,7 @@
  * the username) filters sections and opens Manage sections.
  */
 import React, { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View , useWindowDimensions , Platform } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { byOrd, monthGrid, moveHabit, moveHabitSection, newId, ordBetween, prefsOf, prefsPut, tickId, todayStr, type Rec } from '@calmind/core';
@@ -28,13 +28,20 @@ const HFOLDER = 'habits';
 const pad = (n: number) => String(n).padStart(2, '0');
 const FOLD_KEY = 'calmind.folded.habits';
 
-function weekDates(offset: number): string[] {
-  // The suite's rolling window: six days back through TOMORROW — eight
-  // columns in one layout, of which a narrow screen shows the last five.
+// Seven columns need room the narrow screens haven't got, so a phone shows
+// five. It's the WIDTH that decides, not the platform: a tablet or a native
+// app on a big screen gets all seven, a narrow desktop window gets five.
+const WIDE_AT = 700;
+
+function weekDates(offset: number, count: number): string[] {
+  // The suite's rolling window ENDS on tomorrow, so today is always in view
+  // with a day of headroom in front of it. Paging steps by exactly the number
+  // of columns SHOWN — stepping a fixed seven while showing five would leave
+  // two days unreachable between one page and the previous one.
   const now = new Date();
   const out: string[] = [];
-  for (let i = 6; i >= -1; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset * 7 - i);
+  for (let i = count - 1; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset * count + 1 - i);
     out.push(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`);
   }
   return out;
@@ -75,6 +82,7 @@ export function Habits() {
   const { recs, mutate } = useStore();
   const { visible: sections } = useHabitSections();
   const today = todayStr();
+  const { width: winWidth } = useWindowDimensions();
   const [w, setW] = useState(0);
   const [ym, setYm] = useState(today.slice(0, 7));
   const [addingIn, setAddingIn] = useState<string | null>(null);
@@ -105,9 +113,9 @@ export function Habits() {
   const view = prefsOf(recs, 'habits').view ?? 'week';
   const setView = (v: 'week' | 'month') => mutate((e) => e.put(prefsPut(recs, 'habits', { view: v })));
 
-  const allDays = useMemo(() => weekDates(w), [w]);
-  // Sean's rule: seven columns on web, five on a phone.
-  const days = Platform.OS === 'web' ? allDays.slice(1) : allDays.slice(3);
+  // Sean's rule: five day columns on a phone, seven where there's room.
+  const cols = winWidth >= WIDE_AT ? 7 : 5;
+  const days = useMemo(() => weekDates(w, cols), [w, cols]);
   const [year, month] = ym.split('-').map(Number) as [number, number];
   const cells = useMemo(() => monthGrid(year, month), [year, month]);
 
@@ -219,7 +227,7 @@ export function Habits() {
   const pagerLabel =
     view === 'month'
       ? new Date(`${ym}-15T12:00:00`).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
-      : w === 0
+      : w === 0 && cols === 7
         ? 'This week'
         : new Date(`${days[0]}T12:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) +
           ' – ' +
@@ -244,7 +252,7 @@ export function Habits() {
           </Pressable>
         </View>
         <View style={s.pager}>
-          <CircleBtn glyph="‹" size={30} onPress={() => page(-1)} />
+          <CircleBtn testID="habits-prev" glyph="‹" size={30} onPress={() => page(-1)} />
           <Text style={s.pagerLabel}>{pagerLabel}</Text>
           <CircleBtn glyph="›" size={30} onPress={() => page(1)} />
         </View>
@@ -261,8 +269,8 @@ export function Habits() {
                 <CircleBtn glyph="⌃" size={30} onPress={collapseAll} />
               </View>
               {days.map((d) => (
-                <View key={d} style={s.dayCol}>
-                  <View style={[s.dayHead, d === today && s.dayHeadToday]}>
+                <View key={d} testID="habit-daycol" style={s.dayCol}>
+                  <View testID="habit-dayhead" style={[s.dayHead, d === today && s.dayHeadToday]}>
                     <Text style={[s.dayHeadText, d === today && s.dayHeadTextToday]}>
                       {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'][new Date(`${d}T12:00:00`).getDay()]}
                     </Text>

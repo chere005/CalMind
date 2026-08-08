@@ -610,6 +610,47 @@ test('the widget setup page bakes the pin and carries the whole script', async (
   await expect(page.getByText(/every calendar/)).toBeVisible();
 });
 
+test('habits shows five day columns on a phone and seven with room, paging without gaps', async ({ page }) => {
+  // Sean's rule, made a real breakpoint rather than a permanent narrowing.
+  await signup(page);
+  await page.getByTestId('tab-habits').click();
+  await page.getByText('+', { exact: true }).first().click();
+  await page.getByPlaceholder('New habit').fill('stretch');
+  await page.getByPlaceholder('New habit').press('Enter');
+
+  const cols = () => page.getByTestId('habit-daycol').count();
+  await page.setViewportSize({ width: 390, height: 900 });
+  await expect.poll(cols).toBe(5);
+  await page.setViewportSize({ width: 1100, height: 900 });
+  await expect.poll(cols).toBe(7);
+
+  // Back on a phone, a page back must land the window immediately before the
+  // one shown — stepping a fixed seven while showing five would drop two days
+  // down the crack between the two pages.
+  await page.setViewportSize({ width: 390, height: 900 });
+  const heads = () => page.getByTestId('habit-dayhead').allTextContents();
+  const shown = await heads();
+  await page.getByTestId('habits-prev').click();
+  const prev = await heads();
+  expect(prev).toHaveLength(5);
+  expect(prev.some((d) => shown.includes(d))).toBe(false); // no overlap…
+  const dayNum = (s: string) => Number(s.replace(/\D+/g, ''));
+  expect(dayNum(shown[0]!) - dayNum(prev[4]!)).toBe(1); // …and no gap either
+});
+
+test('the page carries the web-app head an installed iOS PWA needs', async ({ page }) => {
+  // Without viewport-fit=cover, env(safe-area-inset-*) is 0 on iOS, the app
+  // never pads for the notch, and iOS paints its own LIGHT status bar over
+  // the top — the white strip above a dark app. The translucent style is what
+  // lets the theme's own background show through that inset instead.
+  await page.goto('.');
+  const meta = (name: string) => page.locator(`meta[name="${name}"]`).getAttribute('content');
+  expect(await meta('viewport')).toContain('viewport-fit=cover');
+  expect(await meta('apple-mobile-web-app-status-bar-style')).toBe('black-translucent');
+  expect(await meta('apple-mobile-web-app-capable')).toBe('yes');
+  expect(await meta('theme-color')).toBeTruthy();
+});
+
 test('a habit drags to a new spot, and the order survives a reload', async ({ page }) => {
   // Habits reorder like Reminders and Notes now: the grips live in the edit
   // mode the top bar's pencil opens, and the stored ord IS the display order.

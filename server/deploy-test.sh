@@ -42,7 +42,9 @@ php server/tools/test.php >/dev/null || { echo "server tests failed — not depl
 
 if [ "$WEB" = 1 ]; then
   echo "==> web export"
-  (cd apps/app && npx expo export -p web)
+  # One export path for deploys and the gesture harness alike, so the HTML the
+  # specs drive is the HTML that ships — head patch included.
+  npm run export:web
 fi
 
 # rsync only creates the final path element, so make the parents first.
