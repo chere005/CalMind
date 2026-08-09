@@ -924,6 +924,13 @@ Read how the server actually puts data on disk, which I had never done.
 - [x] Covered: a truncated records file errors rather than reading empty, the
       note survives once the file is whole again, and no `.tmp` residue is
       left behind.
+- [x] **Verified against the DEPLOYED server**, not just locally: the full
+      live smoke (16 checks, signup → sync → widget token → feed → logout)
+      passes. That matters for this change specifically — the deploy gate only
+      runs the static half, and `rename()` is atomic *within a filesystem*, so
+      the temp file being written beside its target on the real host is the
+      thing worth proving rather than assuming.
+      Residue: account 'smoke1786273609', token revoked, no delete endpoint.
 
 ## 4 · Gated — waiting on Sean's explicit word
 
