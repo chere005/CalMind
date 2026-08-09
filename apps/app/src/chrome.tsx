@@ -30,15 +30,16 @@ export function TopBar({
   return (
     <>
       <View style={s.topbar}>
-        {/* Back sits top-LEFT, before the title, and never gives up its slot.
-            The suite's back_button() puts both its states in one slot and
-            swaps them in CSS precisely "so nothing beside them shifts" — ours
-            was on the right AND conditional, so every control in the row moved
-            sideways depending on whether there was anywhere to go back to. */}
+        {/* Back sits top-LEFT, before the title, and is ALWAYS drawn — the
+            suite's back_button() emits it unconditionally, wired straight to
+            history.back(), with no test for whether there is anywhere to go.
+            Ours was on the right and conditional, so every control in the row
+            slid sideways depending on history; then it was left but invisible
+            on a cold open, which left a gap where a button belongs. Pressing
+            it with an empty stack pops nothing and does nothing, exactly as
+            history.back() does on a fresh page. */}
         <View style={s.hleft}>
-          <View style={[s.backSlot, !nav.canBack && s.slotEmpty]} pointerEvents={nav.canBack ? 'auto' : 'none'}>
-            <CircleBtn testID="nav-back" glyph="‹" size={28} onPress={nav.goBack} />
-          </View>
+          <CircleBtn testID="nav-back" glyph="‹" size={28} onPress={nav.goBack} />
           <Text style={s.appname} numberOfLines={1}>{title}</Text>
         </View>
         <View style={s.right}>
@@ -94,10 +95,6 @@ const s = themed(() => StyleSheet.create({
   // unhittable.
   appname: { color: T.text, fontSize: 24, fontWeight: '800', flexShrink: 1 },
   hleft: { flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 1, minWidth: 0 },
-  // Held, not removed: hiding it with display:none would move the title every
-  // time you arrived somewhere with no history behind you.
-  backSlot: { opacity: 1 },
-  slotEmpty: { opacity: 0 },
   right: { flexDirection: 'row', alignItems: 'center', gap: 10, flexShrink: 0 },
   status: { width: 8, height: 8, borderRadius: 4 },
   tip: { position: 'absolute', top: 14, right: 0, backgroundColor: T.surface2, borderWidth: 1, borderColor: T.line, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5, zIndex: 40, minWidth: 150 },

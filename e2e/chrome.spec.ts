@@ -10,7 +10,9 @@ import { expect, test, type Page } from '@playwright/test';
  * single test going red.
  *
  * These are the rules the suite holds to, and they are cheap to check:
- *   · back is LEFT of the title — always, on every screen;
+ *   · back is LEFT of the title and VISIBLE — always, on every screen. The
+ *     suite emits it unconditionally, straight onto history.back(), with no
+ *     test for whether there is anywhere to go;
  *   · a screen that has a picker keeps it in every view mode;
  *   · the username pill is always there, being the way into Settings.
  */
@@ -38,6 +40,7 @@ test('back sits left of the title on every screen', async ({ page }) => {
   for (const [tab, title] of Object.entries(TITLES)) {
     await page.getByTestId(`tab-${tab}`).click();
     await page.waitForTimeout(250);
+    await expect(page.getByTestId('nav-back'), `${tab}: back is drawn, not just present`).toBeVisible();
     const back = await page.getByTestId('nav-back').boundingBox();
     const head = await page.getByText(title, { exact: true }).first().boundingBox();
     expect(back, `${tab}: the back slot exists`).not.toBeNull();

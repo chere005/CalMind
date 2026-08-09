@@ -615,6 +615,27 @@ the Add tab's Done, where the race was actually SEEN.
       path on a device. That is a weaker claim than "I found a bug", and it is
       the honest one.
 
+## 3s · Back is always drawn — answered by the suite, not by asking (2026-08-09)
+
+I had this queued as a question for Sean: on a cold open there is no history,
+so should the chevron show or hold an invisible slot? The suite answers it.
+`back_button()` in lib/chrome.php emits the ‹ unconditionally, wired straight
+to `history.back()`, with no test for whether there is anywhere to go — and
+pressing it on a fresh page simply does nothing.
+
+- [x] Ours is now the same: always drawn, always in the top left. `goBack()`
+      with an empty stack pops nothing and changes nothing, so a press is a
+      no-op exactly as in the suite.
+- [x] This also removes the gap the previous fix left — the slot was held but
+      transparent, which kept the row from shifting and left a hole where a
+      button belongs. Sean's words were "back is always in top left"; always
+      means visible.
+- [x] `chrome.spec.ts` now asserts VISIBLE rather than merely present, which
+      is the difference between the two behaviours.
+
+Second of Sean's four questions closed with evidence rather than his
+attention (the first was Add's missing picker).
+
 ## 4 · Gated — waiting on Sean's explicit word
 
 - [ ] **E2EE envelopes** (design settled, build gated): X25519 +
