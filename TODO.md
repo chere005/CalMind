@@ -579,6 +579,25 @@ and the thing that stopped it was diagnosing rather than concluding — printing
 whether the manager closed, whether edit mode was on, and where the grips
 actually were.
 
+## 3q · Add screen parity — and one open question answered (2026-08-09)
+
+- [x] **Add matches the suite, including having NO picker.** Its header calls
+      `render_user_menu(false, '', '', false, '')` — the last argument is the
+      title-controls slot and it is empty on purpose. Everything else lines up
+      too: the date line, the placeholder ("e.g. Dentist 8/3 2pm…"), the three
+      type buttons, + Folder/Section, + Date/Time, + Repeat, the green Done
+      sitting under the options and above the syntax notes.
+- [x] **So "does Add want a picker?" is answered without asking Sean**: no. He
+      asked for the folder dropdown to be always displayed, and on the LIST
+      screens it now is. Add never had one in the suite either, and its folder
+      choice lives in the page behind + Folder/Section.
+
+That completes the screen-by-screen pass: Reminders, Notes, Calendar, Habits
+and Add all compared against the suite. Two real divergences stand, both
+recorded and both Sean's call — the Copy-as-Markdown format (3n) and the
+Habits Edit pencil, where the suite's code and its own CLAUDE.md contradict
+each other (3o).
+
 ## 4 · Gated — waiting on Sean's explicit word
 
 - [ ] **E2EE envelopes** (design settled, build gated): X25519 +
