@@ -1,6 +1,6 @@
 /** The OCR-to-note heuristics: humble, but pinned. */
 import { describe, it, expect } from 'vitest';
-import { formatRecipe, parseIngredient, recipeBody, recipeFromPages , scrubLine } from '../src/recipe';
+import { formatRecipe, parseIngredient, recipeBody, recipeFromPages, scaleIngredient, scaleRecipeBody, scrubLine } from '../src/recipe';
 
 describe('formatRecipe', () => {
   it('finds the obvious title, bullets the ingredients, keeps the steps', () => {
@@ -207,5 +207,65 @@ describe('a saved recipe read back — ours is read as ours', () => {
     expect(body2).toContain('Grandma doubled the butter.');
     expect(body2).not.toContain('- - ');
     expect(body2).not.toContain('3. Grandma');
+  });
+});
+
+describe('scaling — the one arithmetic a recipe asks of you', () => {
+  it('doubles and halves the shapes a card actually uses', () => {
+    expect(scaleIngredient('2 cups flour', 2)).toBe('4 cups flour');
+    expect(scaleIngredient('1 ½ cups yellow cornmeal', 2)).toBe('3 cups yellow cornmeal');
+    expect(scaleIngredient('¾ cup milk', 2)).toBe('1 ½ cups milk');
+    expect(scaleIngredient('1 cup all-purpose flour', 0.5)).toBe('½ cup all-purpose flour');
+    expect(scaleIngredient('1 tbsp baking powder', 2)).toBe('2 tbsp baking powder');
+  });
+
+  it('counts the noun as well as the number', () => {
+    // '1 eggs' is the tell that a scaler was bolted on without reading the
+    // line. Abbreviations are the opposite trap: 2 tbsp, never 2 tbsps.
+    expect(scaleIngredient('2 eggs, beaten', 0.5)).toBe('1 egg, beaten');
+    expect(scaleIngredient('1 clove garlic, minced', 2)).toBe('2 cloves garlic, minced');
+    expect(scaleIngredient('1 can chickpeas', 2)).toBe('2 cans chickpeas');
+    expect(scaleIngredient('2 pinches saffron', 0.5)).toBe('1 pinch saffron');
+    expect(scaleIngredient('1 dash bitters', 2)).toBe('2 dashes bitters');
+  });
+
+  it('a range scales at both ends and pluralises off the top of it', () => {
+    expect(scaleIngredient('2-3 tbsp sugar', 2)).toBe('4-6 tbsp sugar');
+    expect(scaleIngredient('2-3 cloves garlic', 0.5)).toBe('1-1 ½ cloves garlic');
+    expect(scaleIngredient('1 to 2 cups stock', 2)).toBe('2 to 4 cups stock');
+  });
+
+  it('a line with no number is left exactly alone', () => {
+    // Half a pinch is not a quantity, and inventing one would be worse than
+    // leaving the cook to judge it.
+    expect(scaleIngredient('a pinch of salt', 2)).toBe('a pinch of salt');
+    expect(scaleIngredient('salt and pepper to taste', 0.5)).toBe('salt and pepper to taste');
+  });
+
+  it('scales the ingredients of our body and NOTHING else', () => {
+    const body = [
+      '**Ingredients**',
+      '- 2 cups flour',
+      '- a pinch of salt',
+      '',
+      '**Directions**',
+      '1. Bake 20-25 minutes at 425°.',
+      '- 1 cup of nonsense under the method',
+      '',
+      'Grandma doubled the butter.',
+    ].join('\n');
+    const out = scaleRecipeBody(body, 2).split('\n');
+    expect(out[1]).toBe('- 4 cups flour');
+    expect(out[2]).toBe('- a pinch of salt');
+    // The method is prose: 20-25 minutes is a time, and doubling it ruins
+    // the dish rather than the arithmetic.
+    expect(out[5]).toBe('1. Bake 20-25 minutes at 425°.');
+    expect(out[6]).toBe('- 1 cup of nonsense under the method');
+    expect(out[8]).toBe('Grandma doubled the butter.');
+  });
+
+  it('scaling by one is the identity, character for character', () => {
+    const body = '**Ingredients**\n- 1 ½ cups flour\n\n**Directions**\n1. Mix.';
+    expect(scaleRecipeBody(body, 1)).toBe(body);
   });
 });

@@ -247,6 +247,15 @@ Next up, in Sean's order:
       steps. `richLines` gained a 'number' kind (two digits max, space after
       the dot — '1996. What a year' and '1.5 cups' stay prose). It is read
       back but never toggled: the toolbar writes '- ', recipes write '1. '.
+- [x] **Scaling (½× / 1× / 2×)** — reading, not editing: nothing is written,
+      and the spec's load-bearing assertion is that the note still says 2 cups
+      afterwards. Only ingredient lines under **Ingredients** scale — the
+      method is prose, and '20-25 minutes' is a time, not a yield. Lines with
+      no number ('a pinch of salt') are returned untouched rather than guessed
+      at. Plurals count too: half of 2 eggs is 1 egg, and 2 tbsp is never
+      2 tbsps. Unit conversion is NOT done — 12 tbsp butter stays 12 tbsp
+      rather than becoming ¾ cup; that is the obvious next ask if Sean wants
+      it.
 - [ ] Photo import flow (recipe-import → recipe-photos → recipe-title →
       recipe-save) is covered by e2e/ocr.spec.ts — keep that spec on the real
       flow, not a shortcut.

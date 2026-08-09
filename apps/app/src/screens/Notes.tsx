@@ -6,7 +6,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { deleteSection, renameSection, sectionNameTaken, byOrd, richLines, duplicateItem, formatRecipe, prefsPut, moveNote, moveSection, moveSectionEmptyingFolder, newId, nowStr, ordBetween, parseDateField, parseWhenFromText, todayStr, type Rec } from '@calmind/core';
+import { deleteSection, renameSection, sectionNameTaken, byOrd, richLines, scaleRecipeBody, duplicateItem, formatRecipe, prefsPut, moveNote, moveSection, moveSectionEmptyingFolder, newId, nowStr, ordBetween, parseDateField, parseWhenFromText, todayStr, type Rec } from '@calmind/core';
 import { useStore } from '../store';
 import { themed, T } from '../theme';
 import { TopBar } from '../chrome';
@@ -18,6 +18,9 @@ import { useSectionDrag, type SectionSlot } from '../components/sectiondrag';
 import { useSwipeLeft } from '../components/swiperow';
 import { Chevron } from '../components/Chevron';
 import { RecipeEditor } from './RecipeEditor';
+
+// Half, as written, and double — the three a cook actually asks for.
+const SCALES: [number, string][] = [[0.5, '½×'], [1, '1×'], [2, '2×']];
 
 export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | null; onOpenConsumed?: () => void }) {
   const { recs, mutate, sharedRecs, sharedPartnerLabel } = useStore();
@@ -36,6 +39,9 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
   // The title has no edit mode — it is always a live field — so it needs the
   // same shelter, scoped to having focus rather than to a mode.
   const [titleDraft, setTitleDraft] = useState<string | null>(null);
+  // Doubling a recipe is a way of READING it, not an edit — nothing is
+  // written, and 1× is always one tap away.
+  const [scale, setScale] = useState(1);
   const [recipeOpen, setRecipeOpen] = useState(false);
 
   const swipe = useSwipeLeft();
@@ -151,6 +157,11 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
   });
 
   const open = openId ? (recs.find((r) => r.id === openId) as Rec<'note'> | undefined) : undefined;
+  useEffect(() => { setScale(1); }, [openId]);
+  // Only OUR bodies scale — the markers are what say the ingredients have
+  // been read and separated from the prose around them.
+  const isRecipe = open ? /^\*\*Ingredients\*\*$/im.test(open.payload.body) : false;
+  const shownBody = open ? (scale === 1 ? open.payload.body : scaleRecipeBody(open.payload.body, scale)) : '';
 
   const goesChoices = useMemo(() => {
     const allFolders = recs
@@ -311,6 +322,22 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
             </View>
           )}
 
+          {isRecipe && (
+            <View testID="scale-row" style={s.scaleRow}>
+              {SCALES.map(([f, label]) => (
+                <Pressable
+                  key={label}
+                  testID={`scale-${label}`}
+                  style={[s.scalePill, scale === f && s.scalePillOn]}
+                  onPress={() => setScale(f)}
+                  hitSlop={6}
+                >
+                  <Text style={[s.scaleText, scale === f && s.scaleTextOn]}>{label}</Text>
+                </Pressable>
+              ))}
+              {scale !== 1 && <Text style={s.scaleNote}>Scaled — 1× to edit</Text>}
+            </View>
+          )}
           {bodyEditing ? (
             <TextInput
               testID="note-body-edit"
@@ -335,14 +362,18 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
               testID="note-body-view"
               style={s.body}
               onPress={() => {
+                // At 2× the text on screen is not the text in the note, so
+                // tapping must not drop you into an editor showing something
+                // else. 1× is right there.
+                if (scale !== 1) return;
                 setDraft(open.payload.body);
                 setBodyEditing(true);
               }}
             >
-              {open.payload.body === '' ? (
+              {shownBody === '' ? (
                 <Text style={s.bodyPlaceholder}>Write…</Text>
               ) : (
-                richLines(open.payload.body).map((ln, i) => (
+                richLines(shownBody).map((ln, i) => (
                   <View key={i} style={[s.rtLine, ln.kind === 'quote' && s.rtQuote, ln.kind === 'number' && s.rtStep]}>
                     {ln.kind === 'bullet' && <Text style={s.rtDot}>•</Text>}
                     {ln.kind === 'number' && <Text style={s.rtNum}>{ln.num}</Text>}
@@ -767,6 +798,12 @@ const s = themed(() => StyleSheet.create({
   // time, looking up from a pan and back.
   rtNum: { color: T.dim, fontSize: 16, lineHeight: 24, marginRight: 8, minWidth: 20 },
   rtStep: { marginTop: 6 },
+  scaleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
+  scalePill: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 999, borderWidth: 1, borderColor: T.line },
+  scalePillOn: { borderColor: T.accent, backgroundColor: T.accent + '22' },
+  scaleText: { color: T.dim, fontSize: 14 },
+  scaleTextOn: { color: T.accent, fontWeight: '700' },
+  scaleNote: { color: T.muted, fontSize: 12, flexShrink: 1 },
   rtText: { color: T.text, fontSize: 16, lineHeight: 24, flexShrink: 1 },
   rtBold: { fontWeight: '700' },
   rtItalic: { fontStyle: 'italic' },

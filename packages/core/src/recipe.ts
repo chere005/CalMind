@@ -254,3 +254,100 @@ export function recipeFromPages(pages: string[]): RecipeParts {
   // line back, or it is simply gone. RecipeEditor does exactly that.
   return { title: flat.title, ingredients, steps, extra };
 }
+
+/* ── Scaling ──────────────────────────────────────────────────────────────
+ * Halving or doubling is the one arithmetic a recipe actually asks of you,
+ * and it is exactly the arithmetic nobody wants to do holding a phone with
+ * one floury hand. It reads quantities only: a line with no number in front
+ * of it ('a pinch of salt', 'salt to taste') is returned untouched, because
+ * guessing what half a pinch is would be worse than leaving it alone.
+ */
+
+const FRACTION_VALUES: Record<string, number> = {
+  '½': 0.5, '¼': 0.25, '¾': 0.75, '⅓': 1 / 3, '⅔': 2 / 3, '⅛': 0.125,
+};
+// Rendered back to the fractions a kitchen owns measuring cups for.
+const NICE: [number, string][] = [
+  [0.125, '⅛'], [0.25, '¼'], [1 / 3, '⅓'], [0.375, '⅜'], [0.5, '½'],
+  [0.625, '⅝'], [2 / 3, '⅔'], [0.75, '¾'], [0.875, '⅞'],
+];
+// Abbreviations never take an 's'; 2 tbsp, not 2 tbsps.
+const INVARIANT = new Set(['g', 'kg', 'ml', 'l', 'tsp', 'tbsp', 'oz', 'lb', 'lbs']);
+
+function qtyValue(raw: string): number | null {
+  const q = raw.trim().replace(',', '.');
+  const whole = /^(\d+)\s+(.+)$/.exec(q);
+  if (whole) {
+    const rest = qtyValue(whole[2]!);
+    return rest === null ? null : Number(whole[1]) + rest;
+  }
+  if (FRACTION_VALUES[q] !== undefined) return FRACTION_VALUES[q]!;
+  const frac = /^(\d+)\/(\d+)$/.exec(q);
+  if (frac) return Number(frac[1]) / Number(frac[2]);
+  return /^\d+(?:\.\d+)?$/.test(q) ? Number(q) : null;
+}
+
+function qtyText(v: number): string {
+  if (v <= 0) return '0';
+  const whole = Math.floor(v + 1e-9);
+  const frac = v - whole;
+  if (frac < 0.02) return String(whole);
+  for (const [value, glyph] of NICE) {
+    if (Math.abs(frac - value) < 0.02) return whole === 0 ? glyph : `${whole} ${glyph}`;
+  }
+  return String(Math.round(v * 100) / 100);
+}
+
+/** 'cups' at one, 'cup'; 'egg' at two, 'eggs'. Abbreviations stay put. */
+function countWord(word: string, n: number): string {
+  if (INVARIANT.has(word.toLowerCase())) return word;
+  // Half a cup is a cup, not cups — English pluralises above one, not away
+  // from it.
+  const plural = n > 1 + 1e-9;
+  const isPlural = /(?:ch|sh|s|x|z)es$/i.test(word) || (/s$/i.test(word) && !/ss$/i.test(word));
+  if (plural === isPlural) return word;
+  if (plural) return /(?:ch|sh|s|x|z)$/i.test(word) ? word + 'es' : word + 's';
+  return /(?:ch|sh|s|x|z)es$/i.test(word) ? word.slice(0, -2) : word.slice(0, -1);
+}
+
+/** '1 ½ cups flour' doubled is '3 cups flour'; '2-3 cloves' halved is '1-1 ½'. */
+export function scaleIngredient(text: string, factor: number): string {
+  const t = text.replace(/\s+/g, ' ').trim();
+  const m = t.match(LEAD);
+  if (!m) return t;
+  const first = qtyValue(m[1]!);
+  if (first === null) return t;
+  const second = m[3] ? qtyValue(m[3]) : null;
+  const unit = m[4] ?? '';
+  const rest = m[5] ?? '';
+  const scaled = first * factor;
+  const qty = m[3] && second !== null
+    ? `${qtyText(scaled)}${m[2]}${qtyText(second * factor)}`
+    : qtyText(scaled);
+  // A range takes its plural from the top of the range: 2-3 cloves, not clove.
+  const count = second !== null ? second * factor : scaled;
+  const word = unit === '' ? '' : countWord(unit, count);
+  return tidy([qty, word, rest].filter((p) => p !== '').join(' ').trim());
+}
+
+/**
+ * Scales the ingredients of one of OUR bodies and nothing else. The method is
+ * left exactly as written — '- bake 20-25 minutes' is a time, not a yield,
+ * and doubling it would ruin the dish rather than the arithmetic.
+ */
+export function scaleRecipeBody(body: string, factor: number): string {
+  if (factor === 1) return body;
+  let inIngredients = false;
+  return body
+    .split('\n')
+    .map((raw) => {
+      const t = raw.trim();
+      if (/^\*\*.+\*\*$/.test(t)) {
+        inIngredients = /^\*\*ingredients\*\*$/i.test(t);
+        return raw;
+      }
+      if (!inIngredients || !raw.startsWith('- ')) return raw;
+      return '- ' + scaleIngredient(raw.slice(2), factor);
+    })
+    .join('\n');
+}
