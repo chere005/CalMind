@@ -847,6 +847,23 @@ honest — the next iteration trusts it.
   the app does it.
 - 187 core + 23 server + 41 gesture. Deployed, live == local, pushed.
 
+## Iteration 50 — verified, not assumed
+- THE CLOCK, ON THE LIVE SERVER: ssh'd the test instance and asked the
+  deployed lib what time it keeps — "America/Chicago | server day:
+  2026-08-08 19:40". Before the fix that same instant answered 2026-08-09
+  in UTC, which is precisely the evening the widget spent calling tomorrow
+  today. Fixed, deployed, and now confirmed where it runs rather than
+  where it is tested.
+- ANDROID rebuilt on everything this run (parser, recipes, widget script,
+  clock) and smoke-checked against Sean's real store: balanced legend
+  (2+3, no orphan), the day panel's group order, folder-coloured marks.
+- A CORRECTION worth keeping: "the note shows a recipe as a wall of plain
+  text" was MY misreading, not a defect. That screenshot was taken
+  mid-edit; a saved recipe renders its markers properly — bold Ingredients
+  and Directions headings, bulleted ingredients, numbered steps, the
+  personal line kept at the end. Checked before changing anything, which
+  is the only reason nothing was "fixed" into a difference.
+
 ## NEXT: the Add-Recipe page (Sean's spec, precise)
 - A structured page in Notes, the akisbookshelf add-quote shape: Title;
   an INGREDIENTS section whose + parses units (grams, cups, tsp, tbsp…)

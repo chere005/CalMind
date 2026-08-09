@@ -44,6 +44,19 @@ visual. Deploy to **test only** (`./server/deploy-test.sh`) as changes land.
       folder colour — that is the suite's own rule, and the icon hides
       entirely unless Completed is on, but say the word and it goes.
 
+- [x] **Recipes, Sean's elevated priority** — four things off the phone
+      screenshots: an ingredient with no number in front of it now counts as
+      one; a line mends by TAPPING it rather than delete-and-retype; both
+      lists reorder by the marker they already wear; delete moved behind the
+      swipe, as every other list does it. The fifth thing I listed turned out
+      to be my own misreading — a SAVED recipe already renders properly in
+      the note (bold headings, bullets, numbered steps); the "wall of plain
+      text" screenshot was taken mid-edit.
+- [ ] **OCR quality is the one recipe thread left, and it is BLOCKED on
+      Sean.** Everything so far is tuned against recipe text I invented. Two
+      or three photos of real cards would let it be tuned against what his
+      camera actually produces.
+
 ## 1 · In flight
 
 - [x] **Overdue date chips in the Calendar day panel** — landed, deployed,
