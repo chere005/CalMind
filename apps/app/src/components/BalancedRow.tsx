@@ -13,7 +13,7 @@
  */
 import React, { useCallback, useMemo, useState } from 'react';
 import { StyleSheet, View, type LayoutChangeEvent, type StyleProp, type ViewStyle } from 'react-native';
-import { balanceLines } from '@calmind/core';
+import { balanceLines, groupedLines } from '@calmind/core';
 
 export function BalancedRow({
   children,
@@ -21,12 +21,16 @@ export function BalancedRow({
   rowGap = 4,
   style,
   testID,
+  groups,
 }: {
   children: React.ReactNode;
   gap?: number;
   rowGap?: number;
   style?: StyleProp<ViewStyle>;
   testID?: string;
+  /** One number per child naming its kind. When given and a wrap is forced,
+   *  lines break on kind boundaries instead of the balance point. */
+  groups?: number[];
 }) {
   const items = useMemo(() => React.Children.toArray(children), [children]);
   const [rowW, setRowW] = useState(0);
@@ -45,9 +49,12 @@ export function BalancedRow({
   const measured = items.length > 0 && items.every((_x, i) => widths[keyOf(i)] !== undefined);
   const lines = useMemo(() => {
     if (!measured || rowW <= 0) return null;
-    return balanceLines(items.map((_x, i) => widths[keyOf(i)]!), rowW, gap);
+    const ws = items.map((_x, i) => widths[keyOf(i)]!);
+    return groups && groups.length === items.length
+      ? groupedLines(ws, rowW, gap, groups)
+      : balanceLines(ws, rowW, gap);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [measured, rowW, widths, items.length, gap]);
+  }, [measured, rowW, widths, items.length, gap, groups]);
 
   // Measured or not, every item is rendered with its onLayout attached — the
   // two branches differ only in how they are grouped.

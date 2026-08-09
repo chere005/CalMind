@@ -88,3 +88,34 @@ export function balanceLines(widths: number[], max: number, gap: number): [numbe
   }
   return out;
 }
+
+/**
+ * Kind-aware line breaking, for the legend when it wraps.
+ *
+ * Sean's choice, asked directly: chips that fit on ONE line stay on one
+ * line, whatever their kinds — the split is only meaningful when a split
+ * must happen, and then it lands on the kind boundaries (all the reminder
+ * folders together, all the calendars together), each kind balancing
+ * internally if it alone still overflows. `groups` names each item's kind
+ * as a number; items of a group are assumed contiguous, which is how
+ * monthLegend already orders them.
+ */
+export function groupedLines(
+  widths: number[],
+  max: number,
+  gap: number,
+  groups: number[],
+): [number, number][] {
+  const n = widths.length;
+  if (n === 0) return [];
+  if (span(widths, gap, 0, n) <= max || max <= 0) return [[0, n]];
+  const out: [number, number][] = [];
+  let i = 0;
+  while (i < n) {
+    let j = i + 1;
+    while (j < n && groups[j] === groups[i]) j++;
+    for (const [a, b] of balanceLines(widths.slice(i, j), max, gap)) out.push([i + a, i + b]);
+    i = j;
+  }
+  return out;
+}

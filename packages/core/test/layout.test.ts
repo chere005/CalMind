@@ -2,7 +2,7 @@
  * The legend's line breaking: fewest lines first, then the evenest split.
  */
 import { describe, it, expect } from 'vitest';
-import { balanceLines, minLines } from '../src/layout';
+import { balanceLines, groupedLines, minLines } from '../src/layout';
 
 /** The shape of a split, as item counts per line — easier to read than ranges. */
 const counts = (widths: number[], max: number, gap = 10) =>
@@ -68,5 +68,29 @@ describe('balanceLines — Sean\'s rule for the legend', () => {
 
   it('empty stays empty', () => {
     expect(balanceLines([], 400, 10)).toEqual([]);
+  });
+});
+
+describe('groupedLines — the kind-aware legend split', () => {
+  const gl = (w: number[], max: number, g: number[]) => groupedLines(w, max, 10, g);
+
+  it('everything that fits one line stays one line, kinds or not', () => {
+    expect(gl([100, 100, 100], 400, [0, 1, 2])).toEqual([[0, 3]]);
+  });
+
+  it('a forced wrap breaks on the kind boundary, not the balance point', () => {
+    // Four chips, two kinds. balanceLines would go 2+2 through the middle of
+    // a kind; the kind split is 1+3.
+    expect(gl([100, 100, 100, 100], 350, [0, 1, 1, 1])).toEqual([[0, 1], [1, 4]]);
+  });
+
+  it('a kind that alone overflows balances within itself', () => {
+    // Kind 1 has five chips that cannot fit its line: 3+2, never 4+1.
+    expect(gl([100, 100, 100, 100, 100, 100], 340, [0, 1, 1, 1, 1, 1]))
+      .toEqual([[0, 1], [1, 4], [4, 6]]);
+  });
+
+  it('empty stays empty', () => {
+    expect(gl([], 400, [])).toEqual([]);
   });
 });

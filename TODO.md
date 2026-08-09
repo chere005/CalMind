@@ -133,10 +133,24 @@ Series 9. Both are installed and reachable over Wi-Fi.
       complication, which needs a shared container because a widget
       extension is a separate process and cannot read WatchStore's
       UserDefaults.
-- [ ] **Modular face complication — NEXT, now unblocked.** Needs a second
-      apple-target of `type: 'widget'`, Accessory{Circular,Rectangular,
-      Corner} views with a TimelineProvider, and WatchStore's cache moved
-      from standard UserDefaults into the App Group suite.
+- [~] **Modular face complication — BUILT, install pending.** A
+      `type: 'watch-widget'` target in `apps/app/targets/watchwidget/`, all
+      four accessory families, WatchStore's cache moved to the App Group
+      suite (standard defaults kept as read fallback), WidgetCenter poked on
+      every push. Compiles for watch sim AND signs for device. Sean adds it
+      by long-pressing the face → edit → pick a slot → CalMind, and it only
+      appears in that list once the NEW build is on the watch.
+      Two traps burned into this, do not relearn them:
+      · Apple REFUSES the bundle id suffix `.complication` outright ("cannot
+        be registered … not available") — `.widget` registers fine. Same
+        team, same day, only the string differed.
+      · apple-targets wires extensions in DIRECTORY ORDER: a widget dir
+        sorting before `watch/` gets embedded into the PHONE app (installd
+        then rejects the install, watchOS binary in an iOS PlugIns), because
+        the watch target doesn't exist yet when the embed runs. The dir is
+        named `watchwidget` so it sorts after `watch`. If it's ever renamed,
+        check `Embed Foundation Extensions` lands on CalMindWatch in the
+        pbxproj.
 - [ ] **Four watch tabs: Summary, Reminders, Events, Calendar.** Blocked on
       the feed: `watchRows()` sends open reminders ONLY, so events have to be
       carried before three of those four tabs can exist. Keep `items` and ADD

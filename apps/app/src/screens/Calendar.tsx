@@ -266,7 +266,7 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
           {legend.length > 0 && (
             <View style={s.legendRow}>
               <Text style={s.legendOwner}>{(session?.username ?? 'me').toUpperCase()}</Text>
-              <BalancedRow testID="legend-me" style={s.legendChips} gap={10} rowGap={4}>
+              <BalancedRow testID="legend-me" style={s.legendChips} gap={10} rowGap={4} groups={legend.map((l) => (l.kind === 'event' ? 0 : l.kind === 'reminder' ? 1 : 2))}>
               {legend.map((l) => (
                 <View key={`${l.kind}:${l.id}`} style={s.legendItem}>
                   {l.kind === 'event' ? <CalGlyph color={l.color} size={14} /> : l.kind === 'reminder' ? <TickBoxGlyph color={l.color} size={14} /> : <PageGlyph color={l.color} size={14} />}
@@ -279,7 +279,7 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
           {sharedLegend.length > 0 && (
             <View style={s.legendRow}>
               <Text style={s.legendOwner}>{(sharedPartnerLabel ?? '').toUpperCase()}</Text>
-              <BalancedRow testID="legend-partner" style={s.legendChips} gap={10} rowGap={4}>
+              <BalancedRow testID="legend-partner" style={s.legendChips} gap={10} rowGap={4} groups={sharedLegend.map((l) => (l.kind === 'event' ? 0 : l.kind === 'reminder' ? 1 : 2))}>
               {sharedLegend.map((l) => (
                 <View key={`sh:${l.kind}:${l.id}`} style={s.legendItem}>
                   {l.kind === 'event' ? <CalGlyph color={l.color} size={14} /> : l.kind === 'reminder' ? <TickBoxGlyph color={l.color} size={14} /> : <PageGlyph color={l.color} size={14} />}
