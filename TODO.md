@@ -603,6 +603,30 @@ it somewhere, and quietly reformatting that would be worse than leaving it.
       on screen. The tests pin the divergences on purpose, so whoever compares
       the two next finds them written down rather than rediscovering them.
 
+## 3o · Screen-by-screen parity pass (2026-08-09)
+
+Checked OUR code first this time, then the suite — the opposite order cost a
+detour on the markdown button.
+
+- [x] **Notes list**: the suite's list has exactly one control under the
+      header, `collapse_all_button()`. So do we. Match.
+- [x] **Reminders**: header (back + title left, picker + user right) matches;
+      the toolbar row's collapse-all and Completed match. Copy-as-Markdown
+      exists on both, gated on the same username — see 3n for the format
+      divergence, which is Sean's to settle.
+- [ ] **Habits keeps an Edit pencil that the suite does NOT have.** The suite's
+      habits header says so in as many words — "No Edit pencil: holding a
+      habit's name or a section's gets you into edit mode" — and renders
+      `render_user_menu(false, '', ...)` with no edit id. But the suite's own
+      CLAUDE.md says the opposite: "Habits and the Bookshelf keep an Edit
+      pencil of their own". The docs and the code disagree, ours followed the
+      docs, and a spec covers it ('a habit renames on ONE tap once the Edit
+      pencil is on'). NOT changed: removing a control Sean uses, on the day he
+      complained about controls moving, would be the wrong call to make alone.
+- [x] **Header at DESKTOP width (1280)** — never checked since the flex was
+      changed: back sits at the left of the centred column, picker and
+      username at its right. Correct at both widths.
+
 ## 4 · Gated — waiting on Sean's explicit word
 
 - [ ] **E2EE envelopes** (design settled, build gated): X25519 +
