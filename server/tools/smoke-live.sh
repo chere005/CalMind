@@ -42,6 +42,10 @@ HEAD=$(curl -sS "$BASE/index.html")
 case "$HEAD" in *viewport-fit=cover*) ok "viewport-fit=cover (iOS pads for the notch)" ;; *) bad "viewport-fit=cover missing" ;; esac
 case "$HEAD" in *black-translucent*)   ok "the translucent status bar style" ;;    *) bad "status-bar style missing" ;; esac
 case "$HEAD" in *manifest.webmanifest*) ok "the manifest is linked" ;;             *) bad "manifest link missing" ;; esac
+# The page's own background. Unset means white, and viewport-fit=cover lets
+# that show in BOTH safe areas — which is how a white band appeared under the
+# tab bar the moment the top strip was fixed.
+case "$HEAD" in *calmind-bg*) ok "the page paints its own background" ;;           *) bad "no page background — the safe areas will come out white" ;; esac
 MTYPE=$(curl -sS -o /dev/null -w '%{content_type}' "$BASE/manifest.webmanifest")
 is "the manifest's content type" "$MTYPE" "application/manifest+json"
 for ICON in icon-192.png icon-512.png apple-touch-icon.png; do

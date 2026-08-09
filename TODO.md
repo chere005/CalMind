@@ -57,6 +57,33 @@ visual. Deploy to **test only** (`./server/deploy-test.sh`) as changes land.
       or three photos of real cards would let it be tuned against what his
       camera actually produces.
 
+## 0.4 · Sean's live batch, round two
+
+- [x] **The white bar at the TOP is fixed** — he confirmed it. What fixed it
+      was viewport-fit=cover plus the translucent status-bar style.
+- [x] **The white bar at the BOTTOM** — the same root cause, newly reachable.
+      Nothing ever set a background on html/body, so any pixel the app's views
+      don't paint falls through to the browser default (white), and
+      viewport-fit=cover is what let the page reach the home-indicator inset
+      where it showed. Painted now at first paint AND on every theme switch,
+      so it follows Sage rather than pinning midnight. The live smoke checks
+      it, so a regression can't ship quietly.
+- [?] **App mode with DuckDuckGo as default** — told him the platform
+      constraint rather than promising a code fix: on iOS only Safari's "Add
+      to Home Screen" makes a真 standalone web app; a third-party browser's
+      version opens in that browser. His default can stay DDG — launching the
+      icon doesn't route through the default browser. Sequence given: delete
+      the old icon, add from Safari, launch. If it STILL opens with chrome
+      after that, it's ours and I want to know.
+- [?] **Passkeys** — feasibility read given, no code. The load-bearing
+      correction: CalMind already hashes with password_hash and has a test
+      proving no plaintext at rest. The plaintext problem is the OLD suite's.
+      So passkeys are convenience plus phishing resistance, not a rescue —
+      and the cost lands in the NATIVE tiers (separate iOS/Android
+      implementations, domain-association files, a Tauri webview that may not
+      play) plus CBOR/COSE verification in framework-less PHP. Recommended
+      later, web-first, passwords staying as the fallback. Awaiting his word.
+
 ## 0.5 · A decision for Sean — the PWA cannot open offline
 
 The web app registers NO service worker, so a phone with no signal cannot
