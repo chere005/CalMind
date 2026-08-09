@@ -157,6 +157,14 @@ and reads what the screens make of it. It is the only test where the legend
 balancer meets more than two chips, and the only one that would catch a screen
 that goes blank or throws at size.
 
+Nor did any of them run on a day other than today. `e2e/clock.spec.ts` freezes
+the app's clock (a `Date` swapped in before the bundle loads) and draws the
+screens on the days that break things: New Year's Eve — December paging into
+January, and a typed "tomorrow" crossing into the next year — and February
+29th, stepping into March and back. Core has vectors for the arithmetic; this
+is the other half, the screens on those days, which no vector reaches. Both
+passed first try, which is the answer you want and the reason to keep them.
+
 ## What only an eye can check
 
 - **Icon-button centring** — the suite's pre-deploy rule verbatim: every
