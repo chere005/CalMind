@@ -9,6 +9,7 @@ import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { byOrd, prefsOf, prefsPut, type Rec } from '@calmind/core';
 import { useStore } from '../store';
 import { themed, T } from '../theme';
+import { pickHit } from '../ui';
 import { HabitSectionManager } from './HabitSectionManager';
 import { PieDot } from './PieDot';
 
@@ -34,7 +35,7 @@ export function SectionPick() {
 
   return (
     <>
-      <Pressable testID="pick-habits" onPress={() => setOpen(true)} hitSlop={8}>
+      <Pressable testID="pick-habits" style={pickHit} onPress={() => setOpen(true)} hitSlop={8}>
         <PieDot colors={visible.map((s) => s.payload.color)} />
       </Pressable>
       {open && (

@@ -23,7 +23,7 @@ import {
 import { CalGlyph } from './KindIcons';
 import { useStore } from '../store';
 import { themed, APP_PALETTES, T , APP_PALETTES_SHARED } from '../theme';
-import { CircleBtn, ConfirmDelete, Field, Pill } from '../ui';
+import { CircleBtn, ConfirmDelete, Field, pickHit, Pill } from '../ui';
 import { Dropdown } from './Dropdown';
 import { ordForMove, useRowDrag } from './rowdrag';
 import { SwatchTray } from './SwatchTray';
@@ -67,7 +67,7 @@ export function CalendarPick() {
 
   return (
     <>
-      <Pressable testID="pick-calendar" onPress={() => setOpen(true)} hitSlop={8}>
+      <Pressable testID="pick-calendar" style={pickHit} onPress={() => setOpen(true)} hitSlop={8}>
         <PieDot rainbow={hidden.length === 0 && hiddenShared.length === 0} colors={visible.map((c) => c.payload.color)} size={16} />
       </Pressable>
 

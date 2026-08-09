@@ -121,6 +121,23 @@ export function ConfirmDelete({ onDelete, onPressIn, size = 26, testID, forceArm
   );
 }
 
+/**
+ * The size a picker has always LOOKED.
+ *
+ * Each picker draws a 16px pie inside the 32px ring chrome.tsx puts around it,
+ * and relied on hitSlop for the rest. hitSlop does nothing under
+ * react-native-web: a click five pixels outside the pie — still well inside
+ * the ring, still plainly on the button — misses entirely, while the same
+ * click at dead centre opens the menu. On the native apps hitSlop works, so
+ * this was a web-only gap, on the platform Sean actually holds in Safari, on
+ * the control he named.
+ *
+ * Giving the pressable the ring's own dimensions closes it without moving a
+ * pixel: the ring is already 32x32, so the button now fills exactly what it
+ * draws. hitSlop stays for native, where it still adds.
+ */
+export const pickHit = { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' } as const;
+
 export function Field(props: TextInputProps) {
   return <TextInput placeholderTextColor={T.muted} {...props} style={[s.field, props.style]} />;
 }

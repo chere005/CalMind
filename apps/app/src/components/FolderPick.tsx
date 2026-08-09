@@ -11,6 +11,7 @@ import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { byOrd, prefsOf, prefsPut, type Rec } from '@calmind/core';
 import { useStore } from '../store';
 import { themed, T } from '../theme';
+import { pickHit } from '../ui';
 import { FolderManager } from './FolderManager';
 import { PieDot } from './PieDot';
 
@@ -61,7 +62,7 @@ export function FolderPick({ app }: { app: 'reminders' | 'notes' }) {
 
   return (
     <>
-      <Pressable testID={`pick-${app}`} onPress={() => setOpen(true)} hitSlop={8}>
+      <Pressable testID={`pick-${app}`} style={pickHit} onPress={() => setOpen(true)} hitSlop={8}>
         {/* One folder = its colour; several = the pie; everything on = the rainbow. */}
         <PieDot rainbow={!active && hidden.length === 0 && hiddenShared.length === 0} colors={active ? [active.payload.color] : visible.map((f) => f.payload.color)} size={16} />
       </Pressable>
