@@ -1,11 +1,25 @@
-/** A wide, obtuse chevron — the text glyphs (▾ ⌄) render cramped and narrow;
- *  this one is drawn: 14×7, round caps, pointing down when open, right when
- *  folded, exactly the collapse language the suite's chevrons speak. */
+/**
+ * A wide, obtuse chevron — the text glyphs (▾ ⌄ ▸ ›) render cramped and narrow;
+ * this one is drawn, with round caps, pointing down when open and right when
+ * folded: the collapse language the suite's chevrons speak.
+ *
+ * ONE size for every collapse in the app, exported so no screen can pick its
+ * own. There were three treatments before — a drawn chevron at 15 for folders
+ * and 14 for sections in Reminders and Notes, a 12pt '▸/▾' in the calendar's
+ * day panel, and a 14pt '›/⌄' in Habits — which is what Sean saw as the same
+ * control drawn differently on every page. Thirteen is a little smaller than
+ * any of them, which is the other half of what he asked for.
+ *
+ * Not to be confused with the '›' at the end of a note row: that one means
+ * "open this", not "collapse this", and is deliberately left alone.
+ */
 import React from 'react';
 import Svg, { Polyline } from 'react-native-svg';
 import { T } from '../theme';
 
-export function Chevron({ open, size = 14, color }: { open: boolean; size?: number; color?: string }) {
+export const CHEVRON = 13;
+
+export function Chevron({ open, size = CHEVRON, color }: { open: boolean; size?: number; color?: string }) {
   const w = size;
   const h = size / 2;
   return (

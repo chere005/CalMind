@@ -323,7 +323,7 @@ export function Reminders() {
       <TopBar title="Reminders" picker={<FolderPick app="reminders" />} />
       {/* The suite's toolbar row: under the divider, immediately above the folders. */}
       <View style={s.toolbar}>
-        <Pressable onPress={collapseAll} hitSlop={8} accessibilityRole="button" accessibilityLabel="Collapse all" style={s.collapseAllBtn}><Chevron open size={15} /></Pressable>
+        <Pressable onPress={collapseAll} hitSlop={8} accessibilityRole="button" accessibilityLabel="Collapse all" style={s.collapseAllBtn}><Chevron open /></Pressable>
         <CircleBtn glyph="☑" label="Completed" active={showDone} onPress={() => setShowDone(!showDone)} />
         {session?.username === 'sean' && <CircleBtn testID="rem-copymd" glyph="⧉" label="Duplicate" onPress={copyMarkdown} />}
         {copyNote !== '' && <Text testID="rem-copynote" style={s.copyNote}>{copyNote}</Text>}
@@ -336,7 +336,7 @@ export function Reminders() {
             <View style={s.folderHead}>
               {/* The folder's colour is the wash behind its name, not a dot beside it. */}
               <Pressable onPress={() => toggleFolderFold(f.id)} hitSlop={8} style={s.chevWrap}>
-                <Chevron open={!foldedFolders.has(f.id)} size={15} color={T.text} />
+                <Chevron open={!foldedFolders.has(f.id)} color={T.text} />
               </Pressable>
               <Text style={[s.folderName, { backgroundColor: f.payload.color + '33' }]}>{f.payload.name}</Text>
               <CircleBtn testID={`foldadd-${f.payload.name}`} glyph="+" label="Add" color={T.accent} size={22} onPress={() => { setAddingSection(f.id); setNewName(''); }} />
@@ -543,13 +543,20 @@ export function Reminders() {
             .sort((a, b) => byOrd(a.payload, b.payload))
             .map((f) => (
               <View key={`sh${f.id}`} style={s.folderBlock}>
-                <View style={s.folderHead}>
+                {/* A partner's folder collapses like my own. It had no control
+                    at all, so the one list I cannot reorder was also the one I
+                    could not put away. The state is MINE: it lives in this
+                    device's AsyncStorage under the same key as my own folds,
+                    is never written to their store and never synced, so
+                    folding Aki's list away changes nothing on Aki's screen. */}
+                <Pressable style={s.folderHead} onPress={() => toggleFolderFold(`sh:${f.id}`)} hitSlop={8}>
+                  <View style={s.chevWrap}><WebHitSlop /><Chevron open={!foldedFolders.has(`sh:${f.id}`)} color={T.text} /></View>
                   <Text style={[s.folderName, { backgroundColor: f.payload.color + '33' }]}>{f.payload.name}</Text>
                   <View style={s.folderRule} />
                   <Text style={s.ownerBadge}>{sharedPartnerLabel}</Text>
                   <View style={s.folderRule} />
-                </View>
-                {sharedRecs
+                </Pressable>
+                {!foldedFolders.has(`sh:${f.id}`) && sharedRecs
                   .filter((r): r is Rec<'section'> => r.type === 'section' && r.payload.folderId === f.id)
                   .sort((a, b) => byOrd(a.payload, b.payload))
                   .map((sec) => (

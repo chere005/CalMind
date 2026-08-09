@@ -15,6 +15,7 @@ import { byOrd, monthGrid, moveHabit, moveHabitSection, newId, ordBetween, prefs
 import { useStore } from '../store';
 import { APP_PALETTES, themed, T } from '../theme';
 import { TopBar } from '../chrome';
+import { Chevron } from '../components/Chevron';
 import { SectionPick, useHabitSections } from '../components/SectionPick';
 import { useRowDrag } from '../components/rowdrag';
 import { useSectionDrag } from '../components/sectiondrag';
@@ -298,7 +299,7 @@ export function Habits() {
                   </View>
                   <Pressable onPress={() => toggleFold(sec.id)} hitSlop={8}>
                     <WebHitSlop />
-                    <Text style={s.chev}>{folded.has(sec.id) ? '›' : '⌄'}</Text>
+                    <Chevron open={!folded.has(sec.id)} />
                   </Pressable>
                   <Pressable
                     testID={`hsec-dot-${sec.payload.name}`}

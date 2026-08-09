@@ -13,12 +13,13 @@ import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 // Same as the recipe editor: a Modal is its own window and starts under the
 // clock, so its back control needs the inset the app root cannot give it.
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Chevron } from '../components/Chevron';
 import * as Clipboard from 'expo-clipboard';
 import { apiPost } from '../api';
 import { useStore } from '../store';
 import { useCalendarView } from '../components/CalendarPick';
 import { themed, T } from '../theme';
-import { Pill } from '../ui';
+import { Pill, WebHitSlop } from '../ui';
 
 function scriptFor(feedUrl: string, appUrl: string): string {
   // The SUITE's widget, value for value (its source is the old repo's
@@ -267,8 +268,10 @@ export function WidgetSetup({ onClose }: { onClose: () => void }) {
           write through it.
         </Text>
 
-        <Pressable onPress={() => setShowRaw(!showRaw)} hitSlop={6}>
-          <Text style={s.rawToggle}>{showRaw ? '▾' : '▸'} Show raw feed URL</Text>
+        <Pressable style={s.rawRow} onPress={() => setShowRaw(!showRaw)} hitSlop={6}>
+          <WebHitSlop slop={6} />
+          <Chevron open={showRaw} />
+          <Text style={s.rawToggle}>Show raw feed URL</Text>
         </Pressable>
         {showRaw && <Text selectable style={s.raw}>{feedUrl}</Text>}
         {err !== '' && <Text style={s.err}>{err}</Text>}
@@ -292,7 +295,8 @@ const s = themed(() => StyleSheet.create({
   code: { color: T.text, fontFamily: 'Menlo', fontSize: 11, lineHeight: 16 },
   heldRow: { gap: 10, marginBottom: 6 },
   warn: { color: T.gold, fontSize: 14, lineHeight: 21, marginTop: 12 },
-  rawToggle: { color: T.muted, fontSize: 14, marginTop: 6 },
+  rawRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 },
+  rawToggle: { color: T.muted, fontSize: 14 },
   raw: { color: T.dim, fontSize: 12, fontFamily: 'Menlo' },
   err: { color: T.danger, fontSize: 14 },
 }));

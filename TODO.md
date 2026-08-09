@@ -440,12 +440,51 @@ question that is his.
       edge. Putting the label back inside the row fails it and prints the
       proof — `got [109,35]`, line one after the label, line two under it.
 
+## 0.15 · Collapse chevrons and shared folds (2026-08-09, Sean)
+
+- [x] **One chevron, one size, everywhere.** There were three treatments for
+      the same action: a drawn chevron at 15 for folders and 14 for sections
+      in Reminders and Notes, a 12pt '▸/▾' in the calendar's day panel, and a
+      14pt '›/⌄' in Habits. Four screens had each grown their own copy. All
+      of them now use `<Chevron/>` at the single size the component decides,
+      and that size is 13 — smaller than any of the three, which is the other
+      half of what he asked for.
+- [x] **A fourth copy I had missed**, found by the new check rather than by
+      me: the widget page's "Show raw feed URL" disclosure was still '▾/▸'.
+      Converted.
+- [x] **NOT touched, on purpose**: the '›' at the end of a note row. It means
+      "open this", not "collapse this", and the check excludes it explicitly.
+- [x] **Held by a source-level check**, since most of these sit behind a
+      folder, a section, a partner or an edit mode and driving to each would
+      be a tour rather than a test. Two rules: no screen may pass its own
+      `size` to Chevron, and no screen may draw a collapse with a text glyph.
+      Both mutation-tested.
+- [x] **Shared folders can be collapsed now.** They had no control at all —
+      the one list Sean cannot reorder was also the one he could not put
+      away. Added to the partner's folder in both Reminders and Notes. The
+      calendar's day panel already had it for the partner's three groups.
+- [x] **CONFIRMED before changing anything, as he asked: the fold is already
+      per-viewer.** It lives in this device's AsyncStorage
+      (`calmind.folded.reminders`, `calmind.foldedFolders.notes`), is never
+      written to the partner's store and never leaves the device. Folding
+      Aki's list away cannot change Aki's screen. There was no bug here, only
+      a missing control.
+- [ ] **Worth knowing, not fixed**: because that state is device-local rather
+      than an account pref, folds do not follow Sean between his phone and
+      his desktop, and two accounts sharing one browser share the folds. Say
+      the word and it becomes a synced pref like the theme.
+- [ ] **Also seen**: the deploy gate refused a deploy with icons and
+      index.html all 503 — the HOST was briefly down, not the build. It
+      retried green a minute later. The gate did exactly its job; recorded
+      because a 503 on the icons alone would have meant something quite
+      different.
+
 ## 2 · Steady state (every iteration)
 
 - [ ] `git pull --autostash` first — two sessions share this repo; stage
       explicit paths only, never `git add -A`, hold commits on files the other
       session has half-refactored.
-- [ ] Keep the suites green: 270 core + 37 server + 99 gesture + 16 WebKit,
+- [ ] Keep the suites green: 270 core + 37 server + 101 gesture + 16 WebKit,
       plus 9 live checks (16 with the API) and 6 desktop. The README points
       here rather than carrying numbers of its own, so this line has to be
       the one that is right — it was 93 an hour after the gesture suite passed

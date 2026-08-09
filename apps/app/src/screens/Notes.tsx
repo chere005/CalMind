@@ -460,13 +460,13 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
       {/* A live drag holds the scroll still — see Habits for the why. */}
       <ScrollView contentContainerStyle={s.scroll} scrollEnabled={drag.dragIdx === null && secDrag.dragging === null}>
         <View style={s.toolbarRow}>
-          <Pressable onPress={collapseAllNotes} hitSlop={8} accessibilityRole="button" accessibilityLabel="Collapse all" style={s.collapseAllBtn}><Chevron open size={15} /></Pressable>
+          <Pressable onPress={collapseAllNotes} hitSlop={8} accessibilityRole="button" accessibilityLabel="Collapse all" style={s.collapseAllBtn}><Chevron open /></Pressable>
         </View>
         {folders.map((f) => (
           <View key={f.id} style={s.folderBlock}>
             <View style={s.folderHead}>
               <Pressable onPress={() => toggleFolderFold(f.id)} hitSlop={8} style={s.chevWrap}>
-                <Chevron open={!foldedFolders.has(f.id)} size={15} color={T.text} />
+                <Chevron open={!foldedFolders.has(f.id)} color={T.text} />
               </Pressable>
               <Text style={[s.folderName, { backgroundColor: f.payload.color + '33' }]}>{f.payload.name}</Text>
               <CircleBtn testID={`foldadd-${f.payload.name}`} glyph="+" label="Add" color={T.accent} size={22} onPress={() => { setAddingSection(f.id); setNewSecName(''); }} />
@@ -594,13 +594,17 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
             .sort((a, b) => byOrd(a.payload, b.payload))
             .map((f) => (
               <View key={`sh${f.id}`} style={s.folderBlock}>
-                <View style={s.folderHead}>
+                {/* Collapsible like my own, and the fold is MINE — device-local
+                    AsyncStorage, never written to their store, never synced.
+                    Folding their list away changes nothing on their screen. */}
+                <Pressable style={s.folderHead} onPress={() => toggleFolderFold(`sh:${f.id}`)} hitSlop={8}>
+                  <View style={s.chevWrap}><WebHitSlop /><Chevron open={!foldedFolders.has(`sh:${f.id}`)} color={T.text} /></View>
                   <Text style={[s.folderName, { backgroundColor: f.payload.color + '33' }]}>{f.payload.name}</Text>
                   <View style={s.folderRule} />
                   <Text style={s.ownerBadge}>{sharedPartnerLabel}</Text>
                   <View style={s.folderRule} />
-                </View>
-                {sharedRecs
+                </Pressable>
+                {!foldedFolders.has(`sh:${f.id}`) && sharedRecs
                   .filter((r): r is Rec<'section'> => r.type === 'section' && r.payload.folderId === f.id)
                   .sort((a, b) => byOrd(a.payload, b.payload))
                   .map((sec) => (

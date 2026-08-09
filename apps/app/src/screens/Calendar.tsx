@@ -31,6 +31,7 @@ import { CalGlyph, PageGlyph, TickBoxGlyph } from '../components/KindIcons';
 import { ItemModal, type ItemKind } from '../components/ItemModal';
 import { useSwipeLeft } from '../components/swiperow';
 import { BalancedRow } from '../components/BalancedRow';
+import { Chevron } from '../components/Chevron';
 import { CircleBtn, ConfirmDelete, Pill, Rule, WebHitSlop } from '../ui';
 
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
@@ -307,7 +308,7 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
         </View>
         {items.events.length > 0 && (
           <Pressable testID="dp-group-head" style={s.groupHead} onPress={() => toggleFold('events')}>
-            <Text style={s.chev}>{folded.has('events') ? '▸' : '▾'}</Text>
+            <Chevron open={!folded.has('events')} />
             <Text style={s.groupTitle}>Events</Text>
           </Pressable>
         )}
@@ -331,7 +332,7 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
         ))}
         {sharedItems.events.length > 0 && (
           <Pressable testID="dp-group-head" style={s.groupHead} onPress={() => toggleFold('events:@')}>
-            <Text style={s.chev}>{folded.has('events:@') ? '▸' : '▾'}</Text>
+            <Chevron open={!folded.has('events:@')} />
             <Text style={[s.groupTitle, s.groupTitleShared]}>{sharedPartnerLabel}'s events</Text>
           </Pressable>
         )}
@@ -344,7 +345,7 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
         ))}
         {myReminders.length > 0 && (
           <Pressable testID="dp-group-head" style={s.groupHead} onPress={() => toggleFold('reminders')}>
-            <Text style={s.chev}>{folded.has('reminders') ? '▸' : '▾'}</Text>
+            <Chevron open={!folded.has('reminders')} />
             <Text style={s.groupTitle}>Reminders</Text>
           </Pressable>
         )}
@@ -372,7 +373,7 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
         ))}
         {theirReminders.length > 0 && (
           <Pressable testID="dp-group-head" style={s.groupHead} onPress={() => toggleFold('reminders:@')}>
-            <Text style={s.chev}>{folded.has('reminders:@') ? '▸' : '▾'}</Text>
+            <Chevron open={!folded.has('reminders:@')} />
             <Text style={[s.groupTitle, s.groupTitleShared]}>{sharedPartnerLabel}'s reminders</Text>
           </Pressable>
         )}
@@ -391,7 +392,7 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
         ))}
         {items.notes.length > 0 && (
           <Pressable testID="dp-group-head" style={s.groupHead} onPress={() => toggleFold('notes')}>
-            <Text style={s.chev}>{folded.has('notes') ? '▸' : '▾'}</Text>
+            <Chevron open={!folded.has('notes')} />
             <Text style={s.groupTitle}>Notes</Text>
           </Pressable>
         )}
@@ -413,7 +414,7 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
         ))}
         {sharedItems.notes.length > 0 && (
           <Pressable testID="dp-group-head" style={s.groupHead} onPress={() => toggleFold('notes:@')}>
-            <Text style={s.chev}>{folded.has('notes:@') ? '▸' : '▾'}</Text>
+            <Chevron open={!folded.has('notes:@')} />
             <Text style={[s.groupTitle, s.groupTitleShared]}>{sharedPartnerLabel}'s notes</Text>
           </Pressable>
         )}
