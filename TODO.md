@@ -140,6 +140,13 @@ Series 9. Both are installed and reachable over Wi-Fi.
       every push. Compiles for watch sim AND signs for device. Sean adds it
       by long-pressing the face → edit → pick a slot → CalMind, and it only
       appears in that list once the NEW build is on the watch.
+      INSTALLED on his phone and watch as Release ~14:40 — the phone build
+      also ends the Debug-only LogBox banner ("Open debugger…", which sat
+      exactly over the tab bar and likely WAS his "spurious space") and the
+      Metro tether that would have stranded the app off home Wi-Fi. The
+      complication list shows CalMind only under the NEW watch build; the
+      widget reads the App Group container, which stays EMPTY until the
+      phone app runs once near the watch and pushes.
       Two traps burned into this, do not relearn them:
       · Apple REFUSES the bundle id suffix `.complication` outright ("cannot
         be registered … not available") — `.widget` registers fine. Same
@@ -151,10 +158,16 @@ Series 9. Both are installed and reachable over Wi-Fi.
         named `watchwidget` so it sorts after `watch`. If it's ever renamed,
         check `Embed Foundation Extensions` lands on CalMindWatch in the
         pbxproj.
-- [ ] **Four watch tabs: Summary, Reminders, Events, Calendar.** Blocked on
-      the feed: `watchRows()` sends open reminders ONLY, so events have to be
-      carried before three of those four tabs can exist. Keep `items` and ADD
-      a field so a cached old payload still decodes.
+- [~] **Four watch tabs: Summary, Reminders, Events, Month — written,
+      build in flight.** The feed prerequisite landed first: core `watchFeed`
+      sends items + the next 30 events (capped BECAUSE an oversized
+      application context is dropped silently), all-day leading timed —
+      day.ts's own tiebreak, which the first draft had backwards and the
+      test caught. Old watch builds decode `{items}` and ignore the rest, so
+      no lockstep upgrade. WatchTabs.swift: verticalPage TabView — Summary
+      (count, due-today, next event), the existing reminder list, events
+      grouped by day in calendar colours, and a month grid with event dots.
+      Still read-only. NOT yet verified on a simulator or wrist.
 - [ ] **Check items off from the watch.** The bridge is ONE-WAY today —
       `pushWatchList` sends phone→watch and WCSession only ever receives.
       Needs a return path, a native module method, and a rule for what wins

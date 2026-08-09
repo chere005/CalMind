@@ -10,11 +10,20 @@ struct WatchItem: Codable, Identifiable {
     let done: Bool
 }
 
+struct WatchEvent: Codable, Identifiable {
+    let id: String
+    let text: String
+    let date: String    // "YYYY-MM-DD"
+    let time: String?   // "HH:MM"
+    let color: String   // the calendar's hex
+}
+
 /// Receives the phone's application context ({"list": json}) and keeps the last
 /// list in UserDefaults, so a cold launch shows yesterday's list instead of a
 /// blank screen while the session warms up.
 final class WatchStore: NSObject, ObservableObject, WCSessionDelegate {
     @Published var items: [WatchItem] = []
+    @Published var events: [WatchEvent] = []
     private let cacheKey = "watchlist.json"
     // The App Group container, because the complication is its OWN process
     // and standard defaults are invisible to it. Standard stays as the
@@ -30,9 +39,14 @@ final class WatchStore: NSObject, ObservableObject, WCSessionDelegate {
     }
 
     private func decode(_ data: Data) {
-        struct List: Codable { let items: [WatchItem] }
+        // events arrived later than items — a cache written before they
+        // existed still decodes, it just has none to show.
+        struct List: Codable { let items: [WatchItem]; let events: [WatchEvent]? }
         guard let list = try? JSONDecoder().decode(List.self, from: data) else { return }
-        DispatchQueue.main.async { self.items = list.items }
+        DispatchQueue.main.async {
+            self.items = list.items
+            self.events = list.events ?? []
+        }
     }
 
     private func take(_ context: [String: Any]) {
