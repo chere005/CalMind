@@ -420,6 +420,23 @@ Next up, in Sean's order:
       words. Raising it, or splitting long notes, is a product decision; being
       honest about the failure was not.
 
+## 3g · Tests that could not fail (2026-08-09)
+
+Three checks went green for the wrong reason tonight: a shell grep for the
+empty string, an e2e that could not see `openssl_verify` short-circuited, and
+a PHP spec reading an ENCRYPTED store with json_decode. All three were caught
+by asking "what would make this go red?" rather than by trusting the tick.
+
+- [x] **Swept the suites for the same shape.** 105 testIDs referenced by
+      specs, all real. The PHP feed specs pair every absence assertion with a
+      positive one on the same list, so an empty read fails first — they hold.
+      The live smoke's string compares all have one non-empty side.
+- [x] **Encoded it**: `e2e/testids.spec.ts` fails if any spec reaches for a
+      testID no component renders, which is the version of this mistake that
+      can never be noticed by hand — an absence assertion on a typo passes
+      forever. Handles template ids by prefix; asserts both scans found
+      something before comparing.
+
 ## 4 · Gated — waiting on Sean's explicit word
 
 - [ ] **E2EE envelopes** (design settled, build gated): X25519 +

@@ -180,6 +180,16 @@ device's next sync comes back 401 and it must return to the login, not treat a
 dead token as "offline" and keep taking edits that can never land. The device
 that made the change keeps working.
 
+One spec guards the others: `e2e/testids.spec.ts` checks that every testID any
+spec reaches for is actually rendered somewhere in the app. A misspelled testID
+is not a failing test, it is a PASSING one — `toHaveCount(0)` and
+`not.toBeVisible` on a name nothing renders are true forever, and this suite
+has a dozen such assertions, all of them guarding behaviour that is hard to
+check any other way. A typo would retire the guard silently rather than
+announce itself. It handles template-built ids (`share-${bucket}-${name}`) by
+prefix, and asserts it read both sides before comparing, so an empty scan
+cannot pass for a clean one.
+
 Passkeys are verified TWICE, against different things. `e2e/passkey.spec.ts`
 runs locally and proves the wiring; `e2e/live-passkey.spec.ts` runs against the
 deployed test server and proves the parts that only exist there — a
