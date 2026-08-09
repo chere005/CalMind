@@ -157,9 +157,9 @@ Series 9. Both are installed and reachable over Wi-Fi.
       the face picker): the Modular rectangle draws the next two CALENDAR
       events one line each (dot, "Wed 15:30 · Chase"); inline the next one;
       corner count+label; circle count. Fewer than two shows what there is,
-      none says "No events". Events ≠ dated reminders — the suite's own
-      vocabulary; if he wanted reminders folded in, that is five lines in
-      nextEvents(). Rebuilt, install pending.
+      none says "No events". Events ≠ dated reminders — Sean CONFIRMED
+      ("you got it right with just events"), so do not fold reminders in.
+      Rebuilt, install pending.
       Two traps burned into this, do not relearn them:
       · Apple REFUSES the bundle id suffix `.complication` outright ("cannot
         be registered … not available") — `.widget` registers fine. Same
