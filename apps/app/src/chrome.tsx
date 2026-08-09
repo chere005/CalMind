@@ -13,6 +13,11 @@ import { themed, T } from './theme';
 import { CircleBtn, Rule } from './ui';
 import { Settings } from './screens/Settings';
 import { useNav } from './nav';
+// A Modal is its own window, so an absolute `top` inside one is measured from
+// the top of the SCREEN, not from where the app's content begins. Without the
+// inset this menu hung level with the status bar instead of under the pill
+// that opens it.
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export function TopBar({
   title,
@@ -24,6 +29,7 @@ export function TopBar({
   picker?: React.ReactNode;
 }) {
   const nav = useNav();
+  const insets = useSafeAreaInsets();
   const { session, syncState, signOut } = useStore();
   const [menuOpen, setMenuOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -57,7 +63,7 @@ export function TopBar({
       {menuOpen && (
         <Modal transparent animationType="fade" onRequestClose={() => setMenuOpen(false)}>
           <Pressable style={s.menuBackdrop} onPress={() => setMenuOpen(false)}>
-            <View style={s.menu}>
+            <View style={[s.menu, { top: insets.top + 52 }]}>
               <Pressable style={s.menuRow} onPress={() => { setMenuOpen(false); setSettingsOpen(true); }}>
                 <Text style={s.menuText}>Settings</Text>
               </Pressable>
@@ -110,6 +116,7 @@ const s = themed(() => StyleSheet.create({
   menuBackdrop: { flex: 1, backgroundColor: '#0007' },
   menu: {
     position: 'absolute',
+    // top is set inline: 52 below where the app's content actually starts.
     top: 52,
     right: 16,
     minWidth: 160,

@@ -698,6 +698,27 @@ Found by opening the Recipe editor on the phone rather than in a browser.
       which needs no description at all. Checked rather than assumed, and the
       wrong hypothesis is what led to the real bug.
 
+## 3w · The username menu hung level with the status bar (2026-08-09)
+
+Third of the same family in one sitting, and all three only visible on a
+phone: a Modal is its own window, so anything positioned absolutely inside
+one measures from the top of the SCREEN rather than from where the app's
+content begins.
+
+- [x] `chrome.tsx`'s username dropdown used a flat `top: 52`. On iOS that put
+      it level with the clock — above the pill that opens it — instead of
+      hanging beneath it. Now `insets.top + 52`. Web is unchanged, because
+      there the inset is zero, which is exactly why nothing caught it.
+- [x] Verified on the simulator: the menu sits under the pill, status bar
+      clear.
+- [x] Checked the other absolute positioning: `SwatchTray`'s `top: 26` is
+      measured against its parent row inside a card, not the window, so it is
+      correct as it stands.
+
+Running total for the "open it on the phone" habit: the recipe photo import
+unreachable, WidgetSetup the same, and this. None of the three could be seen
+in a browser, because a browser has no status bar to hide under.
+
 ## 4 · Gated — waiting on Sean's explicit word
 
 - [ ] **E2EE envelopes** (design settled, build gated): X25519 +
