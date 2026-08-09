@@ -19,7 +19,7 @@ import { parseIngredient, recipeBody, recipeFromPages, type Rec } from '@calmind
 import { useStore } from '../store';
 import { themed, T } from '../theme';
 import { CircleBtn, ConfirmDelete, Field, Pill } from '../ui';
-import { ocrImages } from '../components/ocr';
+import { OCR_UNSUPPORTED, ocrImages, ocrSupported } from '../components/ocr';
 import { useRowDrag } from '../components/rowdrag';
 import { useSwipeLeft } from '../components/swiperow';
 
@@ -101,6 +101,14 @@ export function RecipeEditor({ note, onClose }: { note: Rec<'note'>; onClose: ()
   };
 
   const importPhotos = async () => {
+    // Asked before the picker opens. Offering the library, taking a selection
+    // and only then admitting it cannot read any of it is the wrong order to
+    // find out in.
+    if (!ocrSupported()) {
+      setBusy(OCR_UNSUPPORTED);
+      setTimeout(() => setBusy(''), 5000);
+      return;
+    }
     try {
       const ImagePicker = await import('expo-image-picker');
       const picked = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsMultipleSelection: true, quality: 0.9 });

@@ -388,6 +388,16 @@ Next up, in Sean's order:
       line, a method with no heading — was parsed and then dropped on the
       floor. It appends now, which matters more since the parse fixes send
       unheaded methods there.
+- [x] **Native asks before it offers.** The web-only check lived inside
+      `ocrImages`, so a phone opened the photo library, took your selection,
+      and only then said it could not read any of it. Doing the work first and
+      refusing afterwards is the wrong order to find out in. `ocrSupported()`
+      is asked before the picker opens now.
+      Verified on the simulator: the picker no longer opens. NOT verified: the
+      message itself, which clears after five seconds while a screenshot
+      round-trip costs longer than that — so I have seen the refusal happen
+      but not read it on the device. The web path is unchanged and its three
+      OCR specs still pass.
 - [ ] Photo import flow (recipe-import → recipe-photos → recipe-title →
       recipe-save) is covered by e2e/ocr.spec.ts — keep that spec on the real
       flow, not a shortcut.
