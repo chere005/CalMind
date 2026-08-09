@@ -81,6 +81,13 @@ than a red run, because it looks like an answer.
 - Recipe ingredients: quantity ranges written with a dash or with 'to', a
   whole number plus a typographic fraction, and the sentences that merely
   CONTAIN 'to' and are not ranges at all.
+- The WATCH FEED (`watchRows`). It used to live inside the phone's bridge
+  module behind an `if (!bridge) return`, so it could only execute on a device
+  with a watch paired to it — the one place nobody watches a test run. It is
+  behaviour, so it moved here, and the app keeps only the WatchConnectivity
+  plumbing: open reminders only (nothing done, deleted, or of another kind),
+  the Reminders list's own order, and a subtask travelling under its parent
+  rather than sorting away from it.
 - The SCRIPTABLE WIDGET, actually executed (`test/widget.test.ts`). Its
   Scriptable globals are stubbed just enough to record what the script builds,
   then the structure is asserted: the header row, uppercase day headings with

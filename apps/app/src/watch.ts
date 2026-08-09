@@ -5,9 +5,7 @@
  * shared code never branches on it.
  */
 import { Platform } from 'react-native';
-import { sortByDate, byOrd, type AnyRec, type Rec } from '@calmind/core';
-
-type WatchRow = { id: string; text: string; due: string | null; time: string | null; done: boolean };
+import { watchRows, type AnyRec } from '@calmind/core';
 
 let bridge: { push: (json: string) => void } | null = null;
 if (Platform.OS === 'ios') {
@@ -22,14 +20,8 @@ if (Platform.OS === 'ios') {
 
 export function pushWatchList(recs: AnyRec[]): void {
   if (!bridge) return;
-  const reminders = recs
-    .filter((r): r is Rec<'reminder'> => r.type === 'reminder' && !r.deleted && !r.payload.done)
-    .sort((a, b) => byOrd(a.payload, b.payload));
-  const rows: WatchRow[] = sortByDate(
-    reminders.map((r) => ({ id: r.id, indent: r.payload.indent, due: r.payload.due, time: r.payload.time, text: r.payload.text, done: r.payload.done })),
-  ).map(({ id, text, due, time, done }) => ({ id, text, due, time, done }));
   try {
-    bridge.push(JSON.stringify({ items: rows }));
+    bridge.push(JSON.stringify({ items: watchRows(recs) }));
   } catch {
     // The watch being unreachable must never cost the phone anything.
   }
