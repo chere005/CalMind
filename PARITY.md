@@ -811,6 +811,42 @@ honest — the next iteration trusts it.
   Checked both ways: green fresh, refuses after touching one file.
 - 168 core + 22 server + 36 gesture. Deployed, live == local.
 
+## Iterations 47–49 — Sean's live batch, then recipes moved up the queue
+- THE WIDGET wears the suite's formatting again (header row, uppercase day
+  headings with today green over its own rule, heavier rule between days,
+  time right-aligned, "No more items today."). It had drifted because the
+  script lived in TWO copies — the app's Settings page and
+  tools/scriptable-widget.js — and the flat one shipped. Both carry the
+  same body now, and the spec holds the copied script to those marks and
+  to the ABSENCE of the two the regression shipped (amber headings, the
+  inline time).
+- THE SERVER'S CLOCK: no timezone was set at all, so PHP kept UTC and the
+  feed's `date('Y-m-d')` answered in UTC — from 7pm Chicago the widget
+  called TOMORROW today and rolled reminders a day early with it. Config
+  key with an America/Chicago default, exactly as the suite pins it. This
+  was never a widget bug: anything server-side asking the date was wrong
+  five hours a day. It announced itself by turning the feed spec red the
+  moment it landed — the harness was still UTC, Aug 9 against Aug 8.
+- THE PARSER learned the words people type: yesterday/today/tomorrow,
+  spans with or without "in" (days, weeks/wks, months/mos, years/yrs,
+  a/an), and relative clocks ("in an hour", "in 30mins", carrying past
+  midnight). Two decisions written into the vectors: a span is an OFFSET
+  from now, not the start of a period; and a bare time already gone by
+  lands on TOMORROW, which is the rule this parser already keeps for a
+  bare m/d. Times now always imply a day. Day/week steps anchor at noon
+  (DST moves the clock, never the date), month/year steps clamp.
+  NOTE: the batch also asked for parsed text to STAY in the title, citing
+  a "0.4.1 rule". No such rule exists in this repo, and spec/parse.json
+  pins the opposite ("Vet 8/3 2pm" → "Vet"), as does the suite's own
+  commit. Left as-is and flagged rather than reversed on a phantom.
+- RECIPES, moved up on Sean's word and worked from phone screenshots:
+  an ingredient with no number in front of it ("a pinch of salt") was
+  landing in the LEFTOVERS instead of the list; lines mend by tapping
+  instead of delete-and-retype; both lists reorder by the marker they
+  already wear; and delete moved behind the swipe, as every other list in
+  the app does it.
+- 187 core + 23 server + 41 gesture. Deployed, live == local, pushed.
+
 ## NEXT: the Add-Recipe page (Sean's spec, precise)
 - A structured page in Notes, the akisbookshelf add-quote shape: Title;
   an INGREDIENTS section whose + parses units (grams, cups, tsp, tbsp…)
