@@ -24,6 +24,9 @@ require_once $root . '/lib/webauthn.php';
 // an empty array while proving nothing — which is exactly how the first
 // version of the cap spec below went green against a cap that did not work.
 require_once $root . '/lib/store.php';
+// Pure functions, no state: the SSRF guard is worth testing directly rather
+// than through an endpoint that does not exist yet.
+require_once $root . '/lib/fetchurl.php';
 
 $scratch = sys_get_temp_dir() . '/calmind-api-test-' . getmypid();
 @mkdir($scratch, 0700, true);
@@ -485,6 +488,29 @@ t('the usage log rotates instead of growing forever', function () {
     ok(filesize($path) < 1024, 'and the live one starts fresh — got ' . filesize($path));
     $fresh = (string) file_get_contents($path);
     ok(str_contains($fresh, 'signup'), 'with the action that triggered it');
+});
+
+t('the URL fetcher refuses the addresses a server must never be asked for', function () {
+    // A URL typed into an app becomes a request made BY THE SERVER, from
+    // inside the host, so it can reach places the person typing cannot. These
+    // are the ones that matter, including the cloud metadata address, which is
+    // the classic target and sits in no private range.
+    foreach (['127.0.0.1', '10.0.0.5', '192.168.1.1', '169.254.169.254', '0.0.0.0'] as $ip) {
+        ok(fetch_ip_is_private($ip), "$ip is refused");
+    }
+    ok(!fetch_ip_is_private('93.184.216.34'), 'a public address is allowed');
+
+    foreach (['http://127.0.0.1/x', 'https://localhost/x', 'http://169.254.169.254/latest/meta-data'] as $u) {
+        $r = fetch_url($u);
+        ok(!$r['ok'], "refused: $u");
+        ok(str_contains($r['error'], 'not one this server will fetch'), "and says why: $u — got '{$r['error']}'");
+    }
+
+    // Not a URL, and not a scheme we speak. file:// is the one that reads the
+    // disk if nobody checks.
+    eq(false, fetch_url('file:///etc/passwd')['ok'], 'file:// is refused');
+    eq(false, fetch_url('notaurl')['ok'], 'nonsense is refused');
+    ok(str_contains(fetch_url('file:///etc/passwd')['error'], 'only http'), 'and says which schemes it speaks');
 });
 
 t("the server's day is Chicago's, not UTC", function () {

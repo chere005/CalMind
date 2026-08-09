@@ -511,6 +511,19 @@ Next up, in Sean's order:
       vanished event is a missed appointment.
 - [ ] **Still to join up**: mapping expanded occurrences onto our own record
       shape, and deciding whether they are stored or computed on the fly.
+- [x] **The URL fetcher, built once and wired to nothing.** Both routes need
+      it — a subscribed .ics is a GET, CalDAV is a GET with more verbs — so it
+      commits to neither. `server/lib/fetchurl.php`.
+      The care is the point: a URL typed into an app becomes a request made BY
+      THE SERVER, from inside the host, which can reach addresses the person
+      typing cannot. So the host is resolved first and every address it
+      answers with must be public — checked again on EVERY redirect hop, since
+      a redirect is exactly how that check gets walked around. Refuses
+      loopback, private ranges, link-local and 169.254.169.254 (the cloud
+      metadata address, which sits in no private range and is the classic
+      target). Bounded at 15s and 4MB so a feed pointed at something enormous
+      cannot take the server with it.
+      Tested directly rather than through an endpoint that does not exist yet.
 - [ ] **BLOCKED on Sean, and it decides the shape**: reading Gmail needs a
       Google Cloud project HE creates. For a personal gmail.com account an app
       left in Testing mode expires its refresh roughly weekly; escaping that
