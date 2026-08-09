@@ -347,6 +347,30 @@ t('removal on either side ends sharing instantly, both ways', function () use ($
         ['id' => 'rs', 'type' => 'reminder', 'updated' => 10, 'payload' => ['text' => 'x', 'due' => null, 'time' => null, 'done' => false, 'repeat' => null, 'folderId' => 'fs', 'sectionId' => 'ss', 'indent' => 0, 'ord' => 'a']]], $tokQ)['status'], 'writes die with the handshake');
 });
 
+t('an OVERSIZED record is dropped and the sync still says ok — silently', function () {
+    // Its own account: the password specs above revoke the shared token.
+    $tok = api(['action' => 'signup', 'username' => 'bigrow', 'email' => 'big@example.com', 'password' => 'bigpassword'])['body']['token'];
+    // Documenting a real hole rather than pretending it isn't there. A payload
+    // over MAX_PAYLOAD is skipped by the row loop, and the reply is still 200
+    // with a fresh cursor — so the client forgets it was dirty and the record
+    // lives on that one device forever. 64KB is ~10k words, so this is rare,
+    // not impossible: a long pasted note or a big OCR haul reaches it.
+    $big = ['id' => 'toobig', 'type' => 'note', 'updated' => 5,
+            'payload' => ['title' => 'huge', 'body' => str_repeat('x', 70000),
+                          'date' => null, 'folderId' => 'f', 'sectionId' => 's', 'ord' => 'a']];
+    $small = ['id' => 'fine', 'type' => 'note', 'updated' => 5,
+              'payload' => ['title' => 'ok', 'body' => 'short', 'date' => null,
+                            'folderId' => 'f', 'sectionId' => 's', 'ord' => 'a']];
+    $r = api(['action' => 'sync', 'cursor' => 0, 'changes' => [$big, $small]], $tok);
+    eq(200, $r['status'], 'the batch is accepted');
+    $ids = array_column($r['body']['changes'], 'id');
+    ok(in_array('fine', $ids, true), 'the ordinary row landed');
+    ok(!in_array('toobig', $ids, true), 'the oversized row did NOT');
+    // …and nothing in the reply tells the client which one it lost. THAT is
+    // the part worth fixing; see TODO.md.
+    eq(null, $r['body']['refused'] ?? null, 'no refusal list exists yet');
+});
+
 t("the server's day is Chicago's, not UTC", function () {
     // The feed asks the server what day it is. Left on UTC that answer turned
     // over at 7pm Chicago, so the widget spent every evening calling tomorrow

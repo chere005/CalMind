@@ -90,6 +90,32 @@ poll costs battery and requests. Flagged because the natural expectation is
 now covers the real contract: both devices' edits survive (neither quietly
 replaces the other), and a tick on one shows on the other once it syncs.
 
+## 0.7 · A real hole, narrow but silent — an oversized record never syncs
+
+The server skips any record whose payload exceeds MAX_PAYLOAD (64KB) and
+still answers 200 with a fresh cursor. The client's engine then clears the
+dirty flag for everything it SENT, without checking what the server KEPT. So
+a note that crosses the cap:
+
+  · saves locally and looks completely normal,
+  · is silently dropped by the server,
+  · is forgotten as dirty, so it never retries,
+  · never appears on another device, and dies with that device.
+
+64KB is roughly ten thousand words, so this is rare rather than impossible —
+a long pasted article, or a big OCR haul from many photos. Pinned by a server
+test so it is visible instead of latent.
+
+Fixing it properly is a protocol change and Sean's call, because the sensible
+options differ in what the user sees:
+  a. server returns `refused: [ids]`; the client keeps them dirty AND says
+     so — without the "says so", it just retries forever;
+  b. client refuses to save a body past the cap, with a message, so the
+     situation never arises;
+  c. raise the cap and move the problem rather than solve it.
+(a) is the honest one and needs a little UI. Not doing it unasked: this is
+the sync contract, the most safety-critical part of the app.
+
 ## 1 · In flight
 
 - [x] **Overdue date chips in the Calendar day panel** — landed, deployed,
