@@ -523,6 +523,23 @@ more did, and one of those deletes things:
       away waits out the ENTIRE test budget rather than failing fast. It read
       as a hang and failed the deploy gate. The spare presses are bounded now.
 
+## 3l · Making the leak impossible rather than remembered (2026-08-09)
+
+- [x] **`useNoteScoped`** — state declared through it resets during the render
+      in which the open note changes, so the wrong value is never shown even
+      once. Twelve call sites: everything the note editor and the shared view
+      hold about the open note. The two reset effects are gone; they worked,
+      but they had to be REMEMBERED every time new state was added, and being
+      remembered is precisely what they failed at (three bugs tonight, one of
+      them a delete).
+- [x] Verified as load-bearing rather than assumed: reverting `delArmed` to a
+      plain `useState` makes `armeddelete.spec.ts` fail. And re-checked on the
+      simulator, because the mechanism that fixed the native-only draft leak
+      was replaced — Zozzona shows its own body, in view mode, at 1x.
+- [ ] Still true: no harness drives the native app, so the two native-only
+      leaks were found and re-verified BY HAND on the simulator. That is the
+      one real hole in the testing story.
+
 ## 4 · Gated — waiting on Sean's explicit word
 
 - [ ] **E2EE envelopes** (design settled, build gated): X25519 +

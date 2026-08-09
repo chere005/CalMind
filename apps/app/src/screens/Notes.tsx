@@ -24,27 +24,53 @@ import { RecipeEditor } from './RecipeEditor';
 // adb/XCUITest are no place to be matching on '½'.
 const SCALES: [number, string, string][] = [[0.5, '½×', 'half'], [1, '1×', 'one'], [2, '2×', 'double']];
 
+/**
+ * State that belongs to whichever note is open, and lets go by itself.
+ *
+ * Three real bugs tonight were one shape: something the screen remembered
+ * about the note you just left. A half-typed draft shown as the next note's
+ * body, an armed delete turning the next note's two-press delete into one
+ * press, a text selection measured in a body that is no longer on screen.
+ * Each was safe alone and dangerous the moment you moved between notes, which
+ * is simply how anyone reads a recipe collection.
+ *
+ * Resetting them in an effect works and has to be remembered every time a new
+ * piece of state is added — and being remembered every time is exactly what
+ * this failed at. Declared through here instead, state resets during the
+ * render in which the note changes, so the wrong value is never shown even
+ * once, and the next person gets it for free.
+ */
+function useNoteScoped<T>(noteId: string | null, initial: T): [T, React.Dispatch<React.SetStateAction<T>>] {
+  const [value, setValue] = useState<T>(initial);
+  const [seen, setSeen] = useState(noteId);
+  if (seen !== noteId) {
+    setSeen(noteId);
+    setValue(initial);
+  }
+  return [value, setValue];
+}
+
 export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | null; onOpenConsumed?: () => void }) {
   const { recs, mutate, sharedRecs, sharedPartnerLabel } = useStore();
   const { view, visible: visibleFolders, visibleShared, sharedView, sharedPartner } = useFolderView('notes');
   const setNotePrefs = (lastView: string) => mutate((e) => e.put(prefsPut(recs, 'notes', { lastView })));
   const [openId, setOpenId] = useState<string | null>(null);
-  const [sel, setSel] = useState({ start: 0, end: 0 });
-  const [dateOpen, setDateOpen] = useState(false);
-  const [bodyEditing, setBodyEditing] = useState(false);
+  const [sel, setSel] = useNoteScoped(openId, { start: 0, end: 0 });
+  const [dateOpen, setDateOpen] = useNoteScoped(openId, false);
+  const [bodyEditing, setBodyEditing] = useNoteScoped(openId, false);
   // While the cursor is in the body, the field holds its own copy of the text.
   // The record still gets every keystroke — this only stops the 30s poll from
   // pulling a newer version from another device out from under a half-typed
   // sentence. Reading stale text for as long as you are typing is the same
   // bargain every editor makes; losing the sentence is not.
-  const [draft, setDraft] = useState<string | null>(null);
+  const [draft, setDraft] = useNoteScoped<string | null>(openId, null);
   // The title has no edit mode — it is always a live field — so it needs the
   // same shelter, scoped to having focus rather than to a mode.
-  const [titleDraft, setTitleDraft] = useState<string | null>(null);
+  const [titleDraft, setTitleDraft] = useNoteScoped<string | null>(openId, null);
   // Doubling a recipe is a way of READING it, not an edit — nothing is
   // written, and 1× is always one tap away.
-  const [scale, setScale] = useState(1);
-  const [recipeOpen, setRecipeOpen] = useState(false);
+  const [scale, setScale] = useNoteScoped(openId, 1);
+  const [recipeOpen, setRecipeOpen] = useNoteScoped(openId, false);
 
   const swipe = useSwipeLeft();
   // The suite's page edit mode: long-press a row to enter, tap away or
@@ -86,9 +112,9 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
     document.addEventListener('keydown', onKey, true);
     return () => document.removeEventListener('keydown', onKey, true);
   }, [pageEdit]);
-  const [dateField, setDateField] = useState('');
+  const [dateField, setDateField] = useNoteScoped(openId, '');
   const [goesOpen, setGoesOpen] = useState(false);
-  const [delArmed, setDelArmed] = useState(false);
+  const [delArmed, setDelArmed] = useNoteScoped(openId, false);
 
   // Another screen (the Add tab) created a note — land in its editor, as prod does.
   React.useEffect(() => {
@@ -159,27 +185,6 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
   });
 
   const open = openId ? (recs.find((r) => r.id === openId) as Rec<'note'> | undefined) : undefined;
-  // Everything held ABOUT the open note has to let go when a different note
-  // opens. The drafts are the dangerous ones: they exist so a sync cannot pull
-  // text out from under a cursor, and left behind they do precisely what they
-  // were built to prevent — the previous note's words appear in this one's
-  // editor, and the first keystroke saves them over it.
-  useEffect(() => {
-    setScale(1);
-    setBodyEditing(false);
-    setDraft(null);
-    setTitleDraft(null);
-    // An armed delete is the dangerous one. It disarms itself after 2.5s, so
-    // the window is small — but inside it, arming on one note and opening
-    // another turned that note's two-press delete into a one-press delete, on
-    // a note nobody had confirmed anything about.
-    setDelArmed(false);
-    // A selection belongs to the body it was measured in. Carried into a
-    // shorter note, B/I/U wraps nothing at an offset past the end.
-    setSel({ start: 0, end: 0 });
-    setDateOpen(false);
-    setDateField('');
-  }, [openId]);
   // Only OUR bodies scale — the markers are what say the ingredients have
   // been read and separated from the prose around them.
   const isRecipe = open ? /^\*\*Ingredients\*\*$/im.test(open.payload.body) : false;
@@ -665,19 +670,10 @@ function SharedNotes({ viewKey, partner }: { viewKey: string; partner: string })
       .filter((r): r is Rec<'note'> => r.type === 'note' && r.payload.sectionId === sid)
       .sort((a, b) => byOrd(a.payload, b.payload));
   const [openShared, setOpenShared] = useState<Rec<'note'> | null>(null);
-  const [sharedBodyEdit, setSharedBodyEdit] = useState(false);
-  const [draft, setDraft] = useState('');
+  const [sharedBodyEdit, setSharedBodyEdit] = useNoteScoped(openShared?.id ?? null, false);
+  const [draft, setDraft] = useNoteScoped(openShared?.id ?? null, '');
   // A recipe someone shares with you is still a recipe to cook from.
-  const [sharedScale, setSharedScale] = useState(1);
-  // The same letting-go the editor next door needed, and it matters more here:
-  // this screen commits on BLUR, not on a keystroke. A draft left over from
-  // the previous note meant simply tapping away would write that note's words
-  // into this one — a partner's note, overwritten, with nobody having typed.
-  useEffect(() => {
-    setSharedScale(1);
-    setSharedBodyEdit(false);
-    setDraft('');
-  }, [openShared?.id]);
+  const [sharedScale, setSharedScale] = useNoteScoped(openShared?.id ?? null, 1);
 
   if (openShared) {
     const commitBody = () => {
