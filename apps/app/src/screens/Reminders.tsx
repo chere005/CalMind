@@ -252,6 +252,7 @@ export function Reminders() {
   };
 
   /** The visible list as Markdown — sean's personal tool, as in prod. */
+  const [copyNote, setCopyNote] = useState('');
   const copyMarkdown = () => {
     // The shaping lives in core so it can be tested; this only says WHICH
     // folders, sections and rows are on screen.
@@ -272,7 +273,14 @@ export function Reminders() {
       })),
       showDone,
     );
-    Clipboard.setStringAsync(md).catch(() => {});
+    // Pressing it used to do nothing visible whether it worked or not: no
+    // "copied", and a refusal — a browser that will not give the clipboard to
+    // a page it thinks is unfocused — swallowed whole. A button with no
+    // answer is a button you press twice.
+    Clipboard.setStringAsync(md)
+      .then(() => setCopyNote('Copied'))
+      .catch(() => setCopyNote('Could not copy'))
+      .finally(() => setTimeout(() => setCopyNote(''), 2000));
   };
 
   const dueChip = (r: ReminderRec) => {
@@ -317,7 +325,8 @@ export function Reminders() {
       <View style={s.toolbar}>
         <Pressable onPress={collapseAll} hitSlop={8} style={s.collapseAllBtn}><Chevron open size={15} /></Pressable>
         <CircleBtn glyph="☑" active={showDone} onPress={() => setShowDone(!showDone)} />
-        {session?.username === 'sean' && <CircleBtn glyph="⧉" onPress={copyMarkdown} />}
+        {session?.username === 'sean' && <CircleBtn testID="rem-copymd" glyph="⧉" onPress={copyMarkdown} />}
+        {copyNote !== '' && <Text testID="rem-copynote" style={s.copyNote}>{copyNote}</Text>}
       </View>
 
       {/* A live drag holds the scroll still — see Habits for the why. */}
@@ -701,6 +710,7 @@ const s = themed(() => StyleSheet.create({
   secHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 },
   chevron: { color: T.dim, fontSize: 16, width: 20, textAlign: 'center' },
   chevWrap: { width: 20, alignItems: 'center', justifyContent: 'center' },
+  copyNote: { color: T.dim, fontSize: 12, alignSelf: 'center' },
   collapseAllBtn: { width: 26, height: 26, borderRadius: 13, borderWidth: 1, borderColor: T.line, alignItems: 'center', justifyContent: 'center' },
   secName: { color: T.gold, fontSize: 16, lineHeight: 20, fontWeight: '600' },
   secRename: { flex: 1, paddingVertical: 4 },

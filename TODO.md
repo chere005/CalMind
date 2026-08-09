@@ -954,6 +954,30 @@ a reload, and its write was `.catch(() => {})` — swallowed whole.
       refuse a legitimate write. Left alone deliberately rather than optimised
       into a sharing bug.
 
+## 4c · Swept every swallowed failure (2026-08-09)
+
+Grepped for `.catch(() => {})` and friends and triaged each by what is lost.
+
+- [x] **Copy-as-Markdown answered nothing at all** — no "copied" on success,
+      and a refusal swallowed. A browser declines the clipboard for ordinary
+      reasons, chiefly a page it has decided is not focused, and a button with
+      no answer is one you press twice and then wonder what you pasted. It
+      says "Copied" or "Could not copy" now. `e2e/copymd.spec.ts` reads the
+      clipboard back and checks the list is really in it.
+- [x] **The fold-state writes are right to swallow** and are left alone:
+      losing which folders were collapsed costs a tap, and there is nothing
+      useful to say about it. Nine of them, all deliberate.
+- [x] `logout()` best-effort and the JSON-parse fallback in `apiPost` are both
+      correct as they stand — one is fire-and-forget by design, the other
+      turns a bad body into the error it already is.
+- [ ] Minor, not done: `listPasskeys` swallows its failure, so an offline
+      Settings shows an empty passkey list and an Add button. Misleading
+      rather than harmful — you might add a second key you did not need.
+
+Three real fixes came out of this family today: the server refusing an
+oversized record, a damaged store file reading as an empty account, and a
+device that cannot write its own snapshot.
+
 ## 4 · Gated — waiting on Sean's explicit word
 
 - [ ] **E2EE envelopes** (design settled, build gated): X25519 +
