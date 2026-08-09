@@ -4,7 +4,7 @@
  * paired to it — the one place nobody is watching a test run.
  */
 import { describe, it, expect } from 'vitest';
-import { watchRows } from '../src/watch';
+import { watchFeed, watchRows } from '../src/watch';
 import type { AnyRec, Rec } from '../src/types';
 
 const rem = (
@@ -75,5 +75,35 @@ describe('watchRows — what the wrist is handed', () => {
 
   it('an empty store is an empty list, not a crash', () => {
     expect(watchRows([])).toEqual([]);
+  });
+});
+
+describe('watchFeed — reminders plus the coming events', () => {
+  const cal = (id: string, color: string): AnyRec => ({ id, type: 'calendar', updated: 1, payload: { name: id, color, ord: id } } as AnyRec);
+  const ev = (id: string, date: string, time: string | null, calendarId = 'c1'): AnyRec =>
+    ({ id, type: 'event', updated: 1, payload: { text: id, date, time, repeat: null, calendarId, ord: id } } as AnyRec);
+
+  it('sends only today-and-forward, dated order, timed after all-day, capped', () => {
+    const recs = [cal('c1', '#123456'), ev('past', '2026-08-01', null), ev('b', '2026-08-10', '09:00'), ev('a', '2026-08-10', null), ev('c', '2026-08-12', null)];
+    const { events } = watchFeed(recs, '2026-08-09');
+    expect(events.map((e) => e.id)).toEqual(['a', 'b', 'c']);
+    expect(events[0]!.color).toBe('#123456');
+  });
+
+  it('a deleted event or calendar does not ride', () => {
+    const recs = [cal('c1', '#123456'), { ...ev('gone', '2026-08-10', null), deleted: true } as AnyRec];
+    expect(watchFeed(recs, '2026-08-09').events).toEqual([]);
+  });
+
+  it('caps at 30 so the context plist stays under the silent ceiling', () => {
+    const recs: AnyRec[] = [cal('c1', '#123456')];
+    for (let i = 0; i < 40; i++) recs.push(ev(`e${String(i).padStart(2, '0')}`, '2026-08-10', null));
+    expect(watchFeed(recs, '2026-08-09').events).toHaveLength(30);
+  });
+
+  it('still carries the open reminders, untouched', () => {
+    const recs = [rem('r1', 'walk'), cal('c1', '#123456'), ev('e1', '2026-08-10', null)];
+    const feed = watchFeed(recs, '2026-08-09');
+    expect(feed.items.map((r) => r.id)).toEqual(['r1']);
   });
 });

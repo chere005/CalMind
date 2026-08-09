@@ -32,3 +32,39 @@ export function watchRows(recs: AnyRec[]): WatchRow[] {
     })),
   ).map(({ id, text, due, time, done }) => ({ id, text, due, time, done }));
 }
+
+/** An event as the watch shows it: what, when, which calendar's colour. */
+export type WatchEvent = { id: string; text: string; date: string; time: string | null; color: string };
+
+/**
+ * The whole watch feed: open reminders in the list's order, plus the next
+ * stretch of events from today forward. One shape, one push — the watch's
+ * tabs (summary, reminders, events, calendar) all read from this. Kept
+ * SMALL on purpose: WatchConnectivity's application context is a plist with
+ * a size ceiling, and an oversized context is dropped SILENTLY — the
+ * lesson this project keeps re-learning is to ask what happens when a write
+ * fails. 30 events covers every face and tab while staying far from the
+ * cliff.
+ */
+export function watchFeed(recs: AnyRec[], today: string): { items: WatchRow[]; events: WatchEvent[] } {
+  const calColor = new Map(
+    recs.filter((r): r is Rec<'calendar'> => r.type === 'calendar' && !r.deleted).map((c) => [c.id, c.payload.color]),
+  );
+  const events = recs
+    .filter((r): r is Rec<'event'> => r.type === 'event' && !r.deleted && r.payload.date >= today)
+    .sort((a, b) =>
+      a.payload.date !== b.payload.date
+        ? (a.payload.date < b.payload.date ? -1 : 1)
+        // Null time is the day itself, so it leads — day.ts's own tiebreak.
+        : (a.payload.time ?? '') < (b.payload.time ?? '') ? -1 : 1,
+    )
+    .slice(0, 30)
+    .map((e) => ({
+      id: e.id,
+      text: e.payload.text,
+      date: e.payload.date,
+      time: e.payload.time,
+      color: calColor.get(e.payload.calendarId) ?? '#60a5fa',
+    }));
+  return { items: watchRows(recs), events };
+}

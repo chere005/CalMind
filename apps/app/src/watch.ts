@@ -5,7 +5,7 @@
  * shared code never branches on it.
  */
 import { Platform } from 'react-native';
-import { watchRows, type AnyRec } from '@calmind/core';
+import { todayStr, watchFeed, type AnyRec } from '@calmind/core';
 
 let bridge: { push: (json: string) => void } | null = null;
 if (Platform.OS === 'ios') {
@@ -21,7 +21,9 @@ if (Platform.OS === 'ios') {
 export function pushWatchList(recs: AnyRec[]): void {
   if (!bridge) return;
   try {
-    bridge.push(JSON.stringify({ items: watchRows(recs) }));
+    // items + events in one context: an old watch build decodes {items} and
+    // ignores the rest, so the payload widens without a lockstep upgrade.
+    bridge.push(JSON.stringify(watchFeed(recs, todayStr())));
   } catch {
     // The watch being unreachable must never cost the phone anything.
   }
