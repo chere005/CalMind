@@ -181,8 +181,14 @@ Series 9. Both are installed and reachable over Wi-Fi.
       rule deliberately NOT invented: last writer wins through the ordinary
       store, the suite's existing two-device rule. A tick for a deleted
       record drops silently. Both schemes build; README's read-only claim
-      updated to record Sean's reversal. NOT verified end-to-end on real
-      hardware yet — that needs his phone and watch together and a tap.
+      updated to record Sean's reversal. NOT verified end-to-end — and the
+      sim route is gated too: Login has no pre-login server override (the
+      Settings override is stored WITH the session), so a throwaway signup
+      necessarily lands on the LIVE test server, and the deploy tooling's
+      own "no account made" restraint makes that Sean's call. One word from
+      him — "ok to make a test account on test" — and the tick round-trip
+      verifies on the spare sim pair with zero risk to his data. Or his
+      thumb on the real watch, whichever comes first.
 
 ### Still owed from this session
 
