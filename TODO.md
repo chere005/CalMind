@@ -339,8 +339,21 @@ Next up, in Sean's order:
       "generous amount of freshly ground black pepper". Each then left the
       ingredient list — the editor puts a stray title into the notes blob, so
       it was preserved but demoted, and the list came up an ingredient short.
-      Three of his four recipes were affected. A name comes before the
-      sections; the scan stops at the first heading now.
+      A name comes before the sections; the scan stops at the first heading now.
+
+      **CORRECTION.** I said three of Sean's four recipes were affected. That
+      was wrong, and I checked it only afterwards. His saved recipes carry our
+      own `**Ingredients**` markers — visible as a bold heading in the note —
+      so they take the fromMarkers path, which takes no title and reads the
+      lines verbatim. None of the three parse bugs could reach them. What I
+      had actually tested were reconstructions I typed WITHOUT the markers,
+      and I generalised from my own typing to his data.
+
+      The bugs are real and worth the fixes, but their reach is: the OCR photo
+      import (no markers, which is the whole point of that path), any note
+      written by hand with a plain "Ingredients" heading, and Aglio Olio-style
+      prose notes. Verified on the phone afterwards: Croque Madame opens with
+      all ten ingredients including "fresh cracked black pepper to taste".
 - [x] All four observed shapes (Zozzona, Croque Madame, Carbonara, Porro) now
       round-trip with every ingredient kept, no prose mistaken for food, and
       byte-identical on a second save.
