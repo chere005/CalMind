@@ -1132,7 +1132,9 @@ test('a recipe line is mended by tapping it, not by deleting and retyping', asyn
   await expect(field).toBeVisible();
   await field.fill('3 cups flour');
   await field.press('Enter');
-  await expect(page.getByTestId('ing-row').first()).toContainText('3 cups flour');
+  // The measure moved into the row's badge, so the text reads name-then-chip.
+  await expect(page.getByTestId('ing-row').first()).toContainText('flour');
+  await expect(page.getByTestId('ing-unit').first()).toHaveText('3 cups');
 
   // A step mends the same way…
   await page.getByTestId('step-row').first().click();
@@ -1161,7 +1163,7 @@ test('recipe lines reorder by dragging the marker they already wear', async ({ p
   await page.getByTestId('recipe-import').click();
 
   const rows = () => page.getByTestId('ing-row').allTextContents();
-  await expect.poll(rows).toEqual(['2 cups flour', '1 cup milk', '3 eggs']);
+  await expect.poll(rows).toEqual(['flour2 cups', 'milk1 cup', 'eggs3']);
   // The Recipe page slides in; measuring a grip mid-animation aims the drag
   // at where the row USED to be.
   await page.waitForTimeout(400);
@@ -1170,7 +1172,7 @@ test('recipe lines reorder by dragging the marker they already wear', async ({ p
   const g0 = (await grips.nth(0).boundingBox())!;
   const g2 = (await grips.nth(2).boundingBox())!;
   await dragVert(page, grips.first(), g2.y + g2.height / 2 - (g0.y + g0.height / 2) + 8);
-  await expect.poll(rows).toEqual(['1 cup milk', '3 eggs', '2 cups flour']);
+  await expect.poll(rows).toEqual(['milk1 cup', 'eggs3', 'flour2 cups']);
 
   // The order is what gets saved, not merely what is drawn.
   await page.getByTestId('recipe-save').click();
@@ -1208,7 +1210,7 @@ test('a recipe line deletes by swiping it, not by a × parked on every row', asy
   await page.getByPlaceholder('New note').press('Enter');
   await page.getByTestId('note-body-edit').fill('2 cups flour\n1 cup milk');
   await page.getByTestId('recipe-import').click();
-  await expect.poll(() => page.getByTestId('ing-row').allTextContents()).toEqual(['2 cups flour', '1 cup milk']);
+  await expect.poll(() => page.getByTestId('ing-row').allTextContents()).toEqual(['flour2 cups', 'milk1 cup']);
   await page.waitForTimeout(400); // the page slides in
 
   await expect(page.getByTestId('ing-del')).toHaveCount(0); // nothing parked
@@ -1221,7 +1223,7 @@ test('a recipe line deletes by swiping it, not by a × parked on every row', asy
   await page.mouse.up();
   // The swipe counts as the first press, so one tap finishes it.
   await page.getByTestId('ing-del').click();
-  await expect.poll(() => page.getByTestId('ing-row').allTextContents()).toEqual(['1 cup milk']);
+  await expect.poll(() => page.getByTestId('ing-row').allTextContents()).toEqual(['milk1 cup']);
 });
 
 test('the Recipe page can shed the non-recipe notes with its checkbox', async ({ page }) => {
