@@ -11,9 +11,14 @@ struct ReminderListView: View {
             } else {
                 List(store.items) { item in
                     HStack(alignment: .firstTextBaseline, spacing: 6) {
-                        Image(systemName: "circle")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
+                        Button {
+                            store.tick(item.id)
+                        } label: {
+                            Image(systemName: "circle")
+                                .font(.body)
+                                .foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.plain)
                         VStack(alignment: .leading, spacing: 2) {
                             Text(item.text)
                                 .font(.body)

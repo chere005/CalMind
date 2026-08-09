@@ -65,4 +65,14 @@ final class WatchStore: NSObject, ObservableObject, WCSessionDelegate {
     func session(_ session: WCSession, didReceiveApplicationContext context: [String: Any]) {
         take(context)
     }
+
+    /// Sean's reversal of the read-only rule: a tap here queues the id for the
+    /// phone, which applies the SAME toggle a phone tap uses (repeats roll
+    /// there, not here). transferUserInfo queues while the phone is away.
+    /// Locally the row just leaves the list — the next push is the truth.
+    func tick(_ id: String) {
+        DispatchQueue.main.async { self.items.removeAll { $0.id == id } }
+        guard WCSession.isSupported() else { return }
+        WCSession.default.transferUserInfo(["tick": id])
+    }
 }

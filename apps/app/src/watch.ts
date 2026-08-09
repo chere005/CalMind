@@ -7,7 +7,11 @@
 import { Platform } from 'react-native';
 import { todayStr, watchFeed, type AnyRec } from '@calmind/core';
 
-let bridge: { push: (json: string) => void } | null = null;
+type Bridge = {
+  push: (json: string) => void;
+  addListener?: (event: string, cb: (payload: { id: string }) => void) => { remove(): void };
+};
+let bridge: Bridge | null = null;
 if (Platform.OS === 'ios') {
   try {
     // requireOptionalNativeModule keeps Expo Go and Android builds clean.
@@ -16,6 +20,16 @@ if (Platform.OS === 'ios') {
   } catch {
     bridge = null;
   }
+}
+
+/**
+ * The watch's check-offs, queued through WatchConnectivity and applied on the
+ * phone by whoever subscribes (the store). No-op without the bridge, exactly
+ * like the push side.
+ */
+export function onWatchTick(cb: (id: string) => void): () => void {
+  const sub = bridge?.addListener?.('onTick', ({ id }) => cb(id));
+  return () => sub?.remove();
 }
 
 export function pushWatchList(recs: AnyRec[]): void {

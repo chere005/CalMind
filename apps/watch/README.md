@@ -1,6 +1,10 @@
 # The watch app
 
-The watch stays read-only: the phone pushes the open-reminder list through
+The watch CHECKS OFF now (Sean's call, 2026-08-09) but still never edits:
+a tap queues {tick: id} through transferUserInfo — it survives the phone
+being away — and the phone applies the same reminderToggle a tap there
+uses, so repeats roll on the phone, never here. Everything else stays
+one-way: the phone pushes the list+events feed through
 WatchConnectivity (`apps/app/modules/watch-bridge`, autolinked by prebuild;
 the JS side is `apps/app/src/watch.ts`, a no-op everywhere the module is
 absent), and a SwiftUI app draws it — the suite's phone/watch division.

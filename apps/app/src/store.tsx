@@ -9,9 +9,9 @@ import React, { createContext, useCallback, useContext, useEffect, useRef, useSt
 import { AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { watchForUpdate } from './update';
-import { SyncEngine, normalize, prefsOf, folderApp, shareOf, type AnyRec, type Rec } from '@calmind/core';
+import { SyncEngine, normalize, prefsOf, folderApp, reminderToggle, shareOf, todayStr, type AnyRec, type Rec } from '@calmind/core';
 import { apiPost, type Session, syncTransport, ApiError } from './api';
-import { pushWatchList } from './watch';
+import { onWatchTick, pushWatchList } from './watch';
 import { applyTheme, type ThemeName } from './theme';
 
 const SESSION_KEY = 'calmind.session';
@@ -187,6 +187,21 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       }
     },
     [refresh, persistNow, syncSoon],
+  );
+
+  // A tick from the watch is a tap by other means: the same toggle, the same
+  // mutate, so repeats roll and the next push refreshes the watch. A tick for
+  // a record that has gone (deleted on another device while the watch was
+  // offline) drops silently — there is nothing left to toggle.
+  useEffect(
+    () =>
+      onWatchTick((id) => {
+        mutate((e) => {
+          const rec = e.all().find((r) => r.id === id && r.type === 'reminder' && !r.deleted) as Rec<'reminder'> | undefined;
+          if (rec) e.put({ ...rec, payload: reminderToggle(rec.payload, todayStr()) });
+        });
+      }),
+    [mutate],
   );
 
   const signIn = useCallback(
