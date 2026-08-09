@@ -266,7 +266,7 @@ Next up, in Sean's order:
 - [ ] `git pull --autostash` first — two sessions share this repo; stage
       explicit paths only, never `git add -A`, hold commits on files the other
       session has half-refactored.
-- [ ] Keep the suites green: 260 core + 37 server + 99 gesture + 16 WebKit,
+- [ ] Keep the suites green: 262 core + 37 server + 99 gesture + 16 WebKit,
       plus 9 live checks (16 with the API) and 6 desktop. The README points
       here rather than carrying numbers of its own, so this line has to be
       the one that is right — it was 93 an hour after the gesture suite passed
@@ -459,6 +459,31 @@ Next up, in Sean's order:
 - [ ] Photo import flow (recipe-import → recipe-photos → recipe-title →
       recipe-save) is covered by e2e/ocr.spec.ts — keep that spec on the real
       flow, not a shortcut.
+
+## 3aa · Three scaling bugs, found by running it rather than thinking (2026-08-09)
+
+- [x] **'1 x 400g tin coconut milk' doubled to '2 x 800 g'** — four times the
+      coconut milk, in a line that reads as though it were right. The
+      dual-measure rule took the 400 g for the same amount written twice and
+      scaled it alongside the count. It is not: it is the size of each tin, so
+      only the count moves. This is the one that mattered — the other two are
+      spelling.
+- [x] **'1 loaf crusty bread' → '2 loaf'.** 'loaf' was in the irregular-plural
+      table but not the measure list, so it was never the word being counted.
+- [x] **'2 ribs celery' → '4 ribs celerys'.** 'rib' was in neither list, so the
+      count fell through to the NAME — and the name is a mass noun that takes
+      no plural at all. Added, with 'pack', 'bulb', 'wedge', 'sachet', 'tub',
+      'punnet', 'block', 'bar', 'drop', 'splash'.
+- [x] **'1 (14 oz) can tomatoes' → '2 (14 oz) cans'** — the wart pinned last
+      run, now fixed rather than pinned. The bracket sat between the number
+      and 'can', so the unit group matched nothing; reaching past one bracket
+      finds it.
+- [ ] **How they were found is the point, and worth repeating.** Not by
+      thinking of cases — by running the scaler over two dozen ordinary
+      shopping-list lines and reading the output. Three of twenty-eight were
+      wrong. Every one had been invisible to a test suite that only ever
+      asked about lines somebody had already thought to doubt. The same
+      lesson as Sean's own cards: invented data agrees with you.
 
 ## 3b · Passkeys (Sean said go, 2026-08-08)
 

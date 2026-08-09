@@ -330,6 +330,13 @@ const MEASURE = new Set([
   'bunch', 'package', 'packet', 'jar', 'bottle', 'tin', 'strip', 'piece',
   'fillet', 'rasher', 'knob', 'handful', 'scoop', 'sheet', 'stalk', 'pint',
   'quart', 'gallon',
+  // Found by running the scaler over ordinary shopping-list shapes rather
+  // than by brainstorming: 'loaf' was in the irregular-plural table but not
+  // here, so '1 loaf crusty bread' doubled to '2 loaf', and 'rib' was in
+  // neither, so '2 ribs celery' doubled to '4 ribs celerys' — the count fell
+  // through to the name, which is a mass noun and takes no plural at all.
+  'loaf', 'rib', 'bulb', 'wedge', 'sachet', 'tub', 'punnet', 'block', 'bar',
+  'drop', 'splash', 'pack',
 ]);
 
 /**
@@ -445,17 +452,41 @@ export function scaleIngredient(text: string, factor: number): string {
   // '2-3 tbsp sugar' into 'sugars' — caught by the tests that were already
   // there, which is what they are for.
   let head = rest;
-  if (unit !== '' && !knownUnit(unit)) {
+  // '1 x 400g tin coconut milk' — the size shields the word doing the
+  // counting exactly as a bracket does, and 'x' has to be asked about first
+  // because it is not a unit, so the general branch below would claim it and
+  // then find nothing single-word to count.
+  if (unit.toLowerCase() === 'x') {
+    const per = /^([\d.,/]+\s*[a-zA-Z]+\s+)([A-Za-z]+)\b/.exec(rest);
+    if (per && MEASURE.has(singularOf(per[2]!).toLowerCase())) {
+      head = per[1]! + countWord(per[2]!, count) + rest.slice(per[0].length);
+    }
+  } else if (unit !== '' && !knownUnit(unit)) {
     const cut = rest.search(/[,;(]/);
     const front = (cut < 0 ? rest : rest.slice(0, cut)).trim();
     if (/^[A-Za-z]+$/.test(front)) {
       head = countWord(front, count) + (cut < 0 ? '' : rest.slice(cut));
     }
+  } else if (unit === '') {
+    // '1 (14 oz) can tomatoes' — the number is followed by a bracket, so the
+    // unit group above matched nothing and the word doing the counting is
+    // hiding behind the size. Two of these is two CANS; the tin does not grow.
+    // Reaching past one parenthesis finds it. Only a bare word directly after
+    // the bracket, for the same reason as above: anything less certain is
+    // better left as the author wrote it.
+    const par = /^(\([^)]*\)\s*)([A-Za-z]+)\b/.exec(rest);
+    if (par) head = par[1]! + countWord(par[2]!, count) + rest.slice(par[0].length);
   }
 
   let after = head;
   const dual = SECOND_MEASURE.exec(head);
-  if (dual && knownUnit(dual[2]!)) {
+  // '1 x 400g tin coconut milk' is NOT one amount written twice. The 400g is
+  // the size of each tin, so doubling the line means two of those tins, not
+  // two of a tin twice as big — scaling both gave '2 x 800 g', which is four
+  // times what the recipe asked for and reads as though it were right. The
+  // leading count is the only thing that moves.
+  const perItem = unit.toLowerCase() === 'x';
+  if (dual && !perItem && knownUnit(dual[2]!)) {
     const v = qtyValue(dual[1]!);
     if (v !== null) {
       const scaledDual = v * factor;

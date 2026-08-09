@@ -322,11 +322,41 @@ describe('scaling — the one arithmetic a recipe asks of you', () => {
     // A number the app does not recognise as a measure is part of the name.
     expect(scaleIngredient('1 cup 2% milk', 2)).toBe('2 cups 2% milk');
     expect(scaleIngredient('1 tsp 5 spice powder', 2)).toBe('2 tsp 5 spice powder');
-    // A parenthesised size means more tins, not a bigger tin — that is the
-    // part that matters and it holds. The plural does not: '(14 oz)' sits
-    // between the number and the word 'can', where nothing can see it is a
-    // measure. A cosmetic wart, not a lie, and pinned so it stays that way.
-    expect(scaleIngredient('1 (14 oz) can tomatoes', 2)).toBe('2 (14 oz) can tomatoes');
+    // A parenthesised size means more tins, not a bigger tin — and the plural
+    // now follows too. '(14 oz)' sits between the number and the word doing
+    // the counting, so the unit group matched nothing and 'can' was invisible;
+    // reaching past the one bracket finds it.
+    expect(scaleIngredient('1 (14 oz) can tomatoes', 2)).toBe('2 (14 oz) cans tomatoes');
+    expect(scaleIngredient('2 (14 oz) cans tomatoes', 0.5)).toBe('1 (14 oz) can tomatoes');
+    expect(scaleIngredient('1 (400 g) tin chopped tomatoes', 3)).toBe('3 (400 g) tins chopped tomatoes');
+    // The bracket still only shields ONE word. Nothing bare after it means
+    // nothing to count, and the line is returned as written.
+    expect(scaleIngredient('1 (14 oz)', 2)).toBe('2 (14 oz)');
+  });
+
+  it('a multiplied pack size is the size of each, not a second way of saying the amount', () => {
+    // '1 x 400g tin' means one 400-gram tin. Doubling it means two of those
+    // tins. The dual-measure rule read the 400 g as the same amount written
+    // again and scaled it too, giving '2 x 800 g' — four times the coconut
+    // milk, in a line that looks entirely reasonable. The worst kind of wrong.
+    expect(scaleIngredient('1 x 400g tin coconut milk', 2)).toBe('2 x 400g tins coconut milk');
+    expect(scaleIngredient('2 x 400g tins coconut milk', 0.5)).toBe('1 x 400g tin coconut milk');
+    expect(scaleIngredient('1 x 200 g pack feta', 3)).toBe('3 x 200 g packs feta');
+    // The genuine dual measure is untouched by the exception: it has no 'x'.
+    expect(scaleIngredient('3 tablespoons 45 g flour', 2)).toBe('6 tablespoons 90 g flour');
+  });
+
+  it('measure words that were missing let the count fall through to the name', () => {
+    // Both found by running the scaler over ordinary shopping-list lines
+    // rather than by thinking of cases, which is the only way this kind shows
+    // up. 'loaf' was in the irregular-plural table but not the measure list,
+    // so it was never the word being counted.
+    expect(scaleIngredient('1 loaf crusty bread', 2)).toBe('2 loaves crusty bread');
+    expect(scaleIngredient('2 loaves crusty bread', 0.5)).toBe('1 loaf crusty bread');
+    // 'rib' was in neither, so the count fell through to the name — and the
+    // name is a mass noun, which took a plural it can never have.
+    expect(scaleIngredient('2 ribs celery', 2)).toBe('4 ribs celery');
+    expect(scaleIngredient('2 ribs celery', 0.5)).toBe('1 rib celery');
   });
 
   it('the word that names the thing takes the count, wherever it sits', () => {
