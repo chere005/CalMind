@@ -115,6 +115,36 @@ if (!/id="calmind-bg"/.test(html)) {
   );
 }
 
+/**
+ * Pin the app to the REAL bottom of the viewport, in a tab and standalone.
+ *
+ * expo-reset sizes the app with `height: 100%`, which resolves against the
+ * initial containing block — and with viewport-fit=cover that block is the
+ * LARGE viewport, the size the page would be if Safari's toolbars were gone.
+ * In a browser tab with the toolbar showing, the app is therefore laid out
+ * taller than the part you can see, so the tab bar (the last child of the
+ * root column) lands below the fold and the space above it reads as a gap.
+ * Worse, the toolbar collapses as you scroll, so the mismatch CHANGES: a
+ * screen whose content overflows ends up with a different gap from a short
+ * one. That is the shape of the report — a gap that differs per screen —
+ * and it is why this is fixed by construction rather than by measuring.
+ *
+ * `dvh` is the unit for exactly this: it tracks the viewport as the toolbars
+ * come and go. Standalone has no toolbar, so dvh == lvh == svh and nothing
+ * moves there; the native app never loads this file at all. Guarded by
+ * @supports so a browser without dvh keeps the old behaviour rather than
+ * losing its height entirely.
+ *
+ * Deliberately NOT touching padding: the bottom safe-area inset is applied
+ * once, by the app's own SafeAreaView, and adding any here would double it.
+ */
+if (!/id="calmind-vh"/.test(html)) {
+  html = html.replace(
+    '</head>',
+    '<style id="calmind-vh">@supports (height:100dvh){html,body{height:100dvh}#root{height:100dvh}}</style></head>',
+  );
+}
+
 writeFileSync(join(dirname(file), 'manifest.webmanifest'), JSON.stringify(manifest, null, 2) + '\n');
 if (!/rel=["']manifest["']/i.test(html)) {
   html = html.replace('</head>', '<link rel="manifest" href="manifest.webmanifest"/></head>');

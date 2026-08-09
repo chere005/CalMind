@@ -131,6 +131,19 @@ describe('monthLegend — every calendar/folder with an item in the window', () 
     expect(monthLegend(recs, dates, '2026-08-01', { f: 'none' })).toEqual([]);
   });
 
+  it('drops a folder whose every item in the window is ticked', () => {
+    // The cell hides a finished mark unless Completed is showing, so a chip
+    // for an all-done folder named a colour the grid never drew.
+    const recs: AnyRec[] = [folder('f'), rem('r1', '2026-08-11', { done: true })];
+    const dates = ['2026-08-10', '2026-08-11'];
+    expect(monthLegend(recs, dates, '2026-08-01')).toEqual([]);
+    // Completed showing: the mark comes back, so the chip must too.
+    expect(monthLegend(recs, dates, '2026-08-01', undefined, true).map((l) => l.name)).toEqual(['f']);
+    // One open item is enough to keep the chip.
+    const mixed: AnyRec[] = [folder('f'), rem('r1', '2026-08-11', { done: true }), rem('r2', '2026-08-10')];
+    expect(monthLegend(mixed, dates, '2026-08-01').map((l) => l.name)).toEqual(['f']);
+  });
+
   it("a rideAlong folder earns its chip only on a day it actually rides", () => {
     // 'all' rides today and nothing else, so a window without today has no
     // occurrence to show — and one WITH today does.

@@ -106,8 +106,8 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
   );
   // Same modes the grid draws through, so the key can only name things the
   // window actually holds.
-  const legend = useMemo(() => monthLegend(drawn, cells, today, folderModes), [drawn, cells, today, folderModes]);
-  const sharedLegend = useMemo(() => monthLegend(sharedDrawn, cells, today, folderModes), [sharedDrawn, cells, today, folderModes]);
+  const legend = useMemo(() => monthLegend(drawn, cells, today, folderModes, showDone), [drawn, cells, today, folderModes, showDone]);
+  const sharedLegend = useMemo(() => monthLegend(sharedDrawn, cells, today, folderModes, showDone), [sharedDrawn, cells, today, folderModes, showDone]);
   const items = useMemo(() => dayItems(drawn, day, today, folderModes), [drawn, day, today, folderModes]);
   // The suite drops a group whose every item is filtered out, so a day of
   // finished reminders wears no stray heading until Completed is switched on.
