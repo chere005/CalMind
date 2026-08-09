@@ -28,8 +28,13 @@ function walk(dir: string, out: string[] = []): string[] {
 
 test('no spec reaches for a testID the app never renders', () => {
   const root = join(__dirname, '..');
+  // The head patch renders one testID of its own — the error reporter, which
+  // has to be plain inline HTML so it is listening before the bundle runs and
+  // survives whatever the bundle does. It is app-rendered markup like any
+  // other, just not written in TSX, so its source belongs in this sweep
+  // rather than in an exception list.
   const appSrc = walk(join(root, 'apps', 'app', 'src'))
-    .concat([join(root, 'apps', 'app', 'App.tsx')])
+    .concat([join(root, 'apps', 'app', 'App.tsx'), join(root, 'tools', 'patch-web-html.mjs')])
     .map((f) => {
       try { return readFileSync(f, 'utf8'); } catch { return ''; }
     })
@@ -42,6 +47,11 @@ test('no spec reaches for a testID the app never renders', () => {
   }
   for (const m of appSrc.matchAll(/testID=\{?\s*`([^`]*)`/g)) {
     if (!m[1]!.includes('${')) literals.add(m[1]!);
+  }
+  // …and the plain-DOM spelling, which the head patch uses because it is
+  // inline script rather than TSX. Same thing to a spec, written differently.
+  for (const m of appSrc.matchAll(/setAttribute\(\s*['"]data-testid['"]\s*,\s*['"]([^'"]+)['"]/g)) {
+    literals.add(m[1]!);
   }
   // …and names built from a template, which contribute a prefix instead.
   const prefixes: string[] = [];

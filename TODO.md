@@ -548,6 +548,28 @@ with what is deployed.
       something throws. Second, the updater is now behind `?autoupdate=1`, so
       a webclip installed at that URL reproduces the blank screen while no
       ordinary install runs the code at all.
+- [ ] **CORRECTION: I could NOT reproduce the blank screen, and my earlier
+      conclusion is now in doubt.** With the updater FORCED ON in a
+      local-only build, installed as a webclip against a local server, the
+      app renders perfectly in standalone. So "the updater causes it" does
+      not survive a third experiment:
+        A. deployed HTTPS, updater unconditional → blank (twice)
+        B. deployed HTTPS, updater commented out → renders
+        C. local HTTP, updater forced on → RENDERS
+      A against B says the updater. A against C says it is not the updater,
+      or not only. The two differ in host and protocol as well as in the
+      code, so neither pair settles it. Re-running A needs a deploy, and
+      deploys are blocked.
+- [ ] **Re-reading my own evidence turned up the hole in it**: on that fresh
+      install the running bundle and the served bundle were the SAME, so
+      `shouldReload` returns false and no navigation could have happened.
+      The blank was therefore never caused by the reload — which is what I
+      had been assuming while looking for the fault in the wrong place.
+- [ ] Also ruled out on the way: the deploy does NOT use `--delete`, so old
+      bundles stay on the server and a cached page pointing at one still
+      loads. A missing script is not the explanation. (It does mean a stale
+      webclip can keep running an old bundle for ever, which fits the
+      staleness exactly.)
 - [ ] **A real lead, found by installing webclips against a LOCAL server** (no
       deploy needed — the simulator shares the Mac's network, so
       `http://127.0.0.1:8791/test/calmind/` installs and runs standalone just
@@ -609,7 +631,7 @@ with what is deployed.
 - [ ] `git pull --autostash` first — two sessions share this repo; stage
       explicit paths only, never `git add -A`, hold commits on files the other
       session has half-refactored.
-- [ ] Keep the suites green: 279 core + 37 server + 101 gesture (+3 skipped) + 16 WebKit,
+- [ ] Keep the suites green: 279 core + 37 server + 104 gesture (+4 skipped) + 16 WebKit,
       plus 9 live checks (16 with the API) and 6 desktop. The README points
       here rather than carrying numbers of its own, so this line has to be
       the one that is right — it was 93 an hour after the gesture suite passed

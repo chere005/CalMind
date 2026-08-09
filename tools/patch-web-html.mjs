@@ -63,10 +63,17 @@ if (add) html = html.replace('</head>', `${add}</head>`);
  * Inline and FIRST, so it is listening before the bundle runs and survives
  * whatever the bundle does. It draws nothing at all unless something throws,
  * so it costs an ordinary launch a few hundred bytes and nothing else.
+ *
+ * Listening in the CAPTURE phase, and naming a failed resource separately.
+ * A <script> that 404s does not bubble an error to window and carries no
+ * message, so the bubble-phase version of this would have watched a blank
+ * screen in silence — which is precisely the case worth catching, since a
+ * cached page pointing at a bundle that is no longer there looks exactly
+ * like a blank screen and nothing else.
  */
 const ERR_ID = 'calmind-error-shout';
 if (!html.includes(ERR_ID)) {
-  const shout = `<script id="${ERR_ID}">(function(){var shown=0;function say(what){if(shown++)return;try{var d=document.createElement('pre');d.setAttribute('data-testid','fatal-error');d.style.cssText='position:fixed;inset:0;z-index:2147483647;margin:0;padding:16px;background:#111;color:#f6b4b2;font:12px/1.4 ui-monospace,monospace;white-space:pre-wrap;overflow:auto';d.textContent='CalMind could not start.\\n\\n'+what;(document.body||document.documentElement).appendChild(d);}catch(_){}}window.addEventListener('error',function(e){say((e&&e.message||'error')+'\\n'+((e&&e.error&&e.error.stack)||(e&&e.filename+':'+e.lineno)||''));});window.addEventListener('unhandledrejection',function(e){var r=e&&e.reason;say('unhandled rejection: '+((r&&r.message)||r)+'\\n'+((r&&r.stack)||''));});})();</script>`;
+  const shout = `<script id="${ERR_ID}">(function(){var shown=0;function say(what){if(shown++)return;try{var d=document.createElement('pre');d.setAttribute('data-testid','fatal-error');d.style.cssText='position:fixed;inset:0;z-index:2147483647;margin:0;padding:16px;background:#111;color:#f6b4b2;font:12px/1.4 ui-monospace,monospace;white-space:pre-wrap;overflow:auto';d.textContent='CalMind could not start.\\n\\n'+what;(document.body||document.documentElement).appendChild(d);}catch(_){}}window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&(t.src||t.href)){say('failed to load: '+(t.src||t.href));return;}say((e&&e.message||'error')+'\\n'+((e&&e.error&&e.error.stack)||(e&&e.filename+':'+e.lineno)||''));},true);window.addEventListener('unhandledrejection',function(e){var r=e&&e.reason;say('unhandled rejection: '+((r&&r.message)||r)+'\\n'+((r&&r.stack)||''));});})();</script>`;
   html = html.replace('<head>', `<head>${shout}`);
 }
 
