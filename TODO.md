@@ -441,6 +441,25 @@ by asking "what would make this go red?" rather than by trusting the tick.
       forever. Handles template ids by prefix; asserts both scans found
       something before comparing.
 
+## 3h · The other creation paths (2026-08-09, negative result)
+
+Having made Add's double-tap guard deliberate, I checked whether its siblings
+were guarded or merely lucky. Four paths commit from one field via BOTH
+onBlur and onSubmitEditing:
+
+- `addNote` — guarded explicitly, and its comment ("Enter fires submit AND
+  blur on web") says the bug was met for real there.
+- Both `addSection`s — protected by accident: a section name must be unique,
+  so the second commit is refused on the name.
+- `addReminder` — NO guard and no uniqueness rule, so a duplicate would simply
+  appear and stay. **It does not.** `e2e/addtwice.spec.ts` covers Enter, blur,
+  and the deliberate repeat; all three passed first time. The field unmounts
+  and clears before a second call can carry the old value.
+
+No guard added: there was nothing to fix, and the specs are what will notice
+if that code's shape changes. Add got a guard an hour ago because there the
+race had actually been observed — the difference is evidence, not taste.
+
 ## 4 · Gated — waiting on Sean's explicit word
 
 - [ ] **E2EE envelopes** (design settled, build gated): X25519 +
