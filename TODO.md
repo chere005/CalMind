@@ -560,93 +560,24 @@ more did, and one of those deletes things:
       leaks were found and re-verified BY HAND on the simulator. That is the
       one real hole in the testing story.
 
-## 3m · Habit section drag — status UNKNOWN, and left that way (2026-08-09)
+## 3m · Habit section drag — RESOLVED, it works (2026-08-09)
 
-PARITY.md claimed habits do not drag at all. That was stale: rows drag and
-have a passing spec. Sections are wired the same way — `useSectionDrag`,
-grips, drop lines, and a `moveHabitSection` with its own unit tests — but
-nothing checks the wiring end to end.
+PARITY.md claimed habits do not drag at all. Rows do and always did. Sections
+do too — now proven by `e2e/habitsections.spec.ts`, which reorders one and
+holds the order across a reload.
 
-- Three attempts to drive it in the browser harness all failed, including one
-  copied verbatim from the folder-manager section drag that DOES pass. So
-  either the harness cannot reach it or the feature does not work.
-- Not settled on the simulator either: the only habit sections there are
-  Sean's real ones (Daily, Fun, Habits) and a drag would reorder them for
-  real. Declined.
-- Left recorded as unknown rather than guessed. To settle it: a throwaway
-  account on the simulator, or a native harness — the same gap that hid two
-  bugs tonight.
+Four earlier attempts failed and I nearly recorded the feature as broken. All
+four failed the same way, and it was mine: the drop slots are "before section
+X", and the end-of-list slot sits 400px BELOW the last header. Every drag I
+tried stopped short of that, so it read as "before Morning" — which is where
+Evening already was. A no-op by design, indistinguishable from a dead
+gesture. The spec carries that note, because the next person will also reach
+for a modest distance.
 
-## 3n · Copy-as-Markdown: found, not missing — and it diverges (2026-08-09)
-
-Comparing the Reminders screen against the suite turned up its Sean-only
-Copy-as-Markdown button as a parity gap. It was not one: we already have it,
-gated on the same username. I had checked the suite before checking our own
-code, which is the wrong order.
-
-The FORMAT does diverge, though, and that is worth Sean's word:
-
-| | suite | ours |
-|---|---|---|
-| headings | `## Section` only | `## Folder` + `### Section` |
-| box | `- []` | `- [ ]`, or `- [x]` when Completed is on |
-| chip | `(due time)` | `(due · time · repeat)` |
-| done rows | always dropped | follow the Completed toggle |
-| empty sections | omitted | still get a heading |
-| subtasks | flat | indented two spaces |
-
-Ours is the richer one. Which belongs on his clipboard is his call — he pastes
-it somewhere, and quietly reformatting that would be worse than leaving it.
-
-- [x] The shaping moved into `packages/core/src/markdown.ts` with tests, output
-      unchanged. The screen now only says which folders, sections and rows are
-      on screen. The tests pin the divergences on purpose, so whoever compares
-      the two next finds them written down rather than rediscovering them.
-
-## 3o · Screen-by-screen parity pass (2026-08-09)
-
-Checked OUR code first this time, then the suite — the opposite order cost a
-detour on the markdown button.
-
-- [x] **Notes list**: the suite's list has exactly one control under the
-      header, `collapse_all_button()`. So do we. Match.
-- [x] **Reminders**: header (back + title left, picker + user right) matches;
-      the toolbar row's collapse-all and Completed match. Copy-as-Markdown
-      exists on both, gated on the same username — see 3n for the format
-      divergence, which is Sean's to settle.
-- [ ] **Habits keeps an Edit pencil that the suite does NOT have.** The suite's
-      habits header says so in as many words — "No Edit pencil: holding a
-      habit's name or a section's gets you into edit mode" — and renders
-      `render_user_menu(false, '', ...)` with no edit id. But the suite's own
-      CLAUDE.md says the opposite: "Habits and the Bookshelf keep an Edit
-      pencil of their own". The docs and the code disagree, ours followed the
-      docs, and a spec covers it ('a habit renames on ONE tap once the Edit
-      pencil is on'). NOT changed: removing a control Sean uses, on the day he
-      complained about controls moving, would be the wrong call to make alone.
-- [x] **Header at DESKTOP width (1280)** — never checked since the flex was
-      changed: back sits at the left of the centred column, picker and
-      username at its right. Correct at both widths.
-
-## 3p · Calendar parity, checked against the suite (2026-08-09)
-
-- [x] **Today's two fixes are confirmed correct by the suite itself**, which I
-      should have checked at the time rather than after. Its legend CSS says
-      the legend "shows in both month and week views" in as many words, and
-      its calpick sits in the header with no view-mode gate. The suite's note
-      that in week mode "the chrome around it steps aside" refers only to
-      `.cell.wk-hide { display: none }` — the OTHER weeks' cells, not the
-      legend and not the picker.
-- [x] Header shape matches: back + title in a left group, picker beside the
-      user menu on the right. The picker button is the selected calendar's
-      colour as a dot, rainbow for All — ours too.
-- [x] Week mode is a swipe-up in the suite as well, so having no visible
-      Week/Month toggle on the Calendar is parity, not an omission. (Habits
-      has one because the suite's Habits has one.)
-- [ ] **Divergence, minor, not changed**: the suite caps its legend bar at
-      22vh and scrolls within it (~186pt on a phone); ours caps at a flat
-      88pt. Sean's current legend fits in both, so this only bites once his
-      folder list grows. Left alone on a day he has already had enough
-      unasked-for UI movement — worth a line, not a change.
+Worth keeping: I was one commit away from filing a working feature as broken,
+and the thing that stopped it was diagnosing rather than concluding — printing
+whether the manager closed, whether edit mode was on, and where the grips
+actually were.
 
 ## 4 · Gated — waiting on Sean's explicit word
 

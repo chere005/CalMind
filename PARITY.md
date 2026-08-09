@@ -1034,16 +1034,11 @@ widget/feed, quick-add and watch target.
 ledger of what shipped.
 
 Genuinely left over from that list's ambitions:
-- ~~Habits rows and sections do not drag~~ — STALE, corrected 2026-08-09.
-  Habit ROWS drag and are covered by a spec ('a habit drags to a new spot').
-  Habit SECTIONS are wired too — useSectionDrag, grips, drop lines, and a
-  core moveHabitSection that has its own unit tests — but nothing verifies
-  the wiring end to end. Three attempts to drive it in the browser harness
-  failed, including one copied verbatim from the folder-manager section drag
-  that does pass, so either the harness cannot reach it or it does not work.
-  Not resolved on the simulator either: the only habit sections there are
-  Sean's real ones and a drag would reorder them for real. Status: UNKNOWN,
-  which is worth writing as unknown rather than guessing in either direction.
+- ~~Habits rows and sections do not drag~~ — STALE and now fully answered
+  (2026-08-09). Rows drag and always did; sections drag too, proven by
+  e2e/habitsections.spec.ts across a reload. The four attempts that failed
+  before it were dropping into the "before this section" zone, which for the
+  section directly above the target is a no-op — not a broken gesture.
 
 ## Suite notes still to honour (from CLAUDE.md read-through)
 - Cells: fixed two-row well, 3/row phone; >6 icons → five + '+'.
