@@ -120,6 +120,15 @@ test('an awkward card: no title, a wordy last ingredient, a method with no headi
   expect(ings).not.toContain('fry in butter');
   // Nothing from inside the list was promoted to the recipe's name.
   await expect(page.getByTestId('recipe-title')).not.toHaveValue(/pepper/i);
+
+  // And the method the parser refused to guess into steps is KEPT, under
+  // Include notes, rather than parsed and dropped. `extra` used to be
+  // read-only state seeded when the editor opened, so anything a photo
+  // brought with it went straight on the floor.
+  await expect(
+    page.getByText(/whisk everything together/i),
+    'the unheaded method is kept as a note rather than discarded',
+  ).toBeVisible();
 });
 
 test('a photo it cannot read says so, instead of ending in silence', async ({ page, context }) => {

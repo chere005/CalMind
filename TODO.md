@@ -398,6 +398,17 @@ Next up, in Sean's order:
       round-trip costs longer than that — so I have seen the refusal happen
       but not read it on the device. The web path is unchanged and its three
       OCR specs still pass.
+- [x] **The leftovers fix now has a test of its own.** I shipped `extra`
+      appending from a photo without covering it, which is the same gap I keep
+      finding in other people's work. The awkward-card spec asserts the
+      unheaded method is visible under Include notes, and it has teeth:
+      dropping the append again turns it red.
+- [x] Judged sufficient rather than chased: the native "reading photos is
+      web-only" MESSAGE is still unread on a device. The mechanism that draws
+      it — `busy !== '' && <Text>` — is the same one the "No text found in
+      that photo" spec exercises and passes on, so what is unverified is one
+      string on one platform, not the path. Said plainly rather than left to
+      look complete.
 - [ ] Photo import flow (recipe-import → recipe-photos → recipe-title →
       recipe-save) is covered by e2e/ocr.spec.ts — keep that spec on the real
       flow, not a shortcut.
