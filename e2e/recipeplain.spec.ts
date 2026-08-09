@@ -41,7 +41,6 @@ test('a plain note keeps its FIRST line through the Recipe page', async ({ page 
   await page.getByTestId('secadd-General').first().click();
   await page.getByPlaceholder('New note').fill('Shopping');
   await page.getByPlaceholder('New note').press('Enter');
-  await page.getByTestId('note-body-view').click();
   await page.getByTestId('note-body-edit').fill('Shopping list\nmilk\neggs\nbread');
   await page.getByText('← All notes').click();
   await page.getByTestId('note-row').filter({ hasText: 'Shopping' }).click();
@@ -59,7 +58,6 @@ test('the Recipe page on an ordinary note gives the words back unharmed', async 
   await page.getByTestId('secadd-General').first().click();
   await page.getByPlaceholder('New note').fill('Boiler');
   await page.getByPlaceholder('New note').press('Enter');
-  await page.getByTestId('note-body-view').click();
   await page.getByTestId('note-body-edit').fill(PROSE);
   await page.getByText('← All notes').click();
   await page.getByTestId('note-row').filter({ hasText: 'Boiler' }).click();
@@ -90,7 +88,6 @@ test('editing a recipe twice does not eat it', async ({ page }) => {
   await page.getByTestId('secadd-General').first().click();
   await page.getByPlaceholder('New note').fill('Pancakes');
   await page.getByPlaceholder('New note').press('Enter');
-  await page.getByTestId('note-body-view').click();
   // Start from a recipe as the page SAVES it — that is what "editing it
   // again" means. (Raw text takes the OCR path, whose title guess is its own,
   // documented, humbler story.)

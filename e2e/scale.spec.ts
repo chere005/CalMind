@@ -33,7 +33,6 @@ test('scaling reads the recipe differently and writes nothing', async ({ page })
   await page.getByTestId('secadd-General').first().click();
   await page.getByPlaceholder('New note').fill('Loaf');
   await page.getByPlaceholder('New note').press('Enter');
-  await page.getByTestId('note-body-view').click();
   await page.getByTestId('note-body-edit').fill(BODY);
   await page.getByTestId('note-title').click();
 
@@ -77,7 +76,6 @@ test('scaling never reaches the stored recipe, even through the Recipe editor', 
   await page.getByTestId('secadd-General').first().click();
   await page.getByPlaceholder('New note').fill('Loaf');
   await page.getByPlaceholder('New note').press('Enter');
-  await page.getByTestId('note-body-view').click();
   await page.getByTestId('note-body-edit').fill(BODY);
   await page.getByTestId('note-title').click();
 
@@ -118,7 +116,6 @@ test('a plain note is never offered a scale it cannot honour', async ({ page }) 
   await page.getByTestId('secadd-General').first().click();
   await page.getByPlaceholder('New note').fill('Shopping');
   await page.getByPlaceholder('New note').press('Enter');
-  await page.getByTestId('note-body-view').click();
   await page.getByTestId('note-body-edit').fill('- 2 cups flour\n- milk');
   await page.getByTestId('note-title').click();
   // Quantities alone are not a recipe; the markers are.

@@ -72,7 +72,9 @@ test('a note deleted on another device leaves its editor gracefully, not blank',
   await page.getByTestId('secadd-General').first().click();
   await page.getByPlaceholder('New note').fill('still usable');
   await page.getByPlaceholder('New note').press('Enter');
-  await expect(page.getByTestId('note-body-view')).toBeVisible();
+  // Creation lands in the editor TYPING now, so the live edit field is the
+  // proof the screen still works.
+  await expect(page.getByTestId('note-body-edit')).toBeVisible();
 
   await other.close();
 });

@@ -57,7 +57,6 @@ test('a long line does not push the page sideways', async ({ page }) => {
   await page.getByTestId('secadd-General').first().click();
   await page.getByPlaceholder('New note').fill(LONG);
   await page.getByPlaceholder('New note').press('Enter');
-  await page.getByTestId('note-body-view').click();
   await page.getByTestId('note-body-edit').fill(`${NOSPACE}\n${LONG}`);
   await page.getByText('← All notes').click();
   expect(await overflow(page), 'the notes list stays inside the screen').toBeLessThanOrEqual(0);
