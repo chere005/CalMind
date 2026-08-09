@@ -125,8 +125,15 @@ one folds without picking either.
   simulator accepts no synthetic tap anywhere in the bottom toolbar (in
   Safari as much as in our own tab bar), so Add to Home Screen cannot be
   driven from here at all. That last limitation also puts the Habits, Notes
-  and Reminders tabs out of reach on the sim, which is why the native DRAG
-  is still unwitnessed by hand.
+  and Reminders tabs out of reach on the iOS sim — **use ANDROID for any
+  native gesture you need to see**: `adb shell input tap/swipe` is accepted
+  everywhere the iOS sim refuses it, and that is how the drag was finally
+  witnessed (grips revealed by ✎, a habit dragged past its neighbour and
+  dragged back). Boot notes for the emulator, both of which cost time once:
+  it can come up with a dead graphics state and never open its adb port at
+  all (kill it hard — a plain pkill doesn't — and restart with `-gpu
+  swiftshader_indirect`), and `expo run:android --device` wants the AVD
+  NAME, not the adb serial.
 - **Desktop** (desktop/): the shell holds NO behavior — it is the same web
   bundle the e2e suite drives, so the three runs above cover it. The by-eye
   residue is only the shell itself: window opens, CM dock icon, signs into
