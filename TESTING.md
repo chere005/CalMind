@@ -96,7 +96,11 @@ surviving a reload; habits showing five day columns on a phone and seven with
 room, with the pages abutting — no overlap, no gap; the web-app head and
 manifest an install needs; and Sean's COLOUR CHAIN end to end — the folder's
 colour in the manage menu reaching both the legend chip and the date's own
-mark, including when the reminder is overdue (the case that was wrong).
+mark, including when the reminder is overdue (the case that was wrong);
+a habit renaming on ONE tap once the pencil is on (and not before it); and
+the suite's own scar — a day is selected by a TAP and nothing else, so a
+sideways swipe pages without picking the cell it lands on and a vertical
+one folds without picking either.
 
 ## What only an eye can check
 
