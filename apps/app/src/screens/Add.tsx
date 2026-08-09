@@ -176,7 +176,11 @@ export function Add({ done, onNoteCreated }: { done: () => void; onNoteCreated?:
           <Text style={s.helpRow}>·  <Text style={s.helpBold}>2pm</Text> or <Text style={s.helpBold}>2:30pm</Text> — a time</Text>
           <Text style={s.helpRow}>·  <Text style={s.helpBold}>8/3</Text> — a date this year (the next one to come)</Text>
           <Text style={s.helpRow}>·  <Text style={s.helpBold}>8/3/26</Text> or <Text style={s.helpBold}>8/3/2026</Text> — a full date</Text>
+          <Text style={s.helpRow}>·  <Text style={s.helpBold}>tomorrow</Text>, <Text style={s.helpBold}>today</Text> or <Text style={s.helpBold}>yesterday</Text></Text>
+          <Text style={s.helpRow}>·  <Text style={s.helpBold}>in 2 weeks</Text>, <Text style={s.helpBold}>3 days</Text>, <Text style={s.helpBold}>1 month</Text> — that far from today</Text>
+          <Text style={s.helpRow}>·  <Text style={s.helpBold}>in an hour</Text> or <Text style={s.helpBold}>in 30mins</Text> — a time from now</Text>
           <Text style={s.helpRow}>·  e.g. <Text style={s.helpBold}>Vet 8/3 2pm</Text> → “Vet”, Aug 3, 2:00pm</Text>
+          <Text style={s.helpNote}>A time on its own lands on today — or tomorrow, if it has already gone by.</Text>
         </View>
       </ScrollView>
     </View>
@@ -200,6 +204,7 @@ const s = themed(() => StyleSheet.create({
     backgroundColor: T.surface,
   },
   cardOn: { borderColor: T.accent, backgroundColor: T.accentInk },
+  helpNote: { color: T.muted, fontSize: 12, marginTop: 6, lineHeight: 17 },
   cardLabel: { color: T.dim, fontSize: 14, fontWeight: '600' },
   cardLabelOn: { color: T.accent },
   revealRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },

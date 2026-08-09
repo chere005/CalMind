@@ -976,6 +976,22 @@ test('typed "tomorrow" files a reminder on tomorrow, and the word leaves the tit
   await expect(row).toContainText(chip);
 });
 
+test('the Add page tells you the words it understands', async ({ page }) => {
+  // A parser nobody knows about is a parser nobody uses. The help block listed
+  // only 8/3 and 2pm for a while after the relative words landed, which made
+  // the whole feature undiscoverable.
+  await signup(page);
+  await page.getByTestId('tab-add').click();
+  const help = page.getByText('You can also type the date and time into the line:');
+  await expect(help).toBeVisible();
+  const block = page.locator('body');
+  for (const word of ['tomorrow', 'in 2 weeks', 'in an hour', 'in 30mins']) {
+    await expect(block, `the help names "${word}"`).toContainText(word);
+  }
+  // …and the rule a bare time follows, since that one surprises people.
+  await expect(block).toContainText('already gone by');
+});
+
 test('the little date box takes "tomorrow" too, not just 8/3', async ({ page }) => {
   // The text field beside it learned the relative words this run; a box that
   // refused what its neighbour accepts is a seam a person walks straight into.
