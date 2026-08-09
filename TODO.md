@@ -266,7 +266,7 @@ Next up, in Sean's order:
 - [ ] `git pull --autostash` first — two sessions share this repo; stage
       explicit paths only, never `git add -A`, hold commits on files the other
       session has half-refactored.
-- [ ] Keep the suites green: 264 core + 37 server + 99 gesture + 16 WebKit,
+- [ ] Keep the suites green: 265 core + 37 server + 99 gesture + 16 WebKit,
       plus 9 live checks (16 with the API) and 6 desktop. The README points
       here rather than carrying numbers of its own, so this line has to be
       the one that is right — it was 93 an hour after the gesture suite passed
@@ -506,6 +506,21 @@ Next up, in Sean's order:
       session and signing back in would need credentials I will not handle.
       So the lines were read off the screen and replayed against the scaler
       locally. Ten recipes there now, not the four from before.
+- [x] **'1 medium chopped onion' doubled to '2 medium chopped onion'** (his
+      Pastitsio). The noun is the LAST word and the rule only ever looked at
+      a single bare one. Now the last word counts when every word before it
+      is a participle. The -ed test is the whole safety of it, and the case
+      that says why it is not simply "take the last word" is '1 small handful
+      parsley': 'handful' sits in that position, is a measure rather than a
+      participle, so nothing is counted and 'parsley' keeps the plural it
+      does not have. Both directions mutation-tested.
+- [ ] **Still missed, deliberately: '1 large free range egg' and '1 finely
+      diced garlic clove'** keep their singular noun when doubled, because
+      'range' and 'garlic' are not participles either. Under-correcting is
+      the right failure here — the alternative invents words.
+- [ ] **Six of the ten cards read**, and the four unread (Aglio e
+      Peperoncino, Carbonara, al Fumé, Ravioli di Zucca) are the obvious next
+      place to look if scaling is ever doubted again.
 - [ ] **Nothing else in ten cards came back wrong**, including the shapes
       that had been guesses last run: parenthesised asides that are NOT
       sizes ('2 ounces deli ham (french is recommended)') are left alone, and

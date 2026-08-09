@@ -334,6 +334,23 @@ describe('scaling — the one arithmetic a recipe asks of you', () => {
     expect(scaleIngredient('1 (14 oz)', 2)).toBe('2 (14 oz)');
   });
 
+  it('a participle between the number and the noun does not hide it', () => {
+    // '1 medium chopped onion' is off Sean's Pastitsio and doubled to
+    // '2 medium chopped onion': the noun is the LAST word, and the rule only
+    // ever looked at a single bare one.
+    expect(scaleIngredient('1 medium chopped onion', 2)).toBe('2 medium chopped onions');
+    expect(scaleIngredient('2 large diced potato', 0.5)).toBe('1 large diced potato');
+    // The -ed test is the whole safety of it, and this is the case that says
+    // why it is not simply "take the last word": 'handful' sits in that
+    // position and is a measure, not a participle, so nothing is counted and
+    // 'parsley' — which has no plural — is left exactly as written.
+    expect(scaleIngredient('1 small handful parsley', 2)).toBe('2 small handful parsley');
+    // Still untouched, for the same reason as ever: no bare noun to find.
+    expect(scaleIngredient('600 g fresh tagliatelle (see Pasta all\u2019Uovo)', 2))
+      .toBe('1200 g fresh tagliatelle (see Pasta all\u2019Uovo)');
+    expect(scaleIngredient('3 egg yolks', 2)).toBe('6 egg yolks');
+  });
+
   it('a unit somebody spelled out still counts, off Sean\'s own cards', () => {
     // UNIT_MAP knows 'teaspoons' normalises to 'tsp'; MEASURE decides whether
     // a word gets recounted, and the spelled-out units were only ever in the

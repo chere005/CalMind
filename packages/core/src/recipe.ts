@@ -472,8 +472,25 @@ export function scaleIngredient(text: string, factor: number): string {
   } else if (unit !== '' && !knownUnit(unit)) {
     const cut = rest.search(/[,;(]/);
     const front = (cut < 0 ? rest : rest.slice(0, cut)).trim();
-    if (/^[A-Za-z]+$/.test(front)) {
-      head = countWord(front, count) + (cut < 0 ? '' : rest.slice(cut));
+    // A single bare word is the thing. So is the last of several when every
+    // word before it is a participle — '1 medium chopped onion' doubling to
+    // '2 medium chopped onion' is off Sean's Pastitsio, and 'chopped' is the
+    // only thing standing between the count and 'onion'.
+    //
+    // The -ed test is what keeps this safe, and it is why the rule is not
+    // simply "take the last word". '1 small handful parsley' has 'handful'
+    // in that position, which is a measure and not a participle, so nothing
+    // is counted and 'parsley' — which has no plural — is left alone.
+    const words = front.split(/\s+/);
+    const countable =
+      /^[A-Za-z]+$/.test(front) ||
+      (words.length > 1 &&
+        words.every((w) => /^[A-Za-z]+$/.test(w)) &&
+        words.slice(0, -1).every((w) => /ed$/i.test(w)));
+    if (countable) {
+      const lead = words.slice(0, -1).join(' ');
+      const counted = countWord(words[words.length - 1]!, count);
+      head = (lead === '' ? '' : lead + ' ') + counted + (cut < 0 ? '' : rest.slice(cut));
     }
   } else if (unit === '') {
     // '1 (14 oz) can tomatoes' — the number is followed by a bracket, so the
