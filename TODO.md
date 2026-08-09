@@ -368,12 +368,33 @@ question that is his.
       error reaches the caller and the record stays dirty; both now pinned,
       and both go red if the failure is swallowed.
 
+## 1v · The hand-rolled base64url, probed exhaustively (2026-08-09)
+
+- [x] **The codec is correct.** Every one of the 256 byte values, in every
+      position of a three-byte group, round trips; so does a 1KB buffer the
+      size of a real attestation object. Bad characters throw, including a
+      stray newline and padding in the middle — both things a sloppy server
+      sends. The existing tests covered every LENGTH; this covered every
+      VALUE, which is where a shift or a mask goes wrong.
+- [x] **One silent failure, now loud.** A base64 group is 2, 3 or 4
+      characters, so a string of 4n+1 cannot have come from any encoder. It
+      used to decode anyway, dropping the orphan character's bits without a
+      word: 'A' gave zero bytes, 'AAAAA' gave three. A truncated credential
+      id therefore came back SHORTER rather than rejected, and the trouble
+      surfaced later as a signature that would not verify — true, and no help
+      at all in working out why. It throws now.
+- [x] **The server's decoder was checked for the same class and is fine.**
+      `b64u_decode` returns '' when base64_decode fails, which is silent in
+      itself, but every caller feeds it straight into `client_data_check`,
+      `authdata_parse` or `openssl_verify`, and all three refuse an empty
+      string loudly. A clean negative rather than an assumption.
+
 ## 2 · Steady state (every iteration)
 
 - [ ] `git pull --autostash` first — two sessions share this repo; stage
       explicit paths only, never `git add -A`, hold commits on files the other
       session has half-refactored.
-- [ ] Keep the suites green: 269 core + 37 server + 99 gesture + 16 WebKit,
+- [ ] Keep the suites green: 270 core + 37 server + 99 gesture + 16 WebKit,
       plus 9 live checks (16 with the API) and 6 desktop. The README points
       here rather than carrying numbers of its own, so this line has to be
       the one that is right — it was 93 an hour after the gesture suite passed

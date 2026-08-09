@@ -25,6 +25,12 @@ export function bytesToB64u(bytes: Uint8Array): string {
 
 export function b64uToBytes(s: string): Uint8Array {
   const clean = s.replace(/=+$/, '');
+  // A base64 group is 2, 3 or 4 characters; one left over cannot have come
+  // from any input. Decoding it anyway drops that character's bits in
+  // silence, so a truncated credential id came back SHORTER instead of
+  // wrong, and the failure surfaced later as a signature that would not
+  // verify — true, and no help at all in finding out why.
+  if (clean.length % 4 === 1) throw new Error('base64url: truncated');
   const out = new Uint8Array(Math.floor((clean.length * 6) / 8));
   let acc = 0;
   let bits = 0;
