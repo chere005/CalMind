@@ -52,10 +52,25 @@ visual. Deploy to **test only** (`./server/deploy-test.sh`) as changes land.
       to be my own misreading — a SAVED recipe already renders properly in
       the note (bold headings, bullets, numbered steps); the "wall of plain
       text" screenshot was taken mid-edit.
-- [ ] **OCR quality is the one recipe thread left, and it is BLOCKED on
-      Sean.** Everything so far is tuned against recipe text I invented. Two
-      or three photos of real cards would let it be tuned against what his
-      camera actually produces.
+- [x] **OCR quality — UNBLOCKED by Sean 2026-08-09 ("find several online
+      examples") and done against four real sites.** Playwright screenshotted
+      King Arthur / Budget Bytes / RecipeTin / Sally's as rendered, the
+      app's own tesseract read them, and every parser rule chases an
+      OBSERVED failure: checkbox glyphs, dash bullets, fused tokens
+      (1and 1/2, 11/4tspsalt, 1'teaspoon), price chatter, ratings-as-
+      ingredients, and wrapped-column fragments rejoining (triple-guarded so
+      'a pinch of salt' never glues to a neighbour). Sally's: 22 fragment
+      rows → 11 clean ingredients. Residue, honestly: capitalised wrap
+      fragments stay split (a tap mends them); some mixed-case video
+      garbage passes the ratio filter. Real photos of HIS cards remain
+      worth a pass when he shares them — camera noise ≠ screenshot noise.
+- [x] **Units badge the row, right-justified like a parsed date** — Sean
+      verbatim. ingredientParts lifts qty+unit as data from
+      parseIngredient's own output; the row wears the reminder date-chip's
+      EXACT pill (marginLeft auto, radius 999, flexShrink 0 — added after
+      the first capture showed '⅓ cup' folding inside its own pill). No
+      quantity, no badge. Before/after screenshots taken on a throwaway
+      LOCAL account; paths handed over for Sean.
 
 ## 0.4 · Sean's live batch, round two
 
