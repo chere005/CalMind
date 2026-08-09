@@ -9,7 +9,17 @@ const TIME_RE = /\b(\d{1,2})(?::(\d{2}))?\s*([apAP])\.?[mM]\.?\b/;
 // No lookbehind (older Hermes lacks it): a leading (^|[^\d/]) group stands in for it.
 const DATE_RE = /(^|[^\d/])(\d{1,2})\/(\d{1,2})(?:\/(\d{2}|\d{4}))?(?![\d/])/;
 
-/** Remove [at, at+len) from text, then collapse doubled spaces — the PHP clean. */
+/**
+ * Take a span out of the line and close the gap — the PHP clean.
+ *
+ * The word that INTRODUCED the span stays, which is why "standup at 9am"
+ * becomes a reminder called "standup at". That reads like a bug and it is a
+ * papercut, but it is the REFERENCE behaviour: the suite's
+ * parse_time_from_text (lib/util.php:102) does str_replace and nothing more,
+ * spec/parse.json pins "Up at 12am" -> text "Up at", and that vector is the
+ * contract this core shares with the native ones. Changing it is a product
+ * decision about Sean's live app, not a tidy-up — see TODO 3ab.
+ */
 function lift(text: string, at: number, len: number): string {
   return (text.slice(0, at) + text.slice(at + len)).replace(/\s{2,}/g, ' ').trim();
 }

@@ -485,6 +485,41 @@ Next up, in Sean's order:
       asked about lines somebody had already thought to doubt. The same
       lesson as Sean's own cards: invented data agrees with you.
 
+## 3ab · A DECISION for Sean — "standup at 9am" is titled "standup at"
+
+Found by probing the date parser the same way the scaler was probed: run it
+over three dozen lines somebody would actually type and read the output.
+
+- [ ] **The papercut.** Lifting the time out of a line leaves the preposition
+      that pointed at it. "standup at 9am" -> "standup at". "meeting at 12pm"
+      -> "meeting at". "set alarm for 7am" -> "set alarm for". "birthday on
+      9/14" -> "birthday on". It lands on nearly every timed item, since "at"
+      is how people write times.
+- [ ] **It is NOT a CalMind bug — it is the reference behaviour**, which is
+      why nothing was changed. The suite's `parse_time_from_text`
+      (lib/util.php:102) does `str_replace($m[0], '', $text)` and stops, and
+      `spec/parse.json` pins the case by name: "Up at 12am" -> text "Up at".
+      That vector is the contract CalMind's core shares with the native ones,
+      so amending it is a change to the app Sean uses today, on every
+      platform, not a tidy-up.
+- [ ] **The fix is small and was written and then reverted.** Strip a single
+      lead-in word (at/on/by/for/from/@) immediately before the lifted span.
+      Only that position, so "turn the oven on at 6pm" keeps its "on" and
+      "meet Ben at the pub at 3pm" keeps the pub. One spec vector would need
+      amending, and the same edit would be owed to lib/util.php and to the
+      Swift and Kotlin cores if they are to stay identical.
+- [ ] **Sean's call**, and it is a small one either way. Worth asking because
+      it changes a shared contract rather than because it is hard.
+
+Two more from the same probe, recorded as facts rather than complaints, since
+the documented vocabulary is 'tomorrow', 'in 2 weeks', 'in an hour', 'in
+30mins' and these are simply outside it: weekday words ("next tuesday",
+"this friday", "party on saturday") are not understood, and neither are
+"tonight", "noon", "midnight", "end of month", or month names ("14 sept").
+Bare times without am/pm ("standup at 9", "flight at 07:05") are also
+ignored. All consistent with the reference. Whether any are worth adding is
+a feature question, not a bug.
+
 ## 3b · Passkeys (Sean said go, 2026-08-08)
 
 - [x] **Server**: registration, usernameless login, list, remove. Attestation
