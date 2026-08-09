@@ -327,6 +327,24 @@ function countWord(word: string, n: number): string {
   return /(?:ch|sh|s|x|z)es$/i.test(word) ? word.slice(0, -2) : word.slice(0, -1);
 }
 
+/**
+ * A second measure of the SAME amount, written straight after the first —
+ * '3 tablespoons 45 g all purpose flour'. Scaling only the leading quantity
+ * leaves a line that contradicts itself, which is worse than not scaling at
+ * all: six tablespoons is not 45 g, and the cook has no way to tell which
+ * number to trust. The second unit must be one we recognise, so '1 cup 2%
+ * milk' and '1 tsp 5 spice powder' are left alone.
+ *
+ * A parenthesised size is a different thing — '1 (14 oz) can tomatoes' means
+ * two cans, not one 28 oz can — and never matches here.
+ */
+const SECOND_MEASURE = new RegExp(`^(${NUM})\\s*([a-zA-Z]+)\\b(.*)$`);
+
+function knownUnit(word: string): boolean {
+  const w = word.toLowerCase();
+  return UNIT_MAP[w] !== undefined || INVARIANT.has(w) || MEASURE.has(singularOf(w));
+}
+
 /** '1 ½ cups flour' doubled is '3 cups flour'; '2-3 cloves' halved is '1-1 ½'. */
 export function scaleIngredient(text: string, factor: number): string {
   const t = text.replace(/\s+/g, ' ').trim();
@@ -349,7 +367,19 @@ export function scaleIngredient(text: string, factor: number): string {
   const namesTheThing = tail === '' || /^[,;(]/.test(tail);
   const recount = unit !== '' && (MEASURE.has(singularOf(unit).toLowerCase()) || namesTheThing);
   const word = unit === '' ? '' : recount ? countWord(unit, count) : unit;
-  return tidy([qty, word, rest].filter((p) => p !== '').join(' ').trim());
+
+  let after = rest;
+  const dual = SECOND_MEASURE.exec(rest);
+  if (dual && knownUnit(dual[2]!)) {
+    const v = qtyValue(dual[1]!);
+    if (v !== null) {
+      const scaledDual = v * factor;
+      after = [qtyText(scaledDual), countWord(dual[2]!, scaledDual), (dual[3] ?? '').trim()]
+        .filter((p) => p !== '')
+        .join(' ');
+    }
+  }
+  return tidy([qty, word, after].filter((p) => p !== '').join(' ').trim());
 }
 
 /**

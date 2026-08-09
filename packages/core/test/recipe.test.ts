@@ -249,6 +249,26 @@ describe('scaling — the one arithmetic a recipe asks of you', () => {
       .toBe('600 g pasta (spaghetti is traditional)');
   });
 
+  it('a dual-unit line scales BOTH measures, or it starts lying', () => {
+    // Straight off Sean's Croque Madame. '3 tablespoons 45 g' is one amount
+    // written twice; doubling only the first gives '6 tablespoons 45 g',
+    // which contradicts itself and gives the cook no way to tell which
+    // number to trust.
+    expect(scaleIngredient('3 tablespoons 45 g all purpose flour', 2))
+      .toBe('6 tablespoons 90 g all purpose flour');
+    expect(scaleIngredient('2 cups 512 g warmed milk', 2)).toBe('4 cups 1024 g warmed milk');
+    expect(scaleIngredient('4 tablespoons 70 g unsalted butter', 0.5))
+      .toBe('2 tablespoons 35 g unsalted butter');
+    // A number the app does not recognise as a measure is part of the name.
+    expect(scaleIngredient('1 cup 2% milk', 2)).toBe('2 cups 2% milk');
+    expect(scaleIngredient('1 tsp 5 spice powder', 2)).toBe('2 tsp 5 spice powder');
+    // A parenthesised size means more tins, not a bigger tin — that is the
+    // part that matters and it holds. The plural does not: '(14 oz)' sits
+    // between the number and the word 'can', where nothing can see it is a
+    // measure. A cosmetic wart, not a lie, and pinned so it stays that way.
+    expect(scaleIngredient('1 (14 oz) can tomatoes', 2)).toBe('2 (14 oz) can tomatoes');
+  });
+
   it('a line with no number is left exactly alone', () => {
     // Half a pinch is not a quantity, and inventing one would be worse than
     // leaving the cook to judge it.

@@ -263,6 +263,14 @@ Next up, in Sean's order:
       yolks' (pluralising the head of a compound noun). Both fixed and pinned
       with his shapes. Lesson worth keeping: the invented test data agreed
       with me, and his didn't.
+- [x] **Dual-unit ingredient lines** — '3 tablespoons 45 g all purpose flour'
+      is one amount written twice. Scaling only the leading quantity gave
+      '6 tablespoons 45 g': a line that contradicts itself, which is worse
+      than not scaling at all. Both measures now scale. The second unit must
+      be one we recognise, so '1 cup 2% milk' and '1 tsp 5 spice powder' are
+      untouched, and a parenthesised size ('1 (14 oz) can') still means more
+      tins rather than a bigger tin. Known cosmetic wart, pinned: that same
+      parenthesis hides the word 'can' from the pluraliser.
 - [ ] Photo import flow (recipe-import → recipe-photos → recipe-title →
       recipe-save) is covered by e2e/ocr.spec.ts — keep that spec on the real
       flow, not a shortcut.
