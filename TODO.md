@@ -528,15 +528,39 @@ with what is deployed.
       "already tried this build" note, so the assertion would have passed
       whether or not a half-typed field meant anything. It clears that note
       first now, and removing the typing guard turns it red.
-- [ ] Sean should still remove and re-add the icon ONCE, to get onto a build
-      that contains this. After that it should keep itself current.
+- [ ] **TURNED OFF THE SAME DAY, because it broke the installed app.** With
+      the updater wired in, a freshly installed home-screen web app renders a
+      BLANK dark screen — reproducibly, on relaunch. With it commented out
+      and nothing else changed, a fresh install off the same deploy renders
+      the app correctly. That is the whole experiment: same simulator, same
+      URL, one line different.
+- [ ] **Everything else said it was fine**, which is the lesson. 104 specs in
+      Chromium, 16 in headless WebKit, and the live deployment loaded in a
+      real browser — correct bundle, no reload attempted, `updateTried` null.
+      None of them is an installed webclip, and that is the only place it
+      fails.
+- [ ] **Cause NOT yet known, and I am not guessing at one.** What is ruled
+      out: it is not the `?b=` query colliding with the app's own `?tick=`
+      route (different name, checked); it is not a reload loop, since the
+      guard refuses a second attempt at the same build; it is not the bundle,
+      which is byte-identical to the one that renders in Safari on the same
+      device. Next step is a real error: attach macOS Safari's Web Inspector
+      to the simulator's webclip and read the console, rather than reasoning
+      about it from here.
+- [x] The logic is untouched in core and still covered by 9 tests; the three
+      e2e specs are SKIPPED rather than deleted, carrying the reason, so
+      turning it back on turns them back on.
+- [ ] Sean does NOT need to do anything. The stale-code problem remains — he
+      still has to remove and re-add the icon by hand to get a new build —
+      but a blank app is very much worse than an old one, and shipping this
+      would have handed him exactly that on the reinstall I asked for.
 
 ## 2 · Steady state (every iteration)
 
 - [ ] `git pull --autostash` first — two sessions share this repo; stage
       explicit paths only, never `git add -A`, hold commits on files the other
       session has half-refactored.
-- [ ] Keep the suites green: 279 core + 37 server + 104 gesture + 16 WebKit,
+- [ ] Keep the suites green: 279 core + 37 server + 101 gesture (+3 skipped) + 16 WebKit,
       plus 9 live checks (16 with the API) and 6 desktop. The README points
       here rather than carrying numbers of its own, so this line has to be
       the one that is right — it was 93 an hour after the gesture suite passed

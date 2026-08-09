@@ -8,7 +8,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { watchForUpdate } from './update';
+// import { watchForUpdate } from './update';
 import { SyncEngine, normalize, prefsOf, folderApp, shareOf, type AnyRec, type Rec } from '@calmind/core';
 import { apiPost, type Session, syncTransport, ApiError } from './api';
 import { pushWatchList } from './watch';
@@ -282,7 +282,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   // asks on return whether the server is serving something else, and takes it
   // only when nothing is still owed — the engine's own dirty count is the
   // guard, so a reload can never land on top of unsent typing.
-  useEffect(() => watchForUpdate(() => engineRef.current.toSnapshot().dirty.length), []);
+  // DISABLED pending investigation (2026-08-09). Installing this build as a
+  // home-screen web app gives a blank screen — reproducibly, on relaunch —
+  // while the same bundle renders correctly in Chromium, in headless WebKit
+  // and in Safari on the same simulator. The updater is the only new code
+  // here, so it is off until that is understood: an app that shows nothing is
+  // very much worse than one that is out of date.
+  // useEffect(() => watchForUpdate(() => engineRef.current.toSnapshot().dirty.length), []);
 
   return (
     <Ctx.Provider value={{ ready, session, recs, syncState, persistFailed, signIn, signOut, setSession, mutate, syncNow, partners, sharedPartner, sharedPartnerLabel, sharedRecs, sharedPut }}>

@@ -16,6 +16,16 @@ import { expect, test } from '@playwright/test';
  */
 const NEW_BUNDLE = 'index-00000000000000000000000000000000.js';
 
+// SKIPPED with the feature. Installing the build that carried this as a
+// home-screen web app gave a blank screen, reproducibly, while the same
+// bundle rendered correctly in Chromium, in headless WebKit and in Safari on
+// the same simulator. The wiring in store.tsx is commented out until that is
+// understood, and these go quiet with it rather than being deleted — the
+// logic they cover is still in core and still tested there, and this file is
+// what proves the reload happens once and never loops when it comes back.
+test.describe.configure({ mode: 'serial' });
+test.skip(true, 'auto-update disabled: blank standalone render, see store.tsx');
+
 test('a build the server no longer serves is replaced, once', async ({ page }) => {
   test.setTimeout(60_000);
 
