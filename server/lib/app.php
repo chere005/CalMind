@@ -10,6 +10,7 @@
  */
 
 require_once __DIR__ . '/store.php';
+require_once __DIR__ . '/webauthn.php';
 
 const USERNAME_RE   = '/^[A-Za-z0-9_-]{2,20}$/';
 const REC_ID_RE     = '/^[A-Za-z0-9_-]{1,64}$/';
@@ -569,4 +570,217 @@ function handle_feed(array $cfg): never
     }
     unset($rows);
     reply(200, ['ok' => true, 'today' => $today, 'days' => array_filter($days)]);
+}
+
+// ---------------------------------------------------------------- passkeys
+
+function passkeys_file(array $cfg): string   { return $cfg['data_dir'] . '/passkeys.json'; }
+function challenges_file(array $cfg): string { return $cfg['data_dir'] . '/challenges.json'; }
+
+/**
+ * A challenge is one-time and short-lived. Storing it server-side is the whole
+ * point of the ceremony: without it a replayed signature is as good as a
+ * fresh one.
+ */
+function challenge_issue(array $cfg, string $user = ''): string
+{
+    $c = b64u_encode(random_bytes(32));
+    with_lock($cfg, 'challenges', function () use ($cfg, $c, $user) {
+        $all = store_read($cfg, challenges_file($cfg));
+        $now = time();
+        $all = array_filter($all, fn($v) => ($v['created'] ?? 0) > $now - WEBAUTHN_CHALLENGE_TTL);
+        $all[$c] = ['user' => $user, 'created' => $now];
+        store_write($cfg, challenges_file($cfg), $all);
+    });
+    return $c;
+}
+
+/** Reads a challenge and burns it; null if it never existed or has expired. */
+function challenge_take(array $cfg, string $c): ?array
+{
+    return with_lock($cfg, 'challenges', function () use ($cfg, $c): ?array {
+        $all = store_read($cfg, challenges_file($cfg));
+        $row = $all[$c] ?? null;
+        unset($all[$c]);
+        store_write($cfg, challenges_file($cfg), $all);
+        if ($row === null || ($row['created'] ?? 0) <= time() - WEBAUTHN_CHALLENGE_TTL) {
+            return null;
+        }
+        return $row;
+    });
+}
+
+/** The checks both ceremonies share: the browser's own account of what it did. */
+function client_data_check(array $cfg, string $json, string $wantType): array
+{
+    $d = json_decode($json, true);
+    if (!is_array($d))                              { fail(400, 'passkey: unreadable client data'); }
+    if (($d['type'] ?? '') !== $wantType)           { fail(400, 'passkey: wrong ceremony'); }
+    if (!webauthn_origin_ok((string) ($d['origin'] ?? ''), webauthn_origin($cfg))) {
+        fail(400, 'passkey: wrong origin');
+    }
+    return $d;
+}
+
+function handle_passkey_register_begin(array $cfg): never
+{
+    $user = require_auth($cfg);
+    $mine = array_filter(store_read($cfg, passkeys_file($cfg)), fn($v) => ($v['user'] ?? '') === $user);
+    reply(200, [
+        'ok'        => true,
+        'challenge' => challenge_issue($cfg, $user),
+        'rp'        => ['id' => webauthn_rp_id($cfg), 'name' => 'CalMind'],
+        // The user handle is the username: this is a single-account-per-name
+        // app, and it is what a passkey login has to resolve back to.
+        'user'      => ['id' => b64u_encode($user), 'name' => $user, 'displayName' => $user],
+        'pubKeyCredParams' => [
+            ['type' => 'public-key', 'alg' => COSE_ES256],
+            ['type' => 'public-key', 'alg' => COSE_RS256],
+        ],
+        'authenticatorSelection' => ['residentKey' => 'required', 'userVerification' => 'required'],
+        'attestation'        => 'none',
+        'excludeCredentials' => array_values(array_map(
+            fn($id) => ['type' => 'public-key', 'id' => $id],
+            array_keys($mine),
+        )),
+    ]);
+}
+
+function handle_passkey_register_finish(array $cfg, array $in): never
+{
+    $user = require_auth($cfg);
+    $clientJson = b64u_decode((string) ($in['clientDataJSON'] ?? ''));
+    $d = client_data_check($cfg, $clientJson, 'webauthn.create');
+    $row = challenge_take($cfg, (string) ($d['challenge'] ?? ''));
+    if ($row === null || ($row['user'] ?? '') !== $user) { fail(400, 'passkey: stale challenge'); }
+
+    try {
+        $att = cbor_decode(b64u_decode((string) ($in['attestationObject'] ?? '')));
+        if (!is_array($att) || !isset($att['authData'])) { fail(400, 'passkey: no authenticator data'); }
+        $auth = authdata_parse((string) $att['authData']);
+        $pem  = $auth['cose'] === null ? '' : cose_to_pem($auth['cose']);
+    } catch (RuntimeException $e) {
+        fail(400, 'passkey: ' . $e->getMessage());
+    }
+    if (!hash_equals(hash('sha256', webauthn_rp_id($cfg), true), $auth['rpIdHash'])) {
+        fail(400, 'passkey: wrong relying party');
+    }
+    // User presence AND user verification: we asked for a fingerprint or a
+    // face, and a passkey that skipped it is not the login we offered.
+    if (($auth['flags'] & 0x01) === 0 || ($auth['flags'] & 0x04) === 0) {
+        fail(400, 'passkey: not verified on the device');
+    }
+    if ($pem === '') { fail(400, 'passkey: no public key'); }
+
+    $id = b64u_encode($auth['credId']);
+    with_lock($cfg, 'passkeys', function () use ($cfg, $id, $user, $pem, $auth, $in) {
+        $all = store_read($cfg, passkeys_file($cfg));
+        if (isset($all[$id])) { fail(409, 'passkey: already registered'); }
+        $all[$id] = [
+            'user'      => $user,
+            'pem'       => $pem,
+            'signCount' => $auth['signCount'],
+            'label'     => substr(trim((string) ($in['label'] ?? 'passkey')), 0, 40),
+            'created'   => time(),
+        ];
+        store_write($cfg, passkeys_file($cfg), $all);
+    });
+    usage_log($cfg, 'passkey_add', $user);
+    reply(200, ['ok' => true, 'id' => $id]);
+}
+
+function handle_passkey_login_begin(array $cfg): never
+{
+    // No username: the passkey is discoverable, so the authenticator tells us
+    // who it is. Asking who they are first would leak which names exist.
+    reply(200, [
+        'ok'               => true,
+        'challenge'        => challenge_issue($cfg),
+        'rpId'             => webauthn_rp_id($cfg),
+        'userVerification' => 'required',
+    ]);
+}
+
+function handle_passkey_login_finish(array $cfg, array $in): never
+{
+    $clientJson = b64u_decode((string) ($in['clientDataJSON'] ?? ''));
+    $d = client_data_check($cfg, $clientJson, 'webauthn.get');
+    if (challenge_take($cfg, (string) ($d['challenge'] ?? '')) === null) {
+        fail(400, 'passkey: stale challenge');
+    }
+
+    $id  = (string) ($in['id'] ?? '');
+    $all = store_read($cfg, passkeys_file($cfg));
+    $key = $all[$id] ?? null;
+    if ($key === null) {
+        usage_log($cfg, 'passkey_fail', '');
+        fail(401, 'passkey: not recognised');
+    }
+
+    $authRaw = b64u_decode((string) ($in['authenticatorData'] ?? ''));
+    try {
+        $auth = authdata_parse($authRaw);
+    } catch (RuntimeException $e) {
+        fail(400, 'passkey: ' . $e->getMessage());
+    }
+    if (!hash_equals(hash('sha256', webauthn_rp_id($cfg), true), $auth['rpIdHash'])) {
+        fail(400, 'passkey: wrong relying party');
+    }
+    if (($auth['flags'] & 0x01) === 0 || ($auth['flags'] & 0x04) === 0) {
+        fail(401, 'passkey: not verified on the device');
+    }
+
+    $signed = $authRaw . hash('sha256', $clientJson, true);
+    $ok = openssl_verify($signed, b64u_decode((string) ($in['signature'] ?? '')), $key['pem'], OPENSSL_ALGO_SHA256);
+    if ($ok !== 1) {
+        usage_log($cfg, 'passkey_fail', (string) $key['user']);
+        fail(401, 'passkey: signature did not verify');
+    }
+
+    // A counter that goes backwards means two authenticators are answering for
+    // one credential. Plenty of passkeys report 0 forever, and 0 vs 0 is not
+    // evidence of anything.
+    $stored = (int) ($key['signCount'] ?? 0);
+    if ($auth['signCount'] > 0 && $stored > 0 && $auth['signCount'] <= $stored) {
+        usage_log($cfg, 'passkey_clone', (string) $key['user']);
+        fail(401, 'passkey: refused, counter went backwards');
+    }
+    with_lock($cfg, 'passkeys', function () use ($cfg, $id, $auth) {
+        $all = store_read($cfg, passkeys_file($cfg));
+        if (isset($all[$id])) {
+            $all[$id]['signCount'] = $auth['signCount'];
+            $all[$id]['used']      = time();
+            store_write($cfg, passkeys_file($cfg), $all);
+        }
+    });
+
+    $user = (string) $key['user'];
+    usage_log($cfg, 'passkey_login', $user);
+    reply(200, ['ok' => true, 'token' => token_issue($cfg, $user), 'username' => $user]);
+}
+
+function handle_passkey_list(array $cfg): never
+{
+    $user = require_auth($cfg);
+    $out  = [];
+    foreach (store_read($cfg, passkeys_file($cfg)) as $id => $v) {
+        if (($v['user'] ?? '') === $user) {
+            $out[] = ['id' => $id, 'label' => $v['label'] ?? 'passkey', 'created' => $v['created'] ?? 0, 'used' => $v['used'] ?? 0];
+        }
+    }
+    reply(200, ['ok' => true, 'passkeys' => $out]);
+}
+
+function handle_passkey_remove(array $cfg, array $in): never
+{
+    $user = require_auth($cfg);
+    $id   = (string) ($in['id'] ?? '');
+    with_lock($cfg, 'passkeys', function () use ($cfg, $id, $user) {
+        $all = store_read($cfg, passkeys_file($cfg));
+        if (($all[$id]['user'] ?? '') !== $user) { fail(404, 'passkey: not yours'); }
+        unset($all[$id]);
+        store_write($cfg, passkeys_file($cfg), $all);
+    });
+    usage_log($cfg, 'passkey_remove', $user);
+    reply(200, ['ok' => true]);
 }

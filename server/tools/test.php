@@ -408,5 +408,179 @@ t("the server's day is Chicago's, not UTC", function () {
     eq($chicago, date('Y-m-d'), "date('Y-m-d') is the Chicago day");
 });
 
+// ---------------------------------------------------------------- passkeys
+//
+// A software authenticator, so the ceremony is driven end to end rather than
+// mocked at the seam where the bugs live. It generates a real P-256 key,
+// builds real CBOR, and signs what a browser would sign.
+
+function cbor_uint_e(int $n, int $major = 0): string
+{
+    $m = $major << 5;
+    if ($n < 24)    { return chr($m | $n); }
+    if ($n < 256)   { return chr($m | 24) . chr($n); }
+    if ($n < 65536) { return chr($m | 25) . pack('n', $n); }
+    return chr($m | 26) . pack('N', $n);
+}
+function cbor_int_e(int $n): string { return $n >= 0 ? cbor_uint_e($n) : cbor_uint_e(-1 - $n, 1); }
+function cbor_bytes_e(string $b): string { return cbor_uint_e(strlen($b), 2) . $b; }
+function cbor_text_e(string $t): string { return cbor_uint_e(strlen($t), 3) . $t; }
+function cbor_map_e(array $pairs): string
+{
+    $out = cbor_uint_e(count($pairs), 5);
+    foreach ($pairs as [$k, $v]) { $out .= $k . $v; }
+    return $out;
+}
+
+/** Returns [privateKeyResource, coseKeyBytes]. */
+function fake_authenticator_key(): array
+{
+    $key = openssl_pkey_new(['private_key_type' => OPENSSL_KEYTYPE_EC, 'curve_name' => 'prime256v1']);
+    $d   = openssl_pkey_get_details($key);
+    $x   = str_pad($d['ec']['x'], 32, "\0", STR_PAD_LEFT);
+    $y   = str_pad($d['ec']['y'], 32, "\0", STR_PAD_LEFT);
+    $cose = cbor_map_e([
+        [cbor_int_e(1), cbor_int_e(2)],       // kty: EC2
+        [cbor_int_e(3), cbor_int_e(-7)],      // alg: ES256
+        [cbor_int_e(-1), cbor_int_e(1)],      // crv: P-256
+        [cbor_int_e(-2), cbor_bytes_e($x)],
+        [cbor_int_e(-3), cbor_bytes_e($y)],
+    ]);
+    return [$key, $cose];
+}
+
+function fake_authdata(string $rpId, int $flags, int $count, string $credId = '', string $cose = ''): string
+{
+    $out = hash('sha256', $rpId, true) . chr($flags) . pack('N', $count);
+    if ($credId !== '') {
+        $out .= str_repeat("\0", 16) . pack('n', strlen($credId)) . $credId . $cose;
+    }
+    return $out;
+}
+
+function fake_client_data(string $type, string $challenge, string $origin): string
+{
+    return json_encode(['type' => $type, 'challenge' => $challenge, 'origin' => $origin], JSON_UNESCAPED_SLASHES);
+}
+
+$pkUser = 'pk' . substr((string) time(), -6);
+$pkTok  = api(['action' => 'signup', 'username' => $pkUser, 'email' => $pkUser . '@example.com', 'password' => 'passkeypw'])['body']['token'] ?? '';
+$pkOrigin = "http://127.0.0.1:$port";
+$pkRp     = '127.0.0.1';
+[$pkKey, $pkCose] = fake_authenticator_key();
+$pkCredId = random_bytes(32);
+$pkId     = rtrim(strtr(base64_encode($pkCredId), '+/', '-_'), '=');
+$b64u     = fn(string $b) => rtrim(strtr(base64_encode($b), '+/', '-_'), '=');
+
+t('a passkey registers against a real ceremony', function () use ($pkTok, $pkOrigin, $pkRp, $pkCose, $pkCredId, $pkId, $b64u) {
+    $begin = api(['action' => 'passkey_register_begin'], $pkTok);
+    eq(200, $begin['status'], 'register_begin');
+    eq($pkRp, $begin['body']['rp']['id'] ?? '', 'the RP id is derived from the host');
+    $cd  = fake_client_data('webauthn.create', $begin['body']['challenge'], $pkOrigin);
+    $ad  = fake_authdata($pkRp, 0x45, 0, $pkCredId, $pkCose);
+    $att = cbor_map_e([
+        [cbor_text_e('fmt'), cbor_text_e('none')],
+        [cbor_text_e('attStmt'), cbor_map_e([])],
+        [cbor_text_e('authData'), cbor_bytes_e($ad)],
+    ]);
+    $fin = api([
+        'action' => 'passkey_register_finish', 'label' => 'test key',
+        'clientDataJSON' => $b64u($cd), 'attestationObject' => $b64u($att),
+    ], $pkTok);
+    eq(200, $fin['status'], 'register_finish: ' . json_encode($fin['body']));
+    eq($pkId, $fin['body']['id'] ?? '', 'the credential id comes back');
+
+    $list = api(['action' => 'passkey_list'], $pkTok);
+    eq(1, count($list['body']['passkeys'] ?? []), 'one passkey on the account');
+    eq('test key', $list['body']['passkeys'][0]['label'] ?? '', 'it kept its label');
+});
+
+t('registration will not take a challenge twice', function () use ($pkTok, $pkOrigin, $pkRp, $pkCose, $b64u) {
+    $begin = api(['action' => 'passkey_register_begin'], $pkTok);
+    $cd    = fake_client_data('webauthn.create', $begin['body']['challenge'], $pkOrigin);
+    $id2   = random_bytes(32);
+    $att   = cbor_map_e([
+        [cbor_text_e('fmt'), cbor_text_e('none')],
+        [cbor_text_e('attStmt'), cbor_map_e([])],
+        [cbor_text_e('authData'), cbor_bytes_e(fake_authdata($pkRp, 0x45, 0, $id2, $pkCose))],
+    ]);
+    $body = ['action' => 'passkey_register_finish', 'clientDataJSON' => $b64u($cd), 'attestationObject' => $b64u($att)];
+    eq(200, api($body, $pkTok)['status'], 'first use');
+    eq(400, api($body, $pkTok)['status'], 'the same challenge again is refused');
+    api(['action' => 'passkey_remove', 'id' => $b64u($id2)], $pkTok);
+});
+
+t('a passkey signs in without a username, and the token works', function () use ($pkKey, $pkOrigin, $pkRp, $pkId, $pkUser, $b64u) {
+    $begin = api(['action' => 'passkey_login_begin']);
+    eq(200, $begin['status'], 'login_begin needs no auth');
+    $cd = fake_client_data('webauthn.get', $begin['body']['challenge'], $pkOrigin);
+    $ad = fake_authdata($pkRp, 0x05, 1);
+    openssl_sign($ad . hash('sha256', $cd, true), $sig, $pkKey, OPENSSL_ALGO_SHA256);
+    $fin = api([
+        'action' => 'passkey_login_finish', 'id' => $pkId,
+        'clientDataJSON' => $b64u($cd), 'authenticatorData' => $b64u($ad), 'signature' => $b64u($sig),
+    ]);
+    eq(200, $fin['status'], 'login_finish: ' . json_encode($fin['body']));
+    eq($pkUser, $fin['body']['username'] ?? '', 'the authenticator said who it was');
+    $who = api(['action' => 'whoami'], $fin['body']['token']);
+    eq($pkUser, $who['body']['username'] ?? '', 'and the token it issued is a real one');
+});
+
+t('a tampered signature, a foreign origin and a stale challenge are all refused', function () use ($pkKey, $pkOrigin, $pkRp, $pkId, $b64u) {
+    // Tampered signature.
+    $b1 = api(['action' => 'passkey_login_begin']);
+    $cd = fake_client_data('webauthn.get', $b1['body']['challenge'], $pkOrigin);
+    $ad = fake_authdata($pkRp, 0x05, 2);
+    openssl_sign($ad . hash('sha256', $cd, true), $sig, $pkKey, OPENSSL_ALGO_SHA256);
+    $bad = $sig;
+    $bad[strlen($bad) - 1] = chr(ord($bad[strlen($bad) - 1]) ^ 0x01);
+    eq(401, api(['action' => 'passkey_login_finish', 'id' => $pkId, 'clientDataJSON' => $b64u($cd),
+        'authenticatorData' => $b64u($ad), 'signature' => $b64u($bad)])['status'], 'a bent signature');
+
+    // A page on another origin, signing a genuine challenge.
+    $b2  = api(['action' => 'passkey_login_begin']);
+    $cd2 = fake_client_data('webauthn.get', $b2['body']['challenge'], 'https://evil.example');
+    $ad2 = fake_authdata($pkRp, 0x05, 3);
+    openssl_sign($ad2 . hash('sha256', $cd2, true), $sig2, $pkKey, OPENSSL_ALGO_SHA256);
+    eq(400, api(['action' => 'passkey_login_finish', 'id' => $pkId, 'clientDataJSON' => $b64u($cd2),
+        'authenticatorData' => $b64u($ad2), 'signature' => $b64u($sig2)])['status'], 'a foreign origin');
+
+    // A challenge that was already spent.
+    $b3  = api(['action' => 'passkey_login_begin']);
+    $cd3 = fake_client_data('webauthn.get', $b3['body']['challenge'], $pkOrigin);
+    $ad3 = fake_authdata($pkRp, 0x05, 4);
+    openssl_sign($ad3 . hash('sha256', $cd3, true), $sig3, $pkKey, OPENSSL_ALGO_SHA256);
+    $replay = ['action' => 'passkey_login_finish', 'id' => $pkId, 'clientDataJSON' => $b64u($cd3),
+        'authenticatorData' => $b64u($ad3), 'signature' => $b64u($sig3)];
+    eq(200, api($replay)['status'], 'the first use');
+    eq(400, api($replay)['status'], 'the replay');
+});
+
+t('a counter that goes backwards is refused, and a removed passkey stops working', function () use ($pkKey, $pkOrigin, $pkRp, $pkId, $pkTok, $b64u) {
+    // The stored counter is at 4 after the last test; 2 is a clone's answer.
+    $b1 = api(['action' => 'passkey_login_begin']);
+    $cd = fake_client_data('webauthn.get', $b1['body']['challenge'], $pkOrigin);
+    $ad = fake_authdata($pkRp, 0x05, 2);
+    openssl_sign($ad . hash('sha256', $cd, true), $sig, $pkKey, OPENSSL_ALGO_SHA256);
+    eq(401, api(['action' => 'passkey_login_finish', 'id' => $pkId, 'clientDataJSON' => $b64u($cd),
+        'authenticatorData' => $b64u($ad), 'signature' => $b64u($sig)])['status'], 'counter went backwards');
+
+    eq(200, api(['action' => 'passkey_remove', 'id' => $pkId], $pkTok)['status'], 'remove');
+    $b2  = api(['action' => 'passkey_login_begin']);
+    $cd2 = fake_client_data('webauthn.get', $b2['body']['challenge'], $pkOrigin);
+    $ad2 = fake_authdata($pkRp, 0x05, 9);
+    openssl_sign($ad2 . hash('sha256', $cd2, true), $sig2, $pkKey, OPENSSL_ALGO_SHA256);
+    eq(401, api(['action' => 'passkey_login_finish', 'id' => $pkId, 'clientDataJSON' => $b64u($cd2),
+        'authenticatorData' => $b64u($ad2), 'signature' => $b64u($sig2)])['status'], 'a removed passkey');
+});
+
+t('the password is still a way in', function () use ($pkUser) {
+    // Passkeys are an addition, not a replacement: losing one must not lock
+    // anyone out of their own account.
+    $r = api(['action' => 'login', 'username' => $pkUser, 'password' => 'passkeypw']);
+    eq(200, $r['status'], 'password login still works after a passkey exists');
+});
+
+
 echo "\n────────────────────────────────\n$pass passed, $fail failed\n";
 exit($fail === 0 ? 0 : 1);

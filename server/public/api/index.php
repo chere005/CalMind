@@ -54,5 +54,11 @@ match ((string) ($in['action'] ?? '')) {
     'shared_pull'     => handle_shared_pull($cfg),
     'shared_put'      => handle_shared_put($cfg, $in),
     'sync'            => handle_sync($cfg, $in),
+    'passkey_register_begin'  => handle_passkey_register_begin($cfg),
+    'passkey_register_finish' => handle_passkey_register_finish($cfg, $in),
+    'passkey_login_begin'     => handle_passkey_login_begin($cfg),
+    'passkey_login_finish'    => handle_passkey_login_finish($cfg, $in),
+    'passkey_list'            => handle_passkey_list($cfg),
+    'passkey_remove'          => handle_passkey_remove($cfg, $in),
     default           => fail(400, 'unknown action'),
 };
