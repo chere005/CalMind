@@ -331,6 +331,19 @@ Next up, in Sean's order:
       Both shapes that legitimately end in punctuation keep their place,
       because they open with a quantity — "2 cups flour." and "300 g pasta
       (spaghetti is traditional.)". Pinned both ways.
+- [x] **A title was being taken from inside the ingredient list.** The scan
+      skipped headings but did not STOP at one, so it walked past
+      "Ingredients", over the quantities, and took the first numberless
+      ingredient as the title. On Croque Madame that was "fresh cracked black
+      pepper to taste"; on Carbonara "freshly ground black pepper"; on Porro
+      "generous amount of freshly ground black pepper". Each then left the
+      ingredient list — the editor puts a stray title into the notes blob, so
+      it was preserved but demoted, and the list came up an ingredient short.
+      Three of his four recipes were affected. A name comes before the
+      sections; the scan stops at the first heading now.
+- [x] All four observed shapes (Zozzona, Croque Madame, Carbonara, Porro) now
+      round-trip with every ingredient kept, no prose mistaken for food, and
+      byte-identical on a second save.
 - [ ] Photo import flow (recipe-import → recipe-photos → recipe-title →
       recipe-save) is covered by e2e/ocr.spec.ts — keep that spec on the real
       flow, not a shortcut.

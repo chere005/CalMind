@@ -153,6 +153,12 @@ export function formatRecipe(pages: string[]): RecipeResult {
   let titleAt = -1;
   for (let i = 0; i < Math.min(lines.length, 5); i++) {
     const l = lines[i]!;
+    // A name comes BEFORE the sections. Merely skipping headings meant the
+    // scan walked past "Ingredients", over the quantities, and took the first
+    // numberless ingredient as the title — on Sean's Croque Madame that was
+    // "fresh cracked black pepper to taste", which then left the list
+    // entirely. Once a heading has gone by there is no title left to find.
+    if (HEADING.test(l)) break;
     if (l.length >= 4 && l.length <= 60 && !QTY.test(l) && !HEADING.test(l) && !STEP.test(l) &&
         !/[.:;]$/.test(l) && !/https?:|www\./i.test(l) && /[a-zA-Z]/.test(l)) {
       title = l.replace(/\s*\|.*$/, '').trim();

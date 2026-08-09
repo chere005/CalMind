@@ -51,6 +51,24 @@ DIRECTIONS
     expect(r.extra).toEqual([]);
   });
 
+  it('a title is never taken from inside the ingredient list', () => {
+    // Sean's Croque Madame. The scan skipped headings but did not STOP at one,
+    // so it walked past "Ingredients", over the quantities, and took the first
+    // numberless ingredient as the title — "fresh cracked black pepper to
+    // taste" — which then left the list entirely. A name comes before the
+    // sections; once a heading has gone by there is no title left to find.
+    const r = recipeFromPages([
+      'Ingredients\n2 slices bread\n3 tablespoons 45 g all purpose flour\n' +
+      'fresh cracked black pepper to taste\nInstructions\nHeat the oven to 425.',
+    ]);
+    expect(r.title).toBeNull();
+    expect(r.ingredients).toEqual([
+      '2 slices bread', '3 tbsp 45 g all purpose flour', 'fresh cracked black pepper to taste',
+    ]);
+    // A card that DOES lead with its name still gives it up.
+    expect(recipeFromPages(['Lemon Garlic Pasta\nINGREDIENTS\n2 cups pasta']).title).toBe('Lemon Garlic Pasta');
+  });
+
   it('an Ingredients heading does not swallow the rest of the note', () => {
     // Sean's Pasta all'Uovo: a heading, three ingredients, then the method as
     // plain prose with no METHOD line, then a References section with a link.
