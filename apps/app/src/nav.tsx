@@ -14,6 +14,12 @@ export type Tab = 'reminders' | 'calendar' | 'add' | 'notes' | 'habits';
 
 // Emoji presentation (VS16) so every glyph draws in colour — the plain-text
 // checkbox was near-invisible on the dark bar.
+// Each tab says its own name to a screen reader — the suite labels every
+// icon-only control, and a bare glyph read aloud is no use to anybody.
+const TAB_LABEL: Record<Tab, string> = {
+  reminders: 'Reminders', calendar: 'Calendar', add: 'Add', notes: 'Notes', habits: 'Habits',
+};
+
 const TABS: { key: Tab; icon: string }[] = [
   { key: 'reminders', icon: '✅' },
   { key: 'calendar', icon: '📅' },
@@ -28,11 +34,11 @@ export function TabBar({ tab, onTab }: { tab: Tab; onTab: (t: Tab) => void }) {
       <View style={s.bar}>
         {TABS.map(({ key, icon }) =>
           key === 'add' ? (
-            <Pressable key={key} testID={`tab-${key}`} onPress={() => onTab(key)} style={s.addBtn} hitSlop={6}>
+            <Pressable key={key} testID={`tab-${key}`} accessibilityRole="button" accessibilityLabel={TAB_LABEL[key]} onPress={() => onTab(key)} style={s.addBtn} hitSlop={6}>
               <Text style={s.addGlyph}>+</Text>
             </Pressable>
           ) : (
-            <Pressable key={key} testID={`tab-${key}`} onPress={() => onTab(key)} style={s.tab} hitSlop={6}>
+            <Pressable key={key} testID={`tab-${key}`} accessibilityRole="button" accessibilityLabel={TAB_LABEL[key]} onPress={() => onTab(key)} style={s.tab} hitSlop={6}>
               <View style={[s.halo, tab === key && s.haloOn]}>
                 {/* One SVG language for the whole bar — no emoji. */}
                 {key === 'reminders' && <TickCircleIcon />}

@@ -1021,6 +1021,22 @@ device that cannot write its own snapshot.
       wolf is a gate people learn to ignore. If it recurs, the fix is to wait
       for rsync to settle before smoking.
 
+## 4f · Icon-only controls say what they are (2026-08-09)
+
+- [x] The suite gives every icon-only button an `aria-label` — "Back",
+      "Completed", "Add subtask", "Make it a task again". This app had ZERO
+      `accessibilityLabel`s, so the whole bottom bar and the top-left back read
+      to a screen reader as unlabelled buttons. A parity gap, not a new
+      feature: `accessibilityLabel` becomes `aria-label` under
+      react-native-web, which is the same attribute the suite sets by hand.
+- [x] Done where it counts most: the five tabs, the back control, and
+      ConfirmDelete (which says "Delete", then "Confirm delete" once armed —
+      the two-press state is invisible to a screen reader otherwise).
+      `CircleBtn` now takes a `label`, so the rest are one prop each.
+- [ ] **Not finished.** The row clusters (pencil, duplicate, subtask, outdent),
+      the collapse-all chevrons, the Completed toggle and the swatch trays are
+      still unlabelled. The mechanism is in place; it is call sites from here.
+
 ## 4 · Gated — waiting on Sean's explicit word
 
 - [ ] **E2EE envelopes** (design settled, build gated): X25519 +

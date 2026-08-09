@@ -45,7 +45,7 @@ export function TopBar({
             it with an empty stack pops nothing and does nothing, exactly as
             history.back() does on a fresh page. */}
         <View style={s.hleft}>
-          <CircleBtn testID="nav-back" glyph="‹" size={28} onPress={nav.goBack} />
+          <CircleBtn testID="nav-back" glyph="‹" size={28} label="Back" onPress={nav.goBack} />
           <Text style={s.appname} numberOfLines={1}>{title}</Text>
         </View>
         <View style={s.right}>

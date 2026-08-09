@@ -52,6 +52,7 @@ export function CircleBtn({
   bg,
   active = false,
   testID,
+  label,
 }: {
   glyph: string;
   onPress: () => void;
@@ -61,9 +62,14 @@ export function CircleBtn({
   bg?: string; // filled circle (colour swatches)
   active?: boolean; // accent state for icon toggles (Completed etc.)
   testID?: string;
+  /** What a screen reader says. The suite gives every icon-only button an
+   *  aria-label; a glyph like '‹' read aloud is no use to anybody. */
+  label?: string;
 }) {
   return (
     <Pressable
+      accessibilityLabel={label}
+      accessibilityRole="button"
       {...noSteal}
       testID={testID}
       onPress={onPress}
@@ -94,6 +100,8 @@ export function ConfirmDelete({ onDelete, onPressIn, size = 26, testID, forceArm
     <Pressable
       {...noSteal}
       testID={testID}
+      accessibilityRole="button"
+      accessibilityLabel={armed ? 'Confirm delete' : 'Delete'}
       onPressIn={onPressIn}
       onTouchStart={onPressIn}
       onPress={() => {
