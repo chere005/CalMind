@@ -180,6 +180,21 @@ device's next sync comes back 401 and it must return to the login, not treat a
 dead token as "offline" and keep taking edits that can never land. The device
 that made the change keeps working.
 
+The DESKTOP has its own smoke, `./desktop/smoke.sh`, and one of its five
+checks is the only one that says anything hard. Tauri compiles the frontend
+into the binary and compresses it, so neither the html nor the app's own
+strings can be grepped back out — which makes "it built" extremely easy to
+mistake for "it has tonight's work in it". The exported bundle filename is
+content-hashed and DOES survive as a plain string in the asset index, so
+matching it against apps/app/dist is a real link between the .app and the
+source. The other four (bundle exists, launches, survives, quits) are worth
+having and prove much less.
+
+A first version of that check globbed a path that did not exist, so it
+searched the binary for the empty string and reported a confident YES. It is
+worth assuming a green check is lying until it has been shown failing at
+least once.
+
 Nor did any of them have a remote edit land WHILE TYPING.
 `e2e/clobber.spec.ts` is the one that found a real bug. The body writes on
 every keystroke, so while you are actually typing your copy is always newest

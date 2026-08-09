@@ -370,6 +370,19 @@ Next up, in Sean's order:
 - [ ] Also unanswered: subscribe-by-link vs full CalDAV first, and whether
       imported events stay read-only forever (changes the record model).
 
+## 3e · Desktop parity (2026-08-09)
+
+- [x] **macOS desktop rebuilt on tonight's export and smoke-tested** —
+      `./desktop/smoke.sh` (new): builds, carries THIS export, launches,
+      survives, quits. The "carries this export" check matches the
+      content-hashed bundle filename against apps/app/dist, which is the only
+      one of the five that can tell a fresh build from a stale one.
+- [ ] **Android cannot be verified on this machine at all** — no `adb`, no
+      `emulator` on PATH. Not a code problem; the toolchain simply is not
+      installed here. iOS is verified (built Release three times tonight
+      against Sean's real data).
+- [ ] Windows stays dispatch-only by Sean's instruction.
+
 ## 4 · Gated — waiting on Sean's explicit word
 
 - [ ] **E2EE envelopes** (design settled, build gated): X25519 +
