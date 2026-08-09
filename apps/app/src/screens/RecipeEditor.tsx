@@ -223,6 +223,17 @@ export function RecipeEditor({ note, onClose }: { note: Rec<'note'>; onClose: ()
           </>
         )}
 
+        {/* The suite puts a hint under a draggable list (its section manager
+            says "Drag a row to reorder…"), and this page needs one more than
+            most: the handles ARE the bullet and the step number, which is
+            tidy and completely invisible. Three gestures on one line is
+            plenty to guess at without being told. */}
+        {(ingredients.length > 1 || steps.length > 1) && (
+          <Text testID="recipe-hint" style={s.hint}>
+            Drag a bullet or a step number to reorder · tap a line to fix it · swipe it left to delete
+          </Text>
+        )}
+
         <View style={s.footRow}>
           <Pill label="Cancel" onPress={onClose} />
           <Pill testID="recipe-save" label="Save" primary onPress={save} />
@@ -259,5 +270,6 @@ const s = themed(() => StyleSheet.create({
   incTick: { color: T.accent, fontSize: 14, fontWeight: '800', lineHeight: 16 },
   incLabel: { color: T.text, fontSize: 15 },
   extraLine: { color: T.muted, fontSize: 14, lineHeight: 20 },
+  hint: { color: T.muted, fontSize: 12, lineHeight: 17, marginTop: 14 },
   footRow: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 16 },
 }));

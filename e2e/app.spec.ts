@@ -1076,6 +1076,25 @@ test('recipe lines reorder by dragging the marker they already wear', async ({ p
   expect(body.indexOf('1 cup milk')).toBeLessThan(body.indexOf('2 cups flour'));
 });
 
+test('the Recipe page says how its lines are handled', async ({ page }) => {
+  // Three gestures live on one line — tap to edit, drag the marker to reorder,
+  // swipe to delete — and the drag handle is the bullet itself, which looks
+  // like punctuation. The suite puts a hint under a draggable list; so does
+  // this, once there is more than one line to move.
+  await signup(page);
+  await page.getByTestId('tab-notes').click();
+  await page.getByTestId('secadd-General').first().click();
+  await page.getByPlaceholder('New note').fill('Pancakes');
+  await page.getByPlaceholder('New note').press('Enter');
+  await page.getByTestId('note-body-view').click();
+  await page.getByTestId('note-body-edit').fill('2 cups flour\n1 cup milk');
+  await page.getByTestId('recipe-import').click();
+  const hint = page.getByTestId('recipe-hint');
+  await expect(hint).toBeVisible();
+  await expect(hint).toContainText('reorder');
+  await expect(hint).toContainText('swipe');
+});
+
 test('a recipe line deletes by swiping it, not by a × parked on every row', async ({ page }) => {
   // Every other list in the app hides delete behind the swipe. On a page whose
   // rows are also tappable to edit and draggable to reorder, a permanent ×
