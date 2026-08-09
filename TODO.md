@@ -515,6 +515,19 @@ with what is deployed.
 - [x] Decision in core (`shouldReload`, 8 tests), plumbing in the app, two
       e2e specs — one that a superseded build IS replaced exactly once, one
       that a current page sits perfectly still.
+- [x] **And it will not reload out from under a half-typed field.** The dirty
+      count is not enough on its own: a note body reaches the engine on every
+      keystroke and so counts, but the text in a new-reminder field, a folder
+      name or a recipe line has been committed nowhere and would simply go
+      with the page. Since the check runs when the app is RETURNED to, that
+      is exactly the moment a field left mid-word is still sitting there —
+      and backgrounding takes focus away while leaving the words, so the
+      guard sweeps every input rather than only the focused one.
+- [x] **That test was vacuous when first written** and I nearly kept it: after
+      the earlier reload the page was already sitting still because of the
+      "already tried this build" note, so the assertion would have passed
+      whether or not a half-typed field meant anything. It clears that note
+      first now, and removing the typing guard turns it red.
 - [ ] Sean should still remove and re-add the icon ONCE, to get onto a build
       that contains this. After that it should keep itself current.
 
@@ -523,7 +536,7 @@ with what is deployed.
 - [ ] `git pull --autostash` first — two sessions share this repo; stage
       explicit paths only, never `git add -A`, hold commits on files the other
       session has half-refactored.
-- [ ] Keep the suites green: 278 core + 37 server + 103 gesture + 16 WebKit,
+- [ ] Keep the suites green: 279 core + 37 server + 104 gesture + 16 WebKit,
       plus 9 live checks (16 with the API) and 6 desktop. The README points
       here rather than carrying numbers of its own, so this line has to be
       the one that is right — it was 93 an hour after the gesture suite passed

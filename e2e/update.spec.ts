@@ -67,3 +67,42 @@ test('the ordinary case is no reload at all', async ({ page }) => {
   expect(navigations.length, `a current page must sit still; urls: ${JSON.stringify(navigations)}`).toBe(1);
   expect(page.url()).not.toContain('b=');
 });
+
+test('a half-typed field stops the update, however stale the page is', async ({ page }) => {
+  test.setTimeout(60_000);
+
+  // Server advertising something else, so the ONLY thing standing between
+  // this page and a reload is the text in the field.
+  await page.route('**/index.html?**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'text/html',
+      body: `<!DOCTYPE html><html><body><script src="/test/calmind/_expo/static/js/web/${NEW_BUNDLE}"></script></body></html>`,
+    });
+  });
+
+  const navigations: string[] = [];
+  page.on('framenavigated', (f) => { if (f === page.mainFrame()) navigations.push(f.url()); });
+
+  await page.goto('.');
+  await expect(page.getByText('Sign in', { exact: true })).toBeVisible({ timeout: 20_000 });
+  // The open-time check has run by now and, with every field empty, has taken
+  // the new build. Get back to a settled page before the real assertion.
+  await expect.poll(() => page.url(), { timeout: 10_000 }).toContain('b=');
+  await expect(page.getByText('Sign in', { exact: true })).toBeVisible({ timeout: 20_000 });
+  const settled = navigations.length;
+
+  // Clear the "already tried this build" note first. Without this the page
+  // would sit still because of THAT guard and the assertion below would pass
+  // whether or not a half-typed field means anything — the check would be
+  // testing nothing, which is the trap this suite keeps falling into.
+  await page.evaluate(() => window.localStorage.removeItem('calmind.updateTried'));
+  await page.getByPlaceholder('Username').fill('half-typed');
+  // Returning to the app is what triggers a check, and it is exactly when a
+  // field left mid-word is still sitting there.
+  await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+  await page.waitForTimeout(2_000);
+
+  expect(navigations.length, 'the page stayed put while a field held text').toBe(settled);
+  await expect(page.getByPlaceholder('Username'), 'and the words are still there').toHaveValue('half-typed');
+});

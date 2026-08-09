@@ -27,6 +27,11 @@
  *    seeing it again means the attempt did not take and must not be repeated.
  *    Caught by a spec that watched the page navigate four times in three
  *    seconds, not by thinking about it.
+ *  · nothing half-typed. `dirty` covers a note body, which reaches the engine
+ *    on every keystroke, but NOT a field whose text has not been committed
+ *    yet — a new reminder, a folder name, a recipe line. Those live in the
+ *    screen and would go with the page. The caller reports whether any field
+ *    is holding text; if one is, this waits.
  *  · both names known. A failed fetch reads as null, which means "no idea",
  *    and no idea is never a reason to throw the page away.
  */
@@ -37,6 +42,8 @@ export type UpdateCheck = {
   latest: string | null;
   /** Records still owed to the server. */
   dirty: number;
+  /** Whether any field on screen is holding text that is not committed yet. */
+  typing: boolean;
   /** Whether this page's life has already reloaded for an update. */
   reloadedThisSession: boolean;
   /** The build a previous reload aimed at, remembered ACROSS that reload. */
@@ -47,6 +54,7 @@ export function shouldReload(c: UpdateCheck): boolean {
   if (c.running === null || c.latest === null) return false; // no idea is not a reason
   if (c.running === c.latest) return false;
   if (c.dirty > 0) return false;                             // never over unsent work
+  if (c.typing) return false;                                // nor over a half-typed field
   if (c.reloadedThisSession) return false;                   // not twice in one page life
   if (c.latest === c.triedTarget) return false;              // and never twice at the same build
   return true;

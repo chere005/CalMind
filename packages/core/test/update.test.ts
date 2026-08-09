@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { bundleNameFrom, shouldReload } from '../src/update';
 
-const base = { running: 'index-aaa.js', latest: 'index-bbb.js', dirty: 0, reloadedThisSession: false, triedTarget: null };
+const base = { running: 'index-aaa.js', latest: 'index-bbb.js', dirty: 0, typing: false, reloadedThisSession: false, triedTarget: null };
 
 describe('picking up a newer build', () => {
   it('reloads when the server is serving something else', () => {
@@ -17,6 +17,15 @@ describe('picking up a newer build', () => {
     // still owed loses what was typed. Waiting costs nothing — the next visit
     // asks again.
     expect(shouldReload({ ...base, dirty: 1 })).toBe(false);
+  });
+
+  it('never reloads out from under a half-typed field', () => {
+    // `dirty` is not enough on its own. A note body reaches the engine on
+    // every keystroke, so it counts — but the text in a new-reminder field,
+    // a folder name or a recipe line has not been committed anywhere and
+    // would simply go with the page. The check runs when the app is returned
+    // to, which is exactly when a field left mid-word is still sitting there.
+    expect(shouldReload({ ...base, typing: true })).toBe(false);
   });
 
   it('reloads at most once in a page life', () => {

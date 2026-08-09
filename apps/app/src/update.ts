@@ -37,6 +37,23 @@ const rememberTried = (v: string | null): void => {
   try { if (v === null) window.localStorage.removeItem(TRIED); else window.localStorage.setItem(TRIED, v); } catch { /* private mode */ }
 };
 
+/**
+ * Is anything on screen holding text that has not been committed?
+ *
+ * Both halves matter. A focused editable is the obvious case; the second
+ * sweep is the one that actually bites, because backgrounding an app takes
+ * focus away while leaving the words sitting in the field, and returning is
+ * precisely when this check runs.
+ */
+function someoneIsTyping(): boolean {
+  const active = document.activeElement as HTMLElement | null;
+  if (active && (active.isContentEditable || active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) return true;
+  for (const el of Array.from(document.querySelectorAll('input, textarea'))) {
+    if ((el as HTMLInputElement).value?.trim() !== '') return true;
+  }
+  return false;
+}
+
 /** The bundle this page is actually running, read off its own script tag. */
 export function runningBundle(): string | null {
   if (typeof document === 'undefined') return null;
@@ -75,6 +92,7 @@ export function watchForUpdate(pending: () => number): () => void {
       running,
       latest,
       dirty: pending(),
+      typing: someoneIsTyping(),
       reloadedThisSession,
       triedTarget: triedTarget(),
     });
