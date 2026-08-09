@@ -42,6 +42,12 @@ if (!is_array($in)) {
     fail(400, 'JSON body required');
 }
 
+// Every handler answers through reply()/fail(), which set a status and send
+// JSON. A throw from deeper down — store.php refusing a damaged file, say —
+// would otherwise escape as raw PHP output with whatever status the server
+// felt like, and a client that expects JSON reads that as gibberish. Turn it
+// into the contract everything else uses.
+try {
 match ((string) ($in['action'] ?? '')) {
     'signup'          => handle_signup($cfg, $in),
     'login'           => handle_login($cfg, $in),
@@ -62,3 +68,6 @@ match ((string) ($in['action'] ?? '')) {
     'passkey_remove'          => handle_passkey_remove($cfg, $in),
     default           => fail(400, 'unknown action'),
 };
+} catch (Throwable $e) {
+    fail(500, $e->getMessage());
+}

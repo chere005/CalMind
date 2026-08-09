@@ -905,6 +905,26 @@ say never/always/must and checking each.
       me for the fourth time today — it does not fail fast, it waits out the
       entire budget and reads as a hang. Every optional click gets a timeout.
 
+## 4a · The store writes whole files now (2026-08-09)
+
+Read how the server actually puts data on disk, which I had never done.
+
+- [x] **`store_write` was an in-place overwrite.** A process killed mid-write —
+      a request timeout, a full disk — left a half-written file. Half of an
+      encrypted file does not decrypt. It writes to a temp file and renames
+      now, which cannot end up half-anything.
+- [x] **A file that will not decrypt is no longer read as empty.** That was
+      the dangerous half: `store_read` answered `[]` to a damaged file, which
+      is indistinguishable from an account with no records — and the next sync
+      would have written that back, turning damage into deletion. It throws
+      instead. A 500 is recoverable; a silent wipe is not.
+- [x] **The router turns a throw into the API's own contract** — status and
+      JSON, like every other error — rather than letting raw PHP output escape
+      to a client that expects JSON.
+- [x] Covered: a truncated records file errors rather than reading empty, the
+      note survives once the file is whole again, and no `.tmp` residue is
+      left behind.
+
 ## 4 · Gated — waiting on Sean's explicit word
 
 - [ ] **E2EE envelopes** (design settled, build gated): X25519 +

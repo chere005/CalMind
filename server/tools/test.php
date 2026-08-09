@@ -416,6 +416,41 @@ t('an OVERSIZED record is REFUSED by name, not dropped in silence', function () 
     eq([], $r2['body']['rejected'] ?? null, 'an ordinary batch refuses nothing');
 });
 
+t('a damaged store file refuses rather than reading as empty', function () {
+    // The write is atomic now — temp file then rename — so this should not
+    // happen. If it ever does, the failure has to be loud: an unreadable file
+    // answering [] looks exactly like an account with no records, and the very
+    // next sync would persist that and turn damage into deletion.
+    $tok  = api(['action' => 'signup', 'username' => 'bent', 'email' => 'bent@example.com', 'password' => 'bentpassword'])['body']['token'];
+    api(['action' => 'sync', 'cursor' => 0, 'changes' => [
+        ['id' => 'keepme', 'type' => 'note', 'updated' => 9100,
+         'payload' => ['title' => 'keep me', 'body' => '', 'date' => null,
+                       'folderId' => 'f', 'sectionId' => 's', 'ord' => 'a']],
+    ]], $tok);
+    global $scratch;
+    $file = $scratch . '/records-bent.json';
+    ok(is_file($file), 'the records file exists');
+
+    // Truncate it the way a killed process would.
+    $whole = (string) file_get_contents($file);
+    file_put_contents($file, substr($whole, 0, 24));
+    $r = api(['action' => 'sync', 'cursor' => 0, 'changes' => []], $tok);
+    ok($r['status'] >= 500, 'a truncated file is an error, not an empty account — got ' . $r['status']);
+
+    // Put it back and the records are still there, which is the point: the
+    // damage was refused rather than written over.
+    file_put_contents($file, $whole);
+    $back = api(['action' => 'sync', 'cursor' => 0, 'changes' => []], $tok);
+    eq(200, $back['status'], 'and it reads again once whole');
+    ok(in_array('keepme', array_column($back['body']['changes'], 'id'), true), 'the note survived');
+});
+
+t('a write leaves no temp files behind', function () {
+    global $scratch;
+    $strays = glob($scratch . '/*.tmp') ?: [];
+    eq([], $strays, 'no .tmp residue from the atomic writes');
+});
+
 t("the server's day is Chicago's, not UTC", function () {
     // The feed asks the server what day it is. Left on UTC that answer turned
     // over at 7pm Chicago, so the widget spent every evening calling tomorrow
