@@ -294,6 +294,47 @@ test('week mode: swipe up folds the grid, arrows page by week, swipe down restor
   await expect.poll(countCells).toBeGreaterThan(7);
 });
 
+test('a day is selected by a TAP and nothing else — a swipe never picks the cell it lands on', async ({ page }) => {
+  // The suite's own scar: watching click meant every swipe across the grid
+  // selected whichever cell the finger lifted off, so a month you paged to
+  // opened on a day you never picked. CalMind avoids it by claiming the
+  // gesture at the grid once there is real travel — which is exactly the
+  // kind of thing that works until someone touches the responder.
+  await signup(page);
+  const title = () => page.getByTestId('cal-day-title').innerText();
+  const grid = page.getByTestId('cal-grid');
+  const box = (await grid.boundingBox())!;
+  const picked = await title();
+
+  // A firm SIDEWAYS swipe pages the month and must leave the day alone.
+  const ym = () => page.getByTestId('cal-ym').innerText();
+  const monthBefore = await ym();
+  const y = box.y + box.height / 2;
+  await page.mouse.move(box.x + box.width - 30, y);
+  await page.mouse.down();
+  for (let i = 1; i <= 8; i++) await page.mouse.move(box.x + box.width - 30 - i * 20, y);
+  await page.mouse.up();
+  await expect.poll(ym).not.toBe(monthBefore); // the swipe DID page…
+  expect(await title()).toBe(picked); // …and picked nothing on the way
+
+  // A vertical swipe folds the grid and must leave the day alone too.
+  await page.mouse.move(box.x + box.width / 2, box.y + 120);
+  await page.mouse.down();
+  for (let i = 1; i <= 6; i++) await page.mouse.move(box.x + box.width / 2, box.y + 120 - i * 15);
+  await page.mouse.up();
+  await expect.poll(async () => page.getByTestId('cal-cell').count()).toBe(14);
+  expect(await title()).toBe(picked);
+
+  // …and a plain TAP still selects, or the rule above would be a dead one.
+  const cells = page.getByTestId('cal-cell');
+  const n = await cells.count();
+  for (let i = 0; i < n; i++) {
+    await cells.nth(i).click();
+    if ((await title()) !== picked) break;
+  }
+  expect(await title()).not.toBe(picked);
+});
+
 test('note body renders its markers as styled text when you tap away', async ({ page }) => {
   await signup(page);
   await page.getByTestId('tab-notes').click();

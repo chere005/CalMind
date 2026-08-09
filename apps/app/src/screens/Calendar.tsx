@@ -267,7 +267,7 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
 
       <ScrollView style={s.panel} contentContainerStyle={s.panelInner}>
         <View style={s.panelHead}>
-          <Text style={s.panelTitle}>{dayLabel}</Text>
+          <Text testID="cal-day-title" style={s.panelTitle}>{dayLabel}</Text>
           <View style={s.panelBtns}>
             <CircleBtn testID="cal-completed" glyph="☑" active={showDone} onPress={() => setShowDone(!showDone)} />
             <Pill label="+ Add" primary onPress={() => setModal({ mode: 'create' })} />
