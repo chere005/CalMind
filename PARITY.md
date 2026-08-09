@@ -1047,3 +1047,70 @@ Genuinely left over from that list's ambitions:
 - A day is selected by tap only (pointerup near pointerdown) once swipes land.
 - Icon buttons: circles, flex-centred, one size per row — re-check by eye
   before every deploy.
+
+## Session of 2026-08-08/09 — passkeys, recipe scaling, and six real bugs
+
+Shipped and deployed to TEST (never prod). Suites at the end: 251 core,
+32 server, 80 gesture, 9 live checks, 5 desktop.
+
+**Web (Sean's first priority)**
+- Passkeys, whole. WebAuthn by hand in PHP (no composer on that host):
+  registration, usernameless login, list, remove; ES256 and RS256. RP id and
+  origin derived from the request, so no config edit can get them wrong.
+  "Use a passkey" on the sign-in card, add/remove in Settings, both hidden
+  unless the device can actually make one. Passwords still work, and a spec
+  says so. Verified against the DEPLOYED test server as well as locally,
+  because RP id, a portless origin and a real secure context only exist there.
+- A remote edit can no longer eat the sentence you are typing. The body and
+  title were bound straight to the record while the 30s poll replaced it.
+- An over-long note says so instead of living on one device while the app
+  claims to be synced. The server names what it refused; the engine keeps it
+  pending so it heals when the note is shortened.
+- theme-color and the page background are written on every load, not only on
+  a theme change.
+
+**Recipes (second)**
+- Scaling: ½x / 1x / 2x, reading rather than editing — nothing is written,
+  and the load-bearing assertion is that the note still says 2 cups after.
+  Ingredients only; '20-25 minutes' is a time, not a yield. Present in the
+  shared-note view too.
+- Numbered steps read as steps: the number in a gutter, air between them.
+- Four scaler bugs, all found by opening SEAN'S OWN recipes on the simulator
+  and none present in the cards invented for tests: dual-unit lines that
+  contradicted themselves after doubling, a range written with a slash, a
+  compound noun that pluralised its first word ('6 eggs yolks'), and a bay
+  leaf that never became leaves. All eleven recipes now read at both scales.
+
+**iOS**
+- Built Release five times and driven by hand. That is where two native-only
+  bugs were found: a draft from the previous note appearing as this note's
+  body (one keystroke from overwriting it), and the same leak in the shared
+  view, which commits on BLUR and so needed no keystroke at all.
+- State that belongs to the open note now lets go by itself (useNoteScoped),
+  so the class is closed rather than patched: an armed delete no longer
+  follows you to the next note either.
+
+**Android** — cannot be verified on this machine at all: no adb, no emulator.
+Not a code problem, and better said than left looking checked.
+
+**macOS** — rebuilt on this export and smoke-tested (./desktop/smoke.sh). The
+check that matters matches the content-hashed bundle filename against
+apps/app/dist, since Tauri compresses the frontend into the binary and "it
+built" is otherwise indistinguishable from "it has tonight's work in it".
+
+**Windows** — untouched, dispatch-only by Sean's instruction.
+
+**Calendar integrations** — groundwork only, deliberately: iCalendar parsing
+and RRULE expansion in core, both fully tested, neither committing to any
+decision about OAuth or CalDAV. Four questions are with Sean.
+
+**On the tests themselves.** Four checks turned out to be green for the wrong
+reason and were caught by asking what would make them fail: a shell grep for
+the empty string, a browser test that could not see openssl_verify
+short-circuited, a PHP spec reading an encrypted store as JSON, and a spec
+whose fix it could not detect. `e2e/testids.spec.ts` now fails if any spec
+reaches for a testID no component renders — an absence assertion on a typo
+passes forever otherwise.
+
+**The one real hole**: no harness drives the native app, so both native-only
+bugs were found and re-verified by hand.
