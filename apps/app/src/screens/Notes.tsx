@@ -159,7 +159,17 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
   });
 
   const open = openId ? (recs.find((r) => r.id === openId) as Rec<'note'> | undefined) : undefined;
-  useEffect(() => { setScale(1); }, [openId]);
+  // Everything held ABOUT the open note has to let go when a different note
+  // opens. The drafts are the dangerous ones: they exist so a sync cannot pull
+  // text out from under a cursor, and left behind they do precisely what they
+  // were built to prevent — the previous note's words appear in this one's
+  // editor, and the first keystroke saves them over it.
+  useEffect(() => {
+    setScale(1);
+    setBodyEditing(false);
+    setDraft(null);
+    setTitleDraft(null);
+  }, [openId]);
   // Only OUR bodies scale — the markers are what say the ingredients have
   // been read and separated from the prose around them.
   const isRecipe = open ? /^\*\*Ingredients\*\*$/im.test(open.payload.body) : false;

@@ -460,6 +460,30 @@ No guard added: there was nothing to fix, and the specs are what will notice
 if that code's shape changes. Add got a guard an hour ago because there the
 race had actually been observed — the difference is evidence, not taste.
 
+## 3i · A bug I introduced tonight, found on the phone (2026-08-09)
+
+- [x] **One note's text appearing in another note's editor.** The body/title
+      drafts added earlier tonight (so a sync cannot pull words out from under
+      a cursor) were never cleared when a DIFFERENT note opened. Open note A,
+      put the cursor in its body, go back, open note B: B showed A's words, in
+      an open editor, one keystroke from saving them over B. Found by opening
+      Sean's real recipes on the simulator — "Pasta alla Zozzona" wearing the
+      body of "Pasta Aglio, Olio e Peperoncino". Exactly what the drafts were
+      built to prevent, one screen over.
+      Fixed by clearing scale, bodyEditing and both drafts on `openId` change;
+      verified on the simulator.
+- [ ] **`e2e/notesswitch.spec.ts` does NOT cover that bug** — measured, not
+      assumed: it passes with the fix and without it. On web, clicking back
+      blurs the field and the blur handler clears the draft, so the browser
+      never reaches the broken state; on iOS a tap elsewhere does not blur.
+      The spec guards the blur path instead, which is worth having and is not
+      the same thing. A native-driving harness is what would cover it.
+- [x] Scaling re-checked on two more of Sean's cards while there. Zozzona
+      brought a shape the tests had not: a DECIMAL range, '1.5-2 cups' → '3-4
+      cups'. Also '1 onion' → '2 onions' and '3 egg yolks' → '6 egg yolks'.
+      Aglio Olio is prose with no ingredient list and correctly gets no scale
+      control at all.
+
 ## 4 · Gated — waiting on Sean's explicit word
 
 - [ ] **E2EE envelopes** (design settled, build gated): X25519 +
