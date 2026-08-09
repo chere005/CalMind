@@ -52,6 +52,19 @@ shipped, `TODO.md` is the live list.
 - **Measure tap targets from the real screenshot's pixels.** The image you are
   shown is resized; eyeballing coordinates off it wastes taps. `xcrun simctl
   io <udid> screenshot` and find the target, then divide by the scale.
+- **`hitSlop` is a no-op under react-native-web.** So a control is exactly as
+  big as it is drawn on the web, and bigger on the native builds — the two
+  disagree, silently, in the direction that hurts Safari on a phone. Proven by
+  clicking five pixels outside a button and watching nothing happen, then
+  clicking its centre and watching it fire. When a press has to work, measure
+  the box; do not read `hitSlop={8}` in the source and assume 16 more pixels.
+  Padding plus a negative margin is the usual fix, but not when the border and
+  `borderRadius` are on the pressable itself — padding pushes the visible edge
+  outward. Move the visual to an inner View instead.
+- **An offset from an element's own edge is not a check.** A click three pixels
+  in from the right edge lands inside the element whatever size it is, so it
+  passes with the bug present and with it absent. Measure from the centre
+  outward by a fixed distance you can justify.
 - **Ask what happens when a write fails.** The worst bugs found here were all
   silent: an oversized record dropped while the app said "synced", a damaged
   store file reading as an empty account, a device that could not save its own
