@@ -15,7 +15,7 @@ import { ShareModal } from '../components/ShareModal';
 import { WidgetSetup } from './WidgetSetup';
 
 export function Settings({ onClose }: { onClose: () => void }) {
-  const { session, setSession, signOut, recs, mutate, syncState } = useStore();
+  const { session, setSession, signOut, recs, mutate, syncState, persistFailed } = useStore();
   const pickTheme = (name: ThemeName) => {
     applyTheme(name);
     // The choice syncs like any pref, so every device follows.
@@ -65,9 +65,13 @@ export function Settings({ onClose }: { onClose: () => void }) {
         <Pressable style={s.card} onPress={() => {}}>
           <Text style={s.h2}>Settings</Text>
           <View style={s.statusRow}>
-            <View style={[s.statusDot, { backgroundColor: syncState === 'offline' ? T.gold : syncState === 'refused' ? T.danger : T.accent }]} />
+            <View style={[s.statusDot, { backgroundColor: persistFailed || syncState === 'refused' ? T.danger : syncState === 'offline' ? T.gold : T.accent }]} />
             <Text style={s.statusText}>
-              {syncState === 'offline'
+              {/* A device that cannot write its own copy comes first: being
+                  online is no comfort if a reload loses the morning. */}
+              {persistFailed
+                ? 'This device cannot save its copy — a reload may lose recent changes.'
+                : syncState === 'offline'
                 ? 'Offline — changes sync when you are back'
                 : syncState === 'refused'
                   ? 'A note is too long to save — it is on this device only. Shorten it to sync.'

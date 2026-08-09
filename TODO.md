@@ -932,6 +932,28 @@ Read how the server actually puts data on disk, which I had never done.
       thing worth proving rather than assuming.
       Residue: account 'smoke1786273609', token revoked, no delete endpoint.
 
+## 4b · A device that cannot save its own copy (2026-08-09)
+
+Same lens as the store fix, one layer up. The local snapshot is what survives
+a reload, and its write was `.catch(() => {})` — swallowed whole.
+
+- [x] That is the quietest loss in the app: everything keeps working, the
+      status says "Online — synced", and a reload comes back to yesterday.
+      Storage refuses for ordinary reasons — a full quota, a browser clearing
+      site data for a page it considers idle. Settings now says "This device
+      cannot save its copy — a reload may lose recent changes", and that
+      outranks the sync line, because being online is no comfort if a reload
+      loses the morning.
+- [x] `e2e/nosave.spec.ts` makes only the snapshot key throw — the session key
+      keeps working, or the test would be about being logged out instead. Has
+      teeth: swallowing the error again turns it red.
+- [ ] Not fixed, and worth knowing: nothing PRUNES the store. A deleted record
+      keeps its payload as a tombstone forever, so deleting a long note frees
+      nothing. Dropping the payload on delete looks obvious and is not — the
+      shared-write scope check reads the stored payload, so a null one may
+      refuse a legitimate write. Left alone deliberately rather than optimised
+      into a sharing bug.
+
 ## 4 · Gated — waiting on Sean's explicit word
 
 - [ ] **E2EE envelopes** (design settled, build gated): X25519 +

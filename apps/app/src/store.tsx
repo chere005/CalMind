@@ -28,6 +28,8 @@ type Store = {
   session: Session | null;
   recs: AnyRec[];
   syncState: SyncState;
+  /** This device could not write its local copy — a reload would lose work. */
+  persistFailed: boolean;
   signIn: (s: Session) => Promise<void>;
   signOut: () => Promise<void>;
   setSession: (s: Session) => Promise<void>; // token refresh (password change)
@@ -53,6 +55,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [session, setSessionState] = useState<Session | null>(null);
   const [recs, setRecs] = useState<AnyRec[]>([]);
   const [syncState, setSyncState] = useState<SyncState>('idle');
+  const [persistFailed, setPersistFailed] = useState(false);
   const [partners, setPartners] = useState<PartnerBadge[]>([]);
   const [sharedPartner, setSharedPartner] = useState<string | null>(null);
   const [sharedRaw, setSharedRaw] = useState<AnyRec[]>([]);
@@ -79,7 +82,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   // just before a reload never reached the snapshot and quietly vanished
   // (caught by the e2e drag spec). Only the network round-trip is debounced.
   const persistNow = useCallback((user: string) => {
-    AsyncStorage.setItem(snapKey(user), JSON.stringify(engineRef.current.toSnapshot())).catch(() => {});
+    // A failure here used to be swallowed whole. It is the quietest kind of
+    // loss there is: everything keeps working, and then a reload comes back
+    // to yesterday. Storage refuses for ordinary reasons — a full quota, a
+    // browser wiping site data — so say it rather than carry on as if saved.
+    AsyncStorage.setItem(snapKey(user), JSON.stringify(engineRef.current.toSnapshot()))
+      .then(() => setPersistFailed(false))
+      .catch(() => setPersistFailed(true));
   }, []);
 
   const pullShared = useCallback(async () => {
@@ -267,7 +276,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, [syncNow]);
 
   return (
-    <Ctx.Provider value={{ ready, session, recs, syncState, signIn, signOut, setSession, mutate, syncNow, partners, sharedPartner, sharedPartnerLabel, sharedRecs, sharedPut }}>
+    <Ctx.Provider value={{ ready, session, recs, syncState, persistFailed, signIn, signOut, setSession, mutate, syncNow, partners, sharedPartner, sharedPartnerLabel, sharedRecs, sharedPut }}>
       {children}
     </Ctx.Provider>
   );
