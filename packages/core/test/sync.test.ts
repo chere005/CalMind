@@ -91,3 +91,37 @@ describe('the sync engine', () => {
     expect(b.all().length).toBe(1);
   });
 });
+
+describe('a record the server refuses', () => {
+  it('stays dirty and is named, instead of quietly becoming local-only', () => {
+    // The old behaviour: the server dropped an oversized record, answered ok,
+    // and the engine cleared it from dirty because it had been "sent". The
+    // note then existed on exactly one device while the app reported
+    // everything saved — the worst shape a sync bug can take.
+    const e = new SyncEngine();
+    e.put({ id: 'big', type: 'note', updated: 1, deleted: false, payload: { title: 'x', body: 'y' } } as never, 1);
+    e.put({ id: 'ok', type: 'note', updated: 1, deleted: false, payload: { title: 'a', body: 'b' } } as never, 1);
+    expect(e.hasPending()).toBe(true);
+
+    const transport = async () => ({ cursor: 5, changes: [], rejected: ['big'] });
+    return e.sync(transport).then(() => {
+      expect(e.rejected(), 'the refusal is reported by id').toEqual(['big']);
+      expect(e.hasPending(), 'and the record is still waiting to be saved').toBe(true);
+      // The rest of the batch landed and is forgotten, as it should be.
+      const snap = e.toSnapshot();
+      expect(snap.dirty).toEqual(['big']);
+    });
+  });
+
+  it('clears the refusal once the record is accepted', () => {
+    const e = new SyncEngine();
+    e.put({ id: 'big', type: 'note', updated: 1, deleted: false, payload: { title: 'x', body: 'y' } } as never, 1);
+    return e
+      .sync(async () => ({ cursor: 1, changes: [], rejected: ['big'] }))
+      .then(() => e.sync(async () => ({ cursor: 2, changes: [], rejected: [] })))
+      .then(() => {
+        expect(e.rejected()).toEqual([]);
+        expect(e.hasPending()).toBe(false);
+      });
+  });
+});

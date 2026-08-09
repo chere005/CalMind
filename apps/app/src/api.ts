@@ -47,5 +47,5 @@ export const logout = (s: Session) => apiPost(s.serverUrl, { action: 'logout' },
 /** The core engine's transport, bound to a session. */
 export const syncTransport = (s: Session): Transport => async (req: SyncRequest) => {
   const r = await apiPost<SyncResponse>(s.serverUrl, { action: 'sync', cursor: req.cursor, changes: req.changes }, s.token);
-  return { cursor: r.cursor, changes: r.changes };
+  return { cursor: r.cursor, changes: r.changes, rejected: r.rejected };
 };

@@ -391,6 +391,21 @@ Next up, in Sean's order:
       against Sean's real data).
 - [ ] Windows stays dispatch-only by Sean's instruction.
 
+## 3f · The silent sync hole, closed (2026-08-09)
+
+- [x] **An oversized record is now refused BY NAME.** It was worse than first
+      reported: the server dropped the row and answered ok with a fresh
+      cursor, so the engine cleared it from `dirty` because it had been
+      "sent". The note then lived on exactly one device while the app showed
+      "Online — synced" — nothing appears wrong until that device is.
+      Now: the sync reply carries `rejected: [ids]`, the engine keeps those
+      dirty so they retry and self-heal the moment the note is shortened, and
+      Settings says "A note is too long to save — it is on this device only."
+      Covered in core (engine), server (reply shape) and e2e (the message).
+- [ ] **The LIMIT itself is still Sean's call** — 64KB is about ten thousand
+      words. Raising it, or splitting long notes, is a product decision; being
+      honest about the failure was not.
+
 ## 4 · Gated — waiting on Sean's explicit word
 
 - [ ] **E2EE envelopes** (design settled, build gated): X25519 +

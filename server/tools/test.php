@@ -373,14 +373,14 @@ t('opening the widget page again REVOKES the widget you already have', function 
     eq(200, api(['action' => 'whoami'], $tok)['status'], 'the account itself is fine');
 });
 
-t('an OVERSIZED record is dropped and the sync still says ok — silently', function () {
+t('an OVERSIZED record is REFUSED by name, not dropped in silence', function () {
     // Its own account: the password specs above revoke the shared token.
     $tok = api(['action' => 'signup', 'username' => 'bigrow', 'email' => 'big@example.com', 'password' => 'bigpassword'])['body']['token'];
-    // Documenting a real hole rather than pretending it isn't there. A payload
-    // over MAX_PAYLOAD is skipped by the row loop, and the reply is still 200
-    // with a fresh cursor — so the client forgets it was dirty and the record
-    // lives on that one device forever. 64KB is ~10k words, so this is rare,
-    // not impossible: a long pasted note or a big OCR haul reaches it.
+    // This used to be a spec documenting a hole: a payload over MAX_PAYLOAD
+    // was skipped by the row loop and the reply was still 200 with a fresh
+    // cursor, so the client cleared it from dirty and the note lived on that
+    // one device while the app called itself synced. 64KB is ~10k words —
+    // rare, not impossible, and silent is the worst way for it to fail.
     $big = ['id' => 'toobig', 'type' => 'note', 'updated' => 5,
             'payload' => ['title' => 'huge', 'body' => str_repeat('x', 70000),
                           'date' => null, 'folderId' => 'f', 'sectionId' => 's', 'ord' => 'a']];
@@ -388,13 +388,15 @@ t('an OVERSIZED record is dropped and the sync still says ok — silently', func
               'payload' => ['title' => 'ok', 'body' => 'short', 'date' => null,
                             'folderId' => 'f', 'sectionId' => 's', 'ord' => 'a']];
     $r = api(['action' => 'sync', 'cursor' => 0, 'changes' => [$big, $small]], $tok);
-    eq(200, $r['status'], 'the batch is accepted');
+    eq(200, $r['status'], 'the rest of the batch still lands');
     $ids = array_column($r['body']['changes'], 'id');
     ok(in_array('fine', $ids, true), 'the ordinary row landed');
     ok(!in_array('toobig', $ids, true), 'the oversized row did NOT');
-    // …and nothing in the reply tells the client which one it lost. THAT is
-    // the part worth fixing; see TODO.md.
-    eq(null, $r['body']['refused'] ?? null, 'no refusal list exists yet');
+    eq(['toobig'], $r['body']['rejected'] ?? [], 'and the reply names what it refused');
+    // A batch with nothing wrong in it says so plainly rather than omitting
+    // the field, so the client never has to guess what absence means.
+    $r2 = api(['action' => 'sync', 'cursor' => 0, 'changes' => [$small]], $tok);
+    eq([], $r2['body']['rejected'] ?? null, 'an ordinary batch refuses nothing');
 });
 
 t("the server's day is Chicago's, not UTC", function () {

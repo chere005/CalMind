@@ -253,6 +253,7 @@ function handle_sync(array $cfg, array $in): never
         $db   = store_read($cfg, records_file($cfg, $user));
         $seq  = (int) ($db['seq'] ?? 0);
         $recs = is_array($db['recs'] ?? null) ? $db['recs'] : [];
+        $rejected = [];
         foreach ($changes as $c) {
             if (!is_array($c)) { continue; }
             $id      = (string) ($c['id'] ?? '');
@@ -262,6 +263,10 @@ function handle_sync(array $cfg, array $in): never
                 continue;   // malformed rows are dropped, never fatal — the rest of the batch lands
             }
             if (strlen(json_encode($c['payload'] ?? null)) > MAX_PAYLOAD) {
+                // Say so. Dropping it and answering ok made the client forget
+                // the record was ever unsent, so it lived on one device and
+                // the app called itself synced.
+                $rejected[] = $id;
                 continue;
             }
             $cur = $recs[$id] ?? null;
@@ -274,13 +279,13 @@ function handle_sync(array $cfg, array $in): never
         store_write($cfg, records_file($cfg, $user), ['seq' => $seq, 'recs' => $recs]);
         $tail = array_values(array_filter($recs, fn($r) => (int) $r['seq'] > $cursor));
         usort($tail, fn($a, $b) => $a['seq'] <=> $b['seq']);
-        return ['cursor' => $seq, 'changes' => array_map(function ($r) {
+        return ['cursor' => $seq, 'rejected' => $rejected, 'changes' => array_map(function ($r) {
             unset($r['seq']);
             return $r;
         }, $tail)];
     });
     usage_log($cfg, 'sync', $user);
-    reply(200, ['ok' => true, 'cursor' => $out['cursor'], 'changes' => $out['changes']]);
+    reply(200, ['ok' => true, 'cursor' => $out['cursor'], 'rejected' => $out['rejected'], 'changes' => $out['changes']]);
 }
 
 // ---------------------------------------------------------------- sharing

@@ -16,7 +16,10 @@ import { applyTheme, type ThemeName } from './theme';
 const SESSION_KEY = 'calmind.session';
 const snapKey = (user: string) => `calmind.snapshot.${user}`;
 
-type SyncState = 'idle' | 'syncing' | 'offline';
+// 'refused' is not a kind of offline: the connection is fine and the server
+// answered. One record is simply too big to store, and it is still sitting
+// on this device only.
+type SyncState = 'idle' | 'syncing' | 'offline' | 'refused';
 
 export type PartnerBadge = { name: string; mutual: boolean };
 
@@ -101,7 +104,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     try {
       await engineRef.current.sync(syncTransport(s));
       hydratedRef.current = true; // the server has spoken — seeding is safe now
-      setSyncState('idle');
+      setSyncState(engineRef.current.rejected().length > 0 ? 'refused' : 'idle');
       void pullShared();
     } catch (e) {
       // Offline is normal for a local-first app; a dead token is not.

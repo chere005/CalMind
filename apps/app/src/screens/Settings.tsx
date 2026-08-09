@@ -65,8 +65,16 @@ export function Settings({ onClose }: { onClose: () => void }) {
         <Pressable style={s.card} onPress={() => {}}>
           <Text style={s.h2}>Settings</Text>
           <View style={s.statusRow}>
-            <View style={[s.statusDot, { backgroundColor: syncState === 'offline' ? T.gold : T.accent }]} />
-            <Text style={s.statusText}>{syncState === 'offline' ? 'Offline — changes sync when you are back' : syncState === 'syncing' ? 'Syncing…' : 'Online — synced'}</Text>
+            <View style={[s.statusDot, { backgroundColor: syncState === 'offline' ? T.gold : syncState === 'refused' ? T.danger : T.accent }]} />
+            <Text style={s.statusText}>
+              {syncState === 'offline'
+                ? 'Offline — changes sync when you are back'
+                : syncState === 'refused'
+                  ? 'A note is too long to save — it is on this device only. Shorten it to sync.'
+                  : syncState === 'syncing'
+                    ? 'Syncing…'
+                    : 'Online — synced'}
+            </Text>
           </View>
           <Text style={s.who}>{session?.username}</Text>
           <Field value={oldPass} onChangeText={setOldPass} placeholder="Current password" secureTextEntry />
