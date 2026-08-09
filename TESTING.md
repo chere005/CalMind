@@ -173,6 +173,13 @@ and reads what the screens make of it. It is the only test where the legend
 balancer meets more than two chips, and the only one that would catch a screen
 that goes blank or throws at size.
 
+A session dying underneath you is covered too (`e2e/revoked.spec.ts`): the
+server revokes other devices' tokens on a password change — its own rule, with
+its own test — and this is the OTHER end, which had never run. The second
+device's next sync comes back 401 and it must return to the login, not treat a
+dead token as "offline" and keep taking edits that can never land. The device
+that made the change keeps working.
+
 Nor did any of them run on a day other than today. `e2e/clock.spec.ts` freezes
 the app's clock (a `Date` swapped in before the bundle loads) and draws the
 screens on the days that break things: New Year's Eve — December paging into
