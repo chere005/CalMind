@@ -645,12 +645,15 @@ attention (the first was Add's missing picker).
       instruction rather than a change he did not ask for. It is also
       invisible at his current folder count, which is what makes it safe to
       do without him.
-- [ ] Honest limit on the check: I tried to build a long legend to see it
-      wrap and could not — six events from the Add screen all land in the same
-      default calendar, so the legend stayed one row. The number is verified
-      (186), the behaviour under a genuinely long list is not. Making several
-      calendars needs the manager, and that is a longer errand than the change
-      deserves.
+- [x] **The long legend is now built and tested** — the errand was worth it
+      after all. `e2e/legendwrap.spec.ts` makes six real calendars through the
+      manager, puts an event on each, and checks what Sean actually asked for:
+      fewest lines first, then the chips spread rather than one stranded. Six
+      chips take two lines and come out three and three. A 5/1 split would
+      satisfy "two lines" and be exactly the thing he complained about, so the
+      spec asserts no line holds a single chip.
+      It also confirms the 22vh cap under real content: 358x36 against a cap
+      of 186. Needed one testID on the modal's calendar dropdown to drive it.
 
 Third of Sean's four questions closed with evidence. The two left are the
 ones the suite cannot answer: the Copy-as-Markdown format, and the Habits

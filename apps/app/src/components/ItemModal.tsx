@@ -286,6 +286,7 @@ export function ItemModal({
             <View style={s.rowWrap}>
               {kind === 'event' ? (
                 <Dropdown
+                  testID="item-dest"
                   value={sharedDest ? null : resolvedDest?.id ?? null}
                   options={calendars.map((c) => ({ id: c.id, label: c.payload.name }))}
                   onPick={setDest}
