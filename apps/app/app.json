@@ -9,7 +9,8 @@
     "backgroundColor": "#111111",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.seancheren.calmind"
+      "bundleIdentifier": "com.seancheren.calmind",
+      "appleTeamId": "2LGYTL3FSJ"
     },
     "android": {
       "package": "com.seancheren.calmind",
