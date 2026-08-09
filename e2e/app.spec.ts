@@ -586,6 +586,29 @@ test("sharing: a calendar shows under the partner's day-panel group; notes read 
   await pageA.getByTestId('tab-notes').click();
   await pageA.getByTestId('note-row').filter({ hasText: 'the recipe' }).click();
   await expect(pageA.getByText(/then onions/)).toBeVisible({ timeout: 10_000 });
+
+  // A recipe someone SHARES with you is still a recipe to cook from, so the
+  // scale sits on this screen too. It was missing here at first: the shared
+  // view is a second copy of the note renderer, and it is the copy that is
+  // easy to forget.
+  await pageA.getByTestId('note-body-view').click();
+  await pageA.getByTestId('note-body-edit').fill('**Ingredients**\n- 2 cups flour\n- 3 egg yolks');
+  await pageA.getByTestId('note-title').click();
+  await pageA.waitForTimeout(2_000);
+  await pageB.reload();
+  await pageB.getByTestId('tab-notes').click();
+  await pageB.getByTestId('pick-notes').click();
+  await pageB.getByTestId('pick-shared-General').click();
+  await pageB.getByTestId('shared-note-row').filter({ hasText: 'the recipe' }).click();
+  await expect(pageB.getByTestId('shared-scale-row')).toBeVisible({ timeout: 10_000 });
+  await pageB.getByTestId('shared-scale-double').click();
+  const shared = pageB.getByTestId('shared-note-body');
+  await expect(shared).toContainText('4 cups flour');
+  await expect(shared, 'the compound noun keeps its head').toContainText('6 egg yolks');
+  // And a scaled view is not an editor, here either.
+  await shared.click();
+  await expect(pageB.getByTestId('shared-note-edit')).toHaveCount(0);
+
   await ctxA.close();
   await ctxB.close();
 });

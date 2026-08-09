@@ -636,6 +636,9 @@ function SharedNotes({ viewKey, partner }: { viewKey: string; partner: string })
   const [openShared, setOpenShared] = useState<Rec<'note'> | null>(null);
   const [sharedBodyEdit, setSharedBodyEdit] = useState(false);
   const [draft, setDraft] = useState('');
+  // A recipe someone shares with you is still a recipe to cook from.
+  const [sharedScale, setSharedScale] = useState(1);
+  useEffect(() => { setSharedScale(1); }, [openShared?.id]);
 
   if (openShared) {
     const commitBody = () => {
@@ -656,6 +659,22 @@ function SharedNotes({ viewKey, partner }: { viewKey: string; partner: string })
         <ScrollView contentContainerStyle={s.editor}>
           <Text style={s.sharedTitle}>{openShared.payload.title}</Text>
           {openShared.payload.date && <Text style={s.sharedDate}>{openShared.payload.date}</Text>}
+          {/^\*\*Ingredients\*\*$/im.test(openShared.payload.body) && (
+            <View testID="shared-scale-row" style={s.scaleRow}>
+              {SCALES.map(([f, label, id]) => (
+                <Pressable
+                  key={id}
+                  testID={`shared-scale-${id}`}
+                  style={[s.scalePill, sharedScale === f && s.scalePillOn]}
+                  onPress={() => setSharedScale(f)}
+                  hitSlop={6}
+                >
+                  <Text style={[s.scaleText, sharedScale === f && s.scaleTextOn]}>{label}</Text>
+                </Pressable>
+              ))}
+              {sharedScale !== 1 && <Text style={s.scaleNote}>Scaled — 1× to edit</Text>}
+            </View>
+          )}
           {sharedBodyEdit ? (
             <TextInput
               testID="shared-note-edit"
@@ -667,8 +686,18 @@ function SharedNotes({ viewKey, partner }: { viewKey: string; partner: string })
               onBlur={commitBody}
             />
           ) : (
-            <Pressable testID="shared-note-body" style={s.body} onPress={() => { setDraft(openShared.payload.body); setSharedBodyEdit(true); }}>
-              {richLines(openShared.payload.body).map((ln, i) => (
+            <Pressable
+              testID="shared-note-body"
+              style={s.body}
+              onPress={() => {
+                // Same rule as your own notes: never open an editor on text
+                // that is not what the note says.
+                if (sharedScale !== 1) return;
+                setDraft(openShared.payload.body);
+                setSharedBodyEdit(true);
+              }}
+            >
+              {richLines(sharedScale === 1 ? openShared.payload.body : scaleRecipeBody(openShared.payload.body, sharedScale)).map((ln, i) => (
                 <View key={i} style={[s.rtLine, ln.kind === 'number' && s.rtStep, ln.kind === 'quote' && s.rtQuote]}>
                   {ln.kind === 'bullet' && <Text style={s.rtDot}>•</Text>}
                   {ln.kind === 'number' && <Text style={s.rtNum}>{ln.num}</Text>}

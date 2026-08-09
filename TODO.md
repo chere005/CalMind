@@ -271,6 +271,16 @@ Next up, in Sean's order:
       untouched, and a parenthesised size ('1 (14 oz) can') still means more
       tins rather than a bigger tin. Known cosmetic wart, pinned: that same
       parenthesis hides the word 'can' from the pluraliser.
+- [x] **Scaling reaches shared recipes too.** The shared-note view is a second
+      copy of the note renderer and it is the copy that gets forgotten — it
+      had the new numbered steps but not the scale. Covered inside the
+      existing two-account share test rather than by standing up sharing a
+      second time.
+- [x] **Two more of Sean's cards read at ½× on the phone** (Pastitsio,
+      Ravioli di Zucca): clean. '2 cloves' → '1 clove', '2 ½ cups' → '1 ¼',
+      ¾ → ⅜, and '1 finely diced garlic clove' → '½ finely diced garlic
+      clove' WITHOUT pluralising 'finely'. Numberless lines ('a butternut
+      squash', 'some chopped green onions') left alone as designed.
 - [ ] Photo import flow (recipe-import → recipe-photos → recipe-title →
       recipe-save) is covered by e2e/ocr.spec.ts — keep that spec on the real
       flow, not a shortcut.
