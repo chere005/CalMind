@@ -136,6 +136,12 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
       // there's real travel — which is also what keeps a swipe from
       // selecting the cell it ends on.
       onMoveShouldSetPanResponderCapture: (_e, g) => Math.abs(g.dx) > 10 || Math.abs(g.dy) > 10,
+      // No onPanResponderTerminationRequest here, deliberately: the three
+      // hooks that need one (rowdrag, sectiondrag, swiperow) live INSIDE a
+      // ScrollView, which asks for the responder the moment a gesture travels
+      // and silently ends the gesture when it gets it. This grid sits straight
+      // on the page with no scrolling ancestor, so nothing is there to ask.
+      // Move it inside a ScrollView one day and it will need the refusal too.
       onPanResponderRelease: (_e, g) => {
         const { dx, dy } = g;
         if (Math.abs(dy) > 40 && Math.abs(dy) > 1.5 * Math.abs(dx)) setWeekRef.current(dy < 0);
