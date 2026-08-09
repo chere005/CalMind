@@ -36,14 +36,14 @@ const UNIT_KEYS_BY_LENGTH = Object.keys(UNIT_MAP)
 /** One quantity token, normalised: decimal commas to points, fractions
  *  typographic, a whole-plus-fraction left as the pair it reads as. */
 function oneQty(raw: string): string {
-  const q = raw.trim().replace(',', '.').replace(/(\d)\s+(\d\/\d)/, (_s, a, f) => `${a} ${FRACTIONS[f] ?? f}`);
+  const q = raw.trim().replace(',', '.').replace(/(\d)\s+(?:and\s+)?(\d\/\d)/, (_s, a, f) => `${a} ${FRACTIONS[f] ?? f}`);
   return FRACTIONS[q] ?? q;
 }
 
 // A quantity is a fraction, a decimal, a whole number, or a whole number
 // followed by either kind of fraction ('2 1/2', '1 ½'). Longest forms first,
 // so '2 1/2 cups' can't be read as a bare 2 with '1/2' left in the name.
-const NUM = String.raw`\d+\s+\d\/\d|\d+\s+[½¼¾⅓⅔⅛]|\d\/\d|\d+(?:[.,]\d+)?|[½¼¾⅓⅔⅛]`;
+const NUM = String.raw`\d+\s+and\s+\d\/\d|\d+\s+\d\/\d|\d+\s+[½¼¾⅓⅔⅛]|\d\/\d|\d+(?:[.,]\d+)?|[½¼¾⅓⅔⅛]`;
 // …and a RANGE of two of them, written with a dash or the word 'to'. A range
 // is a pattern worth seeing: without it '2-3 cloves garlic' parsed as the
 // bare 2 and left '-3 cloves garlic' as the ingredient's name, so the unit
@@ -87,6 +87,26 @@ export function parseIngredient(text: string): string {
  *  ('1 onion, chopped' → word 'onion', rest ', chopped') would come back
  *  holding a space before its punctuation. Close it up. */
 const tidy = (s: string) => s.replace(/\s+([,.;:!?)])/g, '$1');
+
+/**
+ * The ingredient's measure as DATA — for the row's badge, the way a parsed
+ * date wears one on a reminder. Runs on parseIngredient's own output, so
+ * the quantity is already normalised and the unit already canonical; a line
+ * with no quantity ('a pinch of salt', 'large egg') has no badge, which is
+ * the honest rendering of not knowing.
+ */
+export type IngredientParts = { qty: string | null; unit: string | null; name: string };
+
+export function ingredientParts(text: string): IngredientParts {
+  const t = parseIngredient(text);
+  const m = t.match(LEAD);
+  if (!m) return { qty: null, unit: null, name: t };
+  const qty = m[3] ? `${m[1]}${/to/.test(m[2]!) ? ' to ' : '-'}${m[3]}` : m[1]!;
+  const word = (m[4] ?? '').toLowerCase();
+  // parseIngredient already canonicalised, so a bare lookup is the truth.
+  if (UNIT_MAP[word]) return { qty, unit: word, name: (m[5] ?? '').trim() };
+  return { qty, unit: null, name: [m[4], (m[5] ?? '').trim()].filter(Boolean).join(' ') };
+}
 
 /** The marker body the structured page saves: bold headings, ingredient
  *  bullets, numbered steps — the same shape the reader renders. */

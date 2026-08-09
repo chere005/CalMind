@@ -15,7 +15,7 @@ import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 // phone that put "← Note" beneath the time and left the 📷 unreachable behind
 // the status bar: not cosmetic, the photo import could not be tapped at all.
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { parseIngredient, recipeBody, recipeFromPages, type Rec } from '@calmind/core';
+import { ingredientParts, parseIngredient, recipeBody, recipeFromPages, type Rec } from '@calmind/core';
 import { useStore } from '../store';
 import { themed, T } from '../theme';
 import { CircleBtn, ConfirmDelete, Field, Pill, WebHitSlop } from '../ui';
@@ -187,7 +187,19 @@ export function RecipeEditor({ note, onClose }: { note: Rec<'note'>; onClose: ()
               />
             ) : (
               <Pressable testID="ing-row" style={s.rowPress} onPress={() => { if (!swipe.justSwiped()) startEdit('ing', i, ing); }}>
-                <Text style={s.rowText}>{ing}</Text>
+                {(() => {
+                  // The measure as a right-justified badge, the treatment a
+                  // parsed date gets on a reminder row — Sean's ask, and the
+                  // same pill so the two cannot drift apart. No quantity, no
+                  // badge: 'a pinch of salt' has nothing to lift out.
+                  const p = ingredientParts(ing);
+                  return (
+                    <View style={s.ingLine}>
+                      <Text style={s.rowText}>{p.name || ing}</Text>
+                      {p.qty && <Text testID="ing-unit" style={s.unitChip}>{[p.qty, p.unit].filter(Boolean).join(' ')}</Text>}
+                    </View>
+                  );
+                })()}
               </Pressable>
             )}
             {swipe.swiped === `ing-${i}` && (
@@ -300,7 +312,11 @@ const s = themed(() => StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 9, paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: T.lineSoft },
   dot: { color: T.dim, fontSize: 15 },
   stepNum: { color: T.gold, fontSize: 14, fontWeight: '700', width: 22, textAlign: 'right' },
-  rowText: { color: T.text, fontSize: 15 },
+  rowText: { color: T.text, fontSize: 15, flexShrink: 1 },
+  ingLine: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  // The reminder row's date chip, verbatim — marginLeft auto is the right
+  // justification, the 999 radius is the pill.
+  unitChip: { color: T.dim, fontSize: 13, backgroundColor: T.surface2, paddingHorizontal: 9, paddingVertical: 3, borderRadius: 999, overflow: 'hidden', marginLeft: 'auto', flexShrink: 0 },
   // The tap target is the whole line, not just the glyphs in it — a phone
   // gives you a thumb, not a cursor.
   rowPress: { flex: 1, paddingVertical: 2 },

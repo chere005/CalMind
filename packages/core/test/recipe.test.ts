@@ -1,6 +1,6 @@
 /** The OCR-to-note heuristics: humble, but pinned. */
 import { describe, it, expect } from 'vitest';
-import { formatRecipe, looksLikeChrome, parseIngredient, precleanOcrLine, recipeBody, recipeFromPages, scaleIngredient, scaleRecipeBody, scrubLine } from '../src/recipe';
+import { formatRecipe, ingredientParts, looksLikeChrome, parseIngredient, precleanOcrLine, recipeBody, recipeFromPages, scaleIngredient, scaleRecipeBody, scrubLine } from '../src/recipe';
 
 describe('formatRecipe', () => {
   it('finds the obvious title, bullets the ingredients, keeps the steps', () => {
@@ -535,5 +535,21 @@ describe('what tesseract does to a real card — every rule chased a screenshot'
   it('a capitalised fragment stays split rather than gluing neighbours', () => {
     const parts = recipeFromPages(['Ingredients\n1 tsp salt\nBasmati rice']);
     expect(parts.ingredients).toEqual(['1 tsp salt', 'Basmati rice']);
+  });
+});
+
+describe('ingredientParts — the measure as data, for the row badge', () => {
+  it('quantity and unit lift out; the name keeps the rest', () => {
+    expect(ingredientParts('2 cups (250g) all-purpose flour')).toEqual({ qty: '2', unit: 'cups', name: '(250g) all-purpose flour' });
+    expect(ingredientParts('1/2 CUP milk')).toEqual({ qty: '½', unit: 'cup', name: 'milk' });
+    expect(ingredientParts('2-3 cloves garlic')).toEqual({ qty: '2-3', unit: 'cloves', name: 'garlic' });
+    expect(ingredientParts('1 1/4tspsalt')).toEqual({ qty: '1 ¼', unit: 'tsp', name: 'salt' });
+  });
+  it('no quantity, no badge — the honest rendering of not knowing', () => {
+    expect(ingredientParts('a pinch of salt')).toEqual({ qty: null, unit: null, name: 'a pinch of salt' });
+    expect(ingredientParts('large egg')).toEqual({ qty: null, unit: null, name: 'large egg' });
+  });
+  it('a quantity with no unit badges the quantity alone', () => {
+    expect(ingredientParts('2 canned tomatoes')).toEqual({ qty: '2', unit: null, name: 'canned tomatoes' });
   });
 });
