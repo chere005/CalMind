@@ -189,8 +189,55 @@ export function formatRecipe(pages: string[]): RecipeResult {
   return { title, body: out.join('\n').replace(/\n{3,}/g, '\n\n').trim() };
 }
 
+/** The marker shape recipeBody writes. Anything carrying these headings is
+ *  OUR OWN output being read back, not a photograph. */
+const OURS = /^\*\*(Ingredients|Directions)\*\*$/i;
+
+/**
+ * Read back what recipeBody wrote, structurally — no guessing.
+ *
+ * Re-opening a saved recipe used to run it through the OCR heuristics again,
+ * and they mangled it three ways in one pass: the first ingredient qualified
+ * as a "title" and was consumed, the second collected a second dash ("- - a
+ * pinch of salt"), and the closing personal line landed under DIRECTIONS as
+ * another step — eating the very text the Include-notes checkbox exists to
+ * protect. Two saves and the ingredients were gone. Editing a recipe twice is
+ * the most ordinary thing anyone does with one.
+ */
+function fromMarkers(text: string): RecipeParts {
+  const ingredients: string[] = [];
+  const steps: string[] = [];
+  const extra: string[] = [];
+  let block: 'none' | 'ing' | 'steps' = 'none';
+  for (const raw of text.split('\n')) {
+    const l = raw.trim();
+    if (l === '') continue;
+    const head = l.match(OURS);
+    if (head) {
+      block = /ingredients/i.test(head[1]!) ? 'ing' : 'steps';
+      continue;
+    }
+    if (block === 'ing' && l.startsWith('- ')) {
+      ingredients.push(l.slice(2).trim());
+      continue;
+    }
+    if (block === 'steps' && /^\d+[.)]\s/.test(l)) {
+      steps.push(l.replace(/^\d+[.)]\s*/, ''));
+      continue;
+    }
+    // Anything else ends the block: prose after the steps is prose, not step
+    // four. The note keeps its own title, so nothing is taken as one here.
+    block = 'none';
+    extra.push(l);
+  }
+  return { title: null, ingredients, steps, extra };
+}
+
 /** OCR pages into the structured parts the Add-Recipe page edits. */
 export function recipeFromPages(pages: string[]): RecipeParts {
+  // Ours reads back as ours. Only a photograph gets the heuristics.
+  const joined = pages.join('\n');
+  if (joined.split('\n').some((l) => OURS.test(l.trim()))) return fromMarkers(joined);
   const flat = formatRecipe(pages);
   const ingredients: string[] = [];
   const steps: string[] = [];

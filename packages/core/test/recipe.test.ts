@@ -171,3 +171,41 @@ describe('the leftovers keep their shape', () => {
     expect(r.extra).toEqual(['milk', 'eggs']);
   });
 });
+
+describe('a saved recipe read back — ours is read as ours', () => {
+  const SAVED = [
+    '**Ingredients**',
+    '- 2 cups flour',
+    '- a pinch of salt',
+    '',
+    '**Directions**',
+    '1. Whisk it.',
+    '2. Fry it.',
+    '',
+    'Grandma doubled the butter.',
+  ].join('\n');
+
+  it('comes back exactly as it went in', () => {
+    const r = recipeFromPages([SAVED]);
+    expect(r.ingredients).toEqual(['2 cups flour', 'a pinch of salt']);
+    expect(r.steps).toEqual(['Whisk it.', 'Fry it.']);
+    expect(r.extra).toEqual(['Grandma doubled the butter.']);
+    expect(r.title, 'a saved recipe has no title to take — the note owns that').toBeNull();
+  });
+
+  it('and saving it again changes nothing at all', () => {
+    // Editing a recipe twice is the most ordinary thing anyone does with one.
+    // Through the heuristics it lost BOTH ingredients by the third pass: the
+    // first became a "title" and was consumed, the second grew a second dash,
+    // and the closing line was swallowed as another step.
+    const once = recipeFromPages([SAVED]);
+    const body1 = [recipeBody(once.ingredients, once.steps), once.extra.join('\n')].filter(Boolean).join('\n\n');
+    const twice = recipeFromPages([body1]);
+    const body2 = [recipeBody(twice.ingredients, twice.steps), twice.extra.join('\n')].filter(Boolean).join('\n\n');
+    expect(body2).toBe(body1);
+    expect(body2).toContain('- 2 cups flour');
+    expect(body2).toContain('Grandma doubled the butter.');
+    expect(body2).not.toContain('- - ');
+    expect(body2).not.toContain('3. Grandma');
+  });
+});

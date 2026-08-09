@@ -79,3 +79,39 @@ test('the Recipe page on an ordinary note gives the words back unharmed', async 
   const last = body.indexOf('Reference 4471-B');
   expect(first, 'the note still reads top to bottom').toBeLessThan(last);
 });
+
+test('editing a recipe twice does not eat it', async ({ page }) => {
+  // The most ordinary thing anyone does with a recipe: open it again and
+  // change something. Through the OCR heuristics a second pass consumed the
+  // first ingredient as a title, doubled the dash on the next, and swallowed
+  // the closing note as another step.
+  await signup(page);
+  await page.getByTestId('tab-notes').click();
+  await page.getByTestId('secadd-General').first().click();
+  await page.getByPlaceholder('New note').fill('Pancakes');
+  await page.getByPlaceholder('New note').press('Enter');
+  await page.getByTestId('note-body-view').click();
+  // Start from a recipe as the page SAVES it — that is what "editing it
+  // again" means. (Raw text takes the OCR path, whose title guess is its own,
+  // documented, humbler story.)
+  await page.getByTestId('note-body-edit').fill(
+    '**Ingredients**\n- 2 cups flour\n- a pinch of salt\n\n**Directions**\n1. Whisk it.\n2. Fry it.\n\nGrandma doubled the butter.',
+  );
+  await page.getByText('← All notes').click();
+  await page.getByTestId('note-row').filter({ hasText: 'Pancakes' }).click();
+
+  // Save it three times over, opening the page fresh each round.
+  for (let i = 0; i < 3; i++) {
+    await page.getByTestId('recipe-import').click();
+    await expect(page.getByTestId('ing-row').first()).toBeVisible();
+    await expect(page.getByTestId('ing-row')).toHaveCount(2);
+    await page.getByTestId('recipe-save').click();
+    await expect(page.getByTestId('note-body-view')).toBeVisible();
+  }
+
+  const body = await page.getByTestId('note-body-view').innerText();
+  expect(body, 'both ingredients survived three rounds').toContain('2 cups flour');
+  expect(body).toContain('a pinch of salt');
+  expect(body, 'the personal line is still prose, not a step').toContain('Grandma doubled the butter.');
+  expect(body).not.toContain('3. Grandma');
+});
