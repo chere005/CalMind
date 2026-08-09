@@ -343,8 +343,9 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
                 <Text style={s.bodyPlaceholder}>Write…</Text>
               ) : (
                 richLines(open.payload.body).map((ln, i) => (
-                  <View key={i} style={[s.rtLine, ln.kind === 'quote' && s.rtQuote]}>
+                  <View key={i} style={[s.rtLine, ln.kind === 'quote' && s.rtQuote, ln.kind === 'number' && s.rtStep]}>
                     {ln.kind === 'bullet' && <Text style={s.rtDot}>•</Text>}
+                    {ln.kind === 'number' && <Text style={s.rtNum}>{ln.num}</Text>}
                     <Text style={[s.rtText, ln.kind === 'quote' && s.rtQuoteText]}>
                       {ln.runs.map((r, j) => (
                         <Text
@@ -635,8 +636,9 @@ function SharedNotes({ viewKey, partner }: { viewKey: string; partner: string })
           ) : (
             <Pressable testID="shared-note-body" style={s.body} onPress={() => { setDraft(openShared.payload.body); setSharedBodyEdit(true); }}>
               {richLines(openShared.payload.body).map((ln, i) => (
-                <View key={i} style={[s.rtLine, ln.kind === 'quote' && s.rtQuote]}>
+                <View key={i} style={[s.rtLine, ln.kind === 'number' && s.rtStep, ln.kind === 'quote' && s.rtQuote]}>
                   {ln.kind === 'bullet' && <Text style={s.rtDot}>•</Text>}
+                  {ln.kind === 'number' && <Text style={s.rtNum}>{ln.num}</Text>}
                   <Text style={[s.rtText, ln.kind === 'quote' && s.rtQuoteText]}>
                     {ln.runs.map((r, j) => (
                       <Text key={j} style={[r.bold && s.rtBold, r.italic && s.rtItalic, r.under && s.rtUnder]}>{r.text || ' '}</Text>
@@ -760,6 +762,11 @@ const s = themed(() => StyleSheet.create({
   rtQuote: { borderLeftWidth: 3, borderLeftColor: '#a78bfa', paddingLeft: 10, marginVertical: 2 },
   rtQuoteText: { color: T.dim, fontStyle: 'italic' },
   rtDot: { color: T.dim, fontSize: 16, lineHeight: 24, marginRight: 8 },
+  // The number sits in a gutter so a wrapped step lines up as a block, and
+  // the steps get a little air between them — a recipe is read a line at a
+  // time, looking up from a pan and back.
+  rtNum: { color: T.dim, fontSize: 16, lineHeight: 24, marginRight: 8, minWidth: 20 },
+  rtStep: { marginTop: 6 },
   rtText: { color: T.text, fontSize: 16, lineHeight: 24, flexShrink: 1 },
   rtBold: { fontWeight: '700' },
   rtItalic: { fontStyle: 'italic' },

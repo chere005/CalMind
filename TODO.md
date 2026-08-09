@@ -240,6 +240,13 @@ Next up, in Sean's order:
       `scrubLine()` in packages/core/src/recipe.ts is the gate, extend it there.
 - [ ] Include-notes checkbox (`recipe-incnotes`) shipped; keep it honored on
       every save path if the editor grows new ones.
+- [x] **Numbered steps read as steps** — the method used to render flush-left
+      as one wall of text: a wrapped step ran back under its own number, so
+      finding your place after looking up from the pan meant re-reading. The
+      number now sits in a gutter like the bullet's dot, with air between
+      steps. `richLines` gained a 'number' kind (two digits max, space after
+      the dot — '1996. What a year' and '1.5 cups' stay prose). It is read
+      back but never toggled: the toolbar writes '- ', recipes write '1. '.
 - [ ] Photo import flow (recipe-import → recipe-photos → recipe-title →
       recipe-save) is covered by e2e/ocr.spec.ts — keep that spec on the real
       flow, not a shortcut.
