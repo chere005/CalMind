@@ -97,6 +97,7 @@ The watch target is a one-time Xcode wiring step: `apps/watch/README.md`.
 ```sh
 ./server/deploy-test.sh --dry-run   # preview
 ./server/deploy-test.sh             # lint + tests, expo export, rsync
+./server/tools/smoke-live.sh        # …then prove the DEPLOY, over real HTTPS
 ```
 
 Needs `server/deploy.conf` (gitignored) with `SSH_DEST`. Ships the API to

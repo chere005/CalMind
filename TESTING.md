@@ -19,6 +19,24 @@ npx playwright test           # gestures: the EXPORTED app + real API, real mous
 
 All three must be green before `./server/deploy-test.sh`.
 
+And one AFTER it:
+
+```sh
+./server/tools/smoke-live.sh   # the DEPLOYED instance, over real HTTPS, ~5s
+```
+
+The three runs prove the behaviour; they cannot prove the deploy. Real Apache,
+the htaccess, the server's own PHP and timezone, TLS — none of that exists
+until the thing is deployed, and that is where the deploy-shaped bugs live.
+The last one was the server keeping UTC, so the widget spent every evening
+after 7pm Chicago calling tomorrow "today"; the smoke asserts the feed's day
+IS Chicago's, which is the check that would have caught it. It also holds the
+served head (viewport-fit, the translucent status bar, the manifest and its
+content type, the icons) and walks signup → sync → widget token → feed → bad
+token refused → logout revokes. It leaves one throwaway account behind and
+says so — there is no delete-account endpoint and this is not the place to
+invent one.
+
 The gesture run now **refuses to start against a stale export** (`e2e/
 freshness.ts`, wired in as playwright's globalSetup): if anything under
 `apps/app/src`, `apps/app/App.tsx`, `apps/app/index.ts` or
