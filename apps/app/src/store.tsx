@@ -116,11 +116,24 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     persistNow(s.username);
   }, [refresh, persistNow, pullShared]);
 
+  // Every caller fires this and forgets it (`void sharedPut(...)`), so a
+  // rejection here had nowhere to go but an unhandled promise: tapping a
+  // partner's tick did nothing, said nothing, and logged somewhere the user
+  // will never look. It rejects for an ordinary reason, too — sharing ending
+  // a moment earlier makes this a 403, and a dead token a 401.
+  //
+  // Reconciling either way is the honest answer: pullShared re-reads what the
+  // partner still shares, so rows that are no longer ours to touch leave the
+  // screen instead of sitting there swallowing taps.
   const sharedPut = useCallback(async (rec: AnyRec) => {
     const s = sessionRef.current;
     if (!s || !sharedPartner) return;
-    await apiPost(s.serverUrl, { action: 'shared_put', partner: sharedPartner, record: { ...rec, updated: Date.now() } }, s.token);
-    await pullShared();
+    try {
+      await apiPost(s.serverUrl, { action: 'shared_put', partner: sharedPartner, record: { ...rec, updated: Date.now() } }, s.token);
+    } catch {
+      // fall through to the reconcile — the screen is what's wrong now
+    }
+    await pullShared().catch(() => {});
   }, [sharedPartner, pullShared]);
 
   const syncSoon = useCallback(() => {
