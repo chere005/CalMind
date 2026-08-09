@@ -226,15 +226,22 @@ searched the binary for the empty string and reported a confident YES. It is
 worth assuming a green check is lying until it has been shown failing at
 least once.
 
-It then went wrong a SECOND way, which is the more interesting one. `expo
-export` does not clean up after itself, so apps/app/dist accumulates old
-bundles — and `find … | head -1` picks between them arbitrarily. The check
-matched a stale bundle that was still lying in the directory, found it in a
-binary that also still contained it, and passed. It now reads the bundle name
-out of dist/index.html, which names the one that actually loads. The same
-mistake sent me chasing a phantom "the deploy is not landing" for ten minutes:
-compare index.html to index.html, never a directory listing to a directory
-listing.
+It then went wrong a SECOND way, which is the more interesting one. An export
+emits MORE THAN ONE file called index-<hash>.js: the entry bundle (~700KB,
+named by index.html) and an async chunk it loads at runtime (~18KB). Nothing
+is stale and nothing accumulates — they are both current, and
+`find … | head -1` picks between them arbitrarily. So the check could match
+the async chunk, find it in the binary, and pass without ever having looked at
+the bundle that matters. It now reads the name out of dist/index.html.
+
+The same arbitrary pick sent me chasing a phantom "the deploy is not landing"
+for ten minutes. Compare index.html to index.html, never a directory listing
+to a directory listing.
+
+My first explanation for this was that expo leaves old bundles behind, and I
+briefly had `rm -rf dist` in the export script on the strength of it. That was
+wrong — a clean export still emits two — and the change went back out. A fix
+resting on a false diagnosis is worse than the bug, because it looks handled.
 
 Nor did any of them have a remote edit land WHILE TYPING.
 `e2e/clobber.spec.ts` is the one that found a real bug. The body writes on
