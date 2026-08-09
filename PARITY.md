@@ -888,6 +888,18 @@ honest — the next iteration trusts it.
   gap staring at CalMind alone will never surface.
 - 187 core + 23 server + 42 gesture. Deployed, live == local, pushed.
 
+## Iteration 52 — both phones current
+- iOS rebuilt on everything this run (parser, recipes, widget script, the
+  Chicago clock, the Notes section adder) and smoke-checked against Sean's
+  real store: balanced legend 2+3, the day panel's group order, the
+  folder-coloured marks. Android was already current from 50; both phones
+  now carry the same code.
+- Audit continued on the two apps I had never read against the suite
+  side by side. Everything else checked out — Notes rows do carry the
+  duplicate button, both apps delete sections, all four pickers carry
+  their Manage row, Settings changes a password against a server that
+  supports it. The section ADDER was the one real hole, and it is closed.
+
 ## NEXT: the Add-Recipe page (Sean's spec, precise)
 - A structured page in Notes, the akisbookshelf add-quote shape: Title;
   an INGREDIENTS section whose + parses units (grams, cups, tsp, tbsp…)
