@@ -121,3 +121,37 @@ test('an awkward card: no title, a wordy last ingredient, a method with no headi
   // Nothing from inside the list was promoted to the recipe's name.
   await expect(page.getByTestId('recipe-title')).not.toHaveValue(/pepper/i);
 });
+
+test('a photo it cannot read says so, instead of ending in silence', async ({ page, context }) => {
+  test.setTimeout(180_000);
+
+  // A blank card. The engine runs, finds nothing, and the import used to end
+  // with the spinner clearing and no change on screen — indistinguishable
+  // from a slow read, or from a tap that missed.
+  const shot = join(tmpdir(), `calmind-blank-${Date.now()}.png`);
+  const painter = await context.newPage();
+  await painter.setContent('<body style="margin:0"><svg xmlns="http://www.w3.org/2000/svg" width="600" height="400"><rect width="600" height="400" fill="white"/></svg></body>');
+  await painter.locator('svg').screenshot({ path: shot });
+  await painter.close();
+
+  const u = 'blank' + String(Date.now()).slice(-7);
+  await page.goto('.');
+  await page.getByText('Sign up', { exact: true }).click();
+  await page.getByPlaceholder('Username').fill(u);
+  await page.getByPlaceholder('Email').fill(u + '@example.com');
+  await page.getByPlaceholder('Password', { exact: true }).fill('e2epassword');
+  await page.getByPlaceholder('Confirm password').fill('e2epassword');
+  await page.getByText('Sign up', { exact: true }).click();
+  await expect(page.getByTestId('tab-reminders')).toBeVisible({ timeout: 20_000 });
+  await page.getByTestId('tab-notes').click();
+  await page.getByTestId('secadd-General').first().click();
+  await page.getByPlaceholder('New note').fill('x');
+  await page.getByPlaceholder('New note').press('Enter');
+  await page.getByTestId('recipe-import').click();
+  const chooser = page.waitForEvent('filechooser');
+  await page.getByTestId('recipe-photos').click();
+  await (await chooser).setFiles(shot);
+
+  await expect(page.getByText(/No text found in that photo/), 'it says so').toBeVisible({ timeout: 120_000 });
+  await expect(page.getByTestId('ing-row'), 'and nothing was invented to fill the gap').toHaveCount(0);
+});

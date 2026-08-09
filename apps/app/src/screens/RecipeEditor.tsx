@@ -47,7 +47,9 @@ export function RecipeEditor({ note, onClose }: { note: Rec<'note'>; onClose: ()
   const [title, setTitle] = useState(note.payload.title || parsed.title || '');
   const [ingredients, setIngredients] = useState<string[]>(parsed.ingredients);
   const [steps, setSteps] = useState<string[]>(parsed.steps);
-  const [extra] = useState<string[]>([...strayTitle, ...parsed.extra]);
+  // Extra grows when a photo brings prose with it — a source line, a method
+  // with no heading — so it can no longer be read-only.
+  const [extra, setExtra] = useState<string[]>([...strayTitle, ...parsed.extra]);
   // The free text that isn't recipe: kept by default, dropped on request —
   // the checkbox is the deliberate way to shed it (Sean's ask).
   const [includeNotes, setIncludeNotes] = useState(true);
@@ -109,6 +111,15 @@ export function RecipeEditor({ note, onClose }: { note: Rec<'note'>; onClose: ()
       if (r.title && !title) setTitle(r.title);
       if (r.ingredients.length) setIngredients((cur) => [...r.ingredients, ...cur]);
       if (r.steps.length) setSteps((cur) => [...cur, ...r.steps]);
+      if (r.extra.length) setExtra((cur) => [...cur, ...r.extra]);
+      // A photo it could not read used to end in silence: the spinner cleared,
+      // nothing appeared, and there was no way to tell a blank result from a
+      // slow one. Say so, and say what usually fixes it.
+      if (!r.title && !r.ingredients.length && !r.steps.length && !r.extra.length) {
+        setBusy('No text found in that photo — try a straighter, brighter shot.');
+        setTimeout(() => setBusy(''), 5000);
+        return;
+      }
       setBusy('');
     } catch (err) {
       setBusy(err instanceof Error ? err.message : 'could not read the photos');

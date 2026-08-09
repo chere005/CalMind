@@ -377,6 +377,17 @@ Next up, in Sean's order:
       This is the path where those fixes actually matter — the correction
       above is that Sean's SAVED recipes carry our markers and were never
       affected; a photographed card carries nothing and never will.
+- [x] **A photo it cannot read now says so.** The import used to end in
+      silence: the spinner cleared, nothing appeared, and there was no way to
+      tell a blank result from a slow one or from a tap that missed. It now
+      says "No text found in that photo — try a straighter, brighter shot",
+      and invents nothing to fill the gap. Covered by a blank card through
+      real tesseract.
+- [x] **The photo's leftovers reach the page.** `extra` was read-only state
+      seeded once from the note, so prose that came in WITH a photo — a source
+      line, a method with no heading — was parsed and then dropped on the
+      floor. It appends now, which matters more since the parse fixes send
+      unheaded methods there.
 - [ ] Photo import flow (recipe-import → recipe-photos → recipe-title →
       recipe-save) is covered by e2e/ocr.spec.ts — keep that spec on the real
       flow, not a shortcut.
