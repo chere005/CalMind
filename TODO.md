@@ -337,6 +337,30 @@ Next up, in Sean's order:
       app on Sean's actual phone — an Apple Developer account and TestFlight.
       Sean's call, and not a small one.
 
+## 3d · Calendar integrations (Sean: "Extracted data and via oauth")
+
+- [x] **iCalendar parsing lives in core** (`packages/core/src/ical.ts`), built
+      first BECAUSE it is the part both routes share: a subscribed .ics link
+      and a full CalDAV query hand back the same VEVENTs. Nothing in it knows
+      how the text arrived, so it commits to no auth decision.
+      Covers folding, quoted TZID params, TEXT escaping, and the three kinds
+      of moment a calendar carries — a date with no time, a UTC instant, and a
+      wall clock in a named zone. Zone maths is done by probing Intl rather
+      than carrying a table; the tests pin both DST changeovers and round-trip
+      every hour across a spring-forward day.
+- [ ] **RRULE expansion** — parsed and kept as text, not yet expanded. This is
+      the next pure-core piece and wants its own tests (BYDAY, COUNT, UNTIL,
+      INTERVAL, EXDATE).
+- [ ] **BLOCKED on Sean, and it decides the shape**: reading Gmail needs a
+      Google Cloud project HE creates. For a personal gmail.com account an app
+      left in Testing mode expires its refresh roughly weekly; escaping that
+      means Google verification, which for mail scopes is onerous, and there
+      is no Workspace "Internal" shortcut available. Worth confirming before
+      any code is written against it. CalDAV calendars carry no equivalent
+      problem and could go first.
+- [ ] Also unanswered: subscribe-by-link vs full CalDAV first, and whether
+      imported events stay read-only forever (changes the record model).
+
 ## 4 · Gated — waiting on Sean's explicit word
 
 - [ ] **E2EE envelopes** (design settled, build gated): X25519 +
