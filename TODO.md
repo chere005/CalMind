@@ -479,12 +479,51 @@ question that is his.
       because a 503 on the icons alone would have meant something quite
       different.
 
+## 0.1 · The installed app now takes new builds by itself (2026-08-09)
+
+This is the one that was quietly costing everything else: an installed
+home-screen web app is RESUMED, not reloaded, so it can sit on a build from
+weeks ago while every deploy since passes it by. Measured, not assumed — a
+read-out was deployed, confirmed present in the SERVED bundle by grep, and
+still did not appear in the installed app across several relaunches, while
+index.html goes out `no-cache` and the bundle is content-hashed and
+`immutable`. It very likely explains why Sean's screenshots keep disagreeing
+with what is deployed.
+
+- [x] **The check**: compare the entry bundle the page is RUNNING (read off
+      its own script tag) with the one the server advertises now (index.html
+      fetched `no-store`, with a cache-busting param). No build changes
+      needed; both names come out of HTML the same way.
+- [x] **When**: on open, and on every return to visibility — which is exactly
+      the moment a resumed app has been stale all along.
+- [x] **Only when safe**: never while anything is still owed to the server.
+      The engine's own dirty count is the guard, so a reload cannot land on
+      top of unsent typing.
+- [x] **How**: `location.replace` to a URL carrying the target build as a
+      query, because `location.reload()` is free to reuse the very cache that
+      caused the problem, and a different URL is a fresh navigation.
+- [x] **THE RELOAD LOOP, caught by the spec rather than by thinking.** The
+      first version guarded with an in-memory flag — which the reload itself
+      resets, since it re-runs the module. The spec watched the page navigate
+      four times in three seconds. In the real world it is worse than a test
+      failure: if the page comes back STILL on the old bundle, which is the
+      exact failure this exists to work around, the app would reload for ever
+      and be unusable. Fixed by remembering the build a reload aimed AT,
+      across the reload, in localStorage: seeing it again means the attempt
+      did not take and must not be repeated. The slot is cleared once the
+      page is genuinely running that build.
+- [x] Decision in core (`shouldReload`, 8 tests), plumbing in the app, two
+      e2e specs — one that a superseded build IS replaced exactly once, one
+      that a current page sits perfectly still.
+- [ ] Sean should still remove and re-add the icon ONCE, to get onto a build
+      that contains this. After that it should keep itself current.
+
 ## 2 · Steady state (every iteration)
 
 - [ ] `git pull --autostash` first — two sessions share this repo; stage
       explicit paths only, never `git add -A`, hold commits on files the other
       session has half-refactored.
-- [ ] Keep the suites green: 270 core + 37 server + 101 gesture + 16 WebKit,
+- [ ] Keep the suites green: 278 core + 37 server + 103 gesture + 16 WebKit,
       plus 9 live checks (16 with the API) and 6 desktop. The README points
       here rather than carrying numbers of its own, so this line has to be
       the one that is right — it was 93 an hour after the gesture suite passed

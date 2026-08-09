@@ -8,6 +8,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { watchForUpdate } from './update';
 import { SyncEngine, normalize, prefsOf, folderApp, shareOf, type AnyRec, type Rec } from '@calmind/core';
 import { apiPost, type Session, syncTransport, ApiError } from './api';
 import { pushWatchList } from './watch';
@@ -274,6 +275,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       clearInterval(iv);
     };
   }, [syncNow]);
+
+  // ...and the web edition of the same rule, for the page itself rather than
+  // the data. An installed home-screen app is resumed, not reloaded, so it can
+  // sit on a build from weeks ago while every deploy since passes it by. This
+  // asks on return whether the server is serving something else, and takes it
+  // only when nothing is still owed — the engine's own dirty count is the
+  // guard, so a reload can never land on top of unsent typing.
+  useEffect(() => watchForUpdate(() => engineRef.current.toSnapshot().dirty.length), []);
 
   return (
     <Ctx.Provider value={{ ready, session, recs, syncState, persistFailed, signIn, signOut, setSession, mutate, syncNow, partners, sharedPartner, sharedPartnerLabel, sharedRecs, sharedPut }}>
