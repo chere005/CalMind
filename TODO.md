@@ -57,6 +57,24 @@ visual. Deploy to **test only** (`./server/deploy-test.sh`) as changes land.
       or three photos of real cards would let it be tuned against what his
       camera actually produces.
 
+## 0.5 · A decision for Sean — the PWA cannot open offline
+
+The web app registers NO service worker, so a phone with no signal cannot
+fetch index.html or the bundle: the home-screen app dies before any of our
+code runs. The local-first snapshot is real but, on the web, it only rescues
+a session already loaded. Native and the Tauri shell carry their bundle on
+disk and genuinely do open offline — the desktop README's "opens offline like
+the phones do" is true there and NOT true in the browser.
+
+Fixing it means a service worker, and that collides head-on with the deploy's
+own rule: **index.html must always revalidate, or a phone shows last week's
+app against this week's data.** A caching worker done carelessly turns a
+"can't open offline" annoyance into stale code running against live data,
+which is the worse failure. So it is a real tradeoff and Sean's call, not
+something to slip in. e2e/offline.spec.ts covers what IS promised today:
+edits land offline, survive moving around the app, and reach the SERVER once
+the signal returns (proved from a browser that never saw the first one).
+
 ## 1 · In flight
 
 - [x] **Overdue date chips in the Calendar day panel** — landed, deployed,
