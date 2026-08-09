@@ -198,7 +198,7 @@ wrong side, and either way everything beside them moved — which from outside
 looks like "all the button placement is broken". Verified with teeth:
 reintroducing both regressions turns two of the three red.
 
-The WebKit run (`npx playwright test -c playwright.webkit.config.ts`) grew on
+The WebKit run (`npm run test:webkit`) grew on
 the day Sean said the button placement was broken. It now carries the header
 rules and recipe scaling as well as the original spine, because those are what
 he actually looks at and they had only ever been checked in Chromium — an

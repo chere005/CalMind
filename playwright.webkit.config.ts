@@ -18,7 +18,10 @@ import { defineConfig, devices } from '@playwright/test';
  */
 export default defineConfig({
   testDir: './e2e',
-  testMatch: ['app.spec.ts', 'interrupted.spec.ts', 'chrome.spec.ts', 'scale.spec.ts'],
+  testMatch: [
+    'app.spec.ts', 'interrupted.spec.ts', 'chrome.spec.ts', 'scale.spec.ts',
+    'armeddelete.spec.ts', 'legendwrap.spec.ts', 'toolong.spec.ts',
+  ],
   // The spine, not the whole suite: gesture specs lean on synthetic mouse
   // behaviour that differs between engines, and a red run full of harness
   // noise teaches nobody anything. Plus the interruption cases — whether blur
@@ -31,7 +34,7 @@ export default defineConfig({
   // they had only ever been checked in an engine he does not use. Recipe
   // scaling came with them — it is the feature he asked to be pushed hardest,
   // and it is read on the phone, in WebKit, with floury hands.
-  grep: /signing up lands on the calendar|a reminder adds into its section|note body renders its markers|the page carries the web-app head|interrupted by switching tabs|interrupted mid-sentence|back sits left of the title|picker and the username survive|scaling reads the recipe/,
+  grep: /signing up lands on the calendar|a reminder adds into its section|note body renders its markers|the page carries the web-app head|interrupted by switching tabs|interrupted mid-sentence|back sits left of the title|picker and the username survive|scaling reads the recipe|arming delete on one note|legend with many calendars|over-long note says so/,
   timeout: 30_000,
   retries: 0,
   workers: 1,

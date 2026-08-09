@@ -13,7 +13,8 @@
     "web": "npm -w app run web",
     "export:web": "npm -w app exec expo export -- -p web && node tools/patch-web-html.mjs",
     "test:e2e": "npm run export:web && playwright test",
-    "test:e2e:fast": "playwright test"
+    "test:e2e:fast": "playwright test",
+    "test:webkit": "playwright test -c playwright.webkit.config.ts"
   },
   "devDependencies": {
     "@playwright/test": "^1.62.1"
