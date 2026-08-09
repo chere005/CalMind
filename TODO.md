@@ -70,7 +70,7 @@ visual. Deploy to **test only** (`./server/deploy-test.sh`) as changes land.
       it, so a regression can't ship quietly.
 - [?] **App mode with DuckDuckGo as default** — told him the platform
       constraint rather than promising a code fix: on iOS only Safari's "Add
-      to Home Screen" makes a真 standalone web app; a third-party browser's
+      to Home Screen" makes a true standalone web app; a third-party browser's
       version opens in that browser. His default can stay DDG — launching the
       icon doesn't route through the default browser. Sequence given: delete
       the old icon, add from Safari, launch. If it STILL opens with chrome
