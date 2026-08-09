@@ -1,0 +1,88 @@
+import { expect, test, type Page } from '@playwright/test';
+
+/**
+ * The top bar's invariants, on every screen and in every mode.
+ *
+ * Two regressions today were the same shape: a control that came and went, or
+ * sat on the wrong side, and so shoved everything beside it. Sean saw it as
+ * "all the button placement is broken", which is what a moving row looks like
+ * from outside. Nothing was watching the header, so both landed without a
+ * single test going red.
+ *
+ * These are the rules the suite holds to, and they are cheap to check:
+ *   · back is LEFT of the title — always, on every screen;
+ *   · a screen that has a picker keeps it in every view mode;
+ *   · the username pill is always there, being the way into Settings.
+ */
+async function signup(page: Page): Promise<string> {
+  const user = `chr${String(Date.now()).slice(-6)}`;
+  await page.goto('.');
+  await page.getByText('Sign up', { exact: true }).click();
+  await page.getByPlaceholder('Username').fill(user);
+  await page.getByPlaceholder('Email').fill(user + '@example.com');
+  await page.getByPlaceholder('Password', { exact: true }).fill('e2epassword');
+  await page.getByPlaceholder('Confirm password').fill('e2epassword');
+  await page.getByText('Sign up', { exact: true }).click();
+  await expect(page.getByTestId('tab-reminders')).toBeVisible({ timeout: 20_000 });
+  return user;
+}
+
+const TITLES: Record<string, string> = {
+  reminders: 'Reminders', calendar: 'Calendar', notes: 'Notes', habits: 'Habits', add: 'Add',
+};
+
+test('back sits left of the title on every screen', async ({ page }) => {
+  test.setTimeout(90_000);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await signup(page);
+  for (const [tab, title] of Object.entries(TITLES)) {
+    await page.getByTestId(`tab-${tab}`).click();
+    await page.waitForTimeout(250);
+    const back = await page.getByTestId('nav-back').boundingBox();
+    const head = await page.getByText(title, { exact: true }).first().boundingBox();
+    expect(back, `${tab}: the back slot exists`).not.toBeNull();
+    expect(head, `${tab}: the title is drawn`).not.toBeNull();
+    expect(back!.x, `${tab}: back is left of "${title}"`).toBeLessThan(head!.x);
+  }
+});
+
+test('the picker and the username survive a change of view mode', async ({ page }) => {
+  test.setTimeout(90_000);
+  await page.setViewportSize({ width: 390, height: 844 });
+  const user = await signup(page);
+
+  // Month.
+  await page.getByTestId('tab-calendar').click();
+  await expect(page.getByTestId('pick-calendar')).toBeVisible();
+  await expect(page.getByText(user, { exact: true }).first()).toBeVisible();
+
+  // Week — the mode that was quietly stripping chrome. It is entered by a
+  // swipe on the grid, and it persists under this key, which is steadier to
+  // set than a gesture is to simulate.
+  await page.evaluate(() => window.localStorage.setItem('calmind.calWeekMode', '1'));
+  await page.reload();
+  await page.getByTestId('tab-calendar').click();
+  await expect(page.getByTestId('cal-grid')).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByTestId('pick-calendar'), 'the picker does not belong to one view mode').toBeVisible();
+  await expect(page.getByText(user, { exact: true }).first()).toBeVisible();
+});
+
+test('a fortnight of marks comes with a legend to read them by', async ({ page }) => {
+  test.setTimeout(90_000);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await signup(page);
+  await page.getByTestId('tab-add').click();
+  await page.getByText('Event', { exact: true }).click();
+  await page.getByPlaceholder(/Dentist/).fill('dinner today');
+  await page.getByText('Done', { exact: true }).click();
+  await page.waitForTimeout(600);
+
+  await page.evaluate(() => window.localStorage.setItem('calmind.calWeekMode', '1'));
+  await page.reload();
+  await page.getByTestId('tab-calendar').click();
+  await expect(page.getByTestId('cal-grid')).toBeVisible({ timeout: 20_000 });
+  await expect(
+    page.getByTestId('legend-me'),
+    'week mode had the names all along and simply did not draw them',
+  ).toBeVisible();
+});

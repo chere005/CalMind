@@ -190,6 +190,14 @@ announce itself. It handles template-built ids (`share-${bucket}-${name}`) by
 prefix, and asserts it read both sides before comparing, so an empty scan
 cannot pass for a clean one.
 
+`e2e/chrome.spec.ts` watches the top bar, which nothing did until it broke
+twice in one day. Back must sit LEFT of the title on every screen; a screen
+with a picker keeps it in every view mode; the username pill is always there.
+Both of the day's regressions were controls that came and went or sat on the
+wrong side, and either way everything beside them moved — which from outside
+looks like "all the button placement is broken". Verified with teeth:
+reintroducing both regressions turns two of the three red.
+
 Passkeys are verified TWICE, against different things. `e2e/passkey.spec.ts`
 runs locally and proves the wiring; `e2e/live-passkey.spec.ts` runs against the
 deployed test server and proves the parts that only exist there — a
