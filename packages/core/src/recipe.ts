@@ -140,6 +140,17 @@ export function formatRecipe(pages: string[]): RecipeResult {
   // directions heading a line is a step whether it wears a number or not.
   let block: 'none' | 'ingredients' | 'steps' = 'none';
   let stepNo = 0;
+  // Most recipes people type or paste carry no INGREDIENTS heading at all —
+  // the quantities just start. Once a run of them has begun, a line with no
+  // number in front of it is still almost always an ingredient: "a pinch of
+  // salt", "salt and pepper to taste", "zest of one lemon". Those were
+  // falling through to the leftovers, so the Recipe page dropped them from
+  // the list entirely and left them sitting under "Include notes".
+  let sawQty = false;
+  // …but the closing line of a card is prose, and prose must not be dragged
+  // in with them. A trailing sentence gives itself away: it runs long, or it
+  // ends in a full stop. Humble, like the rest of these heuristics.
+  const readsLikeIngredient = (l: string) => l.length <= 40 && !/[.!?]$/.test(l);
   for (let i = 0; i < lines.length; i++) {
     if (i === titleAt) continue;
     const l = lines[i]!;
@@ -165,6 +176,11 @@ export function formatRecipe(pages: string[]): RecipeResult {
       continue;
     }
     if (block === 'ingredients' || QTY.test(l)) {
+      sawQty = true;
+      out.push('- ' + l);
+      continue;
+    }
+    if (sawQty && readsLikeIngredient(l)) {
       out.push('- ' + l);
       continue;
     }

@@ -29,6 +29,26 @@ export function RecipeEditor({ note, onClose }: { note: Rec<'note'>; onClose: ()
   const [ingField, setIngField] = useState('');
   const [stepField, setStepField] = useState('');
   const [busy, setBusy] = useState('');
+  // Tap a line to fix it. Before this the only way to mend a typo — and OCR
+  // hands you plenty — was to delete the row and type the whole thing again,
+  // which on a phone is the difference between correcting a recipe and
+  // giving up on it. Emptying a line deletes it, the way an empty add does.
+  const [editing, setEditing] = useState<{ list: 'ing' | 'step'; at: number } | null>(null);
+  const [editText, setEditText] = useState('');
+  const startEdit = (list: 'ing' | 'step', at: number, value: string) => {
+    setEditing({ list, at });
+    setEditText(value);
+  };
+  const commitEdit = () => {
+    if (!editing) return;
+    const { list, at } = editing;
+    setEditing(null);
+    const raw = editText.trim();
+    const apply = (rows: string[]) =>
+      raw === '' ? rows.filter((_x, j) => j !== at) : rows.map((x, j) => (j === at ? (list === 'ing' ? parseIngredient(raw) : raw) : x));
+    if (list === 'ing') setIngredients(apply);
+    else setSteps(apply);
+  };
 
   const addIngredient = () => {
     const t = parseIngredient(ingField);
@@ -90,7 +110,21 @@ export function RecipeEditor({ note, onClose }: { note: Rec<'note'>; onClose: ()
         {ingredients.map((ing, i) => (
           <View key={`${ing}-${i}`} style={s.row}>
             <Text style={s.dot}>•</Text>
-            <Text style={s.rowText}>{ing}</Text>
+            {editing?.list === 'ing' && editing.at === i ? (
+              <Field
+                testID="ing-edit"
+                value={editText}
+                onChangeText={setEditText}
+                autoFocus
+                style={s.rowField}
+                onBlur={commitEdit}
+                onSubmitEditing={commitEdit}
+              />
+            ) : (
+              <Pressable testID="ing-row" style={s.rowPress} onPress={() => startEdit('ing', i, ing)}>
+                <Text style={s.rowText}>{ing}</Text>
+              </Pressable>
+            )}
             <ConfirmDelete size={22} onDelete={() => setIngredients(ingredients.filter((_x, j) => j !== i))} />
           </View>
         ))}
@@ -109,7 +143,21 @@ export function RecipeEditor({ note, onClose }: { note: Rec<'note'>; onClose: ()
         {steps.map((st, i) => (
           <View key={`${st}-${i}`} style={s.row}>
             <Text style={s.stepNum}>{i + 1}.</Text>
-            <Text style={s.rowText}>{st}</Text>
+            {editing?.list === 'step' && editing.at === i ? (
+              <Field
+                testID="step-edit"
+                value={editText}
+                onChangeText={setEditText}
+                autoFocus
+                style={s.rowField}
+                onBlur={commitEdit}
+                onSubmitEditing={commitEdit}
+              />
+            ) : (
+              <Pressable testID="step-row" style={s.rowPress} onPress={() => startEdit('step', i, st)}>
+                <Text style={s.rowText}>{st}</Text>
+              </Pressable>
+            )}
             <ConfirmDelete size={22} onDelete={() => setSteps(steps.filter((_x, j) => j !== i))} />
           </View>
         ))}
@@ -148,7 +196,11 @@ const s = themed(() => StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 9, paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: T.lineSoft },
   dot: { color: T.dim, fontSize: 15 },
   stepNum: { color: T.gold, fontSize: 14, fontWeight: '700', width: 22, textAlign: 'right' },
-  rowText: { color: T.text, fontSize: 15, flex: 1 },
+  rowText: { color: T.text, fontSize: 15 },
+  // The tap target is the whole line, not just the glyphs in it — a phone
+  // gives you a thumb, not a cursor.
+  rowPress: { flex: 1, paddingVertical: 2 },
+  rowField: { flex: 1, paddingVertical: 4 },
   incRow: { flexDirection: 'row', alignItems: 'center', gap: 9, marginTop: 14 },
   incBox: { width: 22, height: 22, borderRadius: 6, borderWidth: 1.5, borderColor: T.line, alignItems: 'center', justifyContent: 'center' },
   incBoxOn: { borderColor: T.accent, backgroundColor: T.accentSoft },

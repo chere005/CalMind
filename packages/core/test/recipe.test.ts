@@ -51,6 +51,34 @@ DIRECTIONS
     expect(r.extra).toEqual([]);
   });
 
+  it('an ingredient with no number in front of it still counts as one', () => {
+    // Straight off Sean's phone screenshot: five quantities parsed, and
+    // "a pinch of salt" fell through to the leftovers under Include notes,
+    // because nothing about it starts with a digit. Most typed recipes have
+    // no INGREDIENTS heading at all, so the quantity run has to carry it.
+    const r = recipeFromPages([
+      'Pancakes\n2 cups flour\n1 cup milk\na pinch of salt\nsalt and pepper to taste',
+    ]);
+    expect(r.ingredients).toEqual(['2 cups flour', '1 cup milk', 'a pinch of salt', 'salt and pepper to taste']);
+    expect(r.extra).toEqual([]);
+  });
+
+  it('…but the closing line of a card is prose, and stays prose', () => {
+    const r = recipeFromPages([
+      'Pancakes\n2 cups flour\na pinch of salt\nGrandma always doubled the butter and never once wrote that down.',
+    ]);
+    expect(r.ingredients).toEqual(['2 cups flour', 'a pinch of salt']);
+    expect(r.extra).toEqual(['Grandma always doubled the butter and never once wrote that down.']);
+  });
+
+  it('a bare line BEFORE any quantity is not swept up either', () => {
+    // Nothing has established an ingredient run yet, so the subtitle under
+    // the title stays where it belongs.
+    const r = recipeFromPages(['Pancakes\nServes four, generously\n2 cups flour']);
+    expect(r.ingredients).toEqual(['2 cups flour']);
+    expect(r.extra).toEqual(['Serves four, generously']);
+  });
+
   it('a stray numbered line does not turn the rest of the card into steps', () => {
     // Only a heading opens the method. Without that rule the closing note on
     // a card — the bit about Grandma doubling the butter — became step two,

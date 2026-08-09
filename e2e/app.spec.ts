@@ -910,6 +910,40 @@ test('a Notes section renames via double-click', async ({ page }) => {
   await expect(page.getByText('Stuff', { exact: true }).first()).toBeVisible();
 });
 
+test('a recipe line is mended by tapping it, not by deleting and retyping', async ({ page }) => {
+  // OCR hands you typos by the handful. Before this the only way to fix one
+  // was to delete the row and type the whole line again — on a phone, the
+  // difference between correcting a recipe and abandoning it.
+  await signup(page);
+  await page.getByTestId('tab-notes').click();
+  await page.getByTestId('secadd-General').first().click();
+  await page.getByPlaceholder('New note').fill('Pancakes');
+  await page.getByPlaceholder('New note').press('Enter');
+  await page.getByTestId('note-body-view').click();
+  await page.getByTestId('note-body-edit').fill('2 cups flur\n1. Mix it');
+  await page.getByTestId('recipe-import').click();
+
+  await page.getByTestId('ing-row').first().click();
+  const field = page.getByTestId('ing-edit');
+  await expect(field).toBeVisible();
+  await field.fill('3 cups flour');
+  await field.press('Enter');
+  await expect(page.getByTestId('ing-row').first()).toContainText('3 cups flour');
+
+  // A step mends the same way…
+  await page.getByTestId('step-row').first().click();
+  const stepField = page.getByTestId('step-edit');
+  await stepField.fill('Mix it well');
+  await stepField.press('Enter');
+  await expect(page.getByTestId('step-row').first()).toContainText('Mix it well');
+
+  // …and emptying a line deletes it, the way an empty add does.
+  await page.getByTestId('ing-row').first().click();
+  await page.getByTestId('ing-edit').fill('');
+  await page.getByTestId('ing-edit').press('Enter');
+  await expect(page.getByTestId('ing-row')).toHaveCount(0);
+});
+
 test('the Recipe page can shed the non-recipe notes with its checkbox', async ({ page }) => {
   await signup(page);
   await page.getByTestId('tab-notes').click();
