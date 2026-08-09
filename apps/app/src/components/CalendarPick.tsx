@@ -23,7 +23,7 @@ import {
 import { CalGlyph } from './KindIcons';
 import { useStore } from '../store';
 import { themed, APP_PALETTES, T , APP_PALETTES_SHARED } from '../theme';
-import { CircleBtn, ConfirmDelete, Field, pickHit, Pill } from '../ui';
+import { CircleBtn, ConfirmDelete, Field, pickHit, Pill, WebHitSlop } from '../ui';
 import { Dropdown } from './Dropdown';
 import { ordForMove, useRowDrag } from './rowdrag';
 import { SwatchTray } from './SwatchTray';
@@ -308,7 +308,7 @@ function CalendarManager({ onClose }: { onClose: () => void }) {
               <View key={c.id}>
                 {drag.slot === i && <View style={s.dropLine} />}
                 <View ref={drag.registerRow(i)} style={[s.mrow, drag.dragIdx === i && { opacity: 0.55, transform: [{ translateY: drag.dragDy }] }]}>
-                <View {...drag.handleFor(i)} style={s.grip} hitSlop={8}><Text style={s.gripText}>≡</Text></View>
+                <View {...drag.handleFor(i)} style={s.grip} hitSlop={8}><WebHitSlop /><Text style={s.gripText}>≡</Text></View>
                 <SwatchTray palette={APP_PALETTES.calendar} color={c.payload.color} onPick={(hex) => mutate((e) => e.put({ ...c, payload: { ...c.payload, color: hex } }))} />
                 {renaming === c.id ? (
                   <Field

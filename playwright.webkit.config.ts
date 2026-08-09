@@ -41,7 +41,7 @@ export default defineConfig({
   // browser than on the phone apps, and the browser in question is this one.
   // Verifying that fix in Chromium alone would have been checking it
   // everywhere except where it matters.
-  grep: /signing up lands on the calendar|a reminder adds into its section|note body renders its markers|the page carries the web-app head|interrupted by switching tabs|interrupted mid-sentence|back sits left of the title|picker and the username survive|scaling reads the recipe|arming delete on one note|legend with many calendars|over-long note says so|answers a press outside its drawn edge|extra tap area stays near its control|answers a press on its ring/,
+  grep: /signing up lands on the calendar|a reminder adds into its section|note body renders its markers|the page carries the web-app head|interrupted by switching tabs|interrupted mid-sentence|back sits left of the title|picker and the username survive|scaling reads the recipe|arming delete on one note|legend with many calendars|over-long note says so|answers a press outside its drawn edge|extra tap area stays near its control|answers a press on its ring|a drag starts from the widened part of a grip/,
   timeout: 30_000,
   retries: 0,
   workers: 1,

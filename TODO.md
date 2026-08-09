@@ -242,9 +242,14 @@ Next up, in Sean's order:
 - [x] **Verified in WebKit**, which is the whole point: checking this in
       Chromium alone would have been checking it everywhere except where it
       matters. `hitarea.spec.ts` is now in the WebKit config. 15 there.
-- [ ] **Drag grips still rely on hitSlop and are 16px in a browser.** Left
-      alone deliberately: adding a child to a drag handle risks the gesture
-      itself, and that wants a pass with the drag specs in view.
+- [x] **The drag grips too** — the riskiest place to put one of these, since
+      what is being widened is a gesture rather than a tap: a child that took
+      the pointer down and did not pass it on would leave a row stuck to the
+      finger. PanResponder resolves through bubbling, so it does pass it on.
+      All eight drag specs stay green, and a new one grabs a folder row six
+      pixels LEFT of the ≡ — where there was nothing to grab before — and
+      drags it past its neighbour. Removing the child turns that red.
+      Recipe ingredient and step grips got it too.
 - [ ] **Worth remembering — three of these checks passed while testing
       nothing**, and only deliberate mutation found it. A press measured
       three pixels in from an element's own edge lands inside it at any size.
@@ -261,7 +266,7 @@ Next up, in Sean's order:
 - [ ] `git pull --autostash` first — two sessions share this repo; stage
       explicit paths only, never `git add -A`, hold commits on files the other
       session has half-refactored.
-- [ ] Keep the suites green: 260 core + 37 server + 98 gesture + 15 WebKit,
+- [ ] Keep the suites green: 260 core + 37 server + 99 gesture + 16 WebKit,
       plus 9 live checks (16 with the API) and 6 desktop. The README points
       here rather than carrying numbers of its own, so this line has to be
       the one that is right — it was 93 an hour after the gesture suite passed

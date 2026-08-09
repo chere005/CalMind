@@ -18,7 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { parseIngredient, recipeBody, recipeFromPages, type Rec } from '@calmind/core';
 import { useStore } from '../store';
 import { themed, T } from '../theme';
-import { CircleBtn, ConfirmDelete, Field, Pill } from '../ui';
+import { CircleBtn, ConfirmDelete, Field, Pill, WebHitSlop } from '../ui';
 import { OCR_UNSUPPORTED, ocrImages, ocrSupported } from '../components/ocr';
 import { useRowDrag } from '../components/rowdrag';
 import { useSwipeLeft } from '../components/swiperow';
@@ -172,6 +172,7 @@ export function RecipeEditor({ note, onClose }: { note: Rec<'note'>; onClose: ()
               style={[s.row, ingDrag.dragIdx === i && { opacity: 0.55, transform: [{ translateY: ingDrag.dragDy }] }]}
             >
             <View testID="ing-grip" {...ingDrag.handleFor(i)} style={s.handle} hitSlop={8}>
+                    <WebHitSlop slop={6} />
               <Text style={s.dot}>•</Text>
             </View>
             {editing?.list === 'ing' && editing.at === i ? (
@@ -217,6 +218,7 @@ export function RecipeEditor({ note, onClose }: { note: Rec<'note'>; onClose: ()
               style={[s.row, stepDrag.dragIdx === i && { opacity: 0.55, transform: [{ translateY: stepDrag.dragDy }] }]}
             >
             <View testID="step-grip" {...stepDrag.handleFor(i)} style={s.handle} hitSlop={8}>
+                    <WebHitSlop slop={6} />
               <Text style={s.stepNum}>{i + 1}.</Text>
             </View>
             {editing?.list === 'step' && editing.at === i ? (

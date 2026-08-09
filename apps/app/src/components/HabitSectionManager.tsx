@@ -10,7 +10,7 @@ import { byOrd, deleteHabitSection, newId, ordBetween, type Rec } from '@calmind
 import { SwatchTray } from './SwatchTray';
 import { useStore } from '../store';
 import { themed, APP_PALETTES, T } from '../theme';
-import { CircleBtn, ConfirmDelete, Field, Pill } from '../ui';
+import { CircleBtn, ConfirmDelete, Field, Pill, WebHitSlop } from '../ui';
 import { ordForMove, useRowDrag } from './rowdrag';
 
 export function HabitSectionManager({ onClose }: { onClose: () => void }) {
@@ -81,7 +81,7 @@ export function HabitSectionManager({ onClose }: { onClose: () => void }) {
               <View key={sec.id}>
                 {drag.slot === i && <View style={s.dropLine} />}
                 <View ref={drag.registerRow(i)} style={[s.row, drag.dragIdx === i && { opacity: 0.55, transform: [{ translateY: drag.dragDy }] }]}>
-                <View {...drag.handleFor(i)} style={s.grip} hitSlop={8}><Text style={s.gripText}>≡</Text></View>
+                <View {...drag.handleFor(i)} style={s.grip} hitSlop={8}><WebHitSlop /><Text style={s.gripText}>≡</Text></View>
                 <CircleBtn
                   glyph=" "
                   label="Change colour"

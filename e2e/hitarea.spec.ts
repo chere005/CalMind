@@ -163,3 +163,45 @@ test('the picker answers a press on its ring, not only dead centre', async ({ pa
     'pressing the edge of the picker opens it, as pressing the middle does',
   ).toBeVisible({ timeout: 5_000 });
 });
+
+/**
+ * And a drag can START outside the grip it grabs.
+ *
+ * The grips are the last thing hitSlop was quietly failing to widen: sixteen
+ * pixels drawn, twenty-eight on the phone builds, sixteen in a browser. They
+ * are also the riskiest place to put an extra hit area, because the thing
+ * being extended is not a tap but a gesture — a transparent child that took
+ * the pointer down and did not pass it on would leave the row stuck to the
+ * finger, or refuse to move at all.
+ *
+ * So this grabs a folder row six pixels to the LEFT of the grip's drawn edge,
+ * where there was nothing to grab before, and drags it past its neighbour.
+ * The reorder either happens or it does not; there is no partial credit.
+ */
+test('a drag starts from the widened part of a grip, not just the drawn part', async ({ page }) => {
+  test.setTimeout(60_000);
+  await signUp(page, 'grp');
+  await page.getByTestId('tab-reminders').click();
+  await page.getByTestId('pick-reminders').click();
+  await page.getByText('Manage folders…').click();
+
+  const rows = page.getByTestId('mgr-row');
+  await expect(rows).toHaveCount(2);
+  await expect(rows.first()).toContainText('Reminders');
+
+  const grip = (await page.getByTestId('grip').first().boundingBox())!;
+  const b0 = (await rows.nth(0).boundingBox())!;
+  const b1 = (await rows.nth(1).boundingBox())!;
+  const dy = b1.y + b1.height / 2 - (b0.y + b0.height / 2) + 8;
+
+  // Six pixels left of the drawn edge: inside the widened area, outside the ≡.
+  const x = grip.x - 6;
+  const y = grip.y + grip.height / 2;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  for (let i = 1; i <= 8; i++) await page.mouse.move(x, y + (i * dy) / 8);
+  await page.waitForTimeout(120);
+  await page.mouse.up();
+
+  await expect(rows.first(), 'the row moved, so the press outside the ≡ was a real grab').toContainText('Calendar');
+});

@@ -11,7 +11,7 @@ import { useStore } from '../store';
 import { themed, T } from '../theme';
 import { TopBar } from '../chrome';
 import { FolderPick, useFolderView } from '../components/FolderPick';
-import { CircleBtn, ConfirmDelete, Field, Pill, Rule } from '../ui';
+import { CircleBtn, ConfirmDelete, Field, Pill, Rule, WebHitSlop } from '../ui';
 import { Dropdown } from '../components/Dropdown';
 import { useRowDrag } from '../components/rowdrag';
 import { useSectionDrag, type SectionSlot } from '../components/sectiondrag';
@@ -490,6 +490,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
                   style={[s.secHead, secDrag.dragging === sec.id && { opacity: 0.55 }]}
                 >
                   <View testID={`nsec-grip-${sec.payload.name}`} {...(pageEdit ? secDrag.gripFor(sec.id, f.id) : {})} style={[s.rowGrip, !pageEdit && s.gripHidden]} pointerEvents={pageEdit ? 'auto' : 'none'} hitSlop={6}>
+                    <WebHitSlop slop={6} />
                     <Text style={s.rowGripText}>≡</Text>
                   </View>
                   <Pressable onPress={() => toggleNFold(sec.id)} hitSlop={8} style={s.chevWrap}>
@@ -554,6 +555,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
                     {drag.slot !== null && flatIdxOf(n.id) === drag.slot && <View style={s.dropLine} />}
                     <View ref={drag.registerRow(flatIdxOf(n.id))} {...(pageEdit ? {} : swipe.handlersFor(n.id))} style={[s.row, s.rowNoSelect, drag.dragIdx !== null && flatIdxOf(n.id) === drag.dragIdx && { opacity: 0.55, transform: [{ translateY: drag.dragDy }] }]}>
                       <View testID="note-grip" {...(pageEdit ? drag.handleFor(flatIdxOf(n.id)) : {})} style={[s.rowGrip, !pageEdit && s.gripHidden]} pointerEvents={pageEdit ? 'auto' : 'none'} hitSlop={6}>
+                    <WebHitSlop slop={6} />
                         <Text style={s.rowGripText}>≡</Text>
                       </View>
                       <Pressable

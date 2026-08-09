@@ -21,7 +21,7 @@ import {
 import { useStore } from '../store';
 import { themed, APP_PALETTES, APP_PALETTES_SHARED, T } from '../theme';
 import { SwatchTray } from './SwatchTray';
-import { CircleBtn, ConfirmDelete, Field, Pill } from '../ui';
+import { CircleBtn, ConfirmDelete, Field, Pill, WebHitSlop } from '../ui';
 import { Dropdown } from './Dropdown';
 import { ordForMove, useRowDrag } from './rowdrag';
 
@@ -131,7 +131,7 @@ export function FolderManager({ app, onClose }: { app: 'reminders' | 'notes'; on
               <View key={f.id}>
                 {drag.slot === i && <View style={s.dropLine} />}
                 <View testID="mgr-row" ref={drag.registerRow(i)} style={[s.row, drag.dragIdx === i && { opacity: 0.55, transform: [{ translateY: drag.dragDy }] }]}>
-                <View testID="grip" {...drag.handleFor(i)} style={s.grip} hitSlop={8}><Text style={s.gripText}>≡</Text></View>
+                <View testID="grip" {...drag.handleFor(i)} style={s.grip} hitSlop={8}><WebHitSlop /><Text style={s.gripText}>≡</Text></View>
                 <SwatchTray testID={`mgr-swatch-${f.payload.name}`} palette={APP_PALETTES[app]} color={f.payload.color} onPick={(hex) => mutate((e) => e.put({ ...f, payload: { ...f.payload, color: hex } }))} />
                 {renaming === f.id ? (
                   <Field

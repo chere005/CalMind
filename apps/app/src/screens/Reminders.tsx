@@ -364,6 +364,7 @@ export function Reminders() {
                     style={[s.secHead, secDrag.dragging === sec.id && { opacity: 0.55 }]}
                   >
                     <View testID={`sec-grip-${sec.payload.name}`} {...(pageEdit ? secDrag.gripFor(sec.id, f.id) : {})} style={[s.rowGrip, !pageEdit && s.gripHidden]} pointerEvents={pageEdit ? 'auto' : 'none'} hitSlop={6}>
+                    <WebHitSlop slop={6} />
                       <Text style={s.rowGripText}>≡</Text>
                     </View>
                     <Pressable onPress={() => toggleFold(sec.id)} hitSlop={8} style={s.chevWrap}>
