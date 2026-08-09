@@ -344,6 +344,14 @@ Next up, in Sean's order:
 - [x] All four observed shapes (Zozzona, Croque Madame, Carbonara, Porro) now
       round-trip with every ingredient kept, no prose mistaken for food, and
       byte-identical on a second save.
+- [x] **Unticking "Include notes" hid the very lines it drops.** That was
+      tolerable when the leftovers were trivia. It is not now: most of Sean's
+      cards write the method as prose with no heading, so the whole method
+      lands in the leftovers rather than in the steps — and unticking removed
+      it from the screen at the exact moment Save was about to remove it from
+      the note. The lines stay visible either way now, struck through, above a
+      line saying how many will not be saved. The checkbox does the same thing
+      as before; only the cost is visible.
 - [ ] Photo import flow (recipe-import → recipe-photos → recipe-title →
       recipe-save) is covered by e2e/ocr.spec.ts — keep that spec on the real
       flow, not a shortcut.

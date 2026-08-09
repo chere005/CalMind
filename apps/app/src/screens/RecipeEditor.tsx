@@ -229,8 +229,19 @@ export function RecipeEditor({ note, onClose }: { note: Rec<'note'>; onClose: ()
               <View style={[s.incBox, includeNotes && s.incBoxOn]}>{includeNotes && <Text style={s.incTick}>✓</Text>}</View>
               <Text style={s.incLabel}>Include notes</Text>
             </Pressable>
-            {includeNotes && extra.map((x, i) => (
-              <Text key={i} style={s.extraLine}>{x}</Text>
+            {/* Shown either way. Unticking used to HIDE these lines, which is
+                the one moment you most need to see them: Save drops them, and
+                on most of Sean's recipes the leftovers are the entire method —
+                the cards write it as prose with no heading, so it lands here
+                rather than in the steps. Hiding what you are about to lose
+                makes the cost unjudgeable. */}
+            {!includeNotes && (
+              <Text testID="recipe-dropping" style={s.dropWarn}>
+                {extra.length === 1 ? 'This line will not be saved:' : `These ${extra.length} lines will not be saved:`}
+              </Text>
+            )}
+            {extra.map((x, i) => (
+              <Text key={i} style={[s.extraLine, !includeNotes && s.extraDropped]}>{x}</Text>
             ))}
           </>
         )}
@@ -281,6 +292,8 @@ const s = themed(() => StyleSheet.create({
   incBoxOn: { borderColor: T.accent, backgroundColor: T.accentSoft },
   incTick: { color: T.accent, fontSize: 14, fontWeight: '800', lineHeight: 16 },
   incLabel: { color: T.text, fontSize: 15 },
+  dropWarn: { color: T.gold, fontSize: 12, marginTop: 4 },
+  extraDropped: { textDecorationLine: 'line-through', opacity: 0.55 },
   extraLine: { color: T.muted, fontSize: 14, lineHeight: 20 },
   hint: { color: T.muted, fontSize: 12, lineHeight: 17, marginTop: 14 },
   footRow: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 16 },

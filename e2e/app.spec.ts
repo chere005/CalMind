@@ -673,6 +673,40 @@ test('the selected day survives a trip to another tab', async ({ page }) => {
   await expect(page.getByText(/, .* 15/)).toBeVisible(); // the panel heading still says the 15th
 });
 
+test('unticking Include notes shows what it would drop, rather than hiding it', async ({ page }) => {
+  // The leftovers are not always trivia. Most of Sean's cards write the method
+  // as prose with no heading, so it lands in the leftovers rather than in the
+  // steps — and unticking used to HIDE those lines at exactly the moment Save
+  // was about to drop them.
+  const user = await signup(page);
+  await page.getByTestId('tab-notes').click();
+  await page.getByTestId('secadd-General').first().click();
+  await page.getByPlaceholder('New note').fill('Uovo');
+  await page.getByPlaceholder('New note').press('Enter');
+  await page.getByTestId('note-body-view').click();
+  await page.getByTestId('note-body-edit').fill(
+    'Ingredients\n200 g farina 00\n2 eggs\nForm a well with the flour and knead it.\nDo whatever you want with it.',
+  );
+  await page.getByTestId('note-title').click();
+  await page.getByTestId('recipe-import').click();
+  await expect(page.getByTestId('recipe-save')).toBeVisible({ timeout: 10_000 });
+
+  // Ticked: the lines are listed and no warning is needed.
+  // Two matches: the leftovers list and the ingredient row it also parses
+  // into. The leftovers line is the last one.
+  await expect(page.getByText('Form a well with the flour and knead it.').last()).toBeVisible();
+  await expect(page.getByTestId('recipe-dropping')).toHaveCount(0);
+
+  // Unticked: still listed, struck through, and said out loud.
+  await page.getByTestId('recipe-incnotes').click();
+  await expect(page.getByTestId('recipe-dropping')).toContainText('will not be saved');
+  await expect(
+    page.getByText('Form a well with the flour and knead it.').last(),
+    'you can still see what you are giving up',
+  ).toBeVisible();
+  expect(user).toBeTruthy();
+});
+
 test('the widget setup page bakes the pin and carries the whole script', async ({ page }) => {
   const user = await signup(page);
   await page.getByText(user, { exact: true }).click();
