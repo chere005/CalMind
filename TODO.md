@@ -484,6 +484,24 @@ race had actually been observed — the difference is evidence, not taste.
       Aglio Olio is prose with no ingredient list and correctly gets no scale
       control at all.
 
+## 3j · The rest of the leaked per-note state (2026-08-09)
+
+Having fixed the drafts leaking across a note switch, I read every piece of
+state that screen holds and asked which of them belong to the OPEN note. Two
+more did, and one of those deletes things:
+
+- [x] **An armed delete carried to the next note.** Delete is two-press and
+      disarms itself after 2.5s. The arming lived in screen state, so arming
+      on note A and opening note B inside that window made B's delete a
+      ONE-press delete — on a note nobody had confirmed anything about. Four
+      taps is a comfortable 2.5 seconds. `e2e/armeddelete.spec.ts` covers it
+      and HAS TEETH: verified failing with the disarm removed, unlike the
+      draft spec next door.
+- [x] **A text selection carried over.** B/I/U wrap at `sel`, measured in the
+      previous note's body; in a shorter note the offsets are past the end and
+      the markers land on nothing.
+- [x] The date panel and its half-typed field also now close with the note.
+
 ## 4 · Gated — waiting on Sean's explicit word
 
 - [ ] **E2EE envelopes** (design settled, build gated): X25519 +

@@ -169,6 +169,16 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
     setBodyEditing(false);
     setDraft(null);
     setTitleDraft(null);
+    // An armed delete is the dangerous one. It disarms itself after 2.5s, so
+    // the window is small — but inside it, arming on one note and opening
+    // another turned that note's two-press delete into a one-press delete, on
+    // a note nobody had confirmed anything about.
+    setDelArmed(false);
+    // A selection belongs to the body it was measured in. Carried into a
+    // shorter note, B/I/U wraps nothing at an offset past the end.
+    setSel({ start: 0, end: 0 });
+    setDateOpen(false);
+    setDateField('');
   }, [openId]);
   // Only OUR bodies scale — the markers are what say the ingredients have
   // been read and separated from the prose around them.
