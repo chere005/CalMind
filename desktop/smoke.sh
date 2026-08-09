@@ -40,8 +40,12 @@ fi
 
 [ -x "$BIN" ] && ok "the bundle is there" || { bad "no bundle at $BIN"; echo; echo "$PASS passed, $FAIL failed"; exit 1; }
 
-DIST="$(find "$ROOT/apps/app/dist" -name 'index-*.js' 2>/dev/null | head -1)"
-DIST="$(basename "${DIST:-}")"
+# Read the bundle NAME OUT OF index.html rather than picking a file out of the
+# directory. The export does not clean up after itself, so dist/ accumulates
+# old bundles — and `find | head -1` will happily choose a stale one, match it
+# against a stale binary, and print a confident tick. index.html names the one
+# that actually loads, which is the only one worth checking.
+DIST="$(grep -oE 'index-[a-f0-9]+\.js' "$ROOT/apps/app/dist/index.html" 2>/dev/null | head -1)"
 if [ -z "$DIST" ] || [ "$DIST" = "." ]; then
   bad "no exported bundle in apps/app/dist — run npm run export:web first"
 elif strings -a "$BIN" | grep -qF "$DIST"; then

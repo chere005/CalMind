@@ -218,6 +218,16 @@ searched the binary for the empty string and reported a confident YES. It is
 worth assuming a green check is lying until it has been shown failing at
 least once.
 
+It then went wrong a SECOND way, which is the more interesting one. `expo
+export` does not clean up after itself, so apps/app/dist accumulates old
+bundles — and `find … | head -1` picks between them arbitrarily. The check
+matched a stale bundle that was still lying in the directory, found it in a
+binary that also still contained it, and passed. It now reads the bundle name
+out of dist/index.html, which names the one that actually loads. The same
+mistake sent me chasing a phantom "the deploy is not landing" for ten minutes:
+compare index.html to index.html, never a directory listing to a directory
+listing.
+
 Nor did any of them have a remote edit land WHILE TYPING.
 `e2e/clobber.spec.ts` is the one that found a real bug. The body writes on
 every keystroke, so while you are actually typing your copy is always newest
