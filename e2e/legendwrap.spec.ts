@@ -56,6 +56,27 @@ test('a legend with many calendars wraps, balances, and names only what is in vi
   // Six chips at this width take two lines; three and three is the answer, and
   // a 5/1 split would satisfy "two lines" while being exactly the thing he
   // complained about.
+  // Every line of chips starts at the SAME left edge. The owner label used to
+  // ride inside the balanced row as though it were a chip, so line one began
+  // after "LW…" and every wrapped line began under it — chips with no common
+  // margin, which is what Sean saw as a ragged edge. The label now sits in a
+  // gutter beside the chips, which is the suite's own shape (`.cleg-who` is
+  // flex: 0 0 auto and the chips wrap inside their own `.cleg-kind` box).
+  const lefts = await legend.locator('text=/^(Home|Work|Gym|Travel|Music|Garden)$/').evaluateAll((els) => {
+    const byLine = new Map<number, number>();
+    for (const el of els) {
+      const r = el.getBoundingClientRect();
+      const line = Math.round(r.top / 4) * 4;
+      byLine.set(line, Math.min(byLine.get(line) ?? Infinity, Math.round(r.left)));
+    }
+    return [...byLine.entries()].sort((a, b) => a[0] - b[0]).map(([, x]) => x);
+  });
+  expect(lefts.length, 'the legend actually wrapped, or this proves nothing').toBeGreaterThan(1);
+  expect(
+    new Set(lefts).size,
+    `every line of chips shares one left edge; got ${JSON.stringify(lefts)}`,
+  ).toBe(1);
+
   const rows = await legend.locator('text=/^(Home|Work|Gym|Travel|Music|Garden)$/').evaluateAll((els) => {
     const byLine = new Map<number, number>();
     for (const el of els) {

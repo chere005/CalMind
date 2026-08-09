@@ -250,30 +250,43 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
       {(legend.length > 0 || sharedLegend.length > 0) && (
         <ScrollView style={[s.legend, { maxHeight: Math.round(winH * 0.22) }]} contentContainerStyle={s.legendInner} horizontal={false}>
           {/* One row per owner, the owner named ONCE in small caps — the
-              suite's legend, not a soup of @-prefixed items. */}
-          {/* The owner name rides as the first item of the balanced row, so
-              its width counts against line one like any other chip does. */}
+              suite's legend, not a soup of @-prefixed items.
+
+              The owner label sits in a GUTTER beside the chips rather than
+              inside the balanced row with them. It used to ride along as the
+              first item, which meant line one began after the label and every
+              wrapped line began under it: chips with no common left edge, and
+              a ragged margin Sean could see straight away. The suite has the
+              same two parts — `.cleg-who` is `flex: 0 0 auto` and the chips
+              live in their own wrapping `.cleg-kind` box beside it
+              (calendar/index.php:997-1003) — so this is its shape, not a new
+              idea. It also leaves the balancer doing what it was written for:
+              balancing chips, none of which is a label. */}
           {legend.length > 0 && (
-            <BalancedRow testID="legend-me">
+            <View style={s.legendRow}>
               <Text style={s.legendOwner}>{(session?.username ?? 'me').toUpperCase()}</Text>
+              <BalancedRow testID="legend-me" style={s.legendChips} gap={10} rowGap={4}>
               {legend.map((l) => (
                 <View key={`${l.kind}:${l.id}`} style={s.legendItem}>
                   {l.kind === 'event' ? <CalGlyph color={l.color} size={14} /> : l.kind === 'reminder' ? <TickBoxGlyph color={l.color} size={14} /> : <PageGlyph color={l.color} size={14} />}
                   <Text style={s.legendText}>{l.name}</Text>
                 </View>
               ))}
-            </BalancedRow>
+              </BalancedRow>
+            </View>
           )}
           {sharedLegend.length > 0 && (
-            <BalancedRow testID="legend-partner">
+            <View style={s.legendRow}>
               <Text style={s.legendOwner}>{(sharedPartnerLabel ?? '').toUpperCase()}</Text>
+              <BalancedRow testID="legend-partner" style={s.legendChips} gap={10} rowGap={4}>
               {sharedLegend.map((l) => (
                 <View key={`sh:${l.kind}:${l.id}`} style={s.legendItem}>
                   {l.kind === 'event' ? <CalGlyph color={l.color} size={14} /> : l.kind === 'reminder' ? <TickBoxGlyph color={l.color} size={14} /> : <PageGlyph color={l.color} size={14} />}
                   <Text style={s.legendText}>{l.name}</Text>
                 </View>
               ))}
-            </BalancedRow>
+              </BalancedRow>
+            </View>
           )}
         </ScrollView>
       )}
@@ -459,8 +472,13 @@ const s = themed(() => StyleSheet.create({
   legend: { flexGrow: 0 },
   legendInner: { paddingHorizontal: 16, paddingVertical: 6 },
   legendRowLine: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 14, rowGap: 4, paddingVertical: 2 },
-  legendOwner: { color: T.muted, fontSize: 11, fontWeight: '800', letterSpacing: 0.6 },
-  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  // The label's own line-height is set so it sits on the chips' first line
+  // rather than riding high above them; paddingTop nudges it onto the same
+  // optical baseline as a 14px glyph.
+  legendRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  legendOwner: { color: T.muted, fontSize: 11, fontWeight: '800', letterSpacing: 0.6, lineHeight: 20, paddingTop: 1 },
+  legendChips: { flex: 1, minWidth: 0 },
+  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5, height: 20 },
   legendShared: { color: T.muted },
   legendText: { color: T.text, fontSize: 13 },
   groupHead: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 },

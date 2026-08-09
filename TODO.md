@@ -389,6 +389,57 @@ question that is his.
       `authdata_parse` or `openssl_verify`, and all three refuse an empty
       string loudly. A clean negative rather than an assumption.
 
+## 0.2 · Sean's standalone reports (2026-08-09, round three)
+
+### The black gap at the bottom — NOT reproduced, and here is exactly what I did
+
+- [x] **I did reach standalone.** Installed the test build to the simulator's
+      Home Screen from Safari with "Open as Web App" on, launched it, signed
+      up a throwaway account. Real standalone: no browser chrome, translucent
+      status bar.
+- [x] **The layout there is CORRECT.** The tab bar sits at the bottom with
+      only the home-indicator inset beneath it. Measured off the render: tab
+      icons centre at ~96.7% of screen height. In Sean's screenshot they
+      centre at ~85.9%, with ~14% of dead space below. So his layout is
+      sized to a shorter screen; mine is not.
+- [x] **The likeliest reason, and it is evidenced: his app is running OLD
+      CODE.** I deployed a viewport read-out to Settings, confirmed the string
+      is in the SERVED bundle (`grep` over the live JS: present), and then
+      could not get it to appear in the installed app across several
+      relaunches. index.html is served `no-cache` and the bundle is
+      content-hashed and `immutable`, so a genuine cold load cannot miss it —
+      an installed iOS web app simply keeps the page it has.
+- [ ] **What settles it, for Sean:** remove the Home Screen icon, re-add it,
+      open Settings and screenshot the three grey lines at the bottom of the
+      card. They give inner/visual/client heights, screen size, dpr,
+      standalone yes/no and all four safe-area insets. If the gap is gone
+      after re-adding, it was stale code. If it survives, those numbers say
+      which of the heights disagrees and I can fix it directly.
+- [ ] **Not yet explained and deliberately not guessed at**: 393x852 (his) vs
+      402x874 (the simulator) is a different device size, and I cannot rule
+      out that the bug only appears at his. The diagnostic answers that too.
+- [ ] Noticed in passing: the installed web-app icon is the site-wide "SC"
+      mark, not CalMind's. The apple-touch-icon link is being added by the
+      deploy but iOS is not using it. Separate, cosmetic, unfixed.
+
+### The legend alignment — fixed
+
+- [x] **The owner label was inside the balanced row, treated as a chip.** So
+      line one began after "SEAN" and every wrapped line began under it: no
+      common left edge, which is the ragged margin he described. It now sits
+      in a gutter beside the chips, which is the SUITE's own shape rather
+      than a new idea — `.cleg-who` is `flex: 0 0 auto` and the chips wrap
+      inside their own `.cleg-kind` box (calendar/index.php:997-1003).
+- [x] **The balancer is better off**: it now balances chips only, none of
+      which is a label, which is what it was written for. The existing
+      three-and-three assertion still holds.
+- [x] **Chip spacing matched to the suite**: 10 across and 4 down (its 0.55rem
+      / 0.25rem), icon and text centred on a 20pt line so glyph and label
+      share a baseline and every gap is the same.
+- [x] **Pinned and mutation-tested**: every line of chips must share one left
+      edge. Putting the label back inside the row fails it and prints the
+      proof — `got [109,35]`, line one after the label, line two under it.
+
 ## 2 · Steady state (every iteration)
 
 - [ ] `git pull --autostash` first — two sessions share this repo; stage
