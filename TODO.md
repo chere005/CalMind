@@ -289,6 +289,16 @@ Next up, in Sean's order:
       Recipe button now also drops the view back to 1x, so the editor and the
       screen behind it agree rather than the editor looking like it threw the
       doubling away.
+- [x] **'1 bay leaf' doubled to '2 bay leaf'** (Tagliatelle al Ragù, read on
+      the phone). The pluraliser only ever looked at the word AFTER the
+      number, and there that word is 'bay'. Now, when that word is not a unit
+      at all — 'bay', 'large', 'red' — the count falls to the single bare noun
+      that follows, with an irregular map for the plurals English refuses to
+      make by rule (leaf/loaf/half/knife, potato/tomato). Nothing is guessed
+      where there is no single noun to find: '600 g fresh tagliatelle (see
+      Pasta all'Uovo)' is left exactly as written.
+      My first attempt pluralised 'sugar' and 'guanciale' after tbsp and g —
+      caught by tests that were already there, which is what they are for.
 - [ ] Photo import flow (recipe-import → recipe-photos → recipe-title →
       recipe-save) is covered by e2e/ocr.spec.ts — keep that spec on the real
       flow, not a shortcut.

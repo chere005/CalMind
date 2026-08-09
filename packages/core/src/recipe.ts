@@ -286,7 +286,22 @@ const MEASURE = new Set([
   'quart', 'gallon',
 ]);
 
+/**
+ * The plurals English refuses to make by rule. Kitchen words, because that is
+ * what turns up: '2 bay leaf' is the tell that a scaler pluralised the word
+ * after the number instead of the word that names the thing.
+ */
+const IRREGULAR: Record<string, string> = {
+  leaf: 'leaves', loaf: 'loaves', half: 'halves', knife: 'knives',
+  potato: 'potatoes', tomato: 'tomatoes',
+};
+const SINGULAR_OF: Record<string, string> = Object.fromEntries(
+  Object.entries(IRREGULAR).map(([one, many]) => [many, one]),
+);
+
 function singularOf(word: string): string {
+  const low = word.toLowerCase();
+  if (SINGULAR_OF[low]) return SINGULAR_OF[low];
   if (/(?:ch|sh|s|x|z)es$/i.test(word)) return word.slice(0, -2);
   return /s$/i.test(word) && !/ss$/i.test(word) ? word.slice(0, -1) : word;
 }
@@ -320,10 +335,16 @@ function countWord(word: string, n: number): string {
   if (INVARIANT.has(word.toLowerCase())) return word;
   // Half a cup is a cup, not cups — English pluralises above one, not away
   // from it.
+  const low = word.toLowerCase();
   const plural = n > 1 + 1e-9;
-  const isPlural = /(?:ch|sh|s|x|z)es$/i.test(word) || (/s$/i.test(word) && !/ss$/i.test(word));
+  const isPlural = SINGULAR_OF[low] !== undefined
+    || /(?:ch|sh|s|x|z)es$/i.test(word) || (/s$/i.test(word) && !/ss$/i.test(word));
   if (plural === isPlural) return word;
-  if (plural) return /(?:ch|sh|s|x|z)$/i.test(word) ? word + 'es' : word + 's';
+  if (plural) {
+    if (IRREGULAR[low]) return IRREGULAR[low];
+    return /(?:ch|sh|s|x|z)$/i.test(word) ? word + 'es' : word + 's';
+  }
+  if (SINGULAR_OF[low]) return SINGULAR_OF[low];
   return /(?:ch|sh|s|x|z)es$/i.test(word) ? word.slice(0, -2) : word.slice(0, -1);
 }
 
@@ -368,8 +389,26 @@ export function scaleIngredient(text: string, factor: number): string {
   const recount = unit !== '' && (MEASURE.has(singularOf(unit).toLowerCase()) || namesTheThing);
   const word = unit === '' ? '' : recount ? countWord(unit, count) : unit;
 
-  let after = rest;
-  const dual = SECOND_MEASURE.exec(rest);
+  // If the word after the number was NOT the thing being counted — 'bay' in
+  // '1 bay leaf', 'large' in '1 large egg' — then the thing is the noun that
+  // follows, and that is what takes the count. Only when it is a single bare
+  // word: '600 g fresh tagliatelle (see Pasta all'Uovo)' has no such noun to
+  // find, and guessing at one would be worse than leaving it.
+  // Only when that word is not a unit AT ALL. 'tbsp' and 'g' are units that
+  // simply never take an 's', and treating them as adjectives turned
+  // '2-3 tbsp sugar' into 'sugars' — caught by the tests that were already
+  // there, which is what they are for.
+  let head = rest;
+  if (unit !== '' && !knownUnit(unit)) {
+    const cut = rest.search(/[,;(]/);
+    const front = (cut < 0 ? rest : rest.slice(0, cut)).trim();
+    if (/^[A-Za-z]+$/.test(front)) {
+      head = countWord(front, count) + (cut < 0 ? '' : rest.slice(cut));
+    }
+  }
+
+  let after = head;
+  const dual = SECOND_MEASURE.exec(head);
   if (dual && knownUnit(dual[2]!)) {
     const v = qtyValue(dual[1]!);
     if (v !== null) {

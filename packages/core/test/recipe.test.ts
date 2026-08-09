@@ -269,6 +269,24 @@ describe('scaling — the one arithmetic a recipe asks of you', () => {
     expect(scaleIngredient('1 (14 oz) can tomatoes', 2)).toBe('2 (14 oz) can tomatoes');
   });
 
+  it('the word that names the thing takes the count, wherever it sits', () => {
+    // Off Sean's Tagliatelle al Ragù: '1 bay leaf' doubled to '2 bay leaf',
+    // because the pluraliser only ever looked at the word after the number —
+    // and there that word is 'bay'.
+    expect(scaleIngredient('1 bay leaf', 2)).toBe('2 bay leaves');
+    expect(scaleIngredient('1 large egg', 2)).toBe('2 large eggs');
+    expect(scaleIngredient('1 red onion, diced', 2)).toBe('2 red onions, diced');
+    expect(scaleIngredient('2 bay leaves', 0.5)).toBe('1 bay leaf');
+    expect(scaleIngredient('1 potato', 2)).toBe('2 potatoes');
+    // A measure word still takes it, and the noun after is left alone.
+    expect(scaleIngredient('1 cup dry white wine', 2)).toBe('2 cups dry white wine');
+    // No single bare noun to find — do not guess at one.
+    expect(scaleIngredient('300 g fresh tagliatelle (see Pasta all Uovo)', 2))
+      .toBe('600 g fresh tagliatelle (see Pasta all Uovo)');
+    // And the compound noun that started all this still holds.
+    expect(scaleIngredient('3 egg yolks', 2)).toBe('6 egg yolks');
+  });
+
   it('a line with no number is left exactly alone', () => {
     // Half a pinch is not a quantity, and inventing one would be worse than
     // leaving the cook to judge it.
