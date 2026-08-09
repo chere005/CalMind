@@ -6,7 +6,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { deleteSection, renameSection, byOrd, richLines, duplicateItem, formatRecipe, prefsPut, moveNote, moveSection, moveSectionEmptyingFolder, newId, nowStr, ordBetween, parseDateFromText, parseWhenFromText, todayStr, type Rec } from '@calmind/core';
+import { deleteSection, renameSection, sectionNameTaken, byOrd, richLines, duplicateItem, formatRecipe, prefsPut, moveNote, moveSection, moveSectionEmptyingFolder, newId, nowStr, ordBetween, parseDateFromText, parseWhenFromText, todayStr, type Rec } from '@calmind/core';
 import { useStore } from '../store';
 import { themed, T } from '../theme';
 import { TopBar } from '../chrome';
@@ -80,6 +80,8 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
       onOpenConsumed?.();
     }
   }, [openNoteId, onOpenConsumed]);
+  const [addingSection, setAddingSection] = useState<string | null>(null); // folderId
+  const [newSecName, setNewSecName] = useState('');
   const [adding, setAddingRaw] = useState<string | null>(null); // sectionId
   const [addText, setAddText] = useState('');
   const setAdding = (v: string | null) => {
@@ -161,6 +163,27 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
   }, [goesChoices]);
 
   const addCommitted = React.useRef(false);
+  // The suite carries the folder-head + in Notes as well as Reminders, always
+  // shown rather than hidden in edit mode. Without it there was NO way to make
+  // a note section at all: normalize seeds one per folder and that was that.
+  const addSection = (folder: Rec<'folder'>) => {
+    const name = newSecName.trim();
+    setAddingSection(null);
+    setNewSecName('');
+    if (!name) return;
+    const secs = sectionsOf(folder.id);
+    if (sectionNameTaken(recs, folder.id, name)) return;
+    mutate((e) => {
+      // Prepend, as on the web: a new section lands at the top of its folder.
+      e.put({
+        id: newId(),
+        type: 'section',
+        updated: 0,
+        payload: { name, folderId: folder.id, ord: ordBetween(null, secs[0]?.payload.ord ?? null) },
+      });
+    });
+  };
+
   const addNote = (section: Rec<'section'>) => {
     // Enter fires submit AND blur on web — one field, one note.
     if (addCommitted.current) return;
@@ -348,8 +371,19 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
                 <Chevron open={!foldedFolders.has(f.id)} size={15} color={T.text} />
               </Pressable>
               <Text style={[s.folderName, { backgroundColor: f.payload.color + '33' }]}>{f.payload.name}</Text>
+              <CircleBtn testID={`foldadd-${f.payload.name}`} glyph="+" color={T.accent} size={22} onPress={() => { setAddingSection(f.id); setNewSecName(''); }} />
               <View style={s.folderRule} />
             </View>
+            {addingSection === f.id && (
+              <Field
+                value={newSecName}
+                onChangeText={setNewSecName}
+                placeholder="New section"
+                autoFocus
+                onBlur={() => addSection(f)}
+                onSubmitEditing={() => addSection(f)}
+              />
+            )}
             {!foldedFolders.has(f.id) && sectionsOf(f.id).map((sec) => (
               <View key={sec.id} style={s.section}>
                 {secDrag.lineKey === `before:${sec.id}` && <View style={s.dropLine} />}

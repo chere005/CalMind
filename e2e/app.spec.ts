@@ -925,6 +925,28 @@ test('a section deletes with two presses from edit mode', async ({ page }) => {
   await expect(page.getByText('Doomed', { exact: true })).toBeHidden();
 });
 
+test('Notes can make a section at all — the folder head carries the +', async ({ page }) => {
+  // It couldn't. Reminders had the folder-head + and Notes didn't, so the
+  // only note section you could ever have was the one normalize seeds. The
+  // suite carries that + in BOTH apps, and shows it outside edit mode.
+  await signup(page);
+  await page.getByTestId('tab-notes').click();
+  await page.getByTestId('foldadd-General').first().click();
+  await page.getByPlaceholder('New section').fill('Recipes');
+  await page.getByPlaceholder('New section').press('Enter');
+  await expect(page.getByTestId('secadd-Recipes')).toBeVisible();
+
+  // It's a real section: a note files into it and lands there after a reload.
+  await page.getByTestId('secadd-Recipes').first().click();
+  await page.getByPlaceholder('New note').fill('pancakes');
+  await page.getByPlaceholder('New note').press('Enter');
+  await page.getByText('← All notes').click();
+  await page.reload();
+  await page.getByTestId('tab-notes').click();
+  await expect(page.getByTestId('secadd-Recipes')).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByTestId('note-row').filter({ hasText: 'pancakes' })).toBeVisible();
+});
+
 test('a Notes section renames via double-click', async ({ page }) => {
   await signup(page);
   await page.getByTestId('tab-notes').click();
