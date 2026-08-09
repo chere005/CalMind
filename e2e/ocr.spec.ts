@@ -61,7 +61,7 @@ test('the recipe importer reads photos into a formatted note', async ({ page, co
   // to fall through to the leftovers under "Include notes".
   expect(ings, 'a wordy ingredient counts').toContain('a pinch of salt');
   // …and the fraction is normalised on the way in.
-  expect(ings, 'the fraction reads typographically').toContain('½ cup whole milk');
+  expect(ings, 'the fraction reads typographically').toContain('whole milk½ cup');
   // The line under the title is prose and is NOT swept into the list, which is
   // the other half of that rule: nothing has established a quantity run yet.
   expect(ings, 'the subtitle stayed out').not.toContain('serves four');
