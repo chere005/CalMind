@@ -1039,11 +1039,13 @@ device that cannot write its own snapshot.
       and fails on any built without one, because most live behind edit mode,
       a modal or a partner, and driving to each would be a tour of the app
       rather than a check.
-- [ ] Still bare, and cheaper to say than to guess at: the `Pill` controls
-      already read their own text, so they need nothing; the raw `Pressable`
-      chevrons and grips do not, and were left — a grip has no meaning to
-      announce beyond "reorder", which is a decision about wording rather than
-      a gap in the mechanism.
+- [x] **The collapse-all chevrons are named too** — "Collapse all", which is
+      the suite's own wording (`collapse_all_button()` in lib/chrome.php sets
+      exactly that aria-label). Copied rather than invented.
+- [x] **The drag grips stay bare, and that IS parity**: the suite's `.hdrag`
+      handle carries no aria-label either. Checked before leaving it, so this
+      is a decision with evidence rather than a gap nobody looked at. `Pill`
+      needs nothing — it reads its own text.
 
 ## 4 · Gated — waiting on Sean's explicit word
 

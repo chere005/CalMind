@@ -460,7 +460,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
       {/* A live drag holds the scroll still — see Habits for the why. */}
       <ScrollView contentContainerStyle={s.scroll} scrollEnabled={drag.dragIdx === null && secDrag.dragging === null}>
         <View style={s.toolbarRow}>
-          <Pressable onPress={collapseAllNotes} hitSlop={8} style={s.collapseAllBtn}><Chevron open size={15} /></Pressable>
+          <Pressable onPress={collapseAllNotes} hitSlop={8} accessibilityRole="button" accessibilityLabel="Collapse all" style={s.collapseAllBtn}><Chevron open size={15} /></Pressable>
         </View>
         {folders.map((f) => (
           <View key={f.id} style={s.folderBlock}>

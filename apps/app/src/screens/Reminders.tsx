@@ -323,7 +323,7 @@ export function Reminders() {
       <TopBar title="Reminders" picker={<FolderPick app="reminders" />} />
       {/* The suite's toolbar row: under the divider, immediately above the folders. */}
       <View style={s.toolbar}>
-        <Pressable onPress={collapseAll} hitSlop={8} style={s.collapseAllBtn}><Chevron open size={15} /></Pressable>
+        <Pressable onPress={collapseAll} hitSlop={8} accessibilityRole="button" accessibilityLabel="Collapse all" style={s.collapseAllBtn}><Chevron open size={15} /></Pressable>
         <CircleBtn glyph="☑" label="Completed" active={showDone} onPress={() => setShowDone(!showDone)} />
         {session?.username === 'sean' && <CircleBtn testID="rem-copymd" glyph="⧉" label="Duplicate" onPress={copyMarkdown} />}
         {copyNote !== '' && <Text testID="rem-copynote" style={s.copyNote}>{copyNote}</Text>}
