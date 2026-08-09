@@ -7,7 +7,7 @@
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { PanResponder, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { PanResponder, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { prefsOf, duplicateItem,
   timeLabel,
   addDays,
@@ -60,6 +60,10 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
   const [showDone, setShowDone] = useState(false);
   const swipe = useSwipeLeft();
   // Week mode sticks per device, like the suite's localStorage calWeekMode.
+  // The suite caps its legend bar at 22vh and scrolls inside it. A flat 88pt
+  // was under half that on a phone, which only shows once someone's folder
+  // list is long enough to need the room.
+  const { height: winH } = useWindowDimensions();
   const [weekMode, setWeekMode] = useState(false);
   const [wkAnchor, setWkAnchor] = useState(today);
   useEffect(() => {
@@ -244,7 +248,7 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
           nothing to read them by — and `cells` is already the two-week range,
           so the names were right all along and simply not drawn. */}
       {(legend.length > 0 || sharedLegend.length > 0) && (
-        <ScrollView style={s.legend} contentContainerStyle={s.legendInner} horizontal={false}>
+        <ScrollView style={[s.legend, { maxHeight: Math.round(winH * 0.22) }]} contentContainerStyle={s.legendInner} horizontal={false}>
           {/* One row per owner, the owner named ONCE in small caps — the
               suite's legend, not a soup of @-prefixed items. */}
           {/* The owner name rides as the first item of the balanced row, so
@@ -450,7 +454,8 @@ const s = themed(() => StyleSheet.create({
   // row the suite's 10px-at-3 does.
   markWell: { flexDirection: 'row', flexWrap: 'wrap', gap: 1.5, marginTop: 1, alignItems: 'center', alignContent: 'flex-start', justifyContent: 'center', maxWidth: 40, height: 23.5 },
   markMore: { color: T.dim, fontSize: 10, lineHeight: 11 },
-  legend: { maxHeight: 88, flexGrow: 0 },
+  // maxHeight is set inline from the window height — 22vh, as the suite has it.
+  legend: { flexGrow: 0 },
   legendInner: { paddingHorizontal: 16, paddingVertical: 6 },
   legendRowLine: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 14, rowGap: 4, paddingVertical: 2 },
   legendOwner: { color: T.muted, fontSize: 11, fontWeight: '800', letterSpacing: 0.6 },

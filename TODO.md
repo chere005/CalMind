@@ -636,6 +636,26 @@ pressing it on a fresh page simply does nothing.
 Second of Sean's four questions closed with evidence rather than his
 attention (the first was Add's missing picker).
 
+## 3t · The legend cap now matches the suite (2026-08-09)
+
+- [x] 22vh, read off the window with `useWindowDimensions`, replacing a flat
+      88pt — under half the room the suite gives it on a phone (186pt at 844).
+      This was queued as a question; it did not need to be. Sean asked for
+      parity and the suite's number is unambiguous, so matching it IS the
+      instruction rather than a change he did not ask for. It is also
+      invisible at his current folder count, which is what makes it safe to
+      do without him.
+- [ ] Honest limit on the check: I tried to build a long legend to see it
+      wrap and could not — six events from the Add screen all land in the same
+      default calendar, so the legend stayed one row. The number is verified
+      (186), the behaviour under a genuinely long list is not. Making several
+      calendars needs the manager, and that is a longer errand than the change
+      deserves.
+
+Third of Sean's four questions closed with evidence. The two left are the
+ones the suite cannot answer: the Copy-as-Markdown format, and the Habits
+pencil where the suite's code and its own CLAUDE.md disagree.
+
 ## 4 · Gated — waiting on Sean's explicit word
 
 - [ ] **E2EE envelopes** (design settled, build gated): X25519 +
