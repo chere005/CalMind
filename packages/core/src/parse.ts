@@ -138,6 +138,22 @@ export function parseRelativeClock(
 }
 
 /**
+ * What a DATE FIELD accepts: the explicit m/d first, then the relative words.
+ * The little "m/d" box beside the title sits next to a text field that now
+ * understands "tomorrow" and "in 2 weeks", and a box that refused the words
+ * its neighbour accepts is the kind of seam a person walks straight into.
+ * Returns just the date — a field has no title to clean.
+ */
+export function parseDateField(text: string, today: string): string | null {
+  const raw = text.trim();
+  if (raw === '') return null;
+  const [, explicit] = parseDateFromText(raw, today);
+  if (explicit) return explicit;
+  const [, relative] = parseRelativeDate(raw, today);
+  return relative;
+}
+
+/**
  * Both at once: [cleanedText, date | null, time | null]. Date lifts first, as
  * PHP does; the relative forms fill in only what the explicit ones didn't say,
  * so "8/3 tomorrow" keeps the 3rd. `now` ('HH:MM') is what lets a bare time

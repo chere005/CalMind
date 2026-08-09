@@ -10,6 +10,7 @@ import { showAgain,
   byOrd,
   newId,
   ordBetween,
+  parseDateField,
   parseDateFromText,
   parseTimeFromText,
   nowStr,
@@ -64,7 +65,7 @@ export function Add({ done, onNoteCreated }: { done: () => void; onNoteCreated?:
       return false;
     }
     const [clean, pd, pt] = parseWhenFromText(raw, today, nowStr());
-    const [, fd] = parseDateFromText(dateField.trim(), today);
+    const fd = parseDateField(dateField, today);
     const [, ft] = parseTimeFromText(timeField.trim());
     const date = fd ?? pd;
     const time = ft ?? pt;

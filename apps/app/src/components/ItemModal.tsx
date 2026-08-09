@@ -16,6 +16,7 @@ import {
   convertToNote,
   newId,
   ordBetween,
+  parseDateField,
   parseDateFromText,
   parseTimeFromText,
   nowStr,
@@ -133,7 +134,7 @@ export function ItemModal({
     }
     // Parsed tokens leave the title either way; explicit fields win the value.
     const [clean, pd, pt] = parseWhenFromText(raw, today, nowStr());
-    const [, fd] = parseDateFromText(dateField.trim(), today);
+    const fd = parseDateField(dateField, today);
     const [, ft] = parseTimeFromText(timeField.trim());
     const finalDate = fd ?? date ?? pd;
     const finalTime = (showTime ? ft ?? time : null) ?? pt;

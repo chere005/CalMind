@@ -6,6 +6,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { deleteCalendar, duplicateItem, showAgain, deleteFolder, deleteHabitSection, deleteSection, moveHabit, moveHabitSection, moveNote, moveReminderBlock, moveSection, convertEventToReminder, convertReminderToEvent, convertToNote, moveSectionEmptyingFolder, reminderBlock, renameCalendar, renameFolder, renameSection, prefsOf, prefsPut } from '../src/manage';
+import { parseDateField } from '../src/parse';
 import { prefsId } from '../src/types';
 import type { AnyRec, Rec } from '../src/types';
 
@@ -439,5 +440,20 @@ describe("showAgain — what you just added must be visible", () => {
   it('stays quiet when nothing would swallow the add', () => {
     expect(showAgain([...base(), pref({ lastView: 'calB' })], 'calendar', 'calB')).toBeNull();
     expect(showAgain([...base(), pref({})], 'calendar', 'calB')).toBeNull();
+  });
+});
+
+describe('parseDateField — the little m/d box takes the words too', () => {
+  it('explicit first', () => {
+    expect(parseDateField('8/3', '2026-08-01')).toBe('2026-08-03');
+  });
+  it('then the relative words its neighbour already understood', () => {
+    expect(parseDateField('tomorrow', '2026-08-01')).toBe('2026-08-02');
+    expect(parseDateField('in 2 weeks', '2026-08-01')).toBe('2026-08-15');
+    expect(parseDateField(' 3 days ', '2026-08-01')).toBe('2026-08-04');
+  });
+  it('and nothing is still nothing', () => {
+    expect(parseDateField('', '2026-08-01')).toBeNull();
+    expect(parseDateField('gibberish', '2026-08-01')).toBeNull();
   });
 });

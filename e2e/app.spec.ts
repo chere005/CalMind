@@ -976,6 +976,24 @@ test('typed "tomorrow" files a reminder on tomorrow, and the word leaves the tit
   await expect(row).toContainText(chip);
 });
 
+test('the little date box takes "tomorrow" too, not just 8/3', async ({ page }) => {
+  // The text field beside it learned the relative words this run; a box that
+  // refused what its neighbour accepts is a seam a person walks straight into.
+  await signup(page);
+  await page.getByText('+ Add', { exact: true }).click();
+  await page.getByTestId('kind-reminder').click();
+  await page.getByPlaceholder(/What\?/).fill('call the vet');
+  await page.getByPlaceholder('m/d').fill('tomorrow');
+  await page.getByText('Save', { exact: true }).click();
+
+  const tomorrow = new Date(Date.now() + 86_400_000);
+  const chip = tomorrow.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+  await page.getByTestId('tab-reminders').click();
+  const row = page.getByTestId('rem-row').filter({ hasText: 'call the vet' });
+  await expect(row).toBeVisible();
+  await expect(row).toContainText(chip);
+});
+
 test('a recipe line is mended by tapping it, not by deleting and retyping', async ({ page }) => {
   // OCR hands you typos by the handful. Before this the only way to fix one
   // was to delete the row and type the whole line again — on a phone, the

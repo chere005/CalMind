@@ -6,7 +6,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { deleteSection, renameSection, sectionNameTaken, byOrd, richLines, duplicateItem, formatRecipe, prefsPut, moveNote, moveSection, moveSectionEmptyingFolder, newId, nowStr, ordBetween, parseDateFromText, parseWhenFromText, todayStr, type Rec } from '@calmind/core';
+import { deleteSection, renameSection, sectionNameTaken, byOrd, richLines, duplicateItem, formatRecipe, prefsPut, moveNote, moveSection, moveSectionEmptyingFolder, newId, nowStr, ordBetween, parseDateField, parseWhenFromText, todayStr, type Rec } from '@calmind/core';
 import { useStore } from '../store';
 import { themed, T } from '../theme';
 import { TopBar } from '../chrome';
@@ -288,7 +288,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
                 placeholder="m/d"
                 style={s.dateField}
                 onSubmitEditing={() => {
-                  const [, d] = parseDateFromText(dateField.trim(), todayStr());
+                  const d = parseDateField(dateField, todayStr());
                   if (d) mutate((e) => e.put({ ...open, payload: { ...open.payload, date: d } }));
                   setDateOpen(false);
                 }}
