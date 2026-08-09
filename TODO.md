@@ -1042,6 +1042,11 @@ device that cannot write its own snapshot.
 - [x] **The collapse-all chevrons are named too** — "Collapse all", which is
       the suite's own wording (`collapse_all_button()` in lib/chrome.php sets
       exactly that aria-label). Copied rather than invented.
+- [x] **Re-checked all four surfaces after it**, because the sweep touched a
+      component used on every screen: Chromium 96, WebKit 12, desktop 6/6
+      carrying the current bundle, and iOS built and rendering correctly —
+      back top-left, picker, legend and day panel all intact. A change that
+      broad deserves more than the one suite that happened to be quickest.
 - [x] **The drag grips stay bare, and that IS parity**: the suite's `.hdrag`
       handle carries no aria-label either. Checked before leaving it, so this
       is a decision with evidence rather than a gap nobody looked at. `Pill`
