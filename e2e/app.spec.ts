@@ -388,11 +388,18 @@ test('a theme picked in Settings repaints the app, syncs, and login stays midnig
   expect(await pageBg()).toBe('rgb(17, 17, 17)'); // midnight #111111
   await page.getByText(user, { exact: true }).click();
   await page.getByText('Settings', { exact: true }).click();
+  // The PAGE's background follows too, not just the app's own view. It is
+  // what shows through the safe areas, so a body left at midnight under a
+  // cream app is Sean's white-band bug with the colours swapped.
+  const bodyBg = () => page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+  expect(await bodyBg()).toBe('rgb(17, 17, 17)');
   await page.getByTestId('theme-sage').click();
   await expect.poll(pageBg).toBe('rgb(254, 250, 224)'); // sage #fefae0
+  await expect.poll(bodyBg, { timeout: 10_000 }).toBe('rgb(254, 250, 224)');
   // The pick is a synced pref: a reload comes back cream.
   await page.reload();
   await expect.poll(pageBg, { timeout: 10_000 }).toBe('rgb(254, 250, 224)');
+  await expect.poll(bodyBg, { timeout: 10_000 }).toBe('rgb(254, 250, 224)');
   // Logging out returns to midnight — the login page has no user to theme.
   await page.getByText(user, { exact: true }).click();
   await page.getByText('Log out', { exact: true }).click();
