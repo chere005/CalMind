@@ -900,6 +900,24 @@ honest — the next iteration trusts it.
   their Manage row, Settings changes a password against a server that
   supports it. The section ADDER was the one real hole, and it is closed.
 
+## Iteration 53 — the clock proved through the LIVE feed, and a seam closed
+- LIVE SMOKE against the deployed test instance, which is the only place
+  the real Apache, htaccess, PHP and TLS are in the picture: signup → sync
+  three records → mint a widget token → read the feed → logout, all 200,
+  and the revoked token then 401s.
+  THE POINT OF IT: the feed answered `today: 2026-08-08` while UTC had
+  already turned over to 2026-08-09, with the reminder under that day and
+  its time spoken as "3:30pm". That is Sean's widget complaint proved
+  fixed where it actually runs — before the timezone pin, this same call
+  would have called tomorrow today and the row would have read as
+  yesterday's. Residue, as the loop has accepted before: one empty
+  throwaway account (smoke1786237192), its token revoked.
+- A SEAM I MADE: the title field learned "tomorrow" and "in 2 weeks" but
+  the m/d box an inch away still refused them. parseDateField in core is
+  the single answer for a date FIELD — explicit first, then the words —
+  and all three callers ask it now.
+- 190 core + 23 server + 43 gesture. Deployed, live == local, pushed.
+
 ## NEXT: the Add-Recipe page (Sean's spec, precise)
 - A structured page in Notes, the akisbookshelf add-quote shape: Title;
   an INGREDIENTS section whose + parses units (grams, cups, tsp, tbsp…)
