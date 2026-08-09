@@ -16,6 +16,7 @@ import { tmpdir } from 'node:os';
  */
 // Playwright runs from the repo root (see playwright.config.ts).
 const CARD = resolve(process.cwd(), 'e2e/fixtures/recipe-card.svg');
+const AWKWARD = resolve(process.cwd(), 'e2e/fixtures/recipe-card-awkward.svg');
 
 test('the recipe importer reads photos into a formatted note', async ({ page, context }) => {
   test.setTimeout(120_000); // tesseract fetches its engine on first run
@@ -73,4 +74,50 @@ test('the recipe importer reads photos into a formatted note', async ({ page, co
   expect(body.toLowerCase()).toContain('flour');
   expect(body).toContain('•'); // the ingredient bullets rendered
   expect(body.toLowerCase()).toContain('whisk');
+});
+
+test('an awkward card: no title, a wordy last ingredient, a method with no heading', async ({ page, context }) => {
+  test.setTimeout(180_000);
+
+  // The tidy card next door cannot exercise this run's parse fixes, because it
+  // leads with a name and labels its method. This one is shaped like the notes
+  // that actually broke: the title scan used to walk past "Ingredients", over
+  // the quantities, and take "fresh cracked black pepper to taste" as the
+  // recipe's name — and nothing closed the ingredient block, so the cooking
+  // instructions were bulleted as food.
+  const shot = join(tmpdir(), `calmind-awkward-${Date.now()}.png`);
+  const painter = await context.newPage();
+  await painter.setContent(`<body style="margin:0">${readFileSync(AWKWARD, 'utf8')}</body>`);
+  await painter.locator('svg').screenshot({ path: shot });
+  await painter.close();
+
+  const u = 'awk' + String(Date.now()).slice(-8);
+  await page.goto('.');
+  await page.getByText('Sign up', { exact: true }).click();
+  await page.getByPlaceholder('Username').fill(u);
+  await page.getByPlaceholder('Email').fill(u + '@example.com');
+  await page.getByPlaceholder('Password', { exact: true }).fill('e2epassword');
+  await page.getByPlaceholder('Confirm password').fill('e2epassword');
+  await page.getByText('Sign up', { exact: true }).click();
+  await expect(page.getByTestId('tab-reminders')).toBeVisible({ timeout: 20_000 });
+  await page.getByTestId('tab-notes').click();
+  await page.getByTestId('secadd-General').first().click();
+  await page.getByPlaceholder('New note').fill('x');
+  await page.getByPlaceholder('New note').press('Enter');
+  await page.getByPlaceholder('Title').fill('');
+  await page.getByTestId('recipe-import').click();
+  const chooser = page.waitForEvent('filechooser');
+  await page.getByTestId('recipe-photos').click();
+  await (await chooser).setFiles(shot);
+
+  await expect
+    .poll(async () => (await page.getByTestId('ing-row').allTextContents()).length, { timeout: 120_000 })
+    .toBeGreaterThan(2);
+  const ings = (await page.getByTestId('ing-row').allTextContents()).join(' | ').toLowerCase();
+
+  expect(ings, 'the numberless last ingredient stays an ingredient').toContain('black pepper');
+  expect(ings, 'and the method is not food').not.toContain('whisk everything');
+  expect(ings).not.toContain('fry in butter');
+  // Nothing from inside the list was promoted to the recipe's name.
+  await expect(page.getByTestId('recipe-title')).not.toHaveValue(/pepper/i);
 });

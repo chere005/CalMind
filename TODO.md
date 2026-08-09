@@ -365,6 +365,18 @@ Next up, in Sean's order:
       the note. The lines stay visible either way now, struck through, above a
       line saying how many will not be saved. The checkbox does the same thing
       as before; only the cost is visible.
+- [x] **A second OCR fixture, shaped like the cards that actually break it.**
+      The tidy one leads with a name and labels its method, so it could not
+      exercise any of this run's parse fixes. The awkward one has no title
+      line, a numberless ingredient at the END of the list, and a method
+      written as prose with no DIRECTIONS heading — the three things that
+      between them made "fresh cracked black pepper to taste" the recipe's
+      title and bulleted the cooking instructions as food.
+      Driven through REAL tesseract, not a stub, and verified with teeth:
+      putting back the old skip-don't-stop title scan turns it red.
+      This is the path where those fixes actually matter — the correction
+      above is that Sean's SAVED recipes carry our markers and were never
+      affected; a photographed card carries nothing and never will.
 - [ ] Photo import flow (recipe-import → recipe-photos → recipe-title →
       recipe-save) is covered by e2e/ocr.spec.ts — keep that spec on the real
       flow, not a shortcut.

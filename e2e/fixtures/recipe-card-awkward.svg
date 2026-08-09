@@ -1,0 +1,17 @@
+<!-- A card shaped like the ones that actually break the parser, as opposed to
+     the tidy one next door. Three awkward things, all taken from real notes:
+     no title line at the top, a numberless ingredient at the END of the list,
+     and a method written as prose with no DIRECTIONS heading to open it.
+     Between them they used to produce a recipe whose title was "fresh cracked
+     black pepper to taste" and whose ingredient list included the cooking
+     instructions. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="1100">
+  <rect width="1000" height="1100" fill="white"/>
+  <text x="60" y="120" font-family="Helvetica" font-size="48" font-weight="bold" fill="black">Ingredients</text>
+  <text x="60" y="200" font-family="Helvetica" font-size="40" fill="black">2 cups flour</text>
+  <text x="60" y="270" font-family="Helvetica" font-size="40" fill="black">1 tbsp sugar</text>
+  <text x="60" y="340" font-family="Helvetica" font-size="40" fill="black">2 eggs</text>
+  <text x="60" y="410" font-family="Helvetica" font-size="40" fill="black">fresh cracked black pepper to taste</text>
+  <text x="60" y="560" font-family="Helvetica" font-size="40" fill="black">Whisk everything together well.</text>
+  <text x="60" y="630" font-family="Helvetica" font-size="40" fill="black">Fry in butter until golden.</text>
+</svg>
