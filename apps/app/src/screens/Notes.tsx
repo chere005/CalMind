@@ -20,7 +20,9 @@ import { Chevron } from '../components/Chevron';
 import { RecipeEditor } from './RecipeEditor';
 
 // Half, as written, and double — the three a cook actually asks for.
-const SCALES: [number, string][] = [[0.5, '½×'], [1, '1×'], [2, '2×']];
+// The id stays ASCII: it reaches native as an accessibility identifier, and
+// adb/XCUITest are no place to be matching on '½'.
+const SCALES: [number, string, string][] = [[0.5, '½×', 'half'], [1, '1×', 'one'], [2, '2×', 'double']];
 
 export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | null; onOpenConsumed?: () => void }) {
   const { recs, mutate, sharedRecs, sharedPartnerLabel } = useStore();
@@ -324,10 +326,10 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
 
           {isRecipe && (
             <View testID="scale-row" style={s.scaleRow}>
-              {SCALES.map(([f, label]) => (
+              {SCALES.map(([f, label, id]) => (
                 <Pressable
-                  key={label}
-                  testID={`scale-${label}`}
+                  key={id}
+                  testID={`scale-${id}`}
                   style={[s.scalePill, scale === f && s.scalePillOn]}
                   onPress={() => setScale(f)}
                   hitSlop={6}

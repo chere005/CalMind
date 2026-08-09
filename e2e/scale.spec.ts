@@ -39,7 +39,7 @@ test('scaling reads the recipe differently and writes nothing', async ({ page })
 
   const body = page.getByTestId('note-body-view');
   await expect(page.getByTestId('scale-row')).toBeVisible();
-  await page.getByTestId('scale-2×').click();
+  await page.getByTestId('scale-double').click();
   await expect(body).toContainText('4 cups flour');
   await expect(body, 'a pinch has no number to double').toContainText('a pinch of salt');
   await expect(body).toContainText('4 eggs');
@@ -50,12 +50,12 @@ test('scaling reads the recipe differently and writes nothing', async ({ page })
   await body.click();
   await expect(page.getByTestId('note-body-edit')).toHaveCount(0);
 
-  await page.getByTestId('scale-½×').click();
+  await page.getByTestId('scale-half').click();
   await expect(body).toContainText('1 cup flour');
   await expect(body, 'half of two eggs is one egg, not one eggs').toContainText('1 egg, beaten');
 
   // Back to 1x: the note is exactly as written, and editable again.
-  await page.getByTestId('scale-1×').click();
+  await page.getByTestId('scale-one').click();
   await expect(body).toContainText('2 cups flour');
   await body.click();
   await expect(page.getByTestId('note-body-edit')).toHaveValue(BODY);
