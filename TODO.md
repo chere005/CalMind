@@ -1004,6 +1004,11 @@ device that cannot write its own snapshot.
 - [x] Covered by a server spec that writes an over-cap log, triggers an
       action, and checks the old one was set aside and the new one starts with
       the action that caused it.
+- [x] **Fixed the flakiness rather than only noting it**: the deploy now
+      re-checks once after a five-second pause, and says out loud when the
+      first pass failed and the second did not — so a settling upload is
+      distinguishable from a fault, and an intermittent fault cannot hide
+      behind a green second attempt. A second failure still stops the deploy.
 - [ ] **The live smoke failed transiently during one deploy** — 5 passed, 4
       failed, "the deployed page is wrong" — and passed 9/9 immediately after
       with no change from me, then again on a full re-deploy, and 16/16 end to

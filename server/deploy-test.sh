@@ -107,7 +107,20 @@ fi
 # account, so a routine deploy leaves no residue behind it.
 if [ -z "$DRY" ] && [ "$WEB" = 1 ]; then
   echo "==> [TEST] proving the served page"
-  ./server/tools/smoke-live.sh --static || { echo "the deployed page is wrong — look before shipping further" >&2; exit 1; }
+  # Retried once, deliberately. A deploy that has just finished rsyncing can
+  # serve a moment of inconsistency — that happened here: four checks red,
+  # then 9/9 immediately after with nothing changed. A gate that cries wolf is
+  # one people learn to ignore, so the retry exists to tell a settling upload
+  # apart from a broken one. It is NOT a way to pass by trying twice: a second
+  # failure still stops the deploy, and a first failure is printed either way
+  # so an intermittent fault cannot hide behind a green second attempt.
+  if ! ./server/tools/smoke-live.sh --static; then
+    echo "   first pass failed — giving the upload a moment and re-checking once" >&2
+    sleep 5
+    ./server/tools/smoke-live.sh --static || {
+      echo "the deployed page is wrong — look before shipping further" >&2; exit 1; }
+    echo "   (it passed on the retry: the first run caught a settling upload, not a fault)" >&2
+  fi
 fi
 
 echo "==> Done. Data contents are never touched."
