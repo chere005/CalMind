@@ -115,6 +115,14 @@ one folds without picking either.
   eaten by the try?), and sim pairs drift to 'active, disconnected' —
   bounce the WATCH sim and re-check `xcrun simctl list pairs`.
 - Scriptable on a real phone (the widget itself, tick links, the PWA hop).
+  The script's FORMATTING is pinned by the widget spec (header row, uppercase
+  day headings, the rules, the right-aligned time) because two copies of it
+  drifted apart once and the flat one shipped.
+- OCR against REAL photographs. e2e/ocr.spec.ts drives the real engine, but
+  over a fixture card this repo draws itself (e2e/fixtures/recipe-card.svg,
+  rasterised by the browser mid-run) — so it proves the pipeline and the
+  parsing rules, not how tesseract copes with a glossy page, a handwritten
+  card, or a photo taken at an angle. That needs Sean's camera.
 - Anything the export can't exercise: iOS keyboard behavior, safe areas,
   home-screen PWA standalone mode. **The status-bar strip is the live
   example**: the head now carries viewport-fit=cover and the translucent

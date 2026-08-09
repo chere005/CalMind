@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="1500">
+  <rect width="1000" height="1500" fill="white"/>
+  <text x="60" y="120" font-family="Helvetica" font-size="64" font-weight="bold" fill="black">Midnight Pancakes</text>
+  <text x="60" y="200" font-family="Helvetica" font-size="34" fill="#444">Serves four, generously</text>
+  <text x="60" y="300" font-family="Helvetica" font-size="48" font-weight="bold" fill="black">INGREDIENTS</text>
+  <text x="60" y="380" font-family="Helvetica" font-size="40" fill="black">2 cups flour</text>
+  <text x="60" y="450" font-family="Helvetica" font-size="40" fill="black">1 tbsp sugar</text>
+  <text x="60" y="520" font-family="Helvetica" font-size="40" fill="black">1/2 cup whole milk</text>
+  <text x="60" y="590" font-family="Helvetica" font-size="40" fill="black">2 eggs</text>
+  <text x="60" y="660" font-family="Helvetica" font-size="40" fill="black">a pinch of salt</text>
+  <text x="60" y="800" font-family="Helvetica" font-size="48" font-weight="bold" fill="black">DIRECTIONS</text>
+  <text x="60" y="880" font-family="Helvetica" font-size="40" fill="black">1. Whisk everything together.</text>
+  <text x="60" y="950" font-family="Helvetica" font-size="40" fill="black">2. Fry in butter until golden.</text>
+</svg>
