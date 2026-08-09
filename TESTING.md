@@ -180,6 +180,16 @@ device's next sync comes back 401 and it must return to the login, not treat a
 dead token as "offline" and keep taking edits that can never land. The device
 that made the change keeps working.
 
+Nor did any of them type anything LONG. Every spec uses tidy little strings
+("buy milk", "peel garlic"), while real use pastes URLs and dictates
+sentences. `e2e/longtext.spec.ts` puts a running sentence and an
+unbreakable no-spaces URL through the reminders list, the calendar's day
+panel (the tightest row there is — tick, chips and an edit cluster beside
+the text), the notes list and the note editor, and asserts the one thing
+that actually breaks: the document never scrolls SIDEWAYS. Horizontal
+overflow on a phone is miserable and permanent, and nothing else was
+watching for it.
+
 Nor did any of them run on a day other than today. `e2e/clock.spec.ts` freezes
 the app's clock (a `Date` swapped in before the bundle loads) and draws the
 screens on the days that break things: New Year's Eve — December paging into
