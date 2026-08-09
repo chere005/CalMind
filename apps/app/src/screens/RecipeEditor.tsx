@@ -16,6 +16,7 @@ import { themed, T } from '../theme';
 import { CircleBtn, ConfirmDelete, Field, Pill } from '../ui';
 import { ocrImages } from '../components/ocr';
 import { useRowDrag } from '../components/rowdrag';
+import { useSwipeLeft } from '../components/swiperow';
 
 /** A row lifted from one index and set down at another. `to` is the index in
  *  the list with the dragged row already taken out, which is what the drag
@@ -66,6 +67,11 @@ export function RecipeEditor({ note, onClose }: { note: Rec<'note'>; onClose: ()
   // step number ARE the handles, so the rows gain no furniture for it. OCR
   // hands ingredients over in whatever order the camera found them, and a
   // method read off a photo often arrives out of sequence.
+  // Delete lives behind a swipe here, as it does on every other list in the
+  // app. A × on every row put a destructive control under the thumb of a
+  // page whose rows are now also tappable to edit and draggable to reorder —
+  // three things competing for one line. The swipe reveals it already armed.
+  const swipe = useSwipeLeft();
   const ingDrag = useRowDrag(ingredients.length, (from, to) => setIngredients((rows) => moveAt(rows, from, to)));
   const stepDrag = useRowDrag(steps.length, (from, to) => setSteps((rows) => moveAt(rows, from, to)));
 
@@ -131,6 +137,7 @@ export function RecipeEditor({ note, onClose }: { note: Rec<'note'>; onClose: ()
             {ingDrag.slot === i && <View style={s.dropLine} />}
             <View
               ref={ingDrag.registerRow(i)}
+              {...(editing?.list === 'ing' && editing.at === i ? {} : swipe.handlersFor(`ing-${i}`))}
               style={[s.row, ingDrag.dragIdx === i && { opacity: 0.55, transform: [{ translateY: ingDrag.dragDy }] }]}
             >
             <View testID="ing-grip" {...ingDrag.handleFor(i)} style={s.handle} hitSlop={8}>
@@ -147,11 +154,13 @@ export function RecipeEditor({ note, onClose }: { note: Rec<'note'>; onClose: ()
                 onSubmitEditing={commitEdit}
               />
             ) : (
-              <Pressable testID="ing-row" style={s.rowPress} onPress={() => startEdit('ing', i, ing)}>
+              <Pressable testID="ing-row" style={s.rowPress} onPress={() => { if (!swipe.justSwiped()) startEdit('ing', i, ing); }}>
                 <Text style={s.rowText}>{ing}</Text>
               </Pressable>
             )}
-            <ConfirmDelete size={22} onDelete={() => setIngredients(ingredients.filter((_x, j) => j !== i))} />
+            {swipe.swiped === `ing-${i}` && (
+              <ConfirmDelete testID="ing-del" size={22} forceArmed onDelete={() => { swipe.clear(); setIngredients(ingredients.filter((_x, j) => j !== i)); }} />
+            )}
             </View>
           </View>
         ))}
@@ -173,6 +182,7 @@ export function RecipeEditor({ note, onClose }: { note: Rec<'note'>; onClose: ()
             {stepDrag.slot === i && <View style={s.dropLine} />}
             <View
               ref={stepDrag.registerRow(i)}
+              {...(editing?.list === 'step' && editing.at === i ? {} : swipe.handlersFor(`step-${i}`))}
               style={[s.row, stepDrag.dragIdx === i && { opacity: 0.55, transform: [{ translateY: stepDrag.dragDy }] }]}
             >
             <View testID="step-grip" {...stepDrag.handleFor(i)} style={s.handle} hitSlop={8}>
@@ -189,11 +199,13 @@ export function RecipeEditor({ note, onClose }: { note: Rec<'note'>; onClose: ()
                 onSubmitEditing={commitEdit}
               />
             ) : (
-              <Pressable testID="step-row" style={s.rowPress} onPress={() => startEdit('step', i, st)}>
+              <Pressable testID="step-row" style={s.rowPress} onPress={() => { if (!swipe.justSwiped()) startEdit('step', i, st); }}>
                 <Text style={s.rowText}>{st}</Text>
               </Pressable>
             )}
-            <ConfirmDelete size={22} onDelete={() => setSteps(steps.filter((_x, j) => j !== i))} />
+            {swipe.swiped === `step-${i}` && (
+              <ConfirmDelete testID="step-del" size={22} forceArmed onDelete={() => { swipe.clear(); setSteps(steps.filter((_x, j) => j !== i)); }} />
+            )}
             </View>
           </View>
         ))}

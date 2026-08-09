@@ -1020,6 +1020,34 @@ test('recipe lines reorder by dragging the marker they already wear', async ({ p
   expect(body.indexOf('1 cup milk')).toBeLessThan(body.indexOf('2 cups flour'));
 });
 
+test('a recipe line deletes by swiping it, not by a × parked on every row', async ({ page }) => {
+  // Every other list in the app hides delete behind the swipe. On a page whose
+  // rows are also tappable to edit and draggable to reorder, a permanent ×
+  // was a third thing competing for one line — and a destructive one.
+  await signup(page);
+  await page.getByTestId('tab-notes').click();
+  await page.getByTestId('secadd-General').first().click();
+  await page.getByPlaceholder('New note').fill('Pancakes');
+  await page.getByPlaceholder('New note').press('Enter');
+  await page.getByTestId('note-body-view').click();
+  await page.getByTestId('note-body-edit').fill('2 cups flour\n1 cup milk');
+  await page.getByTestId('recipe-import').click();
+  await expect.poll(() => page.getByTestId('ing-row').allTextContents()).toEqual(['2 cups flour', '1 cup milk']);
+  await page.waitForTimeout(400); // the page slides in
+
+  await expect(page.getByTestId('ing-del')).toHaveCount(0); // nothing parked
+  const row = page.getByTestId('ing-row').first();
+  const box = (await row.boundingBox())!;
+  const y = box.y + box.height / 2;
+  await page.mouse.move(box.x + box.width - 20, y);
+  await page.mouse.down();
+  for (let i = 1; i <= 6; i++) await page.mouse.move(box.x + box.width - 20 - i * 15, y);
+  await page.mouse.up();
+  // The swipe counts as the first press, so one tap finishes it.
+  await page.getByTestId('ing-del').click();
+  await expect.poll(() => page.getByTestId('ing-row').allTextContents()).toEqual(['1 cup milk']);
+});
+
 test('the Recipe page can shed the non-recipe notes with its checkbox', async ({ page }) => {
   await signup(page);
   await page.getByTestId('tab-notes').click();
