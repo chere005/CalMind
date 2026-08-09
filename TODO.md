@@ -548,6 +548,24 @@ with what is deployed.
       something throws. Second, the updater is now behind `?autoupdate=1`, so
       a webclip installed at that URL reproduces the blank screen while no
       ordinary install runs the code at all.
+- [ ] **A real lead, found by installing webclips against a LOCAL server** (no
+      deploy needed — the simulator shares the Mac's network, so
+      `http://127.0.0.1:8791/test/calmind/` installs and runs standalone just
+      as the live one does; that route is repeatable and works while deploys
+      are blocked).
+      **iOS ignores the URL you install from and uses the MANIFEST's
+      `start_url`.** Installing from `.../?autoupdate=1` produced a webclip
+      whose URL is plain `.../test/calmind/`, and the flag never reached the
+      app. That is worth knowing on its own, and it points straight at the
+      updater: the reload navigates to `?b=<build>`, which is NOT the
+      start_url iOS considers the app's own page. A webclip being sent
+      somewhere outside its declared start is a very plausible reason for a
+      blank window, and it would explain why every browser is fine — only a
+      webclip has a start_url to disagree with.
+      **The obvious next move is to make the reload navigate to the SAME url
+      rather than a decorated one**, and it is deliberately NOT written yet:
+      it needs verifying on a webclip, and shipping an unverified fix for a
+      bug I have already shipped once is how this goes wrong twice.
 - [ ] **Cause NOT yet known, and I am not guessing at one.** What is ruled
       out: it is not the `?b=` query colliding with the app's own `?tick=`
       route (different name, checked); it is not a reload loop, since the
