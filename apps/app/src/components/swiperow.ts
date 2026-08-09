@@ -28,6 +28,12 @@ export function useSwipeLeft(): {
         key,
         PanResponder.create({
           onMoveShouldSetPanResponderCapture: (_e, g) => g.dx < -12 && Math.abs(g.dx) > 1.5 * Math.abs(g.dy),
+          // The same refusal both drag hooks needed, and for the same reason:
+          // the enclosing ScrollView asks for the responder once a gesture
+          // travels, and yielding kills the swipe on any list long enough to
+          // scroll. It matters more here than it did there — a recipe line's
+          // ONLY delete is this swipe now that the × left the row.
+          onPanResponderTerminationRequest: () => false,
           onPanResponderRelease: (_e, g) => {
             if (g.dx < -50) swipedAt.current = Date.now();
             setSwiped(g.dx < -50 ? key : null);
