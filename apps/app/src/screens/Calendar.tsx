@@ -239,7 +239,11 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
         ))}
       </View>
       <Rule />
-      {!weekMode && (legend.length > 0 || sharedLegend.length > 0) && (
+      {/* The legend follows the window, whatever shape the window is. It was
+          gated off in week mode, so a fortnight of coloured marks came with
+          nothing to read them by — and `cells` is already the two-week range,
+          so the names were right all along and simply not drawn. */}
+      {(legend.length > 0 || sharedLegend.length > 0) && (
         <ScrollView style={s.legend} contentContainerStyle={s.legendInner} horizontal={false}>
           {/* One row per owner, the owner named ONCE in small caps — the
               suite's legend, not a soup of @-prefixed items. */}
