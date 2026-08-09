@@ -577,6 +577,32 @@ nothing checks the wiring end to end.
   account on the simulator, or a native harness — the same gap that hid two
   bugs tonight.
 
+## 3n · Copy-as-Markdown: found, not missing — and it diverges (2026-08-09)
+
+Comparing the Reminders screen against the suite turned up its Sean-only
+Copy-as-Markdown button as a parity gap. It was not one: we already have it,
+gated on the same username. I had checked the suite before checking our own
+code, which is the wrong order.
+
+The FORMAT does diverge, though, and that is worth Sean's word:
+
+| | suite | ours |
+|---|---|---|
+| headings | `## Section` only | `## Folder` + `### Section` |
+| box | `- []` | `- [ ]`, or `- [x]` when Completed is on |
+| chip | `(due time)` | `(due · time · repeat)` |
+| done rows | always dropped | follow the Completed toggle |
+| empty sections | omitted | still get a heading |
+| subtasks | flat | indented two spaces |
+
+Ours is the richer one. Which belongs on his clipboard is his call — he pastes
+it somewhere, and quietly reformatting that would be worse than leaving it.
+
+- [x] The shaping moved into `packages/core/src/markdown.ts` with tests, output
+      unchanged. The screen now only says which folders, sections and rows are
+      on screen. The tests pin the divergences on purpose, so whoever compares
+      the two next finds them written down rather than rediscovering them.
+
 ## 4 · Gated — waiting on Sean's explicit word
 
 - [ ] **E2EE envelopes** (design settled, build gated): X25519 +

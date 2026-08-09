@@ -9,26 +9,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { deleteSection, duplicateItem,
-  timeLabel,
-  byOrd,
-  moveReminderBlock,
-  moveSection,
-  moveSectionEmptyingFolder,
-  newId,
-  renameSection,
-  ordBetween,
-  nowStr,
-  parseWhenFromText,
-  repeatLabel,
-  reminderToggle,
-  sectionNameTaken,
-  sortByDate,
-  todayStr,
-  type Rec,
-  type Repeat,
-  type RepeatUnit,
-} from '@calmind/core';
+import { byOrd, deleteSection, duplicateItem, moveReminderBlock, moveSection, moveSectionEmptyingFolder, newId, nowStr, ordBetween, parseWhenFromText, reminderToggle, remindersMarkdown, renameSection, repeatLabel, sectionNameTaken, sortByDate, timeLabel, todayStr, type Rec, type Repeat, type RepeatUnit } from '@calmind/core';
 import * as Clipboard from 'expo-clipboard';
 import { useStore } from '../store';
 import { themed, T } from '../theme';
@@ -272,20 +253,26 @@ export function Reminders() {
 
   /** The visible list as Markdown — sean's personal tool, as in prod. */
   const copyMarkdown = () => {
-    const lines: string[] = [];
-    for (const f of folders) {
-      lines.push(`## ${f.payload.name}`);
-      for (const sec of sectionsOf(f.id)) {
-        lines.push(`### ${sec.payload.name}`);
-        for (const r of remindersOf(sec.id)) {
-          if (!showDone && r.payload.done) continue;
-          const chip = [r.payload.due, r.payload.time, repeatLabel(r.payload.repeat)].filter(Boolean).join(' · ');
-          const pad = r.payload.indent > 0 ? '  ' : '';
-          lines.push(`${pad}- [${r.payload.done ? 'x' : ' '}] ${r.payload.text}${chip ? ` (${chip})` : ''}`);
-        }
-      }
-    }
-    Clipboard.setStringAsync(lines.join('\n')).catch(() => {});
+    // The shaping lives in core so it can be tested; this only says WHICH
+    // folders, sections and rows are on screen.
+    const md = remindersMarkdown(
+      folders.map((f) => ({
+        name: f.payload.name,
+        sections: sectionsOf(f.id).map((sec) => ({
+          name: sec.payload.name,
+          rows: remindersOf(sec.id).map((r) => ({
+            text: r.payload.text,
+            due: r.payload.due,
+            time: r.payload.time,
+            repeat: repeatLabel(r.payload.repeat),
+            done: r.payload.done,
+            indent: r.payload.indent,
+          })),
+        })),
+      })),
+      showDone,
+    );
+    Clipboard.setStringAsync(md).catch(() => {});
   };
 
   const dueChip = (r: ReminderRec) => {
