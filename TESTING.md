@@ -126,6 +126,27 @@ the suite's own scar — a day is selected by a TAP and nothing else, so a
 sideways swipe pages without picking the cell it lands on and a vertical
 one folds without picking either.
 
+Two more shapes the suite had never taken, both added the same way — by
+looking at what the tests DON'T vary rather than at the code:
+
+```sh
+npx playwright test e2e/desktop.spec.ts             # 1160×800, the Tauri width
+npx playwright install webkit                       # once
+npx playwright test -c playwright.webkit.config.ts  # the spine, in WebKit
+```
+
+Every spec but one runs at 420×900 in Chromium. The desktop shell ships a
+window at 1160×800 around this same bundle, and Sean's daily use is an iOS
+home-screen web app — which is WebKit. So the width the desktop app runs at
+and the engine the phone reads it in had both never run a test. The desktop
+spec is about shape, not pixels (the column stays a bounded centred column,
+nothing scrolls sideways, habits earns its full week at that width); the
+WebKit config runs the spine only — sign up, add, tick, rendered markers, the
+head an install needs — because gesture specs lean on synthetic mouse
+behaviour that differs by engine and a red run full of harness noise teaches
+nobody anything. It lives in its own config so the ordinary `npx playwright
+test` neither changes nor needs the WebKit download.
+
 Every one of those signs up a FRESH account and drives half a dozen records,
 which is not the shape the app actually runs against. `e2e/seeded.spec.ts`
 closes that: it runs `server/tools/seed-example.php` against the harness to
