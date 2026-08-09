@@ -6,7 +6,7 @@
  * or time field wins the VALUE, but a parsed token always leaves the title —
  * it was an instruction, not part of the name.
  */
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import {
   byOrd,
@@ -54,6 +54,7 @@ export function ItemModal({
   const { recs, mutate, sharedRecs, sharedPartner, sharedPut } = useStore();
   const today = todayStr();
   const [kind, setKind] = useState<ItemKind>(kind0);
+  const lastFiled = useRef<{ text: string; at: number } | null>(null);
 
   const init = useMemo(() => {
     if (mode === 'edit' && rec) {
@@ -131,6 +132,18 @@ export function ItemModal({
     if (!raw) {
       setErr('it needs a name');
       return;
+    }
+    // Creating mints a fresh id every call, so two taps inside one frame make
+    // two items. The Add tab had exactly this shape and the race was seen for
+    // real there; here the browser harness cannot force it, because the second
+    // click finds the modal already gone. The evidence is the sibling path,
+    // and the guard is the same: the same words twice inside a second and a
+    // half is a thumb. EDIT is left alone — it writes the same id, so saving
+    // twice is simply saving.
+    if (mode === 'create') {
+      const now = Date.now();
+      if (lastFiled.current && lastFiled.current.text === raw && now - lastFiled.current.at < 1500) return;
+      lastFiled.current = { text: raw, at: now };
     }
     // Parsed tokens leave the title either way; explicit fields win the value.
     const [clean, pd, pt] = parseWhenFromText(raw, today, nowStr());

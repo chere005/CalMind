@@ -598,6 +598,23 @@ recorded and both Sean's call — the Copy-as-Markdown format (3n) and the
 Habits Edit pencil, where the suite's code and its own CLAUDE.md contradict
 each other (3o).
 
+## 3r · The other create path gets the same guard (2026-08-09)
+
+`ItemModal.save()` — the calendar's + Add, and the pencil on a row — mints a
+fresh id on every call with nothing to stop a second one. Identical shape to
+the Add tab's Done, where the race was actually SEEN.
+
+- [x] Guarded, create only. Edit writes the same id, so saving twice is just
+      saving; the guard would be noise there.
+- [x] `e2e/modaltwice.spec.ts`: one press files one event, and the same words
+      a couple of seconds later still file twice — a guard that refused to
+      repeat would be its own bug.
+- [ ] **Said plainly: the spec passed BEFORE the guard.** The browser cannot
+      force the true race — the second click finds the modal already gone —
+      so it is not evidence the bug was live here. The evidence is the sibling
+      path on a device. That is a weaker claim than "I found a bug", and it is
+      the honest one.
+
 ## 4 · Gated — waiting on Sean's explicit word
 
 - [ ] **E2EE envelopes** (design settled, build gated): X25519 +
