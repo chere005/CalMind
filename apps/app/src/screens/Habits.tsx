@@ -18,7 +18,7 @@ import { TopBar } from '../chrome';
 import { SectionPick, useHabitSections } from '../components/SectionPick';
 import { useRowDrag } from '../components/rowdrag';
 import { useSectionDrag } from '../components/sectiondrag';
-import { CircleBtn, ConfirmDelete, Field } from '../ui';
+import { CircleBtn, ConfirmDelete, Field, WebHitSlop } from '../ui';
 
 // Habit sections sit in one flat list with no folder above them, so the
 // section drag — which is built around folders — is handed a single
@@ -297,6 +297,7 @@ export function Habits() {
                     <Text style={s.rowGripText}>≡</Text>
                   </View>
                   <Pressable onPress={() => toggleFold(sec.id)} hitSlop={8}>
+                    <WebHitSlop />
                     <Text style={s.chev}>{folded.has(sec.id) ? '›' : '⌄'}</Text>
                   </Pressable>
                   <Pressable
@@ -308,7 +309,11 @@ export function Habits() {
                       const at = pal.indexOf(sec.payload.color);
                       mutate((e) => e.put({ ...sec, payload: { ...sec.payload, color: pal[(at + 1) % pal.length]! } }));
                     }}
-                  />
+                  >
+                    {/* Eleven pixels drawn, and the only control in the app
+                        that small. The slop is what makes it tappable. */}
+                    <WebHitSlop slop={10} />
+                  </Pressable>
                   <View style={[s.secPill, { backgroundColor: tint(sec.payload.color, '2e') }]}>
                     <Text style={s.secPillText}>{sec.payload.name}</Text>
                   </View>

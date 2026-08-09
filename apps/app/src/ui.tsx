@@ -38,7 +38,7 @@ const noSteal =
  * pixels apart overlap slightly at the edges; that is already true on native
  * and is the behaviour being matched.
  */
-function WebHitSlop({ slop = 8 }: { slop?: number }) {
+export function WebHitSlop({ slop = 8 }: { slop?: number }) {
   if (Platform.OS !== 'web') return null;
   return <View style={{ position: 'absolute', top: -slop, left: -slop, right: -slop, bottom: -slop }} />;
 }

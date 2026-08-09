@@ -65,17 +65,55 @@ test('an icon button answers a press outside its drawn edge', async ({ page }) =
   }
 });
 
-test('no control steals the middle of the one beside it', async ({ page }) => {
-  test.setTimeout(90_000);
+test('extra tap area stays near its control, and off its neighbours', async ({ page }) => {
+  test.setTimeout(120_000);
   await signUp(page, 'own');
+
+  // With a reminder on the books, so the row controls this is really about —
+  // the tick, the fold chevron, the habits colour dot — are actually drawn.
+  // An empty account shows almost none of them, and a sweep across five blank
+  // screens would agree with itself and prove nothing.
+  await page.getByTestId('tab-calendar').click();
+  await page.getByText('+ Add', { exact: true }).click();
+  await page.getByTestId('kind-reminder').click();
+  await page.getByPlaceholder(/What\?/).fill('buy bread');
+  await page.getByText('Save', { exact: true }).click();
+  await expect(page.getByTestId('day-tick').first()).toBeVisible({ timeout: 10_000 });
 
   for (const tab of ['reminders', 'calendar', 'add', 'notes', 'habits']) {
     await page.getByTestId(`tab-${tab}`).click();
     await page.waitForTimeout(350);
 
-    // For every button on screen: whatever sits at its centre must be the
-    // button itself or something inside it. Anything else means a neighbour's
-    // extra area is lying over it and will swallow the press.
+    // Every piece of extra area on the page, found by shape rather than by
+    // name: an absolutely positioned child that sticks out past its parent on
+    // all four sides is one of these and nothing else is. Each must stay
+    // close to its parent. Enumerating the neighbours it might cover does not
+    // work — a plain Pressable has no role and no testID, so the row body you
+    // tap to open a reminder is invisible to a search for buttons, and an
+    // over-extended tick sitting on top of it went unnoticed.
+    const overreach = await page.evaluate(() => {
+      const bad: string[] = [];
+      for (const el of Array.from(document.querySelectorAll('*'))) {
+        const p = el.getBoundingClientRect();
+        if (p.width === 0 || p.height === 0) continue;
+        for (const kid of Array.from(el.children)) {
+          if (getComputedStyle(kid).position !== 'absolute') continue;
+          const c = kid.getBoundingClientRect();
+          const out = [p.left - c.left, c.right - p.right, p.top - c.top, c.bottom - p.bottom];
+          if (!out.every((v) => v > 0)) continue; // sticks out on all four sides
+          const most = Math.max(...out);
+          if (most > 12) {
+            const name = el.getAttribute('data-testid') ?? el.getAttribute('aria-label') ?? el.nodeName;
+            bad.push(`${name} reaches ${Math.round(most)}px past its edge`);
+          }
+        }
+      }
+      return Array.from(new Set(bad));
+    });
+    expect(overreach, `${tab}: extra tap area is running well past its control`).toEqual([]);
+
+    // And the narrower question, for the controls that can be named: whatever
+    // sits at a button's centre must be that button or something inside it.
     const stolen = await page.evaluate(() => {
       const bad: string[] = [];
       for (const el of Array.from(document.querySelectorAll('[role="button"], [data-testid^="pick-"]'))) {

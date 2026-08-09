@@ -20,7 +20,7 @@ import { useSwipeLeft } from '../components/swiperow';
 import { Chevron } from '../components/Chevron';
 import { useSectionDrag, type SectionSlot } from '../components/sectiondrag';
 import { ItemModal } from '../components/ItemModal';
-import { CircleBtn, ConfirmDelete, Field, Pill } from '../ui';
+import { CircleBtn, ConfirmDelete, Field, Pill, WebHitSlop } from '../ui';
 
 type FolderRec = Rec<'folder'>;
 type SectionRec = Rec<'section'>;
@@ -458,6 +458,7 @@ export function Reminders() {
                             <Text style={s.rowGripText}>≡</Text>
                           </View>
                           <Pressable testID="tick" onPress={() => tick(r)} hitSlop={8} style={[s.tick, r.payload.done && s.tickDone]}>
+                            <WebHitSlop />
                             {r.payload.done && <Text style={s.tickMark}>✓</Text>}
                           </Pressable>
                           {editing === r.id ? (
