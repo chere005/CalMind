@@ -152,6 +152,22 @@ describe('scrubLine — OCR symbol noise never reaches the note', () => {
     expect(scrubLine('\u2022 1 cup sugar, sifted (fine)')).toBe('1 cup sugar, sifted (fine)');
     expect(scrubLine('Bake at 350\u00b0 for 20\u201325 min\u2026')).toBe('Bake at 350\u00b0 for 20-25 min');
   });
+  it('a URL survives it, because a link is not OCR noise', () => {
+    // Off Sean's own Aglio Olio. Two rules that are right for a photographed
+    // card are wrong for a link: the character filter dropped '_', and the
+    // de-duplicator collapsed '//' to '/'. Between them the source line came
+    // back as a dead link — silently, the first time Recipe was pressed on
+    // that note. Several of his recipes carry a line like this.
+    const line = '*From https://carlos-recipes.readthedocs.io/en/latest/Recipes/Entrees/Pasta_AglioOlioPeperoncino.html*';
+    expect(scrubLine(line)).toBe(
+      'From https://carlos-recipes.readthedocs.io/en/latest/Recipes/Entrees/Pasta_AglioOlioPeperoncino.html',
+    );
+    // The emphasis star at the end is punctuation, not part of the link.
+    expect(scrubLine('see https://example.com/a_b.html.')).toContain('https://example.com/a_b.html');
+    // And an underscore in ordinary text is not junk either.
+    expect(scrubLine('slow_cooker beans')).toBe('slow_cooker beans');
+  });
+
   it('the whole pipeline stays clean end to end', () => {
     const r = formatRecipe(['Choco Cake \u2122\nIngredients:\n\u2022 2 cups # flour\n1) Mix\u00ae well']);
     expect(r.title).toBe('Choco Cake');

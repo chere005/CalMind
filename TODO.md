@@ -309,6 +309,18 @@ Next up, in Sean's order:
       singular with it), a decimal range, 'pinches', an adjective in the unit
       slot with an already-plural noun, and '1 onion' → '2 onions'. Reading a
       screen is not a thing that repeats itself.
+- [x] **scrubLine was breaking the source URLs in Sean's own recipes.** Two
+      rules that are right for a photographed card are wrong for a link: the
+      character filter dropped '_', and the de-duplicator collapsed '//' to
+      '/'. His Aglio Olio line came back as
+      "https:/…/Pasta AglioOlioPeperoncino.html" — a dead link, silently, the
+      first time Recipe was pressed on that note. Several of his recipes carry
+      a "*From <url>*" line.
+      URLs are now lifted out before scrubbing and put back after, with
+      trailing punctuation handed back to the scrubber so the '*' that closes
+      the emphasis still goes. '_' is allowed in ordinary text too.
+      Found by round-tripping his REAL note shapes through core — no writes,
+      no risk to his data, and it turned up what synthetic cards had not.
 - [ ] Photo import flow (recipe-import → recipe-photos → recipe-title →
       recipe-save) is covered by e2e/ocr.spec.ts — keep that spec on the real
       flow, not a shortcut.

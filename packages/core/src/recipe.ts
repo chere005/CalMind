@@ -90,16 +90,42 @@ export function recipeBody(ingredients: string[], steps: string[]): string {
  * number, cooking fraction or ordinary punctuation goes. Imperfect words are
  * fine — the user fixes those — but stray symbol noise is not.
  */
+/**
+ * A URL is not OCR noise and must come out the other side usable.
+ *
+ * Two of the rules below are right for a photographed card and wrong for a
+ * link: the character filter drops '_', and the de-duplicator collapses
+ * repeated punctuation. Between them they turned one of Sean's own source
+ * lines — "*From https://…/Pasta_AglioOlioPeperoncino.html*" — into
+ * "https:/…/Pasta AglioOlioPeperoncino.html": a dead link, silently, the
+ * first time he pressed Recipe on that note. Several of his recipes carry a
+ * line like it.
+ */
+const URL_IN_TEXT = /\bhttps?:\/\/\S+/gi;
+
 export function scrubLine(raw: string): string {
-  return raw
+  // Lifted out before scrubbing and put back after. The placeholder is
+  // letters and digits only, so the character filter cannot eat it either.
+  const urls: string[] = [];
+  const masked = raw.replace(URL_IN_TEXT, (u) => {
+    // Trailing punctuation belongs to the sentence, not the link: the '*' that
+    // closes "*From …*" is emphasis, and a full stop is a full stop. Hand it
+    // back to the scrubber, which knows what to do with it.
+    const tail = /[*.,;:!?)'"\]]+$/.exec(u);
+    const url = tail ? u.slice(0, -tail[0].length) : u;
+    urls.push(url);
+    return `zzurlz${urls.length - 1}zz${tail ? tail[0] : ''}`;
+  });
+  const cleaned = masked
     .replace(/[\u2019\u2018`\u00b4]/g, "'")
     .replace(/[\u201c\u201d\u00ab\u00bb]/g, '"')
     .replace(/[\u2013\u2014\u2015]/g, '-')
     .replace(/[\u2022\u25cf\u25aa\u2023\u00b7\u25e6*]/g, ' ')
-    .replace(/[^\p{L}\p{N}\s,.:;!?()/&%\u00b0'"\u00bd\u00bc\u00be\u2153\u2154\u215b-]/gu, ' ')
+    .replace(/[^\p{L}\p{N}\s,.:;!?()/&%_\u00b0'"\u00bd\u00bc\u00be\u2153\u2154\u215b-]/gu, ' ')
     .replace(/([,.:;!?/-])\1+/g, '$1')
     .replace(/\s+/g, ' ')
     .trim();
+  return cleaned.replace(/zzurlz(\d+)zz/g, (_m, i) => urls[Number(i)] ?? '');
 }
 
 export function formatRecipe(pages: string[]): RecipeResult {
