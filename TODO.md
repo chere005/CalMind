@@ -191,15 +191,26 @@ Series 9. Both are installed and reachable over Wi-Fi.
       it is native-only, or he means it should land in TYPING mode
       (`bodyEditing` starts false). Awaiting which. Cannot test it myself:
       adding a note writes to his data.
-- [ ] **Passkeys from the native iOS app.** Today they are web-only *by
-      design* — passkey.ts says so in its header, and the screens hide the
-      button rather than offer something that throws. Native needs
-      ASAuthorizationPlatformPublicKeyCredentialProvider, a bridging module,
-      an Associated Domains entitlement (`webcredentials:seancheren.com`) and
-      an apple-app-site-association file served from the domain. Associated
-      Domains is the same class of capability as App Groups, which just
-      proved available on the free team — so plausible, but it needs the
-      same empirical check before promising it.
+- [ ] **Passkeys from the native iOS app — probed, INCONCLUSIVE, two asks
+      for Sean.** Today they are web-only by design (passkey.ts's header;
+      the screens hide the button rather than offer something that throws).
+      What the probing established, in order:
+      · `ios.entitlements` SILENTLY IGNORES an associated-domains key — the
+        first probe "succeeded" while testing nothing (the signed app,
+        read back with codesign, carried no such entitlement). The
+        supported key is `ios.associatedDomains` (checked against the SDK
+        57 docs), and with it the entitlement verifiably lands in the file.
+      · The REAL probe then failed with `No Accounts` — xcodebuild lost the
+        Apple ID session, so nothing could mint a profile and the
+        capability question never reached Apple. NOT a refusal.
+      The probe key is REVERTED from app.json because it breaks every
+      device build until resolved.
+      Asks for Sean: (1) re-add his Apple ID in Xcode → Settings →
+      Accounts — also needed before Aug 16, when the profiles expire and
+      renewal will hit the same wall; (2) the AASA file needs the PROD
+      domain root — prepared in server/prod-only/ with instructions, ships
+      only on his word. Then the probe is one build away, and if Apple
+      signs it the rest is the Swift credential bridge.
 
 ### Facts that will cost time again if forgotten
 
