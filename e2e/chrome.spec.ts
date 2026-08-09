@@ -33,10 +33,17 @@ const TITLES: Record<string, string> = {
   reminders: 'Reminders', calendar: 'Calendar', notes: 'Notes', habits: 'Habits', add: 'Add',
 };
 
+/** The screens whose content is scoped by a picker, so the picker is not optional. */
+const SCOPED: Record<string, string> = {
+  reminders: 'pick-reminders', calendar: 'pick-calendar', notes: 'pick-notes', habits: 'pick-habits',
+};
+
 test('back sits left of the title on every screen', async ({ page }) => {
   test.setTimeout(90_000);
   await page.setViewportSize({ width: 390, height: 844 });
-  await signup(page);
+  const user = await signup(page);
+  const width = page.viewportSize()!.width;
+
   for (const [tab, title] of Object.entries(TITLES)) {
     await page.getByTestId(`tab-${tab}`).click();
     await page.waitForTimeout(250);
@@ -46,6 +53,35 @@ test('back sits left of the title on every screen', async ({ page }) => {
     expect(back, `${tab}: the back slot exists`).not.toBeNull();
     expect(head, `${tab}: the title is drawn`).not.toBeNull();
     expect(back!.x, `${tab}: back is left of "${title}"`).toBeLessThan(head!.x);
+
+    // Left of the title is necessary but weak: a back control adrift in the
+    // middle of the row satisfies it. It belongs against the margin, which is
+    // 16, so past ~64 it has stopped being the first thing in the row.
+    expect(back!.x, `${tab}: back sits against the left margin, not floating inward`).toBeLessThan(64);
+    expect(back!.x + back!.width, `${tab}: back finishes before the title starts`).toBeLessThanOrEqual(head!.x + 1);
+
+    // The right-hand cluster: picker then username, both on screen. A control
+    // pushed past the edge is unreachable, not merely untidy.
+    const who = await page.getByText(user, { exact: true }).first().boundingBox();
+    expect(who, `${tab}: the username is in the bar`).not.toBeNull();
+    expect(who!.x, `${tab}: the username is past the title`).toBeGreaterThan(head!.x);
+    expect(who!.x + who!.width, `${tab}: the username is not pushed off-screen`).toBeLessThanOrEqual(width);
+
+    const pickId = SCOPED[tab];
+    if (pickId) {
+      const pick = page.getByTestId(pickId);
+      await expect(pick, `${tab}: this screen is scoped by a picker, so the picker shows`).toBeVisible();
+      const p = (await pick.boundingBox())!;
+      expect(p.x, `${tab}: the picker is in the right-hand cluster`).toBeGreaterThan(head!.x);
+      expect(p.x, `${tab}: the picker comes before the username`).toBeLessThan(who!.x);
+      expect(p.x + p.width, `${tab}: the picker is not pushed off-screen`).toBeLessThanOrEqual(width);
+      // It draws a 32px ring; a 16px pie inside one is a button half the size
+      // it looks, which is what it was until the ring became the target.
+      expect(
+        Math.min(p.width, p.height),
+        `${tab}: the picker is as big as the ring it draws`,
+      ).toBeGreaterThanOrEqual(26);
+    }
   }
 });
 

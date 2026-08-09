@@ -219,12 +219,49 @@ Next up, in Sean's order:
       without the manifest or the status-bar metas. Corrected in the file;
       still dispatch-only, still Sean's call to run.
 
+## 1z · hitSlop does nothing on the web (2026-08-09)
+
+- [x] **Every icon control was smaller in Safari than on the phone apps.**
+      react-native-web does not implement `hitSlop`, so `hitSlop={8}` bought
+      16px of extra target on iOS and Android and nothing at all in a
+      browser. Proven, not read off the docs: a click five pixels outside a
+      26px CircleBtn left it untouched, and the same click at dead centre
+      fired it. The folder picker — the control Sean named — was a 16px pie
+      wearing a 32px ring.
+- [x] **Fixed in two shapes.** The pickers were given the ring's own
+      dimensions, which moved nothing because the ring was already 32x32.
+      Everything else carries `WebHitSlop`, a transparent absolutely
+      positioned child reaching 8px past its parent: it is INSIDE the
+      pressable, so the press bubbles to the same handler, it takes no layout
+      space, and it leaves the parent's background alone — which matters,
+      because `app.spec.ts:488` reads a swatch's colour off the pressable and
+      a restructure would have silently pointed it at the wrong element.
+      Applied to CircleBtn, ConfirmDelete, both reminder ticks, the fold
+      chevrons, and the habits colour dot (11px drawn — the smallest control
+      in the app).
+- [x] **Verified in WebKit**, which is the whole point: checking this in
+      Chromium alone would have been checking it everywhere except where it
+      matters. `hitarea.spec.ts` is now in the WebKit config. 15 there.
+- [ ] **Drag grips still rely on hitSlop and are 16px in a browser.** Left
+      alone deliberately: adding a child to a drag handle risks the gesture
+      itself, and that wants a pass with the drag specs in view.
+- [ ] **Worth remembering — three of these checks passed while testing
+      nothing**, and only deliberate mutation found it. A press measured
+      three pixels in from an element's own edge lands inside it at any size.
+      A neighbour sweep on a blank account agrees with itself across five
+      empty screens. And searching for neighbours by `role="button"` cannot
+      see a plain Pressable, so an over-extended tick sitting on top of the
+      row body passed cleanly. The last one is why the check is now
+      structural — find every absolutely positioned child that sticks out on
+      all four sides and require it to stay within 12px — rather than a list
+      of things that might be covered.
+
 ## 2 · Steady state (every iteration)
 
 - [ ] `git pull --autostash` first — two sessions share this repo; stage
       explicit paths only, never `git add -A`, hold commits on files the other
       session has half-refactored.
-- [ ] Keep the suites green: 260 core + 36 server + 96 gesture + 12 WebKit,
+- [ ] Keep the suites green: 260 core + 37 server + 98 gesture + 15 WebKit,
       plus 9 live checks (16 with the API) and 6 desktop. The README points
       here rather than carrying numbers of its own, so this line has to be
       the one that is right — it was 93 an hour after the gesture suite passed

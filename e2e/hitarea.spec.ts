@@ -134,3 +134,32 @@ test('extra tap area stays near its control, and off its neighbours', async ({ p
     expect(stolen, `${tab}: a control's centre is covered by something else`).toEqual([]);
   }
 });
+
+/**
+ * The picker answers where it LOOKS like a button.
+ *
+ * The pie is 16px inside a 32px ring, and the gap between them was covered by
+ * hitSlop — which does nothing under react-native-web. A press five pixels
+ * outside the pie, still plainly on the ring, went nowhere; only dead centre
+ * worked. Measuring the box would not have caught that on its own, so this
+ * presses the ring rather than the pie.
+ */
+test('the picker answers a press on its ring, not only dead centre', async ({ page }) => {
+  test.setTimeout(60_000);
+  await signUp(page, 'ring');
+  await page.getByTestId('tab-reminders').click();
+  const box = (await page.getByTestId('pick-reminders').boundingBox())!;
+
+  // Measured from the CENTRE outward by a fixed distance, never from the
+  // element's own edge: an offset relative to the box moves with the box, so
+  // it would sit inside a 16px pie just as happily as inside a 32px button and
+  // pass either way. The ring chrome.tsx draws is 32 wide, so 14 from centre
+  // is inside what the user sees and outside a bare pie.
+  const cx = box.x + box.width / 2;
+  const cy = box.y + box.height / 2;
+  await page.mouse.click(cx + 14, cy);
+  await expect(
+    page.getByTestId('fold-all-box-reminders'),
+    'pressing the edge of the picker opens it, as pressing the middle does',
+  ).toBeVisible({ timeout: 5_000 });
+});
