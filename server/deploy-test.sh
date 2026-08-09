@@ -38,6 +38,9 @@ echo "==> lint"
 find server -name '*.php' -exec php -l {} \; | grep -v 'No syntax errors' || true
 
 echo "==> tests"
+# The server suite was the only gate here, so a red CORE suite could still ship.
+# Core is the behaviour every client runs and it takes about a second.
+npm run test:core --silent >/dev/null 2>&1 || { echo "core tests failed — not deploying" >&2; exit 1; }
 php server/tools/test.php >/dev/null || { echo "server tests failed — not deploying" >&2; exit 1; }
 
 if [ "$WEB" = 1 ]; then
@@ -84,6 +87,15 @@ if [ -z "$DRY" ]; then
     && chgrp -R web /home/protected/calmind \
     && chmod -R g+rX /home/protected/calmind/lib \
     && chmod g+rwx /home/protected/calmind /home/protected/calmind/data"
+fi
+
+# Prove what was just uploaded, rather than trusting rsync's word for it: the
+# served head is where the deploy-shaped bugs show (a bare export ships an
+# index.html with no manifest and no status-bar metas). --static makes no
+# account, so a routine deploy leaves no residue behind it.
+if [ -z "$DRY" ] && [ "$WEB" = 1 ]; then
+  echo "==> [TEST] proving the served page"
+  ./server/tools/smoke-live.sh --static || { echo "the deployed page is wrong — look before shipping further" >&2; exit 1; }
 fi
 
 echo "==> Done. Data contents are never touched."

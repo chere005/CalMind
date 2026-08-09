@@ -17,7 +17,10 @@ npx playwright test           # gestures: the EXPORTED app + real API, real mous
                               #    with no manifest and no status-bar metas)
 ```
 
-All three must be green before `./server/deploy-test.sh`.
+All three must be green before `./server/deploy-test.sh` — and the deploy now
+holds you to two of them itself: it refuses to ship on a red CORE or SERVER
+suite (core was missing from that gate, so a red core could ship), and after
+uploading it proves the page it just served.
 
 And one AFTER it:
 

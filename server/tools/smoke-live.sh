@@ -9,13 +9,18 @@
 #
 #   ./server/tools/smoke-live.sh                 # the test instance
 #   ./server/tools/smoke-live.sh https://host/x  # somewhere else
+#   ./server/tools/smoke-live.sh --static        # the served page only
 #
-# It signs up a throwaway account and leaves it behind — there is no
+# The full run signs up a throwaway account and leaves it behind — there is no
 # delete-account endpoint and this is not the place to invent one. The name is
-# printed at the end so the residue is never a surprise.
+# printed at the end so the residue is never a surprise. `--static` checks only
+# what the deploy just uploaded and creates NOTHING, which is why deploy-test.sh
+# can run it every time without piling up accounts.
 set -e
 cd "$(dirname "$0")/../.."
 
+STATIC=0
+case "$1" in --static) STATIC=1; shift ;; esac
 BASE="${1:-https://seancheren.com/test/calmind}"
 API="$BASE/api/index.php"
 U="smoke$(date +%s)"
@@ -43,6 +48,14 @@ for ICON in icon-192.png icon-512.png apple-touch-icon.png; do
   CODE=$(curl -sS -o /dev/null -w '%{http_code}' "$BASE/$ICON")
   is "$ICON serves" "$CODE" "200"
 done
+
+if [ "$STATIC" = 1 ]; then
+  echo
+  echo "────────────────────────────────"
+  echo "$PASS passed, $FAIL failed (served page only; no account made)"
+  [ "$FAIL" -eq 0 ] || exit 1
+  exit 0
+fi
 
 echo
 echo "the API, end to end"
