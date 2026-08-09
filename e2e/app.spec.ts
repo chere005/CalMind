@@ -140,6 +140,19 @@ test('a reminder row drags to a new spot and the order survives a reload', async
   await expect(page.getByTestId('rem-row').first()).toContainText('alpha', { timeout: 10_000 });
 });
 
+test("a section's + lands in the editor TYPING, not just open", async ({ page }) => {
+  // Sean, twice, both meaning the same thing: making a note should end with
+  // the cursor in it. The editor already auto-opened; the body field did not.
+  await signup(page);
+  await page.getByTestId('tab-notes').click();
+  await page.getByTestId('secadd-General').first().click();
+  await page.getByPlaceholder('New note').fill('straight to typing');
+  await page.getByPlaceholder('New note').press('Enter');
+  // The body edit field itself, focused — not the read view.
+  await expect(page.getByTestId('note-body-edit')).toBeVisible();
+  await expect(page.getByTestId('note-body-edit')).toBeFocused();
+});
+
 test('a note drags between folders and re-files', async ({ page }) => {
   await signup(page);
   await page.getByTestId('tab-notes').click();
@@ -347,7 +360,6 @@ test('note body renders its markers as styled text when you tap away', async ({ 
   await page.getByPlaceholder('New note').fill('styled');
   await page.getByPlaceholder('New note').press('Enter');
   // The editor auto-opens. Tap the body, type markers, then tap the title.
-  await page.getByTestId('note-body-view').click();
   await page.getByTestId('note-body-edit').fill('**loud** and *slanted*\n- milk\n> wisdom');
   await page.getByPlaceholder('Title').click();
   const view = page.getByTestId('note-body-view');
@@ -529,7 +541,6 @@ test("sharing: a calendar shows under the partner's day-panel group; notes read 
   await pageA.getByTestId('secadd-General').first().click();
   await pageA.getByPlaceholder('New note').fill('the recipe');
   await pageA.getByPlaceholder('New note').press('Enter');
-  await pageA.getByTestId('note-body-view').click();
   await pageA.getByTestId('note-body-edit').fill('**garlic** first');
   await pageA.getByText('← All notes').click();
   await pageA.getByText(userA, { exact: true }).click();
@@ -683,7 +694,6 @@ test('unticking Include notes shows what it would drop, rather than hiding it', 
   await page.getByTestId('secadd-General').first().click();
   await page.getByPlaceholder('New note').fill('Uovo');
   await page.getByPlaceholder('New note').press('Enter');
-  await page.getByTestId('note-body-view').click();
   await page.getByTestId('note-body-edit').fill(
     'Ingredients\n200 g farina 00\n2 eggs\nForm a well with the flour and knead it.\nDo whatever you want with it.',
   );
@@ -1114,7 +1124,6 @@ test('a recipe line is mended by tapping it, not by deleting and retyping', asyn
   await page.getByTestId('secadd-General').first().click();
   await page.getByPlaceholder('New note').fill('Pancakes');
   await page.getByPlaceholder('New note').press('Enter');
-  await page.getByTestId('note-body-view').click();
   await page.getByTestId('note-body-edit').fill('2 cups flur\n1. Mix it');
   await page.getByTestId('recipe-import').click();
 
@@ -1148,7 +1157,6 @@ test('recipe lines reorder by dragging the marker they already wear', async ({ p
   await page.getByTestId('secadd-General').first().click();
   await page.getByPlaceholder('New note').fill('Pancakes');
   await page.getByPlaceholder('New note').press('Enter');
-  await page.getByTestId('note-body-view').click();
   await page.getByTestId('note-body-edit').fill('2 cups flour\n1 cup milk\n3 eggs');
   await page.getByTestId('recipe-import').click();
 
@@ -1181,7 +1189,6 @@ test('the Recipe page says how its lines are handled', async ({ page }) => {
   await page.getByTestId('secadd-General').first().click();
   await page.getByPlaceholder('New note').fill('Pancakes');
   await page.getByPlaceholder('New note').press('Enter');
-  await page.getByTestId('note-body-view').click();
   await page.getByTestId('note-body-edit').fill('2 cups flour\n1 cup milk');
   await page.getByTestId('recipe-import').click();
   const hint = page.getByTestId('recipe-hint');
@@ -1199,7 +1206,6 @@ test('a recipe line deletes by swiping it, not by a × parked on every row', asy
   await page.getByTestId('secadd-General').first().click();
   await page.getByPlaceholder('New note').fill('Pancakes');
   await page.getByPlaceholder('New note').press('Enter');
-  await page.getByTestId('note-body-view').click();
   await page.getByTestId('note-body-edit').fill('2 cups flour\n1 cup milk');
   await page.getByTestId('recipe-import').click();
   await expect.poll(() => page.getByTestId('ing-row').allTextContents()).toEqual(['2 cups flour', '1 cup milk']);
@@ -1225,7 +1231,6 @@ test('the Recipe page can shed the non-recipe notes with its checkbox', async ({
   await page.getByPlaceholder('New note').fill('Pancakes');
   await page.getByPlaceholder('New note').press('Enter');
   // The editor auto-opens; give the body a recipe plus one free-text line.
-  await page.getByTestId('note-body-view').click();
   await page.getByTestId('note-body-edit').fill('2 cups flour\n1. Mix well\nGrandma loved these, and she always doubled the butter.');
   await page.getByTestId('recipe-import').click();
   // The checkbox shows because free text exists; untick and save.

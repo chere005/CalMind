@@ -116,9 +116,22 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
   const [goesOpen, setGoesOpen] = useState(false);
   const [delArmed, setDelArmed] = useNoteScoped(openId, false);
 
+  // A note we JUST made should open ready to type, not just open. The scoped
+  // states reset on the render where openId changes, so setting bodyEditing
+  // in the create handler would be wiped — this effect runs after that reset
+  // and wins. The ref names the one note this applies to: opening an existing
+  // note stays read-first.
+  const freshEdit = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    if (openId && freshEdit.current === openId) {
+      freshEdit.current = null;
+      setBodyEditing(true);
+    }
+  }, [openId, setBodyEditing]);
   // Another screen (the Add tab) created a note — land in its editor, as prod does.
   React.useEffect(() => {
     if (openNoteId) {
+      freshEdit.current = openNoteId;
       setOpenId(openNoteId);
       onOpenConsumed?.();
     }
@@ -248,6 +261,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
         payload: { title: title || raw, body: '', date, folderId: section.payload.folderId, sectionId: section.id, ord: ordBetween(null, first?.payload.ord ?? null) },
       });
     });
+    freshEdit.current = id;
     setOpenId(id);
   };
 

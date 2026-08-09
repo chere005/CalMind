@@ -1,5 +1,6 @@
 import Foundation
 import WatchConnectivity
+import WidgetKit
 
 struct WatchItem: Codable, Identifiable {
     let id: String
@@ -15,10 +16,14 @@ struct WatchItem: Codable, Identifiable {
 final class WatchStore: NSObject, ObservableObject, WCSessionDelegate {
     @Published var items: [WatchItem] = []
     private let cacheKey = "watchlist.json"
+    // The App Group container, because the complication is its OWN process
+    // and standard defaults are invisible to it. Standard stays as the
+    // fallback so a cache written before this change still shows.
+    private let shared = UserDefaults(suiteName: "group.com.seancheren.calmind")
 
     override init() {
         super.init()
-        if let data = UserDefaults.standard.data(forKey: cacheKey) { decode(data) }
+        if let data = shared?.data(forKey: cacheKey) ?? UserDefaults.standard.data(forKey: cacheKey) { decode(data) }
         guard WCSession.isSupported() else { return }
         WCSession.default.delegate = self
         WCSession.default.activate()
@@ -32,8 +37,11 @@ final class WatchStore: NSObject, ObservableObject, WCSessionDelegate {
 
     private func take(_ context: [String: Any]) {
         guard let json = context["list"] as? String, let data = json.data(using: .utf8) else { return }
-        UserDefaults.standard.set(data, forKey: cacheKey)
+        (shared ?? UserDefaults.standard).set(data, forKey: cacheKey)
         decode(data)
+        // Fresh data means the face is stale — WidgetKit rerenders on request,
+        // not on a schedule of ours.
+        WidgetCenter.shared.reloadAllTimelines()
     }
 
     func session(_ session: WCSession, activationDidCompleteWith state: WCSessionActivationState, error: Error?) {
