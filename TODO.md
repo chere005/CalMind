@@ -654,6 +654,34 @@ with what is deployed.
       under iOS Settings → General → Autofill & Passwords. Untested against
       LastPass itself — our e2e uses a virtual authenticator.
 
+## 1u · Two more modules probed, both clean (2026-08-09)
+
+Same method as the scaler. Recording the NEGATIVES because they are worth as
+much as the finds — they say where not to look next time.
+
+- [x] **repeats.ts is correct on everything put to it.** Month steps off a
+      31st clamp as documented (Jan 31 → Feb 28 → Mar 31 → Apr 30, never
+      sliding into the next month); 29 February yearly lands on the 28th in
+      common years and the 29th in 2028; a daily rule across the US spring
+      forward emits seven consecutive days with none lost or doubled; a
+      fortnightly rule across the autumn change keeps its stride;
+      `repeatNext` after an EARLIER day still returns the next one after the
+      start rather than walking backwards; a window opening six years after
+      the start emits only what is inside it. Labels read correctly and a
+      null rule is an empty string. This is the one Sean actually uses —
+      "Kitchen shelf, every day" is on his calendar.
+- [x] **richtext.ts is correct too**, including the traps. `snake_case_word`
+      does NOT go italic, which is the classic false positive, because the
+      underline marker is `__` and the toolbar's U button writes exactly that
+      (Notes.tsx:328) — the two agree. `1996. What a year` and `1.5 cups`
+      stay prose rather than becoming numbered steps, while `1.` and `10.`
+      become steps. A URL survives intact, query string and underscores and
+      all. Bold, italic and underline nest and interleave correctly.
+- [ ] Two harmless oddities seen and deliberately left: `file__name__here`
+      underlines "name", and an unclosed `**` runs bold to the end of the
+      line. Both are what the markers mean; changing either would cost more
+      than it buys.
+
 ## 2 · Steady state (every iteration)
 
 - [ ] `git pull --autostash` first — two sessions share this repo; stage
