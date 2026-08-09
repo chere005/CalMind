@@ -768,6 +768,27 @@ One habit worth keeping from this: I wasted several taps eyeballing
 coordinates off a resized screenshot before measuring the target's pixels
 directly. Measuring takes one command and works first time.
 
+## 3z · A comment that told the truth about only one path (2026-08-09)
+
+The widget bug came from a comment stating a rule the code beside it broke, so
+I went looking for the same shape deliberately — grepping for comments that
+say never/always/must and checking each.
+
+- [x] **"the login page always renders midnight"** was true of Log out and
+      false of an expired token. A 401 dropped the session and left the
+      records, the partner and the theme behind, so the login card rendered in
+      the departed user's colours. Both roads now go through one
+      `clearSession()`.
+- [x] Checked the more serious version and it does NOT happen: signing in
+      rebuilds the engine from the new user's own snapshot, so stale records
+      never reach a different account's screen.
+- [x] `e2e/expired.spec.ts` sets Sage (nearly white), forces every call to
+      401, and asserts the login page comes back midnight. Verified with
+      teeth: restoring the old partial reset makes it fail.
+- [ ] Habit worth keeping: a speculative `click().catch()` with NO timeout bit
+      me for the fourth time today — it does not fail fast, it waits out the
+      entire budget and reads as a hang. Every optional click gets a timeout.
+
 ## 4 · Gated — waiting on Sean's explicit word
 
 - [ ] **E2EE envelopes** (design settled, build gated): X25519 +

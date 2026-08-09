@@ -97,6 +97,25 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  /**
+   * Everything that has to let go when there is no longer a session — whether
+   * you pressed Log out or the server stopped recognising your token. Both
+   * roads end on the login page, and it was only ever one of them that tidied
+   * up: a 401 dropped the session and left the records, the partner and the
+   * theme behind, so the login card rendered in the departed user's colours
+   * and contradicted the line that says it always renders midnight.
+   */
+  const clearSession = useCallback(() => {
+    engineRef.current = new SyncEngine();
+    hydratedRef.current = false;
+    setSessionState(null);
+    setRecs([]);
+    setPartners([]);
+    setSharedPartner(null);
+    setSharedRaw([]);
+    applyTheme('midnight'); // the login page always renders midnight
+  }, []);
+
   const syncNow = useCallback(async () => {
     const s = sessionRef.current;
     if (!s) return;
@@ -111,7 +130,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       setSyncState('offline');
       if (e instanceof ApiError && e.status === 401) {
         await AsyncStorage.removeItem(SESSION_KEY);
-        setSessionState(null);
+        clearSession();
         return;
       }
     }
@@ -206,17 +225,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     applyTheme((prefsOf(recs, 'suite').theme as ThemeName) || 'midnight');
   }, [recs]);
 
+
   const signOut = useCallback(async () => {
     await AsyncStorage.removeItem(SESSION_KEY);
-    engineRef.current = new SyncEngine();
-    hydratedRef.current = false;
-    setSessionState(null);
-    setRecs([]);
-    setPartners([]);
-    setSharedPartner(null);
-    setSharedRaw([]);
-    applyTheme('midnight'); // the login page always renders midnight
-  }, []);
+    clearSession();
+  }, [clearSession]);
 
   const setSession = useCallback(async (s: Session) => {
     await AsyncStorage.setItem(SESSION_KEY, JSON.stringify(s));
