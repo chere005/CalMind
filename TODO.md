@@ -152,6 +152,14 @@ Series 9. Both are installed and reachable over Wi-Fi.
       here: the WidgetKit render on a real face (sim faces aren't
       scriptable) and the tick tap, which would WRITE to his data and
       waits for his thumb.
+      2026-08-09 ~15:1x, Sean verbatim: "Make the watch module just show
+      the next two events." Done as the complication (he had just been in
+      the face picker): the Modular rectangle draws the next two CALENDAR
+      events one line each (dot, "Wed 15:30 · Chase"); inline the next one;
+      corner count+label; circle count. Fewer than two shows what there is,
+      none says "No events". Events ≠ dated reminders — the suite's own
+      vocabulary; if he wanted reminders folded in, that is five lines in
+      nextEvents(). Rebuilt, install pending.
       Two traps burned into this, do not relearn them:
       · Apple REFUSES the bundle id suffix `.complication` outright ("cannot
         be registered … not available") — `.widget` registers fine. Same
