@@ -55,7 +55,8 @@ test('the recipe importer reads photos into a formatted note', async ({ page, co
   // recipe text I typed myself:
   const ings = (await page.getByTestId('ing-row').allTextContents()).join(' | ').toLowerCase();
   const steps = (await page.getByTestId('step-row').allTextContents()).join(' | ').toLowerCase();
-  expect(ings, 'the quantities came through').toContain('2 cups flour');
+  // The measure lives in the row's badge now, name first: 'flour2 cups'.
+  expect(ings, 'the quantities came through').toContain('flour2 cups');
   // An ingredient with no number in front of it still counts as one — it used
   // to fall through to the leftovers under "Include notes".
   expect(ings, 'a wordy ingredient counts').toContain('a pinch of salt');

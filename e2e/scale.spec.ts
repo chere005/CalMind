@@ -86,10 +86,10 @@ test('scaling never reaches the stored recipe, even through the Recipe editor', 
   await expect(page.getByTestId('note-body-view')).toContainText('4 cups flour');
   await page.getByTestId('recipe-import').click();
   await expect(page.getByTestId('recipe-save')).toBeVisible({ timeout: 10_000 });
-  await expect(
-    page.getByTestId('ing-row').filter({ hasText: 'flour' }),
-    'the editor shows what the note says, not what the scale was showing',
-  ).toContainText('2 cups flour');
+  // Name in the row, measure in the badge — together they are the claim.
+  const flourRow = page.getByTestId('ing-row').filter({ hasText: 'flour' });
+  await expect(flourRow, 'the editor shows what the note says, not what the scale was showing').toContainText('flour');
+  await expect(flourRow.getByTestId('ing-unit')).toHaveText('2 cups');
   await page.getByTestId('recipe-save').click();
 
   // Back on the note, and still two cups — through a reload, so this is the
