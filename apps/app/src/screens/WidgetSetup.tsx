@@ -10,6 +10,9 @@
  */
 import React, { useEffect, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+// Same as the recipe editor: a Modal is its own window and starts under the
+// clock, so its back control needs the inset the app root cannot give it.
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Clipboard from 'expo-clipboard';
 import { apiPost } from '../api';
 import { useStore } from '../store';
@@ -150,6 +153,7 @@ Script.complete();
 }
 
 export function WidgetSetup({ onClose }: { onClose: () => void }) {
+  const insets = useSafeAreaInsets();
   const { session } = useStore();
   const { calendars, visible } = useCalendarView();
   const [token, setToken] = useState<string | null>(null);
@@ -171,7 +175,7 @@ export function WidgetSetup({ onClose }: { onClose: () => void }) {
 
   return (
     <Modal animationType="slide" onRequestClose={onClose}>
-      <ScrollView style={s.page} contentContainerStyle={s.inner}>
+      <ScrollView style={[s.page, { paddingTop: insets.top }]} contentContainerStyle={s.inner}>
         <Pressable onPress={onClose} hitSlop={8}>
           <Text style={s.back}>← Calendar</Text>
         </Pressable>

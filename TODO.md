@@ -676,6 +676,28 @@ for this run and checked each had a spec that would notice it breaking.
 - [x] **Relative dates, Chicago time, the status-bar metas** — core tests,
       server tests and the live smoke respectively.
 
+## 3v · Two full-screen modals were drawing under the clock (2026-08-09)
+
+Found by opening the Recipe editor on the phone rather than in a browser.
+
+- [x] **The recipe photo import could not be tapped on iOS.** A React Native
+      Modal renders in its own window, OUTSIDE the app root's SafeAreaView, so
+      its content starts at y=0 — under the status bar and the Dynamic Island.
+      "← Note" sat beneath the clock and the 📷 sat behind the battery, where
+      the system takes the touch. Not cosmetic: the whole photo path was
+      unreachable on a phone. Both now inset by `useSafeAreaInsets()`.
+- [x] **WidgetSetup had it too** — the only other non-transparent Modal. The
+      rest centre a card over a backdrop, so their content never starts at the
+      top of the window.
+- [x] Verified on the simulator: header clear of the status bar, and the
+      picker opens.
+- [x] **The missing Info.plist usage descriptions are NOT a bug.** I went
+      looking for a crash — iOS terminates an app that opens the photo library
+      without NSPhotoLibraryUsageDescription — and expo-image-picker uses the
+      modern out-of-process picker ("can only access the items you select"),
+      which needs no description at all. Checked rather than assumed, and the
+      wrong hypothesis is what led to the real bug.
+
 ## 4 · Gated — waiting on Sean's explicit word
 
 - [ ] **E2EE envelopes** (design settled, build gated): X25519 +

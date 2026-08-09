@@ -10,6 +10,11 @@
  */
 import React, { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+// A Modal renders in its own window, OUTSIDE the app root's SafeAreaView — so
+// its content starts at y=0, under the clock and the Dynamic Island. On the
+// phone that put "← Note" beneath the time and left the 📷 unreachable behind
+// the status bar: not cosmetic, the photo import could not be tapped at all.
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { parseIngredient, recipeBody, recipeFromPages, type Rec } from '@calmind/core';
 import { useStore } from '../store';
 import { themed, T } from '../theme';
@@ -30,6 +35,7 @@ function moveAt(rows: string[], from: number, to: number): string[] {
 }
 
 export function RecipeEditor({ note, onClose }: { note: Rec<'note'>; onClose: () => void }) {
+  const insets = useSafeAreaInsets();
   const { mutate } = useStore();
   const parsed = recipeFromPages([note.payload.body]);
   // recipeFromPages CONSUMES the line it read as a title. When the note
@@ -118,7 +124,7 @@ export function RecipeEditor({ note, onClose }: { note: Rec<'note'>; onClose: ()
 
   return (
     <Modal animationType="slide" onRequestClose={onClose}>
-      <ScrollView style={s.page} contentContainerStyle={s.inner} scrollEnabled={ingDrag.dragIdx === null && stepDrag.dragIdx === null}>
+      <ScrollView style={[s.page, { paddingTop: insets.top }]} contentContainerStyle={s.inner} scrollEnabled={ingDrag.dragIdx === null && stepDrag.dragIdx === null}>
         <View style={s.headRow}>
           <Pressable onPress={onClose} hitSlop={8}><Text style={s.back}>← Note</Text></Pressable>
           <CircleBtn testID="recipe-photos" glyph="📷" size={32} onPress={() => void importPhotos()} />
