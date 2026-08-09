@@ -126,6 +126,16 @@ the suite's own scar — a day is selected by a TAP and nothing else, so a
 sideways swipe pages without picking the cell it lands on and a vertical
 one folds without picking either.
 
+Every one of those signs up a FRESH account and drives half a dozen records,
+which is not the shape the app actually runs against. `e2e/seeded.spec.ts`
+closes that: it runs `server/tools/seed-example.php` against the harness to
+build the demo store through the real API — a couple of hundred records over
+several folders and sections, overdue rows, a rider, repeats mid-stream, three
+calendars, two months of habit history, all anchored on today — then signs in
+and reads what the screens make of it. It is the only test where the legend
+balancer meets more than two chips, and the only one that would catch a screen
+that goes blank or throws at size.
+
 ## What only an eye can check
 
 - **Icon-button centring** — the suite's pre-deploy rule verbatim: every
