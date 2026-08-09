@@ -500,7 +500,15 @@ export function scaleIngredient(text: string, factor: number): string {
     // the bracket, for the same reason as above: anything less certain is
     // better left as the author wrote it.
     const par = /^(\([^)]*\)\s*)([A-Za-z]+)\b/.exec(rest);
-    if (par) head = par[1]! + countWord(par[2]!, count) + rest.slice(par[0].length);
+    // The word has to be one that MEASURES, exactly as in the 'x' case below.
+    // Without that guard this reaches for whatever follows any bracket, and
+    // Sean's Carbonara opens "This makes enough for 3 (skinny) or 2 (hungry)
+    // people." — which doubles to "6 (skinny) ors 2 (hungry) people." It is
+    // prose and never reaches the scaler, but being saved by where a line
+    // happens to sit is not the same as being right.
+    if (par && MEASURE.has(singularOf(par[2]!).toLowerCase())) {
+      head = par[1]! + countWord(par[2]!, count) + rest.slice(par[0].length);
+    }
   }
 
   let after = head;

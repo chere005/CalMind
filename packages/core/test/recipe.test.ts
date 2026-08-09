@@ -332,6 +332,13 @@ describe('scaling — the one arithmetic a recipe asks of you', () => {
     // The bracket still only shields ONE word. Nothing bare after it means
     // nothing to count, and the line is returned as written.
     expect(scaleIngredient('1 (14 oz)', 2)).toBe('2 (14 oz)');
+    // And the word has to be one that MEASURES. Sean's Carbonara opens
+    // "This makes enough for 3 (skinny) or 2 (hungry) people." — the same
+    // shape exactly, and without the guard it doubles to "6 (skinny) ors".
+    // It is prose and never reaches the scaler; being saved by where a line
+    // sits is not the same as being right.
+    expect(scaleIngredient('3 (skinny) or 2 (hungry) people.', 2))
+      .toBe('6 (skinny) or 2 (hungry) people.');
   });
 
   it('a participle between the number and the noun does not hide it', () => {

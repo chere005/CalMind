@@ -518,9 +518,25 @@ Next up, in Sean's order:
       diced garlic clove'** keep their singular noun when doubled, because
       'range' and 'garlic' are not participles either. Under-correcting is
       the right failure here — the alternative invents words.
-- [ ] **Six of the ten cards read**, and the four unread (Aglio e
-      Peperoncino, Carbonara, al Fumé, Ravioli di Zucca) are the obvious next
-      place to look if scaling is ever doubted again.
+- [x] **All ten cards read.** The last four turned up one thing, and it was
+      a fault in THIS RUN'S OWN work rather than an old one. His Carbonara
+      opens "This makes enough for 3 (skinny) or 2 (hungry) people." — a
+      number, a bracket, a word, which is precisely the shape the new
+      parenthesis rule reaches into. It doubled to "6 (skinny) ors 2 (hungry)
+      people." The line is prose and never reaches the scaler, so nothing was
+      ever wrong on screen; but being saved by where a line happens to sit is
+      not the same as being right, and the 'x' branch written the same hour
+      already required a real measure word where the bracket branch required
+      nothing. Now both do. Mutation-tested: drop the guard and 'ors' comes
+      back.
+- [ ] **Everything else across the last four was correct**, including
+      '200/300 g pancetta' (slash range), '1.5 onions' halving to '¾ onion',
+      '3/4 cups freshly grated parmigiano' to '⅜ cup', '300 g of pasta
+      all'uovo' (the 'of' survives), and the two prose lines that look like
+      pack sizes — 'make 5 x 3 cm rectangles' and 'very thin (.3 cm) slices'.
+- [ ] One judgement call left as-is: '2 dried chili' doubles to '4 dried
+      chilis', correcting a word Sean wrote as an invariant plural. Defensible
+      English, predates this run, not worth a special case.
 - [ ] **Nothing else in ten cards came back wrong**, including the shapes
       that had been guesses last run: parenthesised asides that are NOT
       sizes ('2 ounces deli ham (french is recommended)') are left alone, and
