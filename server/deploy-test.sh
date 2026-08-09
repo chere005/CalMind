@@ -6,17 +6,20 @@
 #   SSH_DEST="user_site@ssh.example.example"
 #
 # Usage: ./server/deploy-test.sh [--dry-run] [--no-web]
-#   --dry-run  preview every transfer, touch nothing
-#   --no-web   skip the Expo web export (API only)
+#   --dry-run      preview every transfer, touch nothing
+#   --no-web       skip the Expo web export (API only)
+#   --no-gestures  skip the Playwright run (the escape hatch — a harness that
+#                  flakes must never be able to strand a deploy)
 
 set -e
 cd "$(dirname "$0")/.."
 
-DRY=""; WEB=1
+DRY=""; WEB=1; GESTURES=1
 for a in "$@"; do
   case "$a" in
-    --dry-run) DRY="--dry-run" ;;
-    --no-web)  WEB=0 ;;
+    --dry-run)     DRY="--dry-run" ;;
+    --no-web)      WEB=0 ;;
+    --no-gestures) GESTURES=0 ;;
     *) echo "unknown flag: $a" >&2; exit 1 ;;
   esac
 done
@@ -48,6 +51,15 @@ if [ "$WEB" = 1 ]; then
   # One export path for deploys and the gesture harness alike, so the HTML the
   # specs drive is the HTML that ships — head patch included.
   npm run export:web
+
+  # TESTING.md's rule — all three suites green before a deploy — was a human
+  # one, and humans in a hurry are exactly who it exists for. It runs AFTER the
+  # export because the specs drive dist, not the source. --no-gestures is the
+  # way out if the harness itself is the thing that's broken.
+  if [ "$GESTURES" = 1 ]; then
+    echo "==> gestures (--no-gestures to skip)"
+    npx playwright test >/dev/null 2>&1 || { echo "gesture suite failed — not deploying (npx playwright test to see it)" >&2; exit 1; }
+  fi
 fi
 
 # rsync only creates the final path element, so make the parents first.

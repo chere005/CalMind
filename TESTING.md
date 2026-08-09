@@ -17,10 +17,13 @@ npx playwright test           # gestures: the EXPORTED app + real API, real mous
                               #    with no manifest and no status-bar metas)
 ```
 
-All three must be green before `./server/deploy-test.sh` — and the deploy now
-holds you to two of them itself: it refuses to ship on a red CORE or SERVER
-suite (core was missing from that gate, so a red core could ship), and after
-uploading it proves the page it just served.
+All three must be green before `./server/deploy-test.sh` — and the deploy holds
+you to all three itself now, rather than trusting anyone to remember: it runs
+core, the server suite and (after the export, since the specs drive `dist`) the
+gestures, and ships nothing if any of them is red. Each gate has been watched
+failing on purpose; a guard nobody has seen fire is a guard nobody should
+trust. `--no-gestures` is the way past the slow one when the harness itself is
+what's broken. After uploading, it proves the page it just served.
 
 And one AFTER it:
 
