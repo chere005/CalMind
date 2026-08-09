@@ -25,9 +25,15 @@ export function Settings({ onClose }: { onClose: () => void }) {
   const [newPass, setNewPass] = useState('');
   const [canPasskey, setCanPasskey] = useState(false);
   const [keys, setKeys] = useState<PasskeyRow[]>([]);
+  // Whether we actually know. A failed fetch used to leave an empty list,
+  // which reads as "you have no passkeys" — so you add another one you did
+  // not need, and end up with two on a device that only ever wanted one.
+  const [keysKnown, setKeysKnown] = useState(false);
   useEffect(() => {
     void passkeyAvailable().then(setCanPasskey);
-    void listPasskeys(session!).then(setKeys).catch(() => {});
+    void listPasskeys(session!)
+      .then((k) => { setKeys(k); setKeysKnown(true); })
+      .catch(() => setKeysKnown(false));
   }, [session]);
   const [confirmPass, setConfirmPass] = useState('');
   const [msg, setMsg] = useState('');
@@ -88,6 +94,12 @@ export function Settings({ onClose }: { onClose: () => void }) {
           {canPasskey && (
             <View testID="passkey-section" style={s.pkSection}>
               <Text style={s.pkHead}>Passkeys</Text>
+              {!keysKnown && (
+                <Text testID="passkey-unknown" style={s.pkNote}>
+                  Could not check this account&apos;s passkeys — offline? Adding one now may
+                  leave you with a duplicate.
+                </Text>
+              )}
               {keys.map((k) => (
                 <View key={k.id} style={s.pkRow}>
                   <Text style={s.pkLabel} numberOfLines={1}>{k.label}</Text>

@@ -83,3 +83,34 @@ test('a browser with no authenticator is not offered one', async ({ page }) => {
   await expect(page.getByText('Sign in', { exact: true }).first()).toBeVisible({ timeout: 20_000 });
   await expect(page.getByTestId('passkey-signin')).toHaveCount(0);
 });
+
+test('an unreachable server does not report "no passkeys"', async ({ page }) => {
+  // An empty list and an unknown list look identical on screen, and the second
+  // one invites you to add a key you may already have. This account has none
+  // either way — what is being tested is that the app admits it does not know.
+  test.setTimeout(90_000);
+  await virtualAuthenticator(page);
+  const user = `pku${String(Date.now()).slice(-6)}`;
+  await page.goto(BASE);
+  await page.getByText('Sign up', { exact: true }).click();
+  await page.getByPlaceholder('Username').fill(user);
+  await page.getByPlaceholder('Email').fill(user + '@example.com');
+  await page.getByPlaceholder('Password', { exact: true }).fill('e2epassword');
+  await page.getByPlaceholder('Confirm password').fill('e2epassword');
+  await page.getByText('Sign up', { exact: true }).click();
+  await expect(page.getByTestId('tab-reminders')).toBeVisible({ timeout: 20_000 });
+
+  await page.route('**/api/index.php', (route, req) => {
+    const body = req.postData() ?? '';
+    if (body.includes('passkey_list')) return route.abort();
+    return route.continue();
+  });
+
+  await page.getByText(user, { exact: true }).click();
+  await page.getByText('Settings', { exact: true }).click();
+  await expect(page.getByTestId('passkey-section')).toBeVisible();
+  await expect(
+    page.getByTestId('passkey-unknown'),
+    'it says it could not check, rather than showing an empty list',
+  ).toBeVisible({ timeout: 15_000 });
+});

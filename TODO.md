@@ -971,9 +971,12 @@ Grepped for `.catch(() => {})` and friends and triaged each by what is lost.
 - [x] `logout()` best-effort and the JSON-parse fallback in `apiPost` are both
       correct as they stand — one is fire-and-forget by design, the other
       turns a bad body into the error it already is.
-- [ ] Minor, not done: `listPasskeys` swallows its failure, so an offline
-      Settings shows an empty passkey list and an Add button. Misleading
-      rather than harmful — you might add a second key you did not need.
+- [x] **Done after all**: `listPasskeys` swallowing its failure left an empty
+      list, which reads as "you have no passkeys" — so you add another and end
+      up with two on a device that only ever wanted one. Settings now
+      distinguishes "none" from "could not check", and says which. Covered by
+      aborting only the passkey_list call, so the rest of the session keeps
+      working and the test is about the list rather than about being offline.
 
 Three real fixes came out of this family today: the server refusing an
 oversized record, a damaged store file reading as an empty account, and a
