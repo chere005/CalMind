@@ -560,6 +560,23 @@ more did, and one of those deletes things:
       leaks were found and re-verified BY HAND on the simulator. That is the
       one real hole in the testing story.
 
+## 3m · Habit section drag — status UNKNOWN, and left that way (2026-08-09)
+
+PARITY.md claimed habits do not drag at all. That was stale: rows drag and
+have a passing spec. Sections are wired the same way — `useSectionDrag`,
+grips, drop lines, and a `moveHabitSection` with its own unit tests — but
+nothing checks the wiring end to end.
+
+- Three attempts to drive it in the browser harness all failed, including one
+  copied verbatim from the folder-manager section drag that DOES pass. So
+  either the harness cannot reach it or the feature does not work.
+- Not settled on the simulator either: the only habit sections there are
+  Sean's real ones (Daily, Fun, Habits) and a drag would reorder them for
+  real. Declined.
+- Left recorded as unknown rather than guessed. To settle it: a throwaway
+  account on the simulator, or a native harness — the same gap that hid two
+  bugs tonight.
+
 ## 4 · Gated — waiting on Sean's explicit word
 
 - [ ] **E2EE envelopes** (design settled, build gated): X25519 +
