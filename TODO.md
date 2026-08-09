@@ -792,6 +792,15 @@ say never/always/must and checking each.
       every day change goes through the one setter and paging only moves the
       month; the Notes folder-head + is rendered unconditionally as its comment
       says. One finding out of five claims checked.
+- [x] **Swept the server's claims too**, since that is where the widget bug
+      lived. Both hold, and the important one holds properly: `shared_put`
+      says a row must sit inside the shared buckets "BOTH as stored and as
+      sent", and it does check both — the stored row and the incoming payload
+      — so a write can neither reach a partner's private row nor drag one into
+      view. The feed's "Notes never reach the widget" holds as well: it only
+      ever emits reminders and events. Two findings from this lens overall
+      (the widget key, the login theme), both fixed; everything else read
+      true.
 - [ ] Habit worth keeping: a speculative `click().catch()` with NO timeout bit
       me for the fourth time today — it does not fail fast, it waits out the
       entire budget and reads as a hang. Every optional click gets a timeout.
