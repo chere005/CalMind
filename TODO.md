@@ -281,6 +281,14 @@ Next up, in Sean's order:
       ¾ → ⅜, and '1 finely diced garlic clove' → '½ finely diced garlic
       clove' WITHOUT pluralising 'finely'. Numberless lines ('a butternut
       squash', 'some chopped green onions') left alone as designed.
+- [x] **Scaling cannot reach the stored recipe through any path**, including
+      the one that could have written it back permanently: scale to 2x, open
+      the structured Recipe editor, Save. The editor parses the note's own
+      body rather than the scaled view, so nothing doubles — pinned through a
+      reload so the assertion is about the record and not a stale screen. The
+      Recipe button now also drops the view back to 1x, so the editor and the
+      screen behind it agree rather than the editor looking like it threw the
+      doubling away.
 - [ ] Photo import flow (recipe-import → recipe-photos → recipe-title →
       recipe-save) is covered by e2e/ocr.spec.ts — keep that spec on the real
       flow, not a shortcut.

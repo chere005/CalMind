@@ -61,6 +61,49 @@ test('scaling reads the recipe differently and writes nothing', async ({ page })
   await expect(page.getByTestId('note-body-edit')).toHaveValue(BODY);
 });
 
+test('scaling never reaches the stored recipe, even through the Recipe editor', async ({ page }) => {
+  test.setTimeout(90_000);
+  const user = `scl${Date.now()}c`;
+  await page.goto('.');
+  await page.getByText('Sign up', { exact: true }).click();
+  await page.getByPlaceholder('Username').fill(user);
+  await page.getByPlaceholder('Email').fill(user + '@example.com');
+  await page.getByPlaceholder('Password', { exact: true }).fill('e2epassword');
+  await page.getByPlaceholder('Confirm password').fill('e2epassword');
+  await page.getByText('Sign up', { exact: true }).click();
+  await expect(page.getByTestId('tab-reminders')).toBeVisible({ timeout: 20_000 });
+
+  await page.getByTestId('tab-notes').click();
+  await page.getByTestId('secadd-General').first().click();
+  await page.getByPlaceholder('New note').fill('Loaf');
+  await page.getByPlaceholder('New note').press('Enter');
+  await page.getByTestId('note-body-view').click();
+  await page.getByTestId('note-body-edit').fill(BODY);
+  await page.getByTestId('note-title').click();
+
+  // Double it, then open the structured editor and save from there. This is
+  // the path where a doubling could be written back permanently: the editor
+  // re-parses the note and Save rewrites the whole body.
+  await page.getByTestId('scale-double').click();
+  await expect(page.getByTestId('note-body-view')).toContainText('4 cups flour');
+  await page.getByTestId('recipe-import').click();
+  await expect(page.getByTestId('recipe-save')).toBeVisible({ timeout: 10_000 });
+  await expect(
+    page.getByTestId('ing-row').filter({ hasText: 'flour' }),
+    'the editor shows what the note says, not what the scale was showing',
+  ).toContainText('2 cups flour');
+  await page.getByTestId('recipe-save').click();
+
+  // Back on the note, and still two cups — through a reload, so this is the
+  // stored record and not a stale screen.
+  await expect(page.getByTestId('note-body-view')).toBeVisible({ timeout: 10_000 });
+  await page.reload();
+  await page.getByTestId('tab-notes').click();
+  await page.getByTestId('note-row').filter({ hasText: 'Loaf' }).click();
+  await expect(page.getByTestId('note-body-view')).toContainText('2 cups flour');
+  await expect(page.getByTestId('note-body-view')).not.toContainText('4 cups');
+});
+
 test('a plain note is never offered a scale it cannot honour', async ({ page }) => {
   const user = `scl${Date.now()}b`;
   await page.goto('.');

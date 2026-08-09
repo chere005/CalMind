@@ -302,7 +302,18 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
             <Pill label="I" onPress={() => wrapSel('*')} />
             <Pill label="U" onPress={() => wrapSel('__')} />
             <Pill label="· List" onPress={() => linePrefix('- ')} />
-            <Pill testID="recipe-import" label="Recipe" onPress={() => setRecipeOpen(true)} />
+            <Pill
+              testID="recipe-import"
+              label="Recipe"
+              onPress={() => {
+                // The editor works on what the note SAYS, not on what the
+                // scale is showing. Dropping back to 1x first means the two
+                // agree on screen, rather than the editor looking like it
+                // threw the doubling away.
+                setScale(1);
+                setRecipeOpen(true);
+              }}
+            />
           </View>
           {dateOpen && (
             <View style={s.metaRow}>
