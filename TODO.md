@@ -145,8 +145,13 @@ Series 9. Both are installed and reachable over Wi-Fi.
       exactly over the tab bar and likely WAS his "spurious space") and the
       Metro tether that would have stranded the app off home Wi-Fi. The
       complication list shows CalMind only under the NEW watch build; the
-      widget reads the App Group container, which stays EMPTY until the
-      phone app runs once near the watch and pushes.
+      widget reads the App Group container — VERIFIED on the sim pair
+      (2026-08-09 15:0x, reading Sean's data read-only): the phone pushed
+      {items: 29, events: 4}, the watch decoded and WROTE it to the group
+      container, calendar colours intact. What remains unverifiable from
+      here: the WidgetKit render on a real face (sim faces aren't
+      scriptable) and the tick tap, which would WRITE to his data and
+      waits for his thumb.
       Two traps burned into this, do not relearn them:
       · Apple REFUSES the bundle id suffix `.complication` outright ("cannot
         be registered … not available") — `.widget` registers fine. Same
