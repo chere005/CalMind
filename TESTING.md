@@ -81,6 +81,15 @@ than a red run, because it looks like an answer.
 - Recipe ingredients: quantity ranges written with a dash or with 'to', a
   whole number plus a typographic fraction, and the sentences that merely
   CONTAIN 'to' and are not ranges at all.
+- The SCRIPTABLE WIDGET, actually executed (`test/widget.test.ts`). Its
+  Scriptable globals are stubbed just enough to record what the script builds,
+  then the structure is asserted: the header row, uppercase day headings with
+  today named as today, the time as its own node AFTER the title rather than
+  glued in front of it, "No more items today." on an empty day, "Couldn't
+  load." when the feed won't, and a small widget showing fewer rows than a
+  large one. Checked against the real regression — breaking the header and
+  inlining the time the way the rewrite did turns two of these red. The
+  gesture suite's string-matching catches a rewrite; only this catches a typo.
 
 ## server/ — the API contract (PHP over real HTTP)
 
