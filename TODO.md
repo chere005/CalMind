@@ -327,11 +327,15 @@ Next up, in Sean's order:
 - [ ] **WebAuthn forbids an IP address as an RP id** — the e2e run had to move
       to http://localhost. Worth remembering before meeting it on a staging box
       reached by address.
-- [ ] Seen once and not reproduced: `doubletap.spec.ts` "a double-tapped Done
-      files one reminder" failed in one full-suite run, then passed 18 times
-      targeted (including under CPU load) and in a second full run. Left
-      recorded rather than dismissed — that spec hunts a real race, so a flake
-      in it is evidence about the guard, not just about the harness.
+- [x] **The doubletap flake is answered, not waited out.** It failed once in a
+      full run and never again in ~40 targeted runs, which was always the
+      wrong thing to chase: the spec's own comment admitted the protection was
+      incidental — the screen navigating away and the field clearing, both a
+      render later than the second tap. Add now refuses the SAME line filed
+      twice inside 1.5s, which is a thumb rather than an intention. The spec
+      presses three times, and a second spec proves the guard is not a ban on
+      repeating yourself: the same words a couple of seconds apart file twice,
+      because two 'pay the sitter' reminders is an ordinary thing to want.
 
 ## 3c · The two Safari/widget reports (2026-08-08)
 

@@ -28,9 +28,13 @@ test('a double-tapped Done files one reminder, not two', async ({ page }) => {
   await signup(page);
   await page.getByTestId('tab-add').click();
   await page.getByPlaceholder(/Dentist/).fill('call the vet');
-  // Two presses as fast as the harness can manage — no awaiting between.
+  // THREE presses as fast as the harness can manage, no awaiting between.
+  // This used to rest on the screen navigating away and the field clearing,
+  // which both happen a render later — so it passed on a fast machine and
+  // flaked once, here, on a loaded one. The guard is explicit now: the same
+  // line filed twice inside a second and a half is a thumb, not an intention.
   const done = page.getByText('Done', { exact: true });
-  await Promise.all([done.click(), done.click().catch(() => {})]);
+  await Promise.all([done.click(), done.click().catch(() => {}), done.click().catch(() => {})]);
   await page.waitForTimeout(1_000);
 
   await page.getByTestId('tab-reminders').click();
@@ -38,6 +42,26 @@ test('a double-tapped Done files one reminder, not two', async ({ page }) => {
     page.getByTestId('rem-row').filter({ hasText: 'call the vet' }),
     'one press, one reminder',
   ).toHaveCount(1);
+});
+
+test('the guard is about a thumb, not a ban on repeating yourself', async ({ page }) => {
+  // A guard that refused the same words forever would be its own bug: two
+  // 'pay the sitter' reminders a minute apart is an ordinary thing to want.
+  await signup(page);
+  await page.getByTestId('tab-add').click();
+  await page.getByPlaceholder(/Dentist/).fill('pay the sitter');
+  await page.getByText('Done', { exact: true }).click();
+  await page.waitForTimeout(1_600);
+  await page.getByTestId('tab-add').click();
+  await page.getByPlaceholder(/Dentist/).fill('pay the sitter');
+  await page.getByText('Done', { exact: true }).click();
+  await page.waitForTimeout(500);
+
+  await page.getByTestId('tab-reminders').click();
+  await expect(
+    page.getByTestId('rem-row').filter({ hasText: 'pay the sitter' }),
+    'asked twice, filed twice',
+  ).toHaveCount(2);
 });
 
 test('a double-tapped section add makes one section, not two', async ({ page }) => {

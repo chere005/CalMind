@@ -4,7 +4,7 @@
  * (+ Folder/Section, + Date/Time, + Repeat), a full-width accent Done that
  * adds and returns, and the typed-pattern help block underneath.
  */
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Text, Pressable, View } from 'react-native';
 import { showAgain,
   byOrd,
@@ -42,6 +42,7 @@ export function Add({ done, onNoteCreated }: { done: () => void; onNoteCreated?:
   const [timeField, setTimeField] = useState('');
   const [repeat, setRepeat] = useState<Repeat | null>(null);
   const [err, setErr] = useState('');
+  const lastFiled = useRef<{ text: string; at: number } | null>(null);
 
   const today = todayStr();
   const todayLabel = new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
@@ -64,6 +65,17 @@ export function Add({ done, onNoteCreated }: { done: () => void; onNoteCreated?:
       setErr('type the line first');
       return false;
     }
+    // A deliberate guard, because the accidental one is a race. Nothing here
+    // stopped a second press except the screen navigating away and the field
+    // clearing, and both of those happen a render later — so two taps inside
+    // one frame filed the line twice. Adding the same words twice within a
+    // second and a half is a thumb, not an intention; wait, or change a
+    // character, and it files again.
+    const now = Date.now();
+    if (lastFiled.current && lastFiled.current.text === raw && now - lastFiled.current.at < 1500) {
+      return false;
+    }
+    lastFiled.current = { text: raw, at: now };
     const [clean, pd, pt] = parseWhenFromText(raw, today, nowStr());
     const fd = parseDateField(dateField, today);
     const [, ft] = parseTimeFromText(timeField.trim());
