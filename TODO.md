@@ -75,6 +75,21 @@ something to slip in. e2e/offline.spec.ts covers what IS promised today:
 edits land offline, survive moving around the app, and reach the SERVER once
 the signal returns (proved from a browser that never saw the first one).
 
+## 0.6 · Worth knowing — two devices converge in up to 30 seconds
+
+Not a bug, but not obvious either, and it surprised the test three times
+before it surprised anyone else. The store pushes on an 800ms debounce and
+otherwise polls every 30s (plus on load, and on an app coming back to the
+foreground). So: tick something on the phone and glance at the desktop and
+you may not see it for half a minute — reloading the other device is
+instant, because boot syncs.
+
+For one person on three clients that is probably fine, and shortening the
+poll costs battery and requests. Flagged because the natural expectation is
+"my devices agree", and they do — just not immediately. e2e/twodevice.spec.ts
+now covers the real contract: both devices' edits survive (neither quietly
+replaces the other), and a tick on one shows on the other once it syncs.
+
 ## 1 · In flight
 
 - [x] **Overdue date chips in the Calendar day panel** — landed, deployed,
