@@ -337,6 +337,14 @@ const MEASURE = new Set([
   // through to the name, which is a mass noun and takes no plural at all.
   'loaf', 'rib', 'bulb', 'wedge', 'sachet', 'tub', 'punnet', 'block', 'bar',
   'drop', 'splash', 'pack',
+  // The units people SPELL OUT. These were in UNIT_MAP, which is about
+  // normalising 'teaspoons' to 'tsp', and nowhere near this set, which is
+  // what decides whether a word gets recounted — so '2 teaspoons mustard'
+  // halved to '1 teaspoons' and '2 ounces deli ham' to '1 ounces'. Both off
+  // Sean's own cards. The abbreviations stay out: 'g', 'tsp' and 'oz' are
+  // INVARIANT and never take an 's' in the first place.
+  'teaspoon', 'tablespoon', 'ounce', 'pound', 'gram', 'kilogram',
+  'milliliter', 'millilitre', 'liter', 'litre',
 ]);
 
 /**

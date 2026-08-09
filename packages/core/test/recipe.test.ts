@@ -334,6 +334,38 @@ describe('scaling — the one arithmetic a recipe asks of you', () => {
     expect(scaleIngredient('1 (14 oz)', 2)).toBe('2 (14 oz)');
   });
 
+  it('a unit somebody spelled out still counts, off Sean\'s own cards', () => {
+    // UNIT_MAP knows 'teaspoons' normalises to 'tsp'; MEASURE decides whether
+    // a word gets recounted, and the spelled-out units were only ever in the
+    // first. So these halved to a plural that cannot follow a 1. Both lines
+    // are read off his Croque Madame, not invented.
+    expect(scaleIngredient('2 teaspoons whole grain mustard', 0.5)).toBe('1 teaspoon whole grain mustard');
+    expect(scaleIngredient('2 ounces deli ham (french is recommended)', 0.5))
+      .toBe('1 ounce deli ham (french is recommended)');
+    expect(scaleIngredient('1 teaspoon vanilla', 2)).toBe('2 teaspoons vanilla');
+    expect(scaleIngredient('1 pound mince', 3)).toBe('3 pounds mince');
+    // The abbreviations were never the problem and must not become one:
+    // they take no 's' in any amount.
+    expect(scaleIngredient('2 tsp salt', 0.5)).toBe('1 tsp salt');
+    expect(scaleIngredient('100 g flour', 2)).toBe('200 g flour');
+  });
+
+  it('the method is prose and is never scaled, whatever it happens to contain', () => {
+    // 'Cut the guanciale into 2 x 4 x .4 cm cuboids' is off his Zozzona, and
+    // it reads exactly like the pack-size shape ('1 x 400g tin') that the
+    // scaler now treats specially. It is a SHAPE, and doubling the recipe
+    // does not make the cubes bigger. Safe because only lines under
+    // Ingredients scale at all — worth pinning now that 'x' means something.
+    const body = [
+      '**Ingredients**', '- 300 g rigatoni', '- 3 egg yolks', '',
+      'Cut the guanciale into 2 x 4 x .4 cm cuboids and take the sausage meat out of the casing.',
+    ].join('\n');
+    const out = scaleRecipeBody(body, 2);
+    expect(out).toContain('600 g rigatoni');
+    expect(out).toContain('6 egg yolks');
+    expect(out, 'the method is left exactly as written').toContain('2 x 4 x .4 cm cuboids');
+  });
+
   it('a multiplied pack size is the size of each, not a second way of saying the amount', () => {
     // '1 x 400g tin' means one 400-gram tin. Doubling it means two of those
     // tins. The dual-measure rule read the 400 g as the same amount written

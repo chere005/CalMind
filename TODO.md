@@ -266,7 +266,7 @@ Next up, in Sean's order:
 - [ ] `git pull --autostash` first — two sessions share this repo; stage
       explicit paths only, never `git add -A`, hold commits on files the other
       session has half-refactored.
-- [ ] Keep the suites green: 262 core + 37 server + 99 gesture + 16 WebKit,
+- [ ] Keep the suites green: 264 core + 37 server + 99 gesture + 16 WebKit,
       plus 9 live checks (16 with the API) and 6 desktop. The README points
       here rather than carrying numbers of its own, so this line has to be
       the one that is right — it was 93 an hour after the gesture suite passed
@@ -484,6 +484,37 @@ Next up, in Sean's order:
       wrong. Every one had been invisible to a test suite that only ever
       asked about lines somebody had already thought to doubt. The same
       lesson as Sean's own cards: invented data agrees with you.
+
+## 3ac · Read off Sean's real cards on the iOS build (2026-08-09)
+
+- [x] **'2 teaspoons whole grain mustard' halved to '1 teaspoons'**, and
+      '2 ounces deli ham' to '1 ounces'. Both straight off his Croque Madame.
+      The spelled-out units live in UNIT_MAP, which is about normalising
+      'teaspoons' to 'tsp'; MEASURE is what decides whether a word gets
+      recounted, and they were never in it. 'cup' and 'slice' happen to be in
+      both, which is why those looked fine and hid the rest. Added teaspoon,
+      tablespoon, ounce, pound, gram, kilogram, and the litre spellings. The
+      abbreviations stay out — 'g' and 'tsp' are INVARIANT and take no 's'.
+- [x] **The method is never scaled, and it now matters.** His Zozzona says
+      'Cut the guanciale into 2 x 4 x .4 cm cuboids' — which reads exactly
+      like the '1 x 400g tin' pack shape the scaler started treating
+      specially this run. It is a SHAPE; doubling the recipe does not make
+      the cubes bigger. Only lines under Ingredients scale, so it is safe,
+      and that is now pinned rather than merely true.
+- [x] **Checked without touching anything of his.** Reading his notes through
+      the app is fine; a rebuild is not, because reinstalling could drop the
+      session and signing back in would need credentials I will not handle.
+      So the lines were read off the screen and replayed against the scaler
+      locally. Ten recipes there now, not the four from before.
+- [ ] **Nothing else in ten cards came back wrong**, including the shapes
+      that had been guesses last run: parenthesised asides that are NOT
+      sizes ('2 ounces deli ham (french is recommended)') are left alone, and
+      a decimal range with a bracket after it ('1.5-2 cups tomato sauce
+      (blitzed canned...)') halves to '¾-1 cup' correctly.
+- [ ] **Still unconfirmed: the '1 x 400g tin' shape itself.** It is standard
+      in British recipe writing and the fix is right either way, but none of
+      his ten cards uses it, so the bug it fixed remains inferred rather than
+      observed.
 
 ## 3ab · A DECISION for Sean — "standup at 9am" is titled "standup at"
 
