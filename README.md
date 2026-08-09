@@ -21,11 +21,16 @@ test harnesses (`TESTING.md` is the map; `PARITY.md` is the build ledger).
 
 ```
 packages/core/     The brain, shared verbatim by all three surfaces: the
-                   slash-only US-order parser, repeats with month/year clamping,
-                   undated-first outline-block sort, fractional order keys,
-                   shape normalization, and the LWW sync engine. No dependencies,
-                   no build step — consumed as TypeScript source. Its test suite
-                   replays spec/*.json.
+                   slash-only US-order parser (and the relative words people
+                   actually type — tomorrow, in 2 weeks, in 30mins), repeats
+                   with month/year clamping, undated-first outline-block sort,
+                   fractional order keys, shape normalization, and the LWW sync
+                   engine. Also the recipe reader — OCR text into ingredients
+                   and steps, and the scaling that halves or doubles them — the
+                   rich-text and markdown shaping, base64url, and iCalendar
+                   parsing with RRULE expansion for reading somebody else's
+                   calendar. No dependencies, no build step — consumed as
+                   TypeScript source. Its test suite replays spec/*.json.
 spec/              The behavior contract, carried over from the suite — the
                    same vectors the Swift and Kotlin native cores replay.
                    Changing a behavior starts HERE.
@@ -35,8 +40,10 @@ apps/app/          One Expo (React Native) app → iOS, Android, and web
 apps/app/modules/watch-bridge/   iOS-only native module: WatchConnectivity push.
 apps/watch/        The SwiftUI watch app (read-only list) + wiring README.
 server/            The sync API in PHP — deployable to NearlyFreeSpeech
-                   unchanged. A dumb store with auth: it merges by clear
-                   metadata and stays out of payloads, except where sharing
+                   unchanged. A dumb store with auth — passwords, and passkeys
+                   via WebAuthn written by hand, since the host has no
+                   composer: it merges by clear metadata and stays out of
+                   payloads, except where sharing
                    must scope a partner's reads and row-writes to the
                    containers they opted in (both lists must name each other,
                    re-checked on every request).
@@ -79,12 +86,19 @@ codes land in `data/mail.log`, which is also how the server tests read them.
 
 ```sh
 npm install                                  # once, at the root
-npm run test:core                            # vitest: 145 tests incl. the spec replay
+npm run test:core                            # vitest, incl. the spec/*.json replay
 npm run test:server                          # boots php -S on a scratch dir, drives real HTTP
+npm run test:e2e                             # exports the web app, then drives real gestures
+npm run test:webkit                          # the spine + the header rules, in Sean's engine
+./desktop/smoke.sh                           # macOS: builds, carries THIS export, runs, quits
 php -S 127.0.0.1:8788 -t server/public       # the API
 npm run web                                  # Expo web on :8081 (proxies nothing — talks to :8788)
 cd apps/app && npx expo start                # then i / a for the iOS / Android simulator
 ```
+
+Counts live in TODO.md's steady-state line rather than here, because a number
+written into prose is a number that goes stale — this file said 145 for a good
+while after it stopped being true.
 
 Where the app finds the API (`apps/app/src/config.ts`): the deployed site and
 the e2e router use same-origin `api/`; metro dev uses `127.0.0.1:8788`; the
