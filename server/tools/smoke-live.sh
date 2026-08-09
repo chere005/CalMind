@@ -53,6 +53,15 @@ for ICON in icon-192.png icon-512.png apple-touch-icon.png; do
   is "$ICON serves" "$CODE" "200"
 done
 
+# The relying-party id a passkey is bound to. It is derived from the request
+# host rather than configured, which is the safer default and also the one
+# failure nobody would see coming: get it wrong and every passkey on every
+# device stops working at once, with no error until someone tries to sign in.
+# Needs no account — login_begin is deliberately answerable to anyone.
+HOST=$(printf '%s' "$BASE" | sed -e 's#^https\{0,1\}://##' -e 's#[:/].*##')
+RPID=$(post '{"action":"passkey_login_begin"}' | jq1 rpId)
+is "passkeys are bound to this domain" "$RPID" "$HOST"
+
 if [ "$STATIC" = 1 ]; then
   echo
   echo "────────────────────────────────"

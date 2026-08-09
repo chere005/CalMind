@@ -49,11 +49,20 @@ const listeners = new Set<() => void>();
 
 export function applyTheme(name: ThemeName): void {
   if (!THEMES[name]) name = 'midnight';
-  if (name === current) return;
+  // The palette work is skipped when nothing changed, but the DOM sync below
+  // is NOT. Returning early here meant a normal load — where the saved theme
+  // already is the current one — never wrote theme-color or the page
+  // background at all, and the only reason midnight looked right was the
+  // hardcoded style injected at export time. Any other theme, or any change
+  // to that constant, and the safe areas would have gone back to white with
+  // nothing in the app to explain why.
+  const changed = name !== current;
   current = name;
   const { label: _label, ...cols } = THEMES[name];
-  Object.assign(T, cols);
-  gen++;
+  if (changed) {
+    Object.assign(T, cols);
+    gen++;
+  }
   // The suite's <meta name="theme-color"> reads theme_bg() — follow on web.
   if (typeof document !== 'undefined') {
     let meta = document.querySelector('meta[name="theme-color"]') as HTMLMetaElement | null;
@@ -70,7 +79,7 @@ export function applyTheme(name: ThemeName): void {
     document.documentElement.style.backgroundColor = T.bg;
     if (document.body) document.body.style.backgroundColor = T.bg;
   }
-  listeners.forEach((fn) => fn());
+  if (changed) listeners.forEach((fn) => fn());
 }
 
 export function currentTheme(): ThemeName {

@@ -311,6 +311,32 @@ Next up, in Sean's order:
       recorded rather than dismissed — that spec hunts a real race, so a flake
       in it is evidence about the guard, not just about the harness.
 
+## 3c · The two Safari/widget reports (2026-08-08)
+
+- [x] **"Top and bottom bar still wrong on safari"** — MEASURED, and the page
+      is not at fault: loading the live test URL in iOS Safari on the simulator
+      shows both bars correctly dark. theme-color and the page background are
+      served and applied. Two things that DO look like this and are outside the
+      page: DuckDuckGo (Sean's default browser) draws its own chrome and does
+      not tint from theme-color, and Settings → Safari → "Allow Website
+      Tinting" turns the effect off system-wide. The installed home-screen app
+      is the surface our metas fully control, and that one still needs the
+      icon deleted and re-added FROM SAFARI.
+- [x] **theme-color now written on every load, not only on a theme change.**
+      Honest note: this was NOT the cause of anything above. applyTheme
+      early-returned when the theme already matched, so the chrome was left to
+      the colour hardcoded at export time — right for Midnight by coincidence,
+      and the only reason nothing showed. Covered by e2e/themecheck.spec.ts on
+      Sage, whose background is nearly white.
+- [x] **Widget tap goes to Safari, not the default browser** —
+      x-safari-https://, verified still handled on current iOS.
+- [ ] **Widget tap CANNOT open the home-screen app. iOS does not allow it.**
+      A home-screen web app has no url scheme and is not a universal-link
+      target; it launches from its icon and nothing else. The only real route
+      is the NATIVE iOS app plus a custom scheme (calmind://), which needs the
+      app on Sean's actual phone — an Apple Developer account and TestFlight.
+      Sean's call, and not a small one.
+
 ## 4 · Gated — waiting on Sean's explicit word
 
 - [ ] **E2EE envelopes** (design settled, build gated): X25519 +

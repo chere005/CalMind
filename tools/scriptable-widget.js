@@ -17,6 +17,17 @@ const FEED = "PASTE_FEED_URL_HERE";
 // widget's own token is read-only by design, so the write happens in Safari
 // under your own session.
 const OPEN = FEED.replace(/api\/index\.php.*$/, "");
+// Tapping opens the app in SAFARI specifically, not the default browser.
+// An https:// url from a widget goes wherever iOS sends links — DuckDuckGo,
+// in Sean's case — and x-safari-https:// is the long-standing way to name
+// Safari instead. Verified still handled on current iOS.
+//
+// What this does NOT do, because iOS does not allow it: open the CalMind
+// icon on the home screen. A home-screen web app has no url scheme and is
+// not a universal-link target; it launches from its icon and nothing else.
+// This lands in a Safari TAB, which keeps its own login separate from the
+// installed app's — so expect to sign in there once.
+const SAFARI = (u) => "x-safari-" + u;
 const COLORS = { reminder: "#34d399", event: "#60a5fa", note: "#8b6ef0" };
 const META = new Color("#777777");        // the muted time colour
 const OVERDUE = "#ff7755";
@@ -27,7 +38,7 @@ catch (e) { data = { days: {}, error: true }; }
 
 const w = new ListWidget();
 w.backgroundColor = new Color("#111111");
-w.url = OPEN;
+w.url = SAFARI(OPEN);
 w.setPadding(12, 14, 12, 14);
 
 const head = w.addStack();
@@ -74,7 +85,7 @@ if (data.error) {
     if (it.kind === "reminder") {
       // A reminder wears an empty tick box rather than a dot — it's a thing
       // to *do*, and tapping it opens that row's Done page.
-      if (it.id) row.url = OPEN + "?tick=" + encodeURIComponent(it.id);
+      if (it.id) row.url = SAFARI(OPEN + "?tick=" + encodeURIComponent(it.id));
       const box = row.addImage(SFSymbol.named("square").image);
       box.imageSize = new Size(11, 11);
       box.tintColor = new Color(late ? OVERDUE : COLORS.reminder);

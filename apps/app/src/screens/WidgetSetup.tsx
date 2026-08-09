@@ -38,7 +38,14 @@ catch (e) { data = { days: {}, error: true }; }
 
 const w = new ListWidget();
 w.backgroundColor = new Color("#111111");
-w.url = OPEN;
+// Tapping opens the app in SAFARI specifically, not the default browser.
+// An https:// url from a widget goes wherever iOS sends links, and
+// x-safari-https:// is the long-standing way to name Safari instead.
+// It does NOT open the home-screen app: a home-screen web app has no url
+// scheme and is not a universal-link target, so this lands in a Safari tab
+// with its own separate login.
+const SAFARI = (u) => "x-safari-" + u;
+w.url = SAFARI(OPEN);
 w.setPadding(12, 14, 12, 14);
 
 const head = w.addStack();
@@ -78,7 +85,7 @@ if (data.error) {
     row.centerAlignContent();
     const late = !!it.rolled;
     if (it.kind === "reminder") {
-      if (it.id) row.url = OPEN + "?tick=" + encodeURIComponent(it.id);
+      if (it.id) row.url = SAFARI(OPEN + "?tick=" + encodeURIComponent(it.id));
       const box = row.addImage(SFSymbol.named("square").image);
       box.imageSize = new Size(11, 11);
       box.tintColor = new Color(late ? OVERDUE : COLORS.reminder);

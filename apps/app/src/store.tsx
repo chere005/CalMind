@@ -196,8 +196,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, [sharedRaw, sharedPartner, recs]);
 
   useEffect(() => {
-    const t = prefsOf(recs, 'suite').theme;
-    if (t) applyTheme(t as ThemeName);
+    // Always, even with no saved preference: applyTheme is what writes
+    // theme-color and the page background, and skipping it left both to the
+    // constant baked in at export time — right for midnight by luck, wrong
+    // for every other theme.
+    applyTheme((prefsOf(recs, 'suite').theme as ThemeName) || 'midnight');
   }, [recs]);
 
   const signOut = useCallback(async () => {
