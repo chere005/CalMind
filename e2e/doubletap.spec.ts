@@ -34,7 +34,16 @@ test('a double-tapped Done files one reminder, not two', async ({ page }) => {
   // flaked once, here, on a loaded one. The guard is explicit now: the same
   // line filed twice inside a second and a half is a thumb, not an intention.
   const done = page.getByText('Done', { exact: true });
-  await Promise.all([done.click(), done.click().catch(() => {}), done.click().catch(() => {})]);
+  // The extra presses carry their OWN short timeout. A click() on a control
+  // that has navigated away does not fail fast — it waits out the entire test
+  // budget, so an unbounded .catch() here reads as a hang rather than as the
+  // press it was meant to be. That is what a third click cost me.
+  const spare = { timeout: 1_500 } as const;
+  await Promise.all([
+    done.click(),
+    done.click(spare).catch(() => {}),
+    done.click(spare).catch(() => {}),
+  ]);
   await page.waitForTimeout(1_000);
 
   await page.getByTestId('tab-reminders').click();

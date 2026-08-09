@@ -502,6 +502,27 @@ more did, and one of those deletes things:
       the markers land on nothing.
 - [x] The date panel and its half-typed field also now close with the note.
 
+## 3k · The same leak in the SHARED note view (2026-08-09)
+
+- [x] **Worse than the editor next door, and fixed the same way.** The shared
+      view kept `sharedBodyEdit` and its draft across a change of note — only
+      the scale was being reset. It commits on BLUR rather than on a
+      keystroke, so a leftover draft would be written into the next note by
+      simply tapping away: a PARTNER'S note, overwritten, with nobody having
+      typed a character.
+- [ ] No spec, and the reason is the same as `notesswitch`: on web the click
+      that navigates also blurs, so a browser never reaches the state. Both
+      of these want a harness that drives the native app — the one real gap
+      in the testing story.
+- [x] Checked and clean: `ConfirmDelete` holds its armed state per instance,
+      and every row list is keyed by record id, so an armed delete cannot be
+      reconciled onto a different row. The index-keyed lists are rich-text
+      lines, which hold no state.
+- [x] Fixed my own regression in `doubletap.spec.ts`: the third click I added
+      last round had no timeout, and a click() on a control that has navigated
+      away waits out the ENTIRE test budget rather than failing fast. It read
+      as a hang and failed the deploy gate. The spare presses are bounded now.
+
 ## 4 · Gated — waiting on Sean's explicit word
 
 - [ ] **E2EE envelopes** (design settled, build gated): X25519 +

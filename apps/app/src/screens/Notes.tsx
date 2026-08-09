@@ -669,7 +669,15 @@ function SharedNotes({ viewKey, partner }: { viewKey: string; partner: string })
   const [draft, setDraft] = useState('');
   // A recipe someone shares with you is still a recipe to cook from.
   const [sharedScale, setSharedScale] = useState(1);
-  useEffect(() => { setSharedScale(1); }, [openShared?.id]);
+  // The same letting-go the editor next door needed, and it matters more here:
+  // this screen commits on BLUR, not on a keystroke. A draft left over from
+  // the previous note meant simply tapping away would write that note's words
+  // into this one — a partner's note, overwritten, with nobody having typed.
+  useEffect(() => {
+    setSharedScale(1);
+    setSharedBodyEdit(false);
+    setDraft('');
+  }, [openShared?.id]);
 
   if (openShared) {
     const commitBody = () => {

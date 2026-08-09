@@ -23,6 +23,12 @@ import { expect, test } from '@playwright/test';
  * So what this file guards is the OTHER path: if the blur handler ever stops
  * clearing the draft, the web breaks the same way and this catches it. That
  * is worth having, and it is not the same thing as covering the reported bug.
+ *
+ * The shared-note view carries the identical state and now the identical
+ * reset. It is worse there and gets no spec for the same reason: that screen
+ * commits on BLUR rather than on a keystroke, so a leftover draft would be
+ * written into the next note by tapping away — a partner's note, overwritten,
+ * with nobody having typed a character.
  */
 test('opening a second note never shows the first one’s text', async ({ page }) => {
   test.setTimeout(90_000);
