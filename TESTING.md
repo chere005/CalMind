@@ -180,6 +180,14 @@ device's next sync comes back 401 and it must return to the login, not treat a
 dead token as "offline" and keep taking edits that can never land. The device
 that made the change keeps working.
 
+Nor did any of them have something DELETED out from under them.
+`e2e/deletedunder.spec.ts` opens a note on one device and deletes it on
+another — an ordinary Tuesday across three clients, not a stress test. The
+editor holds its record by looking it up on every render, so the moment that
+delete syncs in the lookup returns nothing; the spec holds that this is a
+graceful fall back to a working list rather than a blank screen with no way
+out, and that nothing throws on the way.
+
 Nor did any of them press a button TWICE. A thumb double-taps constantly, and
 `e2e/doubletap.spec.ts` checks the three places a second press would cost
 something: Done on the Add tab filing two copies, a section add committing on
