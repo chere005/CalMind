@@ -32,6 +32,20 @@ func nextEvents() -> [Ev] {
     return Array((list.events ?? []).prefix(2))
 }
 
+/// The circle's one word: today's time ("15:30") or the day ("Wed") — the
+/// next thing, never a tally. Sean's rule, from the summary page complaint:
+/// a count of what exists says nothing; what is NEXT earns the space.
+func whenShort(_ e: Ev) -> String {
+    let fmt = DateFormatter()
+    fmt.dateFormat = "yyyy-MM-dd"
+    if let d = fmt.date(from: e.date), !Calendar.current.isDateInToday(d) {
+        let out = DateFormatter()
+        out.dateFormat = "EEE"
+        return out.string(from: d)
+    }
+    return e.time ?? "today"
+}
+
 /// "2026-08-12" + "15:30" -> "Wed 15:30", today's just "15:30", all-day "Wed".
 func when(_ e: Ev) -> String {
     let fmt = DateFormatter()
@@ -111,15 +125,25 @@ struct ComplicationView: View {
                     Text("No events")
                 }
             case .accessoryCorner:
-                Text("\(entry.events.count)")
-                    .font(.title3.bold())
-                    .widgetLabel(entry.events.first.map { "\(when($0)) \($0.text)" } ?? "No events")
-            default: // .accessoryCircular — no room for words
+                // The next event's when, its title curling round as the label.
+                if let e = entry.events.first {
+                    Text(whenShort(e))
+                        .font(.headline)
+                        .widgetLabel("\(e.text)")
+                } else {
+                    Image(systemName: "calendar").widgetLabel("No events")
+                }
+            default: // .accessoryCircular — room for one short word, so the
+                // next event's time (or day), not a tally of what exists.
                 ZStack {
                     Circle().stroke(.tertiary, lineWidth: 2)
-                    VStack(spacing: 0) {
-                        Text("\(entry.events.count)").font(.title3.bold())
-                        Image(systemName: "calendar").font(.system(size: 9))
+                    if let e = entry.events.first {
+                        VStack(spacing: 0) {
+                            Text(whenShort(e)).font(.system(size: 13, weight: .bold))
+                            Image(systemName: "calendar").font(.system(size: 8))
+                        }
+                    } else {
+                        Image(systemName: "calendar").font(.body)
                     }
                 }
             }

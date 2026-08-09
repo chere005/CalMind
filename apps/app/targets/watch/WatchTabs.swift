@@ -43,21 +43,27 @@ struct SummaryView: View {
         let open = store.items.filter { !$0.done }
         // Undated is not due — an empty string compares before every date,
         // which made every undated reminder "due today" until this said no.
+        // And no TOTAL anywhere: "29 to do" was Sean's first complaint with
+        // this screen on his wrist — a tally of everything he has ever owed
+        // says nothing about NOW. The page leads with what is actually due.
         let dueToday = open.filter { $0.due != nil && $0.due! <= today }
         let nextEvent = store.events.first
         ScrollView {
             VStack(alignment: .leading, spacing: 8) {
-                Text(open.isEmpty ? "All clear" : "\(open.count) to do")
-                    .font(.title3.bold())
-                if !dueToday.isEmpty {
-                    Text("\(dueToday.count) due today")
-                        .font(.caption)
-                        .foregroundStyle(.orange)
-                }
-                if let r = dueToday.first ?? open.first {
+                Text(dueToday.isEmpty ? "Nothing due today" : "Due today")
+                    .font(.headline)
+                    .foregroundStyle(dueToday.isEmpty ? .secondary : .primary)
+                ForEach(dueToday.prefix(3)) { r in
                     Label(r.text, systemImage: "circle")
                         .font(.body)
                         .lineLimit(2)
+                }
+                if dueToday.count > 3 {
+                    // A continuation, not a statistic: it counts THESE, and
+                    // the Reminders page below holds them.
+                    Text("and \(dueToday.count - 3) more")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
                 }
                 if let e = nextEvent {
                     Divider()
