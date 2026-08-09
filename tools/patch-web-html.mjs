@@ -52,6 +52,25 @@ const add = metas
 if (add) html = html.replace('</head>', `${add}</head>`);
 
 /**
+ * An uncaught error you can SEE, on a device with no console.
+ *
+ * A blank dark screen is what a failed render looks like from outside, and
+ * that is exactly what an installed home-screen web app gave when the
+ * auto-updater was wired in — while every browser and both test engines
+ * rendered it perfectly. There is no console on a webclip and no way to
+ * attach one from here, so the page has to say what went wrong itself.
+ *
+ * Inline and FIRST, so it is listening before the bundle runs and survives
+ * whatever the bundle does. It draws nothing at all unless something throws,
+ * so it costs an ordinary launch a few hundred bytes and nothing else.
+ */
+const ERR_ID = 'calmind-error-shout';
+if (!html.includes(ERR_ID)) {
+  const shout = `<script id="${ERR_ID}">(function(){var shown=0;function say(what){if(shown++)return;try{var d=document.createElement('pre');d.setAttribute('data-testid','fatal-error');d.style.cssText='position:fixed;inset:0;z-index:2147483647;margin:0;padding:16px;background:#111;color:#f6b4b2;font:12px/1.4 ui-monospace,monospace;white-space:pre-wrap;overflow:auto';d.textContent='CalMind could not start.\\n\\n'+what;(document.body||document.documentElement).appendChild(d);}catch(_){}}window.addEventListener('error',function(e){say((e&&e.message||'error')+'\\n'+((e&&e.error&&e.error.stack)||(e&&e.filename+':'+e.lineno)||''));});window.addEventListener('unhandledrejection',function(e){var r=e&&e.reason;say('unhandled rejection: '+((r&&r.message)||r)+'\\n'+((r&&r.stack)||''));});})();</script>`;
+  html = html.replace('<head>', `<head>${shout}`);
+}
+
+/**
  * The web app manifest the suite has always had and the export never wrote.
  * It is what makes the app installable on Android and on desktop Chrome and
  * Edge, and it carries the name and icons a home screen shows.

@@ -539,6 +539,15 @@ with what is deployed.
       real browser — correct bundle, no reload attempted, `updateTried` null.
       None of them is an installed webclip, and that is the only place it
       fails.
+- [x] **Two tools built to find the cause, waiting on a deploy.** First, an
+      inline error reporter in the page head (`tools/patch-web-html.mjs`):
+      first thing to run, so it is listening before the bundle and survives
+      whatever the bundle does, and it paints an uncaught error across the
+      screen. A webclip has no console and none can be attached from here, so
+      the page has to say what went wrong itself. It draws nothing unless
+      something throws. Second, the updater is now behind `?autoupdate=1`, so
+      a webclip installed at that URL reproduces the blank screen while no
+      ordinary install runs the code at all.
 - [ ] **Cause NOT yet known, and I am not guessing at one.** What is ruled
       out: it is not the `?b=` query colliding with the app's own `?tick=`
       route (different name, checked); it is not a reload loop, since the
@@ -554,6 +563,28 @@ with what is deployed.
       still has to remove and re-add the icon by hand to get a new build —
       but a blank app is very much worse than an old one, and shipping this
       would have handed him exactly that on the reinstall I asked for.
+
+## 0.05 · DEPLOYS ARE BLOCKED — SSH key no longer accepted (2026-08-09)
+
+- [ ] **`./server/deploy-test.sh` fails at the SSH step.** "Permission denied,
+      please try again" then "Too many authentication failures". Deploys
+      worked earlier in this same session, so something changed underneath.
+- [ ] **Diagnosed, not guessed.** `ssh-add -l` reports "The agent has no
+      identities" — it held the key earlier and does not now. Offering the
+      configured key on its own (`-o IdentitiesOnly=yes -i
+      ~/.ssh/id_ed25519_nfs -o BatchMode=yes`) is refused with "Permission
+      denied (publickey,password,keyboard-interactive)", so it is not merely
+      SSH running out of attempts while trying several keys.
+- [ ] **This is Sean's to fix and I did not touch it.** Almost certainly
+      `ssh-add ~/.ssh/id_ed25519_nfs` and the passphrase — the key is named
+      for that host in `~/.ssh/config`. If that is refused too, the key needs
+      re-authorising in the NearlyFreeSpeech panel. I will not handle the
+      key or its passphrase, and I stopped rather than working around the
+      block when reading the key file was denied.
+- [ ] **Everything since the last successful deploy is COMMITTED BUT NOT
+      DEPLOYED.** The live test instance is one deploy behind: it has the
+      auto-updater fully disabled, which is the safe state. What is waiting
+      is the URL-gated updater and the error reporter below.
 
 ## 2 · Steady state (every iteration)
 
