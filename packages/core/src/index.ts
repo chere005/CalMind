@@ -8,6 +8,7 @@ export * from './day';
 export * from './richtext';
 export * from './b64u';
 export * from './ical';
+export * from './rrule';
 export * from './recipe';
 export * from './rules';
 export * from './manage';

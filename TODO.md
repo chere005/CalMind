@@ -348,9 +348,18 @@ Next up, in Sean's order:
       wall clock in a named zone. Zone maths is done by probing Intl rather
       than carrying a table; the tests pin both DST changeovers and round-trip
       every hour across a spring-forward day.
-- [ ] **RRULE expansion** — parsed and kept as text, not yet expanded. This is
-      the next pure-core piece and wants its own tests (BYDAY, COUNT, UNTIL,
-      INTERVAL, EXDATE).
+- [x] **RRULE expansion** (`packages/core/src/rrule.ts`) — daily/weekly/
+      monthly/yearly with INTERVAL, COUNT, UNTIL, BYDAY (including '3FR' and
+      '-1FR'), BYMONTHDAY (negative counts from the end), EXDATE, WKST.
+      Two rules worth remembering, both pinned: an invalid date is SKIPPED and
+      never clamped, so monthly-on-the-31st happens seven times a year and
+      29 Feb only in leap years; and COUNT counts occurrences from DTSTART,
+      including ones before the display window, or a window that opens late
+      silently lengthens the series. An unrecognised FREQ yields the single
+      start date rather than nothing — a wrong pattern is a complaint, a
+      vanished event is a missed appointment.
+- [ ] **Still to join up**: mapping expanded occurrences onto our own record
+      shape, and deciding whether they are stored or computed on the fly.
 - [ ] **BLOCKED on Sean, and it decides the shape**: reading Gmail needs a
       Google Cloud project HE creates. For a personal gmail.com account an app
       left in Testing mode expires its refresh roughly weekly; escaping that
