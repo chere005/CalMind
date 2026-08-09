@@ -84,6 +84,29 @@ visual. Deploy to **test only** (`./server/deploy-test.sh`) as changes land.
       play) plus CBOR/COSE verification in framework-less PHP. Recommended
       later, web-first, passwords staying as the fallback. Awaiting his word.
 
+## 0.45 · Opening the widget page retires the widget you already have
+
+handle_widget_token contradicts itself: the first block returns null for
+"already minted; the client keeps its copy", and the second then DELETES that
+token and mints a fresh one. So every visit to Settings → Widget silently
+kills the widget already on the home screen — it holds a dead key and just
+stops updating, with nothing anywhere saying why. Pinned by a server test
+that drives the old key against the feed and gets a 401.
+
+It is not obviously WRONG: only the hash is stored, so the old token cannot
+be shown again, and something has to be handed over. It is the invisibility
+that is wrong. The page now says so out loud ("issues a new key, which
+retires the last one"), which costs nothing and is true.
+
+The better fixes need Sean's word, since they trade away something:
+  a. store the token itself, not just its hash, so opening the page shows
+     the SAME key and changes nothing — it is a read-only feed key, so the
+     at-rest cost is small, but it is still a secret sitting in a file;
+  b. only mint on an explicit "new key" button, showing "already set up"
+     otherwise — no rotation by accident, but no way to recover a lost key
+     without pressing it;
+  c. leave it rotating and rely on the warning.
+
 ## 0.5 · A decision for Sean — the PWA cannot open offline
 
 The web app registers NO service worker, so a phone with no signal cannot

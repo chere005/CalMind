@@ -169,6 +169,15 @@ export function WidgetSetup({ onClose }: { onClose: () => void }) {
           <Text style={s.back}>← Calendar</Text>
         </Pressable>
         <Text style={s.h1}>Calendar widget</Text>
+        {/* Opening this page mints a token, and minting one retires the last:
+            only the hash is stored, so the old token cannot be shown again.
+            That means a widget already on the home screen quietly stops
+            updating the moment this page opens — invisible, and it reads as
+            the widget being broken. Say so instead. */}
+        <Text testID="widget-replaces" style={s.warn}>
+          Opening this page issues a new key, which retires the last one. If you already
+          have the widget, paste this script over the old one or it will stop updating.
+        </Text>
         <Text style={s.lede}>
           A home-screen widget for <Text style={s.bold}>{session?.username}</Text> that shows your agenda and opens
           CalMind when tapped.

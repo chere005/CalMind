@@ -347,6 +347,32 @@ t('removal on either side ends sharing instantly, both ways', function () use ($
         ['id' => 'rs', 'type' => 'reminder', 'updated' => 10, 'payload' => ['text' => 'x', 'due' => null, 'time' => null, 'done' => false, 'repeat' => null, 'folderId' => 'fs', 'sectionId' => 'ss', 'indent' => 0, 'ord' => 'a']]], $tokQ)['status'], 'writes die with the handshake');
 });
 
+t('opening the widget page again REVOKES the widget you already have', function () {
+    // The two blocks in handle_widget_token contradict each other: the first
+    // returns null for "already minted; the client keeps its copy", and the
+    // second then deletes that token and mints a fresh one. So every visit to
+    // Settings → Widget silently kills the widget already on the home screen.
+    $tok = api(['action' => 'signup', 'username' => 'widgy', 'email' => 'w@example.com', 'password' => 'widgypassword'])['body']['token'];
+    $first = api(['action' => 'widget_token'], $tok)['body']['token'];
+    ok($first !== '', 'a token is minted');
+    $second = api(['action' => 'widget_token'], $tok)['body']['token'];
+    ok($second !== '', 'a second visit also answers with a token');
+    // THIS is the behaviour, stated rather than assumed. It is not obviously
+    // wrong — only the hash is stored, so the old one cannot be shown again —
+    // but it is invisible, and an invisible revocation reads as a broken
+    // widget. See TODO.md.
+    ok($first !== $second, 'and it is a DIFFERENT token');
+    // The consequence, spelled out: the widget already on the home screen is
+    // now holding a dead token and will simply stop updating.
+    global $port;
+    $ctx = stream_context_create(['http' => ['method' => 'GET', 'ignore_errors' => true]]);
+    @file_get_contents("http://127.0.0.1:$port/api/index.php?feed=1&t=" . urlencode($first) . "&cals=all", false, $ctx);
+    $code = 0;
+    foreach ($http_response_header ?? [] as $h) { if (preg_match('#^HTTP/\S+ (\d{3})#', $h, $m)) { $code = (int) $m[1]; } }
+    eq(401, $code, 'the FIRST token is dead — the old widget stops updating');
+    eq(200, api(['action' => 'whoami'], $tok)['status'], 'the account itself is fine');
+});
+
 t('an OVERSIZED record is dropped and the sync still says ok — silently', function () {
     // Its own account: the password specs above revoke the shared token.
     $tok = api(['action' => 'signup', 'username' => 'bigrow', 'email' => 'big@example.com', 'password' => 'bigpassword'])['body']['token'];

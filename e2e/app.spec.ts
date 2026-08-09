@@ -668,6 +668,10 @@ test('the widget setup page bakes the pin and carries the whole script', async (
   // right-aligned rather than crammed in front of the title, and a real
   // empty-state line. These two copies (this page and
   // tools/scriptable-widget.js) drifted apart once already.
+  // And it says out loud that opening it retired the previous key — a widget
+  // already on the home screen stops updating, silently, otherwise.
+  await expect(page.getByTestId('widget-replaces')).toContainText('retires the last one');
+
   const script = await page.getByTestId('script-body').innerText();
   for (const mark of [
     'head.addText("Calendar")',      // the header row
