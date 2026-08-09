@@ -224,8 +224,12 @@ Next up, in Sean's order:
 - [ ] `git pull --autostash` first — two sessions share this repo; stage
       explicit paths only, never `git add -A`, hold commits on files the other
       session has half-refactored.
-- [ ] Keep the suites green: 260 core + 36 server + 93 gesture + 12 WebKit,
-      plus 9 live checks and 6 desktop. (README points here for counts.)
+- [ ] Keep the suites green: 260 core + 36 server + 96 gesture + 12 WebKit,
+      plus 9 live checks (16 with the API) and 6 desktop. The README points
+      here rather than carrying numbers of its own, so this line has to be
+      the one that is right — it was 93 an hour after the gesture suite passed
+      96, which is exactly how the README's own "145 tests" went stale.
+      `npx playwright test --list` gives the gesture total without a run.
       The gesture run refuses to start against a stale export (e2e/freshness.ts).
 - [ ] Confirm live test == local dist (md5 of served index.html vs
       `apps/app/dist/index.html`).
