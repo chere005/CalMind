@@ -276,7 +276,9 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
       {/* The legend's closing rule belongs to the legend. A month holding
           nothing shows no key at all, and two hairlines stacked on each
           other is what it looked like when this rule stayed behind. */}
-      {!weekMode && (legend.length > 0 || sharedLegend.length > 0) && <Rule />}
+      {/* Follows the legend exactly — ungating one and not the other left the
+          legend drawing in week mode with no line under it. */}
+      {(legend.length > 0 || sharedLegend.length > 0) && <Rule />}
 
       <ScrollView style={s.panel} contentContainerStyle={s.panelInner}>
         <View style={s.panelHead}>
