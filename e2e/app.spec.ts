@@ -14,6 +14,11 @@ async function dragVert(page: Page, grip: ReturnType<Page['getByTestId']>, dy: n
   await page.mouse.move(x, y);
   await page.mouse.down();
   for (let i = 1; i <= 8; i++) await page.mouse.move(x, y + (i * dy) / 8);
+  // A beat before letting go. The drag measures its rows asynchronously on
+  // touch-down, and a mouse that presses, crosses three rows and releases
+  // inside one frame can outrun that — which no finger can. Without this the
+  // harness was testing a gesture the app will never receive.
+  await page.waitForTimeout(120);
   await page.mouse.up();
 }
 
@@ -981,6 +986,38 @@ test('a recipe line is mended by tapping it, not by deleting and retyping', asyn
   await page.getByTestId('ing-edit').fill('');
   await page.getByTestId('ing-edit').press('Enter');
   await expect(page.getByTestId('ing-row')).toHaveCount(0);
+});
+
+test('recipe lines reorder by dragging the marker they already wear', async ({ page }) => {
+  // OCR hands ingredients over in whatever order the camera found them, so a
+  // recipe you can't reorder is one you have to retype. The bullet and the
+  // step number are the handles — the rows gain no furniture for it.
+  await signup(page);
+  await page.getByTestId('tab-notes').click();
+  await page.getByTestId('secadd-General').first().click();
+  await page.getByPlaceholder('New note').fill('Pancakes');
+  await page.getByPlaceholder('New note').press('Enter');
+  await page.getByTestId('note-body-view').click();
+  await page.getByTestId('note-body-edit').fill('2 cups flour\n1 cup milk\n3 eggs');
+  await page.getByTestId('recipe-import').click();
+
+  const rows = () => page.getByTestId('ing-row').allTextContents();
+  await expect.poll(rows).toEqual(['2 cups flour', '1 cup milk', '3 eggs']);
+  // The Recipe page slides in; measuring a grip mid-animation aims the drag
+  // at where the row USED to be.
+  await page.waitForTimeout(400);
+
+  const grips = page.getByTestId('ing-grip');
+  const g0 = (await grips.nth(0).boundingBox())!;
+  const g2 = (await grips.nth(2).boundingBox())!;
+  await dragVert(page, grips.first(), g2.y + g2.height / 2 - (g0.y + g0.height / 2) + 8);
+  await expect.poll(rows).toEqual(['1 cup milk', '3 eggs', '2 cups flour']);
+
+  // The order is what gets saved, not merely what is drawn.
+  await page.getByTestId('recipe-save').click();
+  await expect(page.getByTestId('note-body-view')).toContainText('1 cup milk');
+  const body = await page.getByTestId('note-body-view').innerText();
+  expect(body.indexOf('1 cup milk')).toBeLessThan(body.indexOf('2 cups flour'));
 });
 
 test('the Recipe page can shed the non-recipe notes with its checkbox', async ({ page }) => {

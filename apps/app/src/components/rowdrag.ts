@@ -103,11 +103,20 @@ export function useRowDrag(count: number, onDrop: (from: number, to: number) => 
           onPanResponderRelease: (_e, g) => {
             // Compute from the RELEASE's own travel, not the last move — a
             // fast flick can land with barely any move events processed.
-            const to = destFor(i, g.dy);
+            const drop = () => {
+              const to = destFor(i, g.dy);
+              if (to === null) return;
+              const bounded = Math.max(0, Math.min(cfg.current.count - 1, to));
+              if (i !== bounded) cfg.current.onDrop(i, bounded);
+            };
             setUi({ dragIdx: null, dragDy: 0, slot: null });
-            if (to === null) return;
-            const bounded = Math.max(0, Math.min(cfg.current.count - 1, to));
-            if (i !== bounded) cfg.current.onDrop(i, bounded);
+            // measureInWindow is async, and a drag quick enough can be over
+            // before it answers — which silently dropped the whole gesture.
+            // Nothing but the dragged row MOVES during a drag, so measuring
+            // now is just as true as measuring at the grant: take the late
+            // answer rather than throwing the drag away.
+            if (mids.current.size === 0) void measure().then(drop);
+            else drop();
           },
           onPanResponderTerminate: () => setUi({ dragIdx: null, dragDy: 0, slot: null }),
         }),

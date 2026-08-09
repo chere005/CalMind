@@ -15,6 +15,18 @@ import { useStore } from '../store';
 import { themed, T } from '../theme';
 import { CircleBtn, ConfirmDelete, Field, Pill } from '../ui';
 import { ocrImages } from '../components/ocr';
+import { useRowDrag } from '../components/rowdrag';
+
+/** A row lifted from one index and set down at another. `to` is the index in
+ *  the list with the dragged row already taken out, which is what the drag
+ *  hook reports. */
+function moveAt(rows: string[], from: number, to: number): string[] {
+  const out = rows.slice();
+  const [row] = out.splice(from, 1);
+  if (row === undefined) return rows;
+  out.splice(to, 0, row);
+  return out;
+}
 
 export function RecipeEditor({ note, onClose }: { note: Rec<'note'>; onClose: () => void }) {
   const { mutate } = useStore();
@@ -49,6 +61,13 @@ export function RecipeEditor({ note, onClose }: { note: Rec<'note'>; onClose: ()
     if (list === 'ing') setIngredients(apply);
     else setSteps(apply);
   };
+
+  // Reordering, by the marker each row already wears — the bullet and the
+  // step number ARE the handles, so the rows gain no furniture for it. OCR
+  // hands ingredients over in whatever order the camera found them, and a
+  // method read off a photo often arrives out of sequence.
+  const ingDrag = useRowDrag(ingredients.length, (from, to) => setIngredients((rows) => moveAt(rows, from, to)));
+  const stepDrag = useRowDrag(steps.length, (from, to) => setSteps((rows) => moveAt(rows, from, to)));
 
   const addIngredient = () => {
     const t = parseIngredient(ingField);
@@ -87,7 +106,7 @@ export function RecipeEditor({ note, onClose }: { note: Rec<'note'>; onClose: ()
 
   return (
     <Modal animationType="slide" onRequestClose={onClose}>
-      <ScrollView style={s.page} contentContainerStyle={s.inner}>
+      <ScrollView style={s.page} contentContainerStyle={s.inner} scrollEnabled={ingDrag.dragIdx === null && stepDrag.dragIdx === null}>
         <View style={s.headRow}>
           <Pressable onPress={onClose} hitSlop={8}><Text style={s.back}>← Note</Text></Pressable>
           <CircleBtn testID="recipe-photos" glyph="📷" size={32} onPress={() => void importPhotos()} />
@@ -108,8 +127,15 @@ export function RecipeEditor({ note, onClose }: { note: Rec<'note'>; onClose: ()
           onSubmitEditing={addIngredient}
         />
         {ingredients.map((ing, i) => (
-          <View key={`${ing}-${i}`} style={s.row}>
-            <Text style={s.dot}>•</Text>
+          <View key={`${ing}-${i}`}>
+            {ingDrag.slot === i && <View style={s.dropLine} />}
+            <View
+              ref={ingDrag.registerRow(i)}
+              style={[s.row, ingDrag.dragIdx === i && { opacity: 0.55, transform: [{ translateY: ingDrag.dragDy }] }]}
+            >
+            <View testID="ing-grip" {...ingDrag.handleFor(i)} style={s.handle} hitSlop={8}>
+              <Text style={s.dot}>•</Text>
+            </View>
             {editing?.list === 'ing' && editing.at === i ? (
               <Field
                 testID="ing-edit"
@@ -126,8 +152,10 @@ export function RecipeEditor({ note, onClose }: { note: Rec<'note'>; onClose: ()
               </Pressable>
             )}
             <ConfirmDelete size={22} onDelete={() => setIngredients(ingredients.filter((_x, j) => j !== i))} />
+            </View>
           </View>
         ))}
+        {ingDrag.slot === ingredients.length && <View style={s.dropLine} />}
 
         <View style={s.secHead}>
           <Text style={s.secName}>Instructions</Text>
@@ -141,8 +169,15 @@ export function RecipeEditor({ note, onClose }: { note: Rec<'note'>; onClose: ()
           onSubmitEditing={addStep}
         />
         {steps.map((st, i) => (
-          <View key={`${st}-${i}`} style={s.row}>
-            <Text style={s.stepNum}>{i + 1}.</Text>
+          <View key={`${st}-${i}`}>
+            {stepDrag.slot === i && <View style={s.dropLine} />}
+            <View
+              ref={stepDrag.registerRow(i)}
+              style={[s.row, stepDrag.dragIdx === i && { opacity: 0.55, transform: [{ translateY: stepDrag.dragDy }] }]}
+            >
+            <View testID="step-grip" {...stepDrag.handleFor(i)} style={s.handle} hitSlop={8}>
+              <Text style={s.stepNum}>{i + 1}.</Text>
+            </View>
             {editing?.list === 'step' && editing.at === i ? (
               <Field
                 testID="step-edit"
@@ -159,8 +194,10 @@ export function RecipeEditor({ note, onClose }: { note: Rec<'note'>; onClose: ()
               </Pressable>
             )}
             <ConfirmDelete size={22} onDelete={() => setSteps(steps.filter((_x, j) => j !== i))} />
+            </View>
           </View>
         ))}
+        {stepDrag.slot === steps.length && <View style={s.dropLine} />}
 
         {extra.length > 0 && (
           <>
@@ -200,6 +237,9 @@ const s = themed(() => StyleSheet.create({
   // The tap target is the whole line, not just the glyphs in it — a phone
   // gives you a thumb, not a cursor.
   rowPress: { flex: 1, paddingVertical: 2 },
+  // The marker doubles as the drag handle, so it carries the tap target.
+  handle: { minWidth: 22, alignItems: 'center', justifyContent: 'center' },
+  dropLine: { height: 2, backgroundColor: T.accent, borderRadius: 1, marginVertical: 1 },
   rowField: { flex: 1, paddingVertical: 4 },
   incRow: { flexDirection: 'row', alignItems: 'center', gap: 9, marginTop: 14 },
   incBox: { width: 22, height: 22, borderRadius: 6, borderWidth: 1.5, borderColor: T.line, alignItems: 'center', justifyContent: 'center' },
