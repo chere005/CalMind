@@ -168,12 +168,16 @@ Series 9. Both are installed and reachable over Wi-Fi.
       (count, due-today, next event), the existing reminder list, events
       grouped by day in calendar colours, and a month grid with event dots.
       Still read-only. NOT yet verified on a simulator or wrist.
-- [ ] **Check items off from the watch.** The bridge is ONE-WAY today —
-      `pushWatchList` sends phone→watch and WCSession only ever receives.
-      Needs a return path, a native module method, and a rule for what wins
-      when both sides edit the same reminder offline. This reverses the
-      documented "the watch stays read-only" design, which is Sean's call to
-      make and he has made it.
+- [~] **Check items off from the watch — code-complete, install pending.**
+      The return path: a tap queues {tick: id} as transferUserInfo (survives
+      the phone being away), lands as an onTick event, and the store applies
+      it through the SAME reminderToggle a phone tap uses — repeats roll on
+      the phone, never the watch; the next push closes the loop. Conflict
+      rule deliberately NOT invented: last writer wins through the ordinary
+      store, the suite's existing two-device rule. A tick for a deleted
+      record drops silently. Both schemes build; README's read-only claim
+      updated to record Sean's reversal. NOT verified end-to-end on real
+      hardware yet — that needs his phone and watch together and a tap.
 
 ### Still owed from this session
 
