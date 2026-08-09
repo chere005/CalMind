@@ -1,6 +1,6 @@
 /** The OCR-to-note heuristics: humble, but pinned. */
 import { describe, it, expect } from 'vitest';
-import { formatRecipe, parseIngredient, recipeBody, recipeFromPages, scaleIngredient, scaleRecipeBody, scrubLine } from '../src/recipe';
+import { formatRecipe, looksLikeChrome, parseIngredient, precleanOcrLine, recipeBody, recipeFromPages, scaleIngredient, scaleRecipeBody, scrubLine } from '../src/recipe';
 
 describe('formatRecipe', () => {
   it('finds the obvious title, bullets the ingredients, keeps the steps', () => {
@@ -483,5 +483,57 @@ describe('scaling — the one arithmetic a recipe asks of you', () => {
   it('scaling by one is the identity, character for character', () => {
     const body = '**Ingredients**\n- 1 ½ cups flour\n\n**Directions**\n1. Mix.';
     expect(scaleRecipeBody(body, 1)).toBe(body);
+  });
+});
+
+describe('what tesseract does to a real card — every rule chased a screenshot', () => {
+  // Fixtures are short observed ingredient LINES (quantities are facts);
+  // no recipe prose belongs in this repo.
+  it('checkbox glyphs strip where a quantity follows, and bare J always', () => {
+    expect(precleanOcrLine('J 1/2 cup plain yoghurt')).toBe('1/2 cup plain yoghurt');
+    expect(precleanOcrLine('OO 2 cloves garlic')).toBe('2 cloves garlic');
+    expect(precleanOcrLine('TJ 2 Tbsp olive oil')).toBe('2 Tbsp olive oil');
+    expect(precleanOcrLine('J Basmati rice')).toBe('Basmati rice');
+    expect(precleanOcrLine('TO SERVE')).toBe('TO SERVE'); // a pair needs a digit
+  });
+
+  it('fused tokens un-fuse: 1and, 11/4, the stray apostrophe', () => {
+    expect(precleanOcrLine('1and 1/2 cups (345g) mashed bananas')).toBe('1 and 1/2 cups (345g) mashed bananas');
+    expect(precleanOcrLine('11/4tspsalt')).toBe('1 1/4tspsalt');
+    expect(precleanOcrLine("1'teaspoon cider vinegar")).toBe('1 teaspoon cider vinegar');
+  });
+
+  it('the fused unit gives the word back: 1/4tspsalt parses whole', () => {
+    expect(parseIngredient('1 1/4tspsalt')).toBe('1 ¼ tsp salt');
+    // …and the guard: ordinary words that BEGIN with a unit stay words.
+    expect(parseIngredient('2 canned tomatoes')).toBe('2 canned tomatoes');
+    expect(parseIngredient('3 garlic cloves')).toBe('3 garlic cloves');
+  });
+
+  it('price chatter goes, words in the same parens stay', () => {
+    expect(precleanOcrLine('2 Tbsp olive oil ( 0.32)')).toBe('2 Tbsp olive oil');
+    expect(precleanOcrLine('2 Tbsp olive oil ($0.32)')).toBe('2 Tbsp olive oil');
+    expect(precleanOcrLine('diced tomatoes (with juices, 0.50)')).toBe('diced tomatoes (with juices)');
+  });
+
+  it('ratings and player garbage never become ingredients', () => {
+    expect(looksLikeChrome('496 from 1100 votes')).toBe(true);
+    expect(looksLikeChrome('Cook Mode Prevent your screen from going dark')).toBe(true);
+    expect(looksLikeChrome('V7, Yi e')).toBe(true);
+    expect(looksLikeChrome('2 cups (250g) all-purpose flour')).toBe(false);
+    expect(looksLikeChrome('salt and pepper to taste')).toBe(false);
+  });
+
+  it('a wrapped column re-joins: the fragment starts lowercase or (', () => {
+    const parts = recipeFromPages(['Ingredients\n2 cups (250g) all purpose\nflour (spooned and leveled)\n1/2 cup (8 Tbsp; 113g) unsalted\nbutter, softened to room\ntemperature']);
+    expect(parts.ingredients).toEqual([
+      '2 cups (250g) all purpose flour (spooned and leveled)',
+      '½ cup (8 Tbsp; 113g) unsalted butter, softened to room temperature',
+    ]);
+  });
+
+  it('a capitalised fragment stays split rather than gluing neighbours', () => {
+    const parts = recipeFromPages(['Ingredients\n1 tsp salt\nBasmati rice']);
+    expect(parts.ingredients).toEqual(['1 tsp salt', 'Basmati rice']);
   });
 });

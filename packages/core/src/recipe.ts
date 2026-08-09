@@ -23,6 +23,16 @@ const UNIT_MAP: Record<string, string> = {
 };
 const FRACTIONS: Record<string, string> = { '1/2': '½', '1/4': '¼', '3/4': '¾', '1/3': '⅓', '2/3': '⅔', '1/8': '⅛' };
 
+/**
+ * The units that may claim a fused word's front ('tspsalt'). Longest first
+ * so 'tablespoons' beats 'tablespoon'. Single letters are OUT — 'g' would
+ * take the front of 'garlic' — and so are can/cans: 'canned' and 'candied'
+ * are ordinary recipe words that begin with them.
+ */
+const UNIT_KEYS_BY_LENGTH = Object.keys(UNIT_MAP)
+  .filter((k) => k.length >= 3 && k !== 'can' && k !== 'cans')
+  .sort((a, b) => b.length - a.length);
+
 /** One quantity token, normalised: decimal commas to points, fractions
  *  typographic, a whole-plus-fraction left as the pair it reads as. */
 function oneQty(raw: string): string {
@@ -59,6 +69,16 @@ export function parseIngredient(text: string): string {
   const rest = (m[5] ?? '').trim();
   const unit = UNIT_MAP[unitRaw];
   if (unit) return tidy([qty, unit, rest].filter(Boolean).join(' '));
+  // 'tspsalt' — OCR fused the unit to its ingredient. The longest known
+  // unit that PREFIXES the word takes it, provided enough word remains to
+  // name something; 'cupboard' survives because 'board' is a word but this
+  // only fires when the line LED with a quantity, and '2 cupboard' is not
+  // a thing a recipe says.
+  for (const key of UNIT_KEYS_BY_LENGTH) {
+    if (unitRaw.startsWith(key) && unitRaw.length - key.length >= 3) {
+      return tidy([qty, UNIT_MAP[key], unitRaw.slice(key.length), rest].filter(Boolean).join(' '));
+    }
+  }
   // Not a known unit: the word belongs to the ingredient itself.
   return tidy([qty, [m[4], rest].filter(Boolean).join(' ').trim()].filter(Boolean).join(' '));
 }
@@ -128,11 +148,58 @@ export function scrubLine(raw: string): string {
   return cleaned.replace(/zzurlz(\d+)zz/g, (_m, i) => urls[Number(i)] ?? '');
 }
 
+/**
+ * What tesseract actually does to a recipe card, fixed shape by shape. Every
+ * rule here chased an observed failure from a real screenshot (2026-08-09,
+ * four sites: King Arthur, Budget Bytes, RecipeTin Eats, Sally's) — none of
+ * it is predicted. The glyph strips run only where a quantity follows, so a
+ * real word keeps its letters.
+ */
+export function precleanOcrLine(l: string): string {
+  return (
+    l
+      // A checkbox reads as J / TJ / OO / EJ before nearly every ingredient
+      // on the checkbox-list sites. Bare J strips always; a pair only when a
+      // quantity follows, so 'TO SERVE' keeps its TO.
+      .replace(/^J\s+/, '')
+      .replace(/^[JOTEDU]{1,2}\s+(?=[\d½¼¾⅓⅔⅛])/, '')
+      // A card's own dash bullet: formatRecipe re-bullets what it keeps, so
+      // a leading dash here only hides the quantity from every later rule.
+      .replace(/^-\s+/, '')
+      // '1and 1/2 cups' — the OCR fuses the written-out 'and'.
+      .replace(/^(\d)and\s+/, '$1 and ')
+      // "11/4tspsalt": a multi-digit run before a fraction is a whole number
+      // and a fraction fused — '1 1/4', never eleven quarters.
+      .replace(/^(\d)(\d\/\d)/, '$1 $2')
+      // "1'teaspoon" — a stray apostrophe where the space was.
+      .replace(/(\d)['’](?=[a-zA-Z])/g, '$1 ')
+      // Price chatter: '($0.32)' — and its scrubbed ghost '( 0.32)' — is
+      // noise on a card; '(with juices, $0.50)' keeps its words only.
+      .replace(/\(\s*\$?\s*\d+\.\d{2}\s*\)/g, '')
+      .replace(/,\s*\$?\s*\d+\.\d{2}(\s*\))/g, '$1')
+      .replace(/\s+/g, ' ')
+      .trim()
+  );
+}
+
+/** Site chrome that OCR walks straight through: ratings, serving widgets,
+ *  video overlays. A candidate ingredient that is mostly symbols is the
+ *  video-player garbage ('V7, Yi e') by another name. */
+export function looksLikeChrome(l: string): boolean {
+  if (/^(video|print|save|description|reviews?|notes?|nutrition( information)?|instructions?|equipment|watch on\b.*|cook mode\b.*|tap or hover\b.*|servings?\b.*|prep\b.*|cook\b.*|total\b.*|\d+(\.\d+)?\s+from\s+\d+.*)$/i.test(l)) return true;
+  // The ratio test never touches a line that LEADS with a quantity: real
+  // ingredients are digit-heavy ('1/2 cup (8 Tbsp; 113g) unsalted' is a
+  // third letters by weight) and the garbage never opens with an amount.
+  if (QTY.test(l)) return false;
+  const alpha = (l.match(/[a-zA-Z]/g) ?? []).length;
+  return l.length >= 4 && alpha / l.length < 0.6;
+}
+
 export function formatRecipe(pages: string[]): RecipeResult {
   const lines: string[] = [];
   for (const page of pages) {
     for (const raw of page.split('\n')) {
-      const l = scrubLine(raw);
+      const l = precleanOcrLine(scrubLine(raw));
       if (l !== '') lines.push(l);
     }
   }
@@ -225,11 +292,14 @@ export function formatRecipe(pages: string[]): RecipeResult {
       continue;
     }
     if (block === 'ingredients' || QTY.test(l)) {
+      // Ratings widgets and video-player garbage sit INSIDE the ingredient
+      // region on real pages, so the block test alone waved them through.
+      if (looksLikeChrome(l)) { out.push(l); continue; }
       sawQty = true;
       out.push('- ' + l);
       continue;
     }
-    if (sawQty && readsLikeIngredient(l)) {
+    if (sawQty && readsLikeIngredient(l) && !looksLikeChrome(l)) {
       out.push('- ' + l);
       continue;
     }
@@ -294,7 +364,27 @@ export function recipeFromPages(pages: string[]): RecipeParts {
   for (const line of flat.body.split('\n')) {
     const l = line.trim();
     if (l === '' || /^\*\*.*\*\*$/.test(l)) continue;
-    if (l.startsWith('- ')) ingredients.push(parseIngredient(l.slice(2)));
+    if (l.startsWith('- ')) {
+      const txt = l.slice(2);
+      // A narrow column wraps most ingredients onto a second line, and each
+      // fragment arrived as its own bullet: '2 cups (250g) all-purpose' /
+      // 'flour (spooned and leveled)'. But 'a pinch of salt' is a WHOLE
+      // ingredient that also starts lowercase — the spec's own shape — so
+      // lowercase alone must not join. A fragment joins when the line above
+      // is visibly unfinished: ends on a comma or &, has an unclosed
+      // parenthesis, or ends mid-phrase — approximated as NOT ending in one
+      // of the pantry nouns a complete line ends with. Capitalised
+      // fragments (a wrapped brand name) stay split either way: gluing real
+      // neighbours is worse than a split fragment a tap can mend.
+      const prev = ingredients[ingredients.length - 1];
+      const unclosed = (s: string) => (s.match(/\(/g) ?? []).length > (s.match(/\)/g) ?? []).length;
+      const endsComplete = /(salt|pepper|taste|oil|milk|flour|sugar|butter|cream|water|eggs?|cheese|juice|rice|extract|chips?|onion|garlic|soda|vinegar|cinnamon|yogurt|honey|shortening)\)?$/i;
+      const continues = prev !== undefined && !QTY.test(txt) &&
+        (unclosed(prev) || /^[(]/.test(txt) ||
+          (/^[a-z]/.test(txt) && (/[,&;]$/.test(prev) || !endsComplete.test(prev))));
+      if (continues) ingredients[ingredients.length - 1] = parseIngredient(`${prev} ${txt}`);
+      else ingredients.push(parseIngredient(txt));
+    }
     else if (/^\d+[.)]\s/.test(l)) steps.push(l.replace(/^\d+[.)]\s*/, ''));
     else extra.push(l);
   }
