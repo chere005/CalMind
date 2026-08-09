@@ -785,6 +785,13 @@ say never/always/must and checking each.
 - [x] `e2e/expired.spec.ts` sets Sage (nearly white), forces every call to
       401, and asserts the login page comes back midnight. Verified with
       teeth: restoring the old partial reset makes it fail.
+- [x] **The rest of the sweep came back clean**, and each was read rather than
+      assumed: `watch.ts`'s "must never cost the phone anything" is a
+      synchronous call inside a try/catch, so an unreachable watch cannot cost
+      anything; `calDay`'s "deliberate paging never rewrites it" holds because
+      every day change goes through the one setter and paging only moves the
+      month; the Notes folder-head + is rendered unconditionally as its comment
+      says. One finding out of five claims checked.
 - [ ] Habit worth keeping: a speculative `click().catch()` with NO timeout bit
       me for the fourth time today — it does not fail fast, it waits out the
       entire budget and reads as a hang. Every optional click gets a timeout.
