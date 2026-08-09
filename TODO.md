@@ -326,12 +326,54 @@ the result — but two of the behaviours had nothing watching them.
       practice by the window and the 1000 cap, and real generators emit valid
       UNTILs, so hardening it would be inventing a case. Written down instead.
 
+## 1w · A DECISION for Sean — two devices can disagree forever (2026-08-09)
+
+Found by probing the sync engine the way the scaler was probed. Not
+hypothetical, and not something I changed, because the fix contains a
+question that is his.
+
+- [ ] **The bug.** The merge takes a remote record only when it is strictly
+      NEWER (`theirs.updated > mine.updated`), and the server's rule is the
+      same (`app.php:307` and `:445`). So an exact tie leaves every party
+      holding its own incumbent. Two devices that stamp the same record
+      identically stay different from each other, silently, forever. Proven:
+      A writes "from A" and B writes "from B" at the same stamp, and after
+      four round trips A still reads "from A", B still reads "from B", and
+      the server holds whichever arrived last.
+- [ ] **Ties are less exotic than they sound.** `put()` clamps to
+      `updated + 1` whenever the clock is not ahead of the record. One device
+      with a fast clock therefore makes EVERY later edit from a
+      correctly-set device land on exactly that same value. It does not need
+      a millisecond race; it needs one wrong clock, once.
+- [ ] **Why the obvious fixes do not work.** A tie cannot be broken with
+      information both sides share. Client-side alone fails: the server
+      discards one candidate before the other client ever sees it. Comparing
+      payloads fails: encryption uses a random IV, so a client cannot
+      reproduce the blob it sent, and client and server have no common
+      deterministic value beyond id, type and updated — all of which are
+      equal in a tie. Making it converge needs the SERVER to pick
+      deterministically (it can compare the two blobs, since it holds both)
+      AND the client to accept on ties rather than only on newer. Two server
+      sites and one client line.
+- [ ] **The question inside it, which is why this is Sean's.** Any fix picks
+      a winner, and picking one silently discards the other device's writing.
+      For a notes app that may be the wrong trade — surfacing a conflict, or
+      keeping both, is a real alternative. Convergence is not in doubt;
+      what to converge ON is.
+- [x] **Pinned meanwhile**, so a change is deliberate rather than accidental:
+      a characterisation test asserting the tie keeps the incumbent, named
+      after this entry and mutation-tested.
+- [x] **And one real gap closed while in there**: nothing tested a transport
+      that FAILS, which is the commonest event in a sync engine's life. The
+      error reaches the caller and the record stays dirty; both now pinned,
+      and both go red if the failure is swallowed.
+
 ## 2 · Steady state (every iteration)
 
 - [ ] `git pull --autostash` first — two sessions share this repo; stage
       explicit paths only, never `git add -A`, hold commits on files the other
       session has half-refactored.
-- [ ] Keep the suites green: 267 core + 37 server + 99 gesture + 16 WebKit,
+- [ ] Keep the suites green: 269 core + 37 server + 99 gesture + 16 WebKit,
       plus 9 live checks (16 with the API) and 6 desktop. The README points
       here rather than carrying numbers of its own, so this line has to be
       the one that is right — it was 93 an hour after the gesture suite passed
