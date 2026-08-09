@@ -626,6 +626,34 @@ with what is deployed.
       auto-updater fully disabled, which is the safe state. What is waiting
       is the URL-gated updater and the error reporter below.
 
+## 0.03 · Sean's answers on passkeys and E2EE (2026-08-09)
+
+- [x] **Passkeys stay AUTH ONLY.** His words: "i still want to use passkey for
+      auth but we'll solve e2ee together later." So the current shape is
+      right and nothing changes.
+- [ ] **E2EE is a separate project, to be designed WITH him.** The honest
+      position, given to him: a passkey proves who you are, it does not
+      encrypt anything. The private key never leaves the authenticator and
+      cannot be used to derive a data key. WebAuthn's `prf` extension can
+      derive a stable secret for exactly that — we request no extensions at
+      all today.
+- [ ] **And today's encryption is NOT end to end**, which matters more.
+      `store_key()` (server/lib/store.php:10) reads the key from server
+      config or an auto-generated `.datakey` beside the data, so records are
+      encrypted AT REST with a key the server holds. The host can decrypt.
+- [ ] **What real E2EE would cost, so the conversation starts honest**: the
+      widget feed is rendered SERVER-side and could not be; sharing with Aki
+      relies on the server reading records to enforce scope
+      (`share_in_scope`); and email recovery could no longer restore data,
+      only an account. Each is a real feature that would have to change or go.
+- [x] **LastPass will be offered as a passkey provider.** Checked rather than
+      assumed: registration asks for `residentKey: required` and
+      `userVerification: required` and sets NO `authenticatorAttachment`
+      (app.php:693), so the browser is free to offer a third-party manager
+      rather than only the device's own authenticator. He needs LastPass on
+      under iOS Settings → General → Autofill & Passwords. Untested against
+      LastPass itself — our e2e uses a virtual authenticator.
+
 ## 2 · Steady state (every iteration)
 
 - [ ] `git pull --autostash` first — two sessions share this repo; stage
