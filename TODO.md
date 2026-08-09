@@ -308,6 +308,11 @@ Next up, in Sean's order:
       and covers the WIRING only: with openssl_verify short-circuited to
       success it still passed, and only the PHP suite went red. Measured, not
       assumed. Do not let the e2e stand in for the crypto coverage.
+- [x] **Verified against the DEPLOYED test server**, not just localhost —
+      real domain, real TLS, RP id `seancheren.com`, no port in the origin.
+      `CALMIND_LIVE=1 npx playwright test live-passkey`; skipped by default so
+      the normal run stays offline. Leaves an account behind (no delete-account
+      endpoint) and says which one.
 - [ ] **Native tiers**: iOS/Android want the platform APIs, not this shim.
       passkey.ts is web-guarded so the buttons simply do not appear there.
 - [ ] **WebAuthn forbids an IP address as an RP id** — the e2e run had to move

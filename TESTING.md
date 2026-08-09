@@ -180,6 +180,19 @@ device's next sync comes back 401 and it must return to the login, not treat a
 dead token as "offline" and keep taking edits that can never land. The device
 that made the change keeps working.
 
+Passkeys are verified TWICE, against different things. `e2e/passkey.spec.ts`
+runs locally and proves the wiring; `e2e/live-passkey.spec.ts` runs against the
+deployed test server and proves the parts that only exist there — a
+relying-party id derived from a real host rather than localhost, an origin with
+no port, and a genuinely secure context. Those fail invisibly: every passkey
+stops working at once with no error until someone tries to sign in. It is
+opt-in because it touches the network and leaves an account behind:
+
+    CALMIND_LIVE=1 npx playwright test live-passkey
+
+It asserts the URL contains /test/ before it creates anything, and prints the
+account it leaves. There is no delete-account endpoint, so the residue is real.
+
 The DESKTOP has its own smoke, `./desktop/smoke.sh`, and one of its five
 checks is the only one that says anything hard. Tauri compiles the frontend
 into the binary and compresses it, so neither the html nor the app's own
