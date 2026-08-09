@@ -2,12 +2,13 @@
  * The CalMind card: sign in, sign up, and the two-step email recovery. One
  * screen, three modes — the login page never draws chrome, matching the suite.
  */
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Platform, StyleSheet, Text, View } from 'react-native';
 import { defaultServerUrl } from '../config';
 import { login, signup, recover, reset } from '../api';
 import { useStore } from '../store';
 import { Field, Pill, ErrorLine } from '../ui';
+import { passkeyAvailable, signInWithPasskey } from '../passkey';
 import { themed, T } from '../theme';
 import { Logo } from '../Logo';
 
@@ -23,6 +24,10 @@ export function Login() {
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  // Offered only where the device can actually make one. A button that
+  // explains it cannot help you is worse than no button.
+  const [canPasskey, setCanPasskey] = useState(false);
+  useEffect(() => { void passkeyAvailable().then(setCanPasskey); }, []);
   const serverUrl = defaultServerUrl();
 
   const run = async (fn: () => Promise<void>) => {
@@ -102,6 +107,16 @@ export function Login() {
             onPress={submit}
           />
         </View>
+        {mode === 'signin' && canPasskey && (
+          <View style={s.actions}>
+            <Pill
+              testID="passkey-signin"
+              disabled={busy}
+              label="Use a passkey"
+              onPress={() => run(async () => { signIn(await signInWithPasskey(serverUrl)); })}
+            />
+          </View>
+        )}
         <View style={s.links}>
           {mode !== 'signin' && <Pill label="Sign in" onPress={() => setMode('signin')} />}
           {mode === 'signin' && <Pill label="Sign up" onPress={() => setMode('signup')} />}

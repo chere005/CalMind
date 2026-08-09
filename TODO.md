@@ -285,6 +285,32 @@ Next up, in Sean's order:
       recipe-save) is covered by e2e/ocr.spec.ts — keep that spec on the real
       flow, not a shortcut.
 
+## 3b · Passkeys (Sean said go, 2026-08-08)
+
+- [x] **Server**: registration, usernameless login, list, remove. Attestation
+      'none'; CBOR + COSE→DER written by hand (no composer on the host). RP id
+      and origin DERIVED from the request, overridable in config — a wrong RP
+      id is invisible until every passkey stops working at once.
+- [x] **Web UI**: "Use a passkey" on the sign-in card and an Add/remove
+      section in Settings, both hidden unless the device can actually make one.
+- [x] **Tests, and what each one is worth**: server/tools/test.php drives a
+      software authenticator (real P-256, real CBOR) and covers the refusals —
+      bent signature, foreign origin, replayed challenge, counter regression,
+      removed key. e2e/passkey.spec.ts drives Chromium's virtual authenticator
+      and covers the WIRING only: with openssl_verify short-circuited to
+      success it still passed, and only the PHP suite went red. Measured, not
+      assumed. Do not let the e2e stand in for the crypto coverage.
+- [ ] **Native tiers**: iOS/Android want the platform APIs, not this shim.
+      passkey.ts is web-guarded so the buttons simply do not appear there.
+- [ ] **WebAuthn forbids an IP address as an RP id** — the e2e run had to move
+      to http://localhost. Worth remembering before meeting it on a staging box
+      reached by address.
+- [ ] Seen once and not reproduced: `doubletap.spec.ts` "a double-tapped Done
+      files one reminder" failed in one full-suite run, then passed 18 times
+      targeted (including under CPU load) and in a second full run. Left
+      recorded rather than dismissed — that spec hunts a real race, so a flake
+      in it is evidence about the guard, not just about the harness.
+
 ## 4 · Gated — waiting on Sean's explicit word
 
 - [ ] **E2EE envelopes** (design settled, build gated): X25519 +

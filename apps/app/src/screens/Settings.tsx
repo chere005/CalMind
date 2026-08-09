@@ -3,10 +3,11 @@
  * one signed in on the fresh token), then Log out / Done — the suite's layout,
  * one modal.
  */
-import React, { useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { prefsOf, prefsPut } from '@calmind/core';
 import { apiPost, changePassword, logout } from '../api';
+import { addPasskey, listPasskeys, passkeyAvailable, removePasskey, type PasskeyRow } from '../passkey';
 import { useStore } from '../store';
 import { CircleBtn, Field, Pill, ErrorLine } from '../ui';
 import { applyTheme, currentTheme, themed, T, THEMES, type ThemeName } from '../theme';
@@ -22,6 +23,12 @@ export function Settings({ onClose }: { onClose: () => void }) {
   };
   const [oldPass, setOldPass] = useState('');
   const [newPass, setNewPass] = useState('');
+  const [canPasskey, setCanPasskey] = useState(false);
+  const [keys, setKeys] = useState<PasskeyRow[]>([]);
+  useEffect(() => {
+    void passkeyAvailable().then(setCanPasskey);
+    void listPasskeys(session!).then(setKeys).catch(() => {});
+  }, [session]);
   const [confirmPass, setConfirmPass] = useState('');
   const [msg, setMsg] = useState('');
   const [err, setErr] = useState('');
@@ -66,6 +73,41 @@ export function Settings({ onClose }: { onClose: () => void }) {
           <Field value={newPass} onChangeText={setNewPass} placeholder="New password" secureTextEntry />
           <Field value={confirmPass} onChangeText={setConfirmPass} placeholder="Confirm new password" secureTextEntry />
           <Pill label="Change password" onPress={change} />
+          {canPasskey && (
+            <View testID="passkey-section" style={s.pkSection}>
+              <Text style={s.pkHead}>Passkeys</Text>
+              {keys.map((k) => (
+                <View key={k.id} style={s.pkRow}>
+                  <Text style={s.pkLabel} numberOfLines={1}>{k.label}</Text>
+                  <Pressable
+                    testID="passkey-remove"
+                    hitSlop={8}
+                    onPress={() => {
+                      void removePasskey(session!, k.id)
+                        .then(() => setKeys((ks) => ks.filter((x) => x.id !== k.id)))
+                        .catch((e: unknown) => setErr(e instanceof Error ? e.message : 'could not remove it'));
+                    }}
+                  >
+                    <Text style={s.pkX}>×</Text>
+                  </Pressable>
+                </View>
+              ))}
+              <Pill
+                testID="passkey-add"
+                label="Add a passkey"
+                onPress={() => {
+                  setErr('');
+                  void addPasskey(session!, `${Platform.OS} passkey`)
+                    .then(() => listPasskeys(session!).then(setKeys))
+                    .then(() => setMsg('Passkey added'))
+                    .catch((e: unknown) => setErr(e instanceof Error ? e.message : 'could not add it'));
+                }}
+              />
+              {/* A passkey is an addition. Saying so where someone might
+                  otherwise assume their password just stopped working. */}
+              <Text style={s.pkNote}>Your password still works.</Text>
+            </View>
+          )}
           {msg ? <Text style={s.ok}>{msg}</Text> : null}
           <ErrorLine text={err} />
           <View style={s.themeRow}>
@@ -122,6 +164,12 @@ const s = themed(() => StyleSheet.create({
   statusText: { color: T.dim, fontSize: 13 },
   who: { color: T.dim, fontSize: 13 },
   themeRow: { flexDirection: 'row', gap: 12, justifyContent: 'center', marginTop: 4 },
+  pkSection: { gap: 8, marginTop: 6, borderTopWidth: 1, borderTopColor: T.line, paddingTop: 10 },
+  pkHead: { color: T.dim, fontSize: 12, textTransform: 'uppercase', letterSpacing: 1 },
+  pkRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  pkLabel: { color: T.text, fontSize: 14, flexShrink: 1 },
+  pkX: { color: T.dim, fontSize: 20, lineHeight: 22 },
+  pkNote: { color: T.muted, fontSize: 12 },
   swatch: { width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: T.line, alignItems: 'center', justifyContent: 'center' },
   swatchOn: { borderWidth: 2, borderColor: T.accent },
   swatchDot: { width: 14, height: 14, borderRadius: 7 },
