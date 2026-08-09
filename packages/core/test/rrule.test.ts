@@ -37,6 +37,20 @@ describe('the everyday patterns', () => {
       .toEqual(['2026-08-03', '2026-08-17', '2026-08-31', '2026-09-14', '2026-09-28']);
   });
 
+  it('WKST decides which days share a week, and it changes the answer', () => {
+    // The subtlest thing in this file and the only part with nothing watching
+    // it. WKST is inert until INTERVAL is above 1 AND the BYDAY set straddles
+    // a week boundary; then it decides where one fortnight ends and the next
+    // begins. This is RFC 5545's own example, and the point of it is that the
+    // two answers DIFFER — an implementation that quietly ignored WKST would
+    // return the Monday-start list for both and look perfectly plausible.
+    const mo = expandRrule('1997-08-05', 'FREQ=WEEKLY;INTERVAL=2;COUNT=4;BYDAY=TU,SU;WKST=MO');
+    const su = expandRrule('1997-08-05', 'FREQ=WEEKLY;INTERVAL=2;COUNT=4;BYDAY=TU,SU;WKST=SU');
+    expect(mo).toEqual(['1997-08-05', '1997-08-10', '1997-08-19', '1997-08-24']);
+    expect(su).toEqual(['1997-08-05', '1997-08-17', '1997-08-19', '1997-08-31']);
+    expect(su, 'the week start is not decoration').not.toEqual(mo);
+  });
+
   it('UNTIL includes its own day and then stops', () => {
     expect(expandRrule('2026-08-01', 'FREQ=DAILY;UNTIL=20260804', [], ...W('2026-08-01', '2026-12-31')))
       .toEqual(['2026-08-01', '2026-08-02', '2026-08-03', '2026-08-04']);

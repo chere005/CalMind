@@ -79,6 +79,40 @@ describe('daylight saving, which is where this quietly goes wrong', () => {
 });
 
 describe('the rest of a VEVENT', () => {
+  it('a realistic file: VTIMEZONE and VTODO are not events', () => {
+    // The shape a real subscription actually arrives in. Two things here are
+    // the ones that go wrong: a VTIMEZONE carries its OWN DTSTART lines for
+    // the daylight rules, and plenty of feeds carry VTODOs. A reader that
+    // took any DTSTART it saw would invent four phantom events out of this
+    // file, all of them plausible-looking, none of them real.
+    const ics = [
+      'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Test//EN',
+      'BEGIN:VTIMEZONE', 'TZID:America/Chicago',
+      'BEGIN:DAYLIGHT', 'DTSTART:20070311T020000', 'TZOFFSETFROM:-0600', 'TZOFFSETTO:-0500', 'END:DAYLIGHT',
+      'BEGIN:STANDARD', 'DTSTART:20071104T020000', 'TZOFFSETFROM:-0500', 'TZOFFSETTO:-0600', 'END:STANDARD',
+      'END:VTIMEZONE',
+      'BEGIN:VEVENT', 'UID:1', 'SUMMARY:Dentist', 'DTSTART;VALUE=DATE:20260814', 'DTEND;VALUE=DATE:20260815', 'END:VEVENT',
+      'BEGIN:VTODO', 'UID:2', 'SUMMARY:Buy milk', 'DTSTART:20260901T090000Z', 'END:VTODO',
+      'BEGIN:VEVENT', 'UID:3', 'SUMMARY:Lunch\\, with Ben', 'LOCATION:Cafe', 'DTSTART:20260815T170000Z', 'END:VEVENT',
+      'BEGIN:VEVENT', 'UID:4', 'SUMMARY:A summary that has been fol',
+      ' ded across two lines', 'DTSTART:20260816T170000Z', 'END:VEVENT',
+      'END:VCALENDAR',
+    ].join('\r\n');
+
+    const evs = parseIcal(ics);
+    expect(evs.map((e) => e.uid), 'only the VEVENTs, and all of them').toEqual(['1', '3', '4']);
+    // The all-day one keeps its day in any zone and says so.
+    expect(evs[0]!.allDay).toBe(true);
+    expect(evs[0]!.start).toBe('2026-08-14');
+    expect(evs[0]!.time).toBeNull();
+    // A comma inside TEXT is escaped on the wire and must not survive as one.
+    expect(evs[1]!.summary).toBe('Lunch, with Ben');
+    // 17:00 UTC in August is noon in Chicago, which is daylight time.
+    expect(evs[1]!.time).toBe('12:00');
+    // A folded line rejoins without losing or gaining a character.
+    expect(evs[2]!.summary).toBe('A summary that has been folded across two lines');
+  });
+
   it('keeps summary, location, rrule and exdates, and skips anything with no start', () => {
     const events = parseIcal(
       wrap(

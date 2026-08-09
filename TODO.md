@@ -293,12 +293,45 @@ Next up, in Sean's order:
 - [ ] Windows remains dispatch-only by Sean's instruction; the workflow's
       export bug was fixed earlier and still wants a run he triggers.
 
+## 1x · The calendar groundwork, probed rather than trusted (2026-08-09)
+
+Same method as the scaler and the date parser, on the two modules that are
+load-bearing whichever route Sean picks. Both came back CORRECT, which is
+the result — but two of the behaviours had nothing watching them.
+
+- [x] **RRULE is right on every case put to it**, including the ones that
+      usually go wrong: BYMONTHDAY=31 skipping short months rather than
+      sliding to the 30th, 29 February only in leap years, BYMONTHDAY=-1 as
+      the last day of each month, BYDAY=-1SU, COUNT counting from DTSTART
+      even when the window opens later, EXDATE removing without shifting,
+      UNTIL inclusive in the date, datetime-Z and before-DTSTART forms.
+- [x] **WKST was the gap.** It is inert until INTERVAL exceeds 1 AND the
+      BYDAY set straddles a week boundary, and then it decides where one
+      fortnight ends. The implementation gets RFC 5545's own example exactly
+      right — WKST=MO gives Aug 5, 10, 19, 24 and WKST=SU gives Aug 5, 17,
+      19, 31 — and nothing pinned it. Now tested, including that the two
+      answers DIFFER: an implementation ignoring WKST returns the Monday list
+      for both and looks entirely plausible. Mutation-tested by hardcoding
+      Monday.
+- [x] **parseIcal against a realistic file, which was the other gap.** A real
+      subscription carries a VTIMEZONE — and a VTIMEZONE contains its OWN
+      DTSTART lines for the daylight rules — and many feeds carry VTODOs. A
+      reader that took any DTSTART it saw would invent four plausible phantom
+      events out of one small file. It does not, and now that is pinned,
+      along with the all-day DATE form, an escaped comma in SUMMARY, a folded
+      line rejoining, and 17:00Z landing at noon Chicago in August.
+      Mutation-tested by letting VTODO through.
+- [ ] **One thing noticed and deliberately not changed**: an UNTIL that fails
+      to parse becomes null, which means "repeat forever". Bounded in
+      practice by the window and the 1000 cap, and real generators emit valid
+      UNTILs, so hardening it would be inventing a case. Written down instead.
+
 ## 2 · Steady state (every iteration)
 
 - [ ] `git pull --autostash` first — two sessions share this repo; stage
       explicit paths only, never `git add -A`, hold commits on files the other
       session has half-refactored.
-- [ ] Keep the suites green: 265 core + 37 server + 99 gesture + 16 WebKit,
+- [ ] Keep the suites green: 267 core + 37 server + 99 gesture + 16 WebKit,
       plus 9 live checks (16 with the API) and 6 desktop. The README points
       here rather than carrying numbers of its own, so this line has to be
       the one that is right — it was 93 an hour after the gesture suite passed
