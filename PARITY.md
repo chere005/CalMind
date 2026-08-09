@@ -864,6 +864,30 @@ honest — the next iteration trusts it.
   personal line kept at the end. Checked before changing anything, which
   is the only reason nothing was "fixed" into a difference.
 
+## Iteration 51 — the OCR fixture comes in from /tmp, and Notes gets its + back
+- THE OCR SPEC was loading /tmp/recipe-card.svg.png — a file on ONE machine,
+  tracked nowhere, gone after a reboot. The only test guarding the photo
+  import would have failed a fresh checkout with "file not found", which
+  reads like the feature is broken. The card is a tracked fixture now
+  (e2e/fixtures/recipe-card.svg), rasterised by the browser that is already
+  running when the spec starts.
+- The card got harder in the move, and the engine's real read is ASSERTED
+  rather than logged — so this run's parsing rules are proven against an
+  actual OCR pass instead of against recipe text I typed: "a pinch of salt"
+  comes out an INGREDIENT, "1/2 cup whole milk" normalises to "½", and
+  "Serves four, generously" stays out of the list.
+  Still NOT covered, and TESTING.md now says so: glossy pages, handwriting,
+  a photo taken at an angle. That needs Sean's camera, not a card we drew.
+- NOTES COULD NOT MAKE A SECTION. Reminders carries a + on its folder head;
+  Notes never got one, and there is no other path — the manager makes
+  FOLDERS and normalize seeds exactly one section per folder, so every notes
+  folder was stuck with the "General" it was born with. Ported line for line
+  from the Reminders one (same prepend, same duplicate-name refusal). Found
+  by reading the suite's description of the two apps, not by anything going
+  wrong: nothing was broken, a whole control was simply absent — the kind of
+  gap staring at CalMind alone will never surface.
+- 187 core + 23 server + 42 gesture. Deployed, live == local, pushed.
+
 ## NEXT: the Add-Recipe page (Sean's spec, precise)
 - A structured page in Notes, the akisbookshelf add-quote shape: Title;
   an INGREDIENTS section whose + parses units (grams, cups, tsp, tbsp…)
