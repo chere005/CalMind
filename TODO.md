@@ -261,6 +261,38 @@ Next up, in Sean's order:
       all four sides and require it to stay within 12px — rather than a list
       of things that might be covered.
 
+## 1y · Desktop parity checked, and one check thrown away (2026-08-09)
+
+- [x] **macOS desktop rebuilt on today's export and smoked: 6/6.** The check
+      worth having is the middle one — Tauri compresses the frontend into the
+      binary, so "it built" is easy to mistake for "it has tonight's work in
+      it". The content-hashed bundle name survives in the asset index, and it
+      matches apps/app/dist: index-de58f062….
+- [x] **The header at DESKTOP width was a real question and the answer was
+      no bug.** The suite puts its `<header>` inside the same `.wrap` that
+      caps the column at 640 (calendar/index.php:828), so I went looking for
+      CalMind's header spanning the whole 1160 window with the content
+      floating in a column — which would fling every control to the far
+      edges, Sean's complaint wearing a different width. Measured instead of
+      assumed: back at x=276, username ending at 860, column 260–900. Already
+      right, because the header shares App.tsx's `s.body` box with the
+      content.
+- [x] **Two assertions written, then deleted, because they could not fail.**
+      Having measured it, I added checks that back and the username sit
+      inside the column. They restate what "the calendar column stays a
+      column" already guarantees: both are bounded by the SAME box, and there
+      is no one-line change that unbinds the header without unbinding the
+      content — I tried, and the existing assertion fired first every time.
+      A check that cannot fail is worse than no check, because it reads like
+      cover. Deleted.
+- [x] **What was kept is the one claim that CAN fail**: the picker is drawn
+      at desktop width. Nothing about the column bound implies it, a
+      width-gated regression could answer it wrongly, and that is exactly how
+      it went missing before. Mutation-tested — hide the picker and it goes
+      red at 1160 as it does at 390.
+- [ ] Windows remains dispatch-only by Sean's instruction; the workflow's
+      export bug was fixed earlier and still wants a run he triggers.
+
 ## 2 · Steady state (every iteration)
 
 - [ ] `git pull --autostash` first — two sessions share this repo; stage

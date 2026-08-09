@@ -30,7 +30,7 @@ async function signup(page: Page): Promise<string> {
 
 test('the app at the width the desktop shell actually ships', async ({ page }) => {
   await page.setViewportSize(DESKTOP);
-  await signup(page);
+  const user = await signup(page);
 
   // The reading column is bounded and centred — the suite's 640px rule. A
   // full-bleed list across a 1160px window is the failure here.
@@ -40,6 +40,16 @@ test('the app at the width the desktop shell actually ships', async ({ page }) =
   const grid = (await page.getByTestId('cal-grid').boundingBox())!;
   expect(grid.width, 'the calendar column stays a column').toBeLessThanOrEqual(700);
   expect(grid.x, 'and it is centred, not pinned left').toBeGreaterThan(100);
+
+  // The picker is here at THIS width too. Deliberately the only header claim
+  // this spec makes: back and the username sit inside the column because the
+  // header shares one bounded box with the content (App.tsx `s.body`,
+  // maxWidth 640), which is exactly what "the calendar column stays a column"
+  // above already guarantees — asserting their positions again would be a
+  // check that cannot fail. Whether the picker is DRAWN is a separate
+  // question, and one a width-gated regression could answer wrongly; that is
+  // how it went missing before.
+  await expect(page.getByTestId('pick-calendar'), 'the picker is drawn at desktop width').toBeVisible();
 
   // Nothing spills sideways: the document never scrolls horizontally.
   const overflow = await page.evaluate(() =>
