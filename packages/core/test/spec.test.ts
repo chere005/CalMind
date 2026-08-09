@@ -12,12 +12,12 @@ import type { Repeat } from '../src/index';
 const vectors = <T>(name: string): T =>
   JSON.parse(readFileSync(fileURLToPath(new URL(`../../../spec/${name}.json`, import.meta.url)), 'utf8'));
 
-type ParseCase = { name: string; input: string; today: string; text: string; date: string | null; time: string | null };
+type ParseCase = { name: string; input: string; today: string; now?: string; text: string; date: string | null; time: string | null };
 
 describe('spec/parse.json — the slash-only US-order parser', () => {
   for (const c of vectors<ParseCase[]>('parse')) {
     it(c.name, () => {
-      const [text, date, time] = parseWhenFromText(c.input, c.today);
+      const [text, date, time] = parseWhenFromText(c.input, c.today, c.now);
       expect({ text, date, time }).toEqual({ text: c.text, date: c.date, time: c.time });
     });
   }

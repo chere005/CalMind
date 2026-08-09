@@ -931,6 +931,24 @@ test('a Notes section renames via double-click', async ({ page }) => {
   await expect(page.getByText('Stuff', { exact: true }).first()).toBeVisible();
 });
 
+test('typed "tomorrow" files a reminder on tomorrow, and the word leaves the title', async ({ page }) => {
+  // The relative tokens are pinned in spec/parse.json; this holds the WIRING —
+  // that the screens hand the parser a clock at all, and that the token lifts
+  // out of the stored title the way 8/3 and 2pm always have.
+  await signup(page);
+  await page.getByTestId('tab-reminders').click();
+  await page.getByTestId('secadd-General').first().click();
+  await page.getByTestId('rem-add-field').fill('Take the bins out tomorrow');
+  await page.getByTestId('rem-add-field').press('Enter');
+
+  const row = page.getByTestId('rem-row').filter({ hasText: 'Take the bins out' });
+  await expect(row).toBeVisible();
+  await expect(row).not.toContainText('tomorrow');   // the token is an instruction
+  const tomorrow = new Date(Date.now() + 86_400_000);
+  const chip = tomorrow.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+  await expect(row).toContainText(chip);
+});
+
 test('a recipe line is mended by tapping it, not by deleting and retyping', async ({ page }) => {
   // OCR hands you typos by the handful. Before this the only way to fix one
   // was to delete the row and type the whole line again — on a phone, the

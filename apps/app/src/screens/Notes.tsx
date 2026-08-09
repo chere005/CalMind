@@ -6,7 +6,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { deleteSection, renameSection, byOrd, richLines, duplicateItem, formatRecipe, prefsPut, moveNote, moveSection, moveSectionEmptyingFolder, newId, ordBetween, parseDateFromText, parseWhenFromText, todayStr, type Rec } from '@calmind/core';
+import { deleteSection, renameSection, byOrd, richLines, duplicateItem, formatRecipe, prefsPut, moveNote, moveSection, moveSectionEmptyingFolder, newId, nowStr, ordBetween, parseDateFromText, parseWhenFromText, todayStr, type Rec } from '@calmind/core';
 import { useStore } from '../store';
 import { themed, T } from '../theme';
 import { TopBar } from '../chrome';
@@ -169,7 +169,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
     setAdding(null);
     setAddText('');
     if (!raw) return;
-    const [title, date] = parseWhenFromText(raw, todayStr());
+    const [title, date] = parseWhenFromText(raw, todayStr(), nowStr());
     const id = newId();
     mutate((e) => {
       const first = notesOf(section.id)[0];

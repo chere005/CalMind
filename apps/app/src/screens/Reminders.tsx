@@ -18,6 +18,7 @@ import { deleteSection, duplicateItem,
   newId,
   renameSection,
   ordBetween,
+  nowStr,
   parseWhenFromText,
   repeatLabel,
   reminderToggle,
@@ -164,7 +165,7 @@ export function Reminders() {
       return;
     }
     // The parser is an instruction, never part of the title — "Vet 8/3 2pm" files itself.
-    const [text, due, time] = parseWhenFromText(raw, todayStr());
+    const [text, due, time] = parseWhenFromText(raw, todayStr(), nowStr());
     mutate((e) => {
       const first = remindersOf(section.id)[0];
       e.put({
@@ -208,7 +209,7 @@ export function Reminders() {
     const raw = editText.trim();
     if (!raw || raw === r.payload.text) return;
     // Editing re-reads the text the same way adding does, so retyping a date moves it.
-    const [text, due, time] = parseWhenFromText(raw, todayStr());
+    const [text, due, time] = parseWhenFromText(raw, todayStr(), nowStr());
     mutate((e) =>
       e.put({
         ...r,
@@ -657,7 +658,7 @@ function SharedReminders({ viewKey, partner }: { viewKey: string; partner: strin
                   const text = addText.trim();
                   setAdding(null);
                   if (!text) return;
-                  const [title, due, time] = parseWhenFromText(text, today);
+                  const [title, due, time] = parseWhenFromText(text, today, nowStr());
                   void sharedPut({
                     id: newId(), type: 'reminder', updated: 0,
                     payload: { text: title, due, time, done: false, repeat: null, folderId, sectionId: sec.id, indent: 0, ord: ordBetween(null, rowsOf(sec.id)[0]?.payload.ord ?? null) },
