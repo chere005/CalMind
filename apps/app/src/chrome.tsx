@@ -30,9 +30,18 @@ export function TopBar({
   return (
     <>
       <View style={s.topbar}>
-        <Text style={s.appname}>{title}</Text>
+        {/* Back sits top-LEFT, before the title, and never gives up its slot.
+            The suite's back_button() puts both its states in one slot and
+            swaps them in CSS precisely "so nothing beside them shifts" — ours
+            was on the right AND conditional, so every control in the row moved
+            sideways depending on whether there was anywhere to go back to. */}
+        <View style={s.hleft}>
+          <View style={[s.backSlot, !nav.canBack && s.slotEmpty]} pointerEvents={nav.canBack ? 'auto' : 'none'}>
+            <CircleBtn testID="nav-back" glyph="‹" size={28} onPress={nav.goBack} />
+          </View>
+          <Text style={s.appname} numberOfLines={1}>{title}</Text>
+        </View>
         <View style={s.right}>
-          {nav.canBack && <CircleBtn testID="nav-back" glyph="‹" size={28} onPress={nav.goBack} />}
           {controls}
           {picker && <View style={s.pickerRing}>{picker}</View>}
           <Pressable onPress={() => setMenuOpen(true)} hitSlop={8} style={s.whoPill}>
@@ -80,8 +89,16 @@ const s = themed(() => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  appname: { color: T.text, fontSize: 24, fontWeight: '800' },
-  right: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  // The title is what gives at a narrow width — it can ellipsize; the back
+  // control, the picker and the username cannot shrink without becoming
+  // unhittable.
+  appname: { color: T.text, fontSize: 24, fontWeight: '800', flexShrink: 1 },
+  hleft: { flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 1, minWidth: 0 },
+  // Held, not removed: hiding it with display:none would move the title every
+  // time you arrived somewhere with no history behind you.
+  backSlot: { opacity: 1 },
+  slotEmpty: { opacity: 0 },
+  right: { flexDirection: 'row', alignItems: 'center', gap: 10, flexShrink: 0 },
   status: { width: 8, height: 8, borderRadius: 4 },
   tip: { position: 'absolute', top: 14, right: 0, backgroundColor: T.surface2, borderWidth: 1, borderColor: T.line, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5, zIndex: 40, minWidth: 150 },
   tipText: { color: T.text, fontSize: 12 },

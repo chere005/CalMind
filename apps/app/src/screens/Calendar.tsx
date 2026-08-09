@@ -212,7 +212,10 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
 
   return (
     <View style={s.page}>
-      <TopBar title="Calendar" picker={weekMode ? undefined : <CalendarPick />} />
+      {/* The picker does not come and go with the view. Dropping it in week
+          mode took the folder dropdown away AND shifted everything left of it
+          — two complaints from one line. */}
+      <TopBar title="Calendar" picker={<CalendarPick />} />
       {/* The date centred over the grid; ◉ jumps home to today. */}
       <View style={s.pagerRow}>
         <CircleBtn glyph="‹" size={32} onPress={() => page(-1)} />
