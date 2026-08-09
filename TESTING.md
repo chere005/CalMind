@@ -180,6 +180,20 @@ device's next sync comes back 401 and it must return to the login, not treat a
 dead token as "offline" and keep taking edits that can never land. The device
 that made the change keeps working.
 
+Nor did any of them have a remote edit land WHILE TYPING.
+`e2e/clobber.spec.ts` is the one that found a real bug. The body writes on
+every keystroke, so while you are actually typing your copy is always newest
+and nothing can land on it — the window is the pause. Type a sentence, stop
+to think, and the thirty-second poll arrives with a newer version from the
+other device: the field is bound straight to the record, so the half-typed
+sentence was replaced in place, silently, with the cursor still in it.
+
+Both fields now hold their own copy while they have the cursor — the record
+still gets every keystroke, only the read-back is deferred. The specs pin
+both the shelter and its limit: the rest of the editor keeps tracking the
+other device, because a guard that froze the whole screen would be a worse
+bug than the one it fixed.
+
 Nor did any of them have something DELETED out from under them.
 `e2e/deletedunder.spec.ts` opens a note on one device and deletes it on
 another — an ordinary Tuesday across three clients, not a stress test. The

@@ -27,6 +27,15 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
   const [sel, setSel] = useState({ start: 0, end: 0 });
   const [dateOpen, setDateOpen] = useState(false);
   const [bodyEditing, setBodyEditing] = useState(false);
+  // While the cursor is in the body, the field holds its own copy of the text.
+  // The record still gets every keystroke — this only stops the 30s poll from
+  // pulling a newer version from another device out from under a half-typed
+  // sentence. Reading stale text for as long as you are typing is the same
+  // bargain every editor makes; losing the sentence is not.
+  const [draft, setDraft] = useState<string | null>(null);
+  // The title has no edit mode — it is always a live field — so it needs the
+  // same shelter, scoped to having focus rather than to a mode.
+  const [titleDraft, setTitleDraft] = useState<string | null>(null);
   const [recipeOpen, setRecipeOpen] = useState(false);
 
   const swipe = useSwipeLeft();
@@ -251,11 +260,17 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
         <ScrollView contentContainerStyle={s.editor}>
           <View style={s.titleRow}>
             <TextInput
+              testID="note-title"
               style={s.title}
-              value={open.payload.title}
+              value={titleDraft ?? open.payload.title}
               placeholder="Title"
               placeholderTextColor={T.muted}
-              onChangeText={(t) => mutate((e) => e.put({ ...open, payload: { ...open.payload, title: t } }))}
+              onFocus={() => setTitleDraft(open.payload.title)}
+              onBlur={() => setTitleDraft(null)}
+              onChangeText={(t) => {
+                setTitleDraft(t);
+                mutate((e) => e.put({ ...open, payload: { ...open.payload, title: t } }));
+              }}
             />
             {open.payload.date ? (
               <Pressable style={s.addDate} onPress={() => mutate((e) => e.put({ ...open, payload: { ...open.payload, date: null } }))}>
@@ -300,17 +315,30 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
             <TextInput
               testID="note-body-edit"
               style={s.body}
-              value={open.payload.body}
+              value={draft ?? open.payload.body}
               placeholder="Write…"
               placeholderTextColor={T.muted}
               multiline
               autoFocus
-              onBlur={() => setBodyEditing(false)}
+              onBlur={() => {
+                setBodyEditing(false);
+                setDraft(null);
+              }}
               onSelectionChange={(ev) => setSel(ev.nativeEvent.selection)}
-              onChangeText={(t) => mutate((e) => e.put({ ...open, payload: { ...open.payload, body: t } }))}
+              onChangeText={(t) => {
+                setDraft(t);
+                mutate((e) => e.put({ ...open, payload: { ...open.payload, body: t } }));
+              }}
             />
           ) : (
-            <Pressable testID="note-body-view" style={s.body} onPress={() => setBodyEditing(true)}>
+            <Pressable
+              testID="note-body-view"
+              style={s.body}
+              onPress={() => {
+                setDraft(open.payload.body);
+                setBodyEditing(true);
+              }}
+            >
               {open.payload.body === '' ? (
                 <Text style={s.bodyPlaceholder}>Write…</Text>
               ) : (
