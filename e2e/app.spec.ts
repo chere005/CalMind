@@ -778,6 +778,17 @@ test('the page carries the web-app head an installed iOS PWA needs', async ({ pa
   expect(await meta('apple-mobile-web-app-status-bar-style')).toBe('black-translucent');
   expect(await meta('apple-mobile-web-app-capable')).toBe('yes');
   expect(await meta('theme-color')).toBeTruthy();
+  // The page's own background, which is what shows through the safe areas.
+  // Unset means white — that is how a white band appeared under the tab bar
+  // the moment viewport-fit=cover let the page reach the home indicator.
+  const paint = () => page.evaluate(() => ({
+    html: getComputedStyle(document.documentElement).backgroundColor,
+    body: getComputedStyle(document.body).backgroundColor,
+  }));
+  const clear = ['rgba(0, 0, 0, 0)', 'transparent', 'rgb(255, 255, 255)'];
+  const bg = await paint();
+  expect(clear, 'the page paints its own background').not.toContain(bg.html);
+  expect(clear, 'and the body too').not.toContain(bg.body);
 
   // The manifest the suite has always had: what makes the app installable on
   // Android and desktop Chrome/Edge. Its URLs are relative, so it resolves

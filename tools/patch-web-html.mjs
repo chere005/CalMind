@@ -77,6 +77,18 @@ const manifest = {
     { src: './icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
   ],
 };
+// The page's own background. Anything the app's views do not paint falls
+// through to this, and unset means WHITE: with viewport-fit=cover the page
+// now reaches into both safe areas, so an uncovered home-indicator strip
+// showed as a white band under the tab bar. This is the first-paint value —
+// theme.ts repaints it on every theme switch, so it follows Sage too.
+if (!/id="calmind-bg"/.test(html)) {
+  html = html.replace(
+    '</head>',
+    '<style id="calmind-bg">html,body{background-color:#111111}</style></head>',
+  );
+}
+
 writeFileSync(join(dirname(file), 'manifest.webmanifest'), JSON.stringify(manifest, null, 2) + '\n');
 if (!/rel=["']manifest["']/i.test(html)) {
   html = html.replace('</head>', '<link rel="manifest" href="manifest.webmanifest"/></head>');

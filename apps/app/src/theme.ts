@@ -63,6 +63,12 @@ export function applyTheme(name: ThemeName): void {
       document.head.appendChild(meta);
     }
     meta.content = T.bg;
+    // …and the PAGE's own background, which is what shows through anywhere the
+    // app's views don't reach. With viewport-fit=cover that includes both safe
+    // areas, and an unset background is white — which is exactly how a white
+    // band appeared under the tab bar once the top strip was fixed.
+    document.documentElement.style.backgroundColor = T.bg;
+    if (document.body) document.body.style.backgroundColor = T.bg;
   }
   listeners.forEach((fn) => fn());
 }
