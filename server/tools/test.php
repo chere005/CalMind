@@ -451,6 +451,21 @@ t('a write leaves no temp files behind', function () {
     eq([], $strays, 'no .tmp residue from the atomic writes');
 });
 
+t('the mail log records whether the code could be sent, not just that it exists', function () {
+    // recover always answers ok — which usernames exist is nobody's business —
+    // so a user who never gets a code cannot be told why. The log is the only
+    // place the truth can live, and it used to say only that a code had been
+    // issued, never whether it had a hope of arriving.
+    $u = 'maily' . substr((string) time(), -5);
+    api(['action' => 'signup', 'username' => $u, 'email' => $u . '@example.com', 'password' => 'mailypassword']);
+    api(['action' => 'recover', 'username' => $u]);
+    global $scratch;
+    $log = (string) @file_get_contents($scratch . '/mail.log');
+    ok(str_contains($log, $u . '@example.com'), 'the address is logged');
+    ok(str_contains($log, 'log-only') || str_contains($log, 'mailed') || str_contains($log, 'MAIL REFUSED'),
+       'and how it went: this host does not send, so log-only');
+});
+
 t("the server's day is Chicago's, not UTC", function () {
     // The feed asks the server what day it is. Left on UTC that answer turned
     // over at 7pm Chicago, so the widget spent every evening calling tomorrow

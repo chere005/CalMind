@@ -64,13 +64,27 @@ function usage_log(array $cfg, string $action, string $user): void
 
 /** Recovery codes go to the account email; without mail config they land in mail.log,
  *  which is also how the test harness reads them. */
+/**
+ * The reset code goes to mail.log ALWAYS and to email only if the host is
+ * configured to send. That is deliberate: recover always answers ok, because
+ * which usernames exist is nobody's business, so a user who never receives a
+ * code cannot be told why. The log is the only place the truth can live.
+ *
+ * Which is why the send's own answer is now recorded. mail() returning false
+ * — a refused relay, a queue that will not take it — used to be discarded, so
+ * the log said a code had been issued and nothing about whether it had a
+ * hope of arriving. Sean is the person who has to work that out at the point
+ * where somebody cannot get in.
+ */
 function mail_code(array $cfg, string $email, string $code): void
 {
-    $line = date('c') . "  to=$email  code=$code\n";
-    @file_put_contents($cfg['data_dir'] . '/mail.log', $line, FILE_APPEND | LOCK_EX);
+    $how = 'log-only';
     if (!empty($cfg['send_mail'])) {
-        @mail($email, 'CalMind password reset', "Your CalMind reset code is: $code\n\nIt expires in 15 minutes.");
+        $ok  = @mail($email, 'CalMind password reset', "Your CalMind reset code is: $code\n\nIt expires in 15 minutes.");
+        $how = $ok ? 'mailed' : 'MAIL REFUSED';
     }
+    $line = date('c') . "  to=$email  code=$code  $how\n";
+    @file_put_contents($cfg['data_dir'] . '/mail.log', $line, FILE_APPEND | LOCK_EX);
 }
 
 // ---------------------------------------------------------------- accounts & tokens

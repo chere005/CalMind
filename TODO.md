@@ -978,6 +978,20 @@ Three real fixes came out of this family today: the server refusing an
 oversized record, a damaged store file reading as an empty account, and a
 device that cannot write its own snapshot.
 
+## 4d · The recovery mail log tells the truth now (2026-08-09)
+
+- [x] `recover` always answers ok — which usernames exist is nobody's
+      business, and that is the right call. The consequence is that a user who
+      never receives a code cannot be told why, so `mail.log` is the ONLY
+      place the truth can live. It used to record that a code had been issued
+      and nothing about whether it had a hope of arriving: `@mail()`'s return
+      was discarded. Each line now ends `log-only`, `mailed`, or
+      `MAIL REFUSED`. Sean is the one who has to work this out at the moment
+      somebody cannot get in.
+- [x] Covered by a server spec, which also documents that this host does not
+      send at all — so `log-only` is the expected answer here rather than a
+      failure.
+
 ## 4 · Gated — waiting on Sean's explicit word
 
 - [ ] **E2EE envelopes** (design settled, build gated): X25519 +
