@@ -115,7 +115,8 @@ Next up, in Sean's order:
 - [ ] `git pull --autostash` first — two sessions share this repo; stage
       explicit paths only, never `git add -A`, hold commits on files the other
       session has half-refactored.
-- [ ] Keep the suites green: 145 core + 22 server + 30 gesture (Playwright).
+- [ ] Keep the suites green: 187 core + 23 server + 41 gesture (Playwright).
+      The gesture run refuses to start against a stale export (e2e/freshness.ts).
 - [ ] Confirm live test == local dist (md5 of served index.html vs
       `apps/app/dist/index.html`).
 - [ ] Keep PARITY.md honest; act on Sean's steering the moment it arrives.
