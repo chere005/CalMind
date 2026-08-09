@@ -55,11 +55,31 @@ function fail(int $status, string $error): never
 }
 
 /** One tab-separated line per action — the suite's usage-log rule: never any content. */
+/**
+ * One line per authenticated action — time, IP, user, action, never content.
+ *
+ * It grew forever. Each device polls every thirty seconds, so a phone alone
+ * writes a couple of thousand lines a day and three devices keep that up
+ * year after year on a host with a storage quota. Nothing read the whole
+ * file, so nothing ever noticed.
+ *
+ * One rotation at 5MB: the current log and one previous generation, about
+ * 10MB in the worst case and months of history in practice. No cron, and a
+ * race is harmless — rename(2) is atomic, so a second process finds no file
+ * to rotate and simply appends to the fresh one.
+ */
+const USAGE_LOG_MAX = 5 * 1024 * 1024;
+
 function usage_log(array $cfg, string $action, string $user): void
 {
     $tok  = fn(string $s) => preg_replace('/[^\w.@-]/', '_', $s);
     $line = date('Y-m-d H:i:s') . "\t" . $tok($_SERVER['REMOTE_ADDR'] ?? '-') . "\t" . $tok($user) . "\t" . $tok($action) . "\n";
-    @file_put_contents($cfg['data_dir'] . '/usage.log', $line, FILE_APPEND | LOCK_EX);
+    $path = $cfg['data_dir'] . '/usage.log';
+    clearstatcache(true, $path);
+    if (@filesize($path) > USAGE_LOG_MAX) {
+        @rename($path, $path . '.1');
+    }
+    @file_put_contents($path, $line, FILE_APPEND | LOCK_EX);
 }
 
 /** Recovery codes go to the account email; without mail config they land in mail.log,

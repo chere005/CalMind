@@ -466,6 +466,27 @@ t('the mail log records whether the code could be sent, not just that it exists'
        'and how it went: this host does not send, so log-only');
 });
 
+t('the usage log rotates instead of growing forever', function () {
+    // Every device polls every thirty seconds, so this file gained a couple of
+    // thousand lines a day per device and nothing ever read the whole thing to
+    // notice. One rotation at 5MB keeps months of history and a bounded disk.
+    global $scratch;
+    $path = $scratch . '/usage.log';
+    @unlink($path . '.1');
+    file_put_contents($path, str_repeat("x\n", 3 * 1024 * 1024));  // over the cap
+    // The harness drives HTTP and never loads app.php, so USAGE_LOG_MAX is not
+    // in scope here; 5MB is written out with its name beside it.
+    ok(filesize($path) > 5 * 1024 * 1024, 'the log is over USAGE_LOG_MAX (5MB) to begin with');
+
+    $u = 'rot' . substr((string) time(), -5);
+    api(['action' => 'signup', 'username' => $u, 'email' => $u . '@example.com', 'password' => 'rotpassword']);
+
+    ok(is_file($path . '.1'), 'the old log was set aside');
+    ok(filesize($path) < 1024, 'and the live one starts fresh — got ' . filesize($path));
+    $fresh = (string) file_get_contents($path);
+    ok(str_contains($fresh, 'signup'), 'with the action that triggered it');
+});
+
 t("the server's day is Chicago's, not UTC", function () {
     // The feed asks the server what day it is. Left on UTC that answer turned
     // over at 7pm Chicago, so the widget spent every evening calling tomorrow

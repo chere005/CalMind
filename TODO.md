@@ -992,6 +992,26 @@ device that cannot write its own snapshot.
       send at all — so `log-only` is the expected answer here rather than a
       failure.
 
+## 4e · The usage log rotates (2026-08-09)
+
+- [x] It grew forever. Every device polls every thirty seconds, so a phone
+      alone writes a couple of thousand lines a day, three devices keep that
+      up year after year, and the host has a storage quota. Nothing ever read
+      the whole file, so nothing noticed. One rotation at 5MB now: the current
+      log plus one previous generation, ~10MB worst case and months of history
+      in practice. No cron, and a race is harmless — rename(2) is atomic, so a
+      second process finds nothing to rotate and appends to the fresh file.
+- [x] Covered by a server spec that writes an over-cap log, triggers an
+      action, and checks the old one was set aside and the new one starts with
+      the action that caused it.
+- [ ] **The live smoke failed transiently during one deploy** — 5 passed, 4
+      failed, "the deployed page is wrong" — and passed 9/9 immediately after
+      with no change from me, then again on a full re-deploy, and 16/16 end to
+      end. So: the smoke ran against a mid-flight upload rather than finding a
+      real fault. Recorded rather than shrugged off, because a gate that cries
+      wolf is a gate people learn to ignore. If it recurs, the fix is to wait
+      for rsync to settle before smoking.
+
 ## 4 · Gated — waiting on Sean's explicit word
 
 - [ ] **E2EE envelopes** (design settled, build gated): X25519 +
