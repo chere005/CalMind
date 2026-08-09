@@ -18,14 +18,20 @@ import { defineConfig, devices } from '@playwright/test';
  */
 export default defineConfig({
   testDir: './e2e',
-  testMatch: ['app.spec.ts', 'interrupted.spec.ts'],
+  testMatch: ['app.spec.ts', 'interrupted.spec.ts', 'chrome.spec.ts', 'scale.spec.ts'],
   // The spine, not the whole suite: gesture specs lean on synthetic mouse
   // behaviour that differs between engines, and a red run full of harness
   // noise teaches nobody anything. Plus the interruption cases — whether blur
   // fires when a focused field is torn out from under it is exactly the sort
   // of thing two engines answer differently, and an inline edit that survives
   // in Chromium and vanishes in WebKit would vanish on Sean's phone only.
-  grep: /signing up lands on the calendar|a reminder adds into its section|note body renders its markers|the page carries the web-app head|interrupted by switching tabs|interrupted mid-sentence/,
+  //
+  // The header rules joined this list the day Sean said "all the button
+  // placement is broken": they are what he actually looks at, and until now
+  // they had only ever been checked in an engine he does not use. Recipe
+  // scaling came with them — it is the feature he asked to be pushed hardest,
+  // and it is read on the phone, in WebKit, with floury hands.
+  grep: /signing up lands on the calendar|a reminder adds into its section|note body renders its markers|the page carries the web-app head|interrupted by switching tabs|interrupted mid-sentence|back sits left of the title|picker and the username survive|scaling reads the recipe/,
   timeout: 30_000,
   retries: 0,
   workers: 1,

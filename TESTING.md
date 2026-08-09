@@ -198,6 +198,13 @@ wrong side, and either way everything beside them moved — which from outside
 looks like "all the button placement is broken". Verified with teeth:
 reintroducing both regressions turns two of the three red.
 
+The WebKit run (`npx playwright test -c playwright.webkit.config.ts`) grew on
+the day Sean said the button placement was broken. It now carries the header
+rules and recipe scaling as well as the original spine, because those are what
+he actually looks at and they had only ever been checked in Chromium — an
+engine he does not use. His daily reading is an iOS home-screen web app, which
+is WebKit, and so is the macOS desktop shell. Nine specs, green.
+
 Passkeys are verified TWICE, against different things. `e2e/passkey.spec.ts`
 runs locally and proves the wiring; `e2e/live-passkey.spec.ts` runs against the
 deployed test server and proves the parts that only exist there — a
