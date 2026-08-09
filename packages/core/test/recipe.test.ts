@@ -287,6 +287,24 @@ describe('scaling — the one arithmetic a recipe asks of you', () => {
     expect(scaleIngredient('3 egg yolks', 2)).toBe('6 egg yolks');
   });
 
+  it("the shapes read off Sean's phone, now pinned rather than eyeballed", () => {
+    // Every one of these was verified by opening the real recipe on the
+    // simulator and reading it. That is how four bugs were found; it is not a
+    // thing that repeats itself, so the shapes belong here.
+    // Fumé, halved: a range whose TOP lands exactly on one, so the unit has
+    // to go singular with it.
+    expect(scaleIngredient('1 ½-2 cups tomato sauce', 0.5)).toBe('¾-1 cup tomato sauce');
+    expect(scaleIngredient('1 ½ onion', 0.5)).toBe('¾ onion');
+    expect(scaleIngredient('200/300 g pancetta', 0.5)).toBe('100/150 g pancetta');
+    // Uovo, doubled: pinch takes 'es'.
+    expect(scaleIngredient('2 pinches of salt', 2)).toBe('4 pinches of salt');
+    // Porro, doubled: an adjective in the unit slot and a noun already plural.
+    expect(scaleIngredient('2 big leeks', 2)).toBe('4 big leeks');
+    // Zozzona, doubled: a decimal range, and the onion that must gain its s.
+    expect(scaleIngredient('1.5-2 cups tomato sauce', 2)).toBe('3-4 cups tomato sauce');
+    expect(scaleIngredient('1 onion', 2)).toBe('2 onions');
+  });
+
   it('a line with no number is left exactly alone', () => {
     // Half a pinch is not a quantity, and inventing one would be worse than
     // leaving the cook to judge it.

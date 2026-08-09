@@ -299,6 +299,16 @@ Next up, in Sean's order:
       Pasta all'Uovo)' is left exactly as written.
       My first attempt pluralised 'sugar' and 'guanciale' after tbsp and g —
       caught by tests that were already there, which is what they are for.
+- [x] **All of Sean's recipes now read on a real phone**, at ½x and 2x. The
+      last three (Porro e Salsiccia, Fumé, Uovo) came back clean. Four bugs
+      came out of this exercise overall — dual-unit lines, the slash range,
+      the compound noun, and the bay leaf — none of which my invented cards
+      contained.
+- [x] The shapes verified by eye are now core tests rather than a memory: a
+      range whose TOP lands exactly on 1 ('1 ½-2 cups' → '¾-1 cup', unit going
+      singular with it), a decimal range, 'pinches', an adjective in the unit
+      slot with an already-plural noun, and '1 onion' → '2 onions'. Reading a
+      screen is not a thing that repeats itself.
 - [ ] Photo import flow (recipe-import → recipe-photos → recipe-title →
       recipe-save) is covered by e2e/ocr.spec.ts — keep that spec on the real
       flow, not a shortcut.
