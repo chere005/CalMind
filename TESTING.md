@@ -180,6 +180,16 @@ device's next sync comes back 401 and it must return to the login, not treat a
 dead token as "offline" and keep taking edits that can never land. The device
 that made the change keeps working.
 
+Nor did any of them press a button TWICE. A thumb double-taps constantly, and
+`e2e/doubletap.spec.ts` checks the three places a second press would cost
+something: Done on the Add tab filing two copies, a section add committing on
+both Enter and blur (the pair that already caught Notes out once, which is why
+addNote carries a committed-flag), and a toggle put back where it started. All
+three hold — but the guards are INCIDENTAL, not deliberate: a field clearing
+itself, a screen navigating away, a completed row hiding. That is precisely
+the sort of protection that stops existing without anyone noticing, which is
+why it is worth pinning.
+
 Nor did any of them get INTERRUPTED. Every spec finishes what it starts —
 types, presses Enter, moves on — while a phone constantly does the opposite.
 `e2e/interrupted.spec.ts` renames a reminder and switches tab without
