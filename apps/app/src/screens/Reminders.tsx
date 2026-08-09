@@ -305,9 +305,9 @@ export function Reminders() {
         ))}
         {rep && (
           <View style={s.repCount}>
-            <CircleBtn glyph="−" size={22} onPress={() => setRepeat(r, { ...rep, n: Math.max(1, rep.n - 1) })} />
+            <CircleBtn glyph="−" label="Fewer" size={22} onPress={() => setRepeat(r, { ...rep, n: Math.max(1, rep.n - 1) })} />
             <Text style={s.repN}>{rep.n}</Text>
-            <CircleBtn glyph="+" size={22} onPress={() => setRepeat(r, { ...rep, n: Math.min(999, rep.n + 1) })} />
+            <CircleBtn glyph="+" label="Add" size={22} onPress={() => setRepeat(r, { ...rep, n: Math.min(999, rep.n + 1) })} />
           </View>
         )}
       </View>
@@ -324,8 +324,8 @@ export function Reminders() {
       {/* The suite's toolbar row: under the divider, immediately above the folders. */}
       <View style={s.toolbar}>
         <Pressable onPress={collapseAll} hitSlop={8} style={s.collapseAllBtn}><Chevron open size={15} /></Pressable>
-        <CircleBtn glyph="☑" active={showDone} onPress={() => setShowDone(!showDone)} />
-        {session?.username === 'sean' && <CircleBtn testID="rem-copymd" glyph="⧉" onPress={copyMarkdown} />}
+        <CircleBtn glyph="☑" label="Completed" active={showDone} onPress={() => setShowDone(!showDone)} />
+        {session?.username === 'sean' && <CircleBtn testID="rem-copymd" glyph="⧉" label="Duplicate" onPress={copyMarkdown} />}
         {copyNote !== '' && <Text testID="rem-copynote" style={s.copyNote}>{copyNote}</Text>}
       </View>
 
@@ -339,7 +339,7 @@ export function Reminders() {
                 <Chevron open={!foldedFolders.has(f.id)} size={15} color={T.text} />
               </Pressable>
               <Text style={[s.folderName, { backgroundColor: f.payload.color + '33' }]}>{f.payload.name}</Text>
-              <CircleBtn testID={`foldadd-${f.payload.name}`} glyph="+" color={T.accent} size={22} onPress={() => { setAddingSection(f.id); setNewName(''); }} />
+              <CircleBtn testID={`foldadd-${f.payload.name}`} glyph="+" label="Add" color={T.accent} size={22} onPress={() => { setAddingSection(f.id); setNewName(''); }} />
               <View style={s.folderRule} />
             </View>
             {addingSection === f.id && (
@@ -405,7 +405,7 @@ export function Reminders() {
                         <Text style={s.secName}>{sec.payload.name}</Text>
                       </Pressable>
                     )}
-                    <CircleBtn testID={`secadd-${sec.payload.name}`} glyph="+" color={T.accent} size={22} onPress={() => { setAdding(sec.id); setAddText(''); if (isFolded) toggleFold(sec.id); }} />
+                    <CircleBtn testID={`secadd-${sec.payload.name}`} glyph="+" label="Add" color={T.accent} size={22} onPress={() => { setAdding(sec.id); setAddText(''); if (isFolded) toggleFold(sec.id); }} />
                     {pageEdit && (
                       <ConfirmDelete testID={`secdel-${sec.payload.name}`} size={22} onDelete={() => {
                         const res = deleteSection(recs, sec.id);
@@ -500,9 +500,9 @@ export function Reminders() {
                           {editing !== r.id && dueChip(r)}
                           {pageEdit && (
                             <>
-                              <CircleBtn testID="rem-pencil" glyph="✎" size={24} onPressIn={() => { holdCluster.current = true; }} onPress={() => { if (editing === r.id) saveEdit(r); setEditing(null); setModalRec(r); }} />
+                              <CircleBtn testID="rem-pencil" glyph="✎" label="Edit" size={24} onPressIn={() => { holdCluster.current = true; }} onPress={() => { if (editing === r.id) saveEdit(r); setEditing(null); setModalRec(r); }} />
                               {r.payload.indent === 0 && (
-                                <CircleBtn testID="rem-dup" glyph="⧉" size={24} onPressIn={() => { holdCluster.current = true; }} onPress={() => {
+                                <CircleBtn testID="rem-dup" glyph="⧉" label="Duplicate" size={24} onPressIn={() => { holdCluster.current = true; }} onPress={() => {
                                   if (editing === r.id) saveEdit(r);
                                   setEditing(null);
                                   const res = duplicateItem(recs, r.id, newId);
@@ -510,9 +510,9 @@ export function Reminders() {
                                 }} />
                               )}
                               {r.payload.indent === 0 ? (
-                                <CircleBtn glyph="+" size={24} onPressIn={() => { holdCluster.current = true; }} onPress={() => { if (editing === r.id) saveEdit(r); addSubtask(r); }} />
+                                <CircleBtn glyph="+" label="Add" size={24} onPressIn={() => { holdCluster.current = true; }} onPress={() => { if (editing === r.id) saveEdit(r); addSubtask(r); }} />
                               ) : (
-                                <CircleBtn glyph="‹" size={24} onPressIn={() => { holdCluster.current = true; }} onPress={() => { if (editing === r.id) saveEdit(r); setEditing(null); outdent(r); }} />
+                                <CircleBtn glyph="‹" label="Previous" size={24} onPressIn={() => { holdCluster.current = true; }} onPress={() => { if (editing === r.id) saveEdit(r); setEditing(null); outdent(r); }} />
                               )}
                               <ConfirmDelete onPressIn={() => { holdCluster.current = true; }} onDelete={() => { setEditing(null); mutate((e) => e.del(r.id)); }} />
                             </>
@@ -641,7 +641,7 @@ function SharedReminders({ viewKey, partner }: { viewKey: string; partner: strin
           <View key={sec.id} style={s.section}>
             <View style={s.secHead}>
               <Text style={s.secName}>{sec.payload.name}</Text>
-              <CircleBtn glyph="+" size={22} onPress={() => { setAdding(sec.id); setAddText(''); }} />
+              <CircleBtn glyph="+" label="Add" size={22} onPress={() => { setAdding(sec.id); setAddText(''); }} />
             </View>
             {adding === sec.id && (
               <Field

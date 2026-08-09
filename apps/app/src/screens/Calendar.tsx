@@ -222,11 +222,11 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
       <TopBar title="Calendar" picker={<CalendarPick />} />
       {/* The date centred over the grid; ◉ jumps home to today. */}
       <View style={s.pagerRow}>
-        <CircleBtn glyph="‹" size={32} onPress={() => page(-1)} />
+        <CircleBtn glyph="‹" label="Previous" size={32} onPress={() => page(-1)} />
         <Pressable onPress={() => { setYm(today.slice(0, 7)); setDay(today); setWkAnchor(today); }} hitSlop={6}>
           <Text testID="cal-ym" style={s.ymLabel}>{new Date(`${ym}-15T12:00:00`).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</Text>
         </Pressable>
-        <CircleBtn testID="cal-next" glyph="›" size={32} onPress={() => page(1)} />
+        <CircleBtn testID="cal-next" glyph="›" label="Next" size={32} onPress={() => page(1)} />
       </View>
 
       <View testID="cal-grid" style={s.grid} {...gridPan.panHandlers}>
@@ -288,7 +288,7 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
         <View style={s.panelHead}>
           <Text testID="cal-day-title" style={s.panelTitle}>{dayLabel}</Text>
           <View style={s.panelBtns}>
-            <CircleBtn testID="cal-completed" glyph="☑" active={showDone} onPress={() => setShowDone(!showDone)} />
+            <CircleBtn testID="cal-completed" glyph="☑" label="Completed" active={showDone} onPress={() => setShowDone(!showDone)} />
             <Pill label="+ Add" primary onPress={() => setModal({ mode: 'create' })} />
           </View>
         </View>
@@ -307,8 +307,8 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
             {e.payload.time && <Text style={s.chip}>{timeLabel(e.payload.time)}</Text>}
             {panelEdit && (
               <>
-                <CircleBtn glyph="✎" size={24} onPress={() => setModal({ mode: 'edit', kind: 'event', rec: e })} />
-                <CircleBtn glyph="⧉" size={24} onPress={() => { const res = duplicateItem(recs, e.id, newId); if (!('error' in res)) mutate((en) => res.put.forEach((p) => en.put(p))); }} />
+                <CircleBtn glyph="✎" label="Edit" size={24} onPress={() => setModal({ mode: 'edit', kind: 'event', rec: e })} />
+                <CircleBtn glyph="⧉" label="Duplicate" size={24} onPress={() => { const res = duplicateItem(recs, e.id, newId); if (!('error' in res)) mutate((en) => res.put.forEach((p) => en.put(p))); }} />
               </>
             )}
             {(panelEdit || swipe.swiped === e.id) && (
@@ -348,8 +348,8 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
             {r.payload.time && <Text style={s.chip}>{timeLabel(r.payload.time)}</Text>}
             {panelEdit && (
               <>
-                <CircleBtn glyph="✎" size={24} onPress={() => setModal({ mode: 'edit', kind: 'reminder', rec: r })} />
-                <CircleBtn glyph="⧉" size={24} onPress={() => { const res = duplicateItem(recs, r.id, newId); if (!('error' in res)) mutate((en) => res.put.forEach((p) => en.put(p))); }} />
+                <CircleBtn glyph="✎" label="Edit" size={24} onPress={() => setModal({ mode: 'edit', kind: 'reminder', rec: r })} />
+                <CircleBtn glyph="⧉" label="Duplicate" size={24} onPress={() => { const res = duplicateItem(recs, r.id, newId); if (!('error' in res)) mutate((en) => res.put.forEach((p) => en.put(p))); }} />
                 <ConfirmDelete onDelete={() => mutate((en) => en.del(r.id))} />
               </>
             )}
@@ -389,8 +389,8 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
             </Pressable>
             {panelEdit && (
               <>
-                <CircleBtn glyph="✎" size={24} onPress={() => setModal({ mode: 'edit', kind: 'note', rec: n })} />
-                <CircleBtn glyph="⧉" size={24} onPress={() => { const res = duplicateItem(recs, n.id, newId); if (!('error' in res)) mutate((en) => res.put.forEach((p) => en.put(p))); }} />
+                <CircleBtn glyph="✎" label="Edit" size={24} onPress={() => setModal({ mode: 'edit', kind: 'note', rec: n })} />
+                <CircleBtn glyph="⧉" label="Duplicate" size={24} onPress={() => { const res = duplicateItem(recs, n.id, newId); if (!('error' in res)) mutate((en) => res.put.forEach((p) => en.put(p))); }} />
                 <ConfirmDelete onDelete={() => mutate((en) => en.del(n.id))} />
               </>
             )}

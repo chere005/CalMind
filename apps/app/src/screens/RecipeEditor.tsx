@@ -146,7 +146,7 @@ export function RecipeEditor({ note, onClose }: { note: Rec<'note'>; onClose: ()
       <ScrollView style={[s.page, { paddingTop: insets.top }]} contentContainerStyle={s.inner} scrollEnabled={ingDrag.dragIdx === null && stepDrag.dragIdx === null}>
         <View style={s.headRow}>
           <Pressable onPress={onClose} hitSlop={8}><Text style={s.back}>← Note</Text></Pressable>
-          <CircleBtn testID="recipe-photos" glyph="📷" size={32} onPress={() => void importPhotos()} />
+          <CircleBtn testID="recipe-photos" glyph="📷" label="Read a photo" size={32} onPress={() => void importPhotos()} />
         </View>
         <Text style={s.h1}>Recipe</Text>
         {busy !== '' && <Text style={s.busy}>{busy}</Text>}
@@ -154,7 +154,7 @@ export function RecipeEditor({ note, onClose }: { note: Rec<'note'>; onClose: ()
 
         <View style={s.secHead}>
           <Text style={s.secName}>Ingredients</Text>
-          <CircleBtn testID="ing-add" glyph="+" color={T.accent} size={24} onPress={addIngredient} />
+          <CircleBtn testID="ing-add" glyph="+" label="Add" color={T.accent} size={24} onPress={addIngredient} />
         </View>
         <Field
           testID="ing-field"
@@ -199,7 +199,7 @@ export function RecipeEditor({ note, onClose }: { note: Rec<'note'>; onClose: ()
 
         <View style={s.secHead}>
           <Text style={s.secName}>Instructions</Text>
-          <CircleBtn testID="step-add" glyph="+" color={T.accent} size={24} onPress={addStep} />
+          <CircleBtn testID="step-add" glyph="+" label="Add" color={T.accent} size={24} onPress={addStep} />
         </View>
         <Field
           testID="step-field"

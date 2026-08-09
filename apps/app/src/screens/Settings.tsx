@@ -151,9 +151,9 @@ export function Settings({ onClose }: { onClose: () => void }) {
               buttons — Share, Widget, Done (the accent checkmark). Share and
               Widget say where they are on the roadmap until those land. */}
           <View style={s.footer}>
-            <CircleBtn testID="open-share" glyph="⇗" size={40} onPress={() => setShareOpen(true)} />
-            <CircleBtn testID="open-widget" glyph="▤" size={40} onPress={() => setWidgetOpen(true)} />
-            <CircleBtn glyph="✓" size={40} color={T.accent} active onPress={onClose} />
+            <CircleBtn testID="open-share" glyph="⇗" label="Sharing" size={40} onPress={() => setShareOpen(true)} />
+            <CircleBtn testID="open-widget" glyph="▤" label="Widget setup" size={40} onPress={() => setWidgetOpen(true)} />
+            <CircleBtn glyph="✓" label="Done" size={40} color={T.accent} active onPress={onClose} />
           </View>
           <View style={s.row}>
             <Pill

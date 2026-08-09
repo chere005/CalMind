@@ -262,7 +262,7 @@ export function ItemModal({
               <View style={s.rowWrap}>
                 <Text style={s.label}>Time</Text>
                 <Field value={timeField} onChangeText={setTimeField} placeholder={time ?? '2:30pm'} style={s.miniField} />
-                <CircleBtn glyph="×" size={22} onPress={() => { setShowTime(false); setTime(null); setTimeField(''); }} />
+                <CircleBtn glyph="×" label="Remove" size={22} onPress={() => { setShowTime(false); setTime(null); setTimeField(''); }} />
               </View>
             )}
 
@@ -272,13 +272,13 @@ export function ItemModal({
               ) : (
                 <View style={s.rowWrap}>
                   <Text style={s.label}>every</Text>
-                  <CircleBtn glyph="−" size={22} onPress={() => repeat && setRepeat({ ...repeat, n: Math.max(1, repeat.n - 1) })} />
+                  <CircleBtn glyph="−" label="Fewer" size={22} onPress={() => repeat && setRepeat({ ...repeat, n: Math.max(1, repeat.n - 1) })} />
                   <Text style={s.repN}>{repeat?.n ?? 1}</Text>
-                  <CircleBtn glyph="+" size={22} onPress={() => repeat && setRepeat({ ...repeat, n: Math.min(999, repeat.n + 1) })} />
+                  <CircleBtn glyph="+" label="Add" size={22} onPress={() => repeat && setRepeat({ ...repeat, n: Math.min(999, repeat.n + 1) })} />
                   {(['day', 'week', 'month', 'year'] as RepeatUnit[]).map((u) => (
                     <Pill key={u} label={u} primary={repeat?.unit === u} onPress={() => setRepeat({ n: repeat?.n ?? 1, unit: u })} />
                   ))}
-                  <CircleBtn glyph="×" size={22} onPress={() => { setShowRepeat(false); setRepeat(null); }} />
+                  <CircleBtn glyph="×" label="Remove repeat" size={22} onPress={() => { setShowRepeat(false); setRepeat(null); }} />
                 </View>
               ))}
 

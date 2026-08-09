@@ -469,7 +469,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
                 <Chevron open={!foldedFolders.has(f.id)} size={15} color={T.text} />
               </Pressable>
               <Text style={[s.folderName, { backgroundColor: f.payload.color + '33' }]}>{f.payload.name}</Text>
-              <CircleBtn testID={`foldadd-${f.payload.name}`} glyph="+" color={T.accent} size={22} onPress={() => { setAddingSection(f.id); setNewSecName(''); }} />
+              <CircleBtn testID={`foldadd-${f.payload.name}`} glyph="+" label="Add" color={T.accent} size={22} onPress={() => { setAddingSection(f.id); setNewSecName(''); }} />
               <View style={s.folderRule} />
             </View>
             {addingSection === f.id && (
@@ -531,7 +531,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
                       <Text style={s.secName}>{sec.payload.name}</Text>
                     </Pressable>
                   )}
-                  <CircleBtn testID={`secadd-${sec.payload.name}`} glyph="+" color={T.accent} size={22} onPress={() => { setAdding(sec.id); setAddText(''); }} />
+                  <CircleBtn testID={`secadd-${sec.payload.name}`} glyph="+" label="Add" color={T.accent} size={22} onPress={() => { setAdding(sec.id); setAddText(''); }} />
                   {pageEdit && (
                     <ConfirmDelete testID={`nsecdel-${sec.payload.name}`} size={22} onDelete={() => {
                       const res = deleteSection(recs, sec.id);
@@ -568,7 +568,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
                       </Pressable>
                       {pageEdit && (
                         <>
-                          <CircleBtn testID="note-dup" glyph="⧉" size={22} onPress={() => {
+                          <CircleBtn testID="note-dup" glyph="⧉" label="Duplicate" size={22} onPress={() => {
                             const res = duplicateItem(recs, n.id, newId);
                             if (!('error' in res)) mutate((e) => res.put.forEach((p) => e.put(p)));
                           }} />

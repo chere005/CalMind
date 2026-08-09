@@ -124,7 +124,7 @@ export function FolderManager({ app, onClose }: { app: 'reminders' | 'notes'; on
             <Text style={s.h2}>Folders</Text>
             <View style={s.addRow}>
               <Field value={newName} onChangeText={setNewName} placeholder="New folder" style={s.addField} onSubmitEditing={add} />
-              <CircleBtn glyph="+" color={T.accent} size={34} onPress={add} />
+              <CircleBtn glyph="+" label="Add" color={T.accent} size={34} onPress={add} />
             </View>
 
             {folders.map((f, i) => (
@@ -150,7 +150,7 @@ export function FolderManager({ app, onClose }: { app: 'reminders' | 'notes'; on
                 )}
                 {!f.payload.rideAlong && (
                   <>
-                    <CircleBtn glyph="✎" size={26} onPress={() => { setRenaming(f.id); setRenameText(f.payload.name); }} />
+                    <CircleBtn glyph="✎" label="Edit" size={26} onPress={() => { setRenaming(f.id); setRenameText(f.payload.name); }} />
                     <ConfirmDelete testID="mgr-del" onDelete={() => remove(f)} />
                   </>
                 )}

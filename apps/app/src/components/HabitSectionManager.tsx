@@ -75,7 +75,7 @@ export function HabitSectionManager({ onClose }: { onClose: () => void }) {
             <Text style={s.h2}>Sections</Text>
             <View style={s.addRow}>
               <Field value={newName} onChangeText={setNewName} placeholder="New section" style={s.addField} onSubmitEditing={add} />
-              <CircleBtn glyph="+" color={T.accent} size={34} onPress={add} />
+              <CircleBtn glyph="+" label="Add" color={T.accent} size={34} onPress={add} />
             </View>
             {sections.map((sec, i) => (
               <View key={sec.id}>
@@ -84,6 +84,7 @@ export function HabitSectionManager({ onClose }: { onClose: () => void }) {
                 <View {...drag.handleFor(i)} style={s.grip} hitSlop={8}><Text style={s.gripText}>≡</Text></View>
                 <CircleBtn
                   glyph=" "
+                  label="Change colour"
                   size={22}
                   bg={sec.payload.color}
                   onPress={() => {
@@ -103,7 +104,7 @@ export function HabitSectionManager({ onClose }: { onClose: () => void }) {
                 ) : (
                   <Text style={s.rowText}>{sec.payload.name}</Text>
                 )}
-                <CircleBtn glyph="✎" size={26} onPress={() => { setRenaming(sec.id); setRenameText(sec.payload.name); }} />
+                <CircleBtn glyph="✎" label="Edit" size={26} onPress={() => { setRenaming(sec.id); setRenameText(sec.payload.name); }} />
                 <ConfirmDelete
                   onDelete={() => {
                     const res = deleteHabitSection(recs, sec.id);

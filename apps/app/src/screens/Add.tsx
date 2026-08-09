@@ -169,9 +169,9 @@ export function Add({ done, onNoteCreated }: { done: () => void; onNoteCreated?:
         {showRepeat && kind !== 'note' && (
           <View style={s.panel}>
             <Text style={s.panelLabel}>every</Text>
-            <CircleBtn glyph="−" size={22} onPress={() => repeat && setRepeat({ ...repeat, n: Math.max(1, repeat.n - 1) })} />
+            <CircleBtn glyph="−" label="Fewer" size={22} onPress={() => repeat && setRepeat({ ...repeat, n: Math.max(1, repeat.n - 1) })} />
             <Text style={s.repN}>{repeat?.n ?? 1}</Text>
-            <CircleBtn glyph="+" size={22} onPress={() => setRepeat({ n: (repeat?.n ?? 1) + 1, unit: repeat?.unit ?? 'week' })} />
+            <CircleBtn glyph="+" label="Add" size={22} onPress={() => setRepeat({ n: (repeat?.n ?? 1) + 1, unit: repeat?.unit ?? 'week' })} />
             {(['day', 'week', 'month', 'year'] as RepeatUnit[]).map((u) => (
               <Pill key={u} label={u} primary={repeat?.unit === u} onPress={() => setRepeat({ n: repeat?.n ?? 1, unit: u })} />
             ))}

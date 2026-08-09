@@ -1033,9 +1033,17 @@ device that cannot write its own snapshot.
       ConfirmDelete (which says "Delete", then "Confirm delete" once armed —
       the two-press state is invisible to a screen reader otherwise).
       `CircleBtn` now takes a `label`, so the rest are one prop each.
-- [ ] **Not finished.** The row clusters (pencil, duplicate, subtask, outdent),
-      the collapse-all chevrons, the Completed toggle and the swatch trays are
-      still unlabelled. The mechanism is in place; it is call sites from here.
+- [x] **Finished.** Every `CircleBtn` in the app now carries a name — 46 of
+      them across screens, modals and managers, using the suite's own wording
+      where it has some (Completed, Edit, Add, Back). A spec reads the source
+      and fails on any built without one, because most live behind edit mode,
+      a modal or a partner, and driving to each would be a tour of the app
+      rather than a check.
+- [ ] Still bare, and cheaper to say than to guess at: the `Pill` controls
+      already read their own text, so they need nothing; the raw `Pressable`
+      chevrons and grips do not, and were left — a grip has no meaning to
+      announce beyond "reorder", which is a decision about wording rather than
+      a gap in the mechanism.
 
 ## 4 · Gated — waiting on Sean's explicit word
 

@@ -34,3 +34,30 @@ test('the tab bar and the back control are named, not just drawn', async ({ page
 
   await expect(page.getByTestId('nav-back')).toHaveAttribute('aria-label', 'Back');
 });
+
+test('every icon-only button on a screen carries a name', () => {
+  // Read from source rather than the DOM: most of these live behind edit mode,
+  // a modal or a partner, and a spec that drove to each one would be a tour of
+  // the app rather than a check. CircleBtn is THE icon button — if one is
+  // built without a label, a screen reader gets a glyph or nothing.
+  const { readFileSync, readdirSync, statSync } = require('node:fs') as typeof import('node:fs');
+  const { join } = require('node:path') as typeof import('node:path');
+  const walk = (dir: string, out: string[] = []): string[] => {
+    for (const name of readdirSync(dir)) {
+      const p = join(dir, name);
+      if (statSync(p).isDirectory()) walk(p, out);
+      else if (p.endsWith('.tsx')) out.push(p);
+    }
+    return out;
+  };
+  const bare: string[] = [];
+  for (const file of walk(join(__dirname, '..', 'apps', 'app', 'src'))) {
+    const src = readFileSync(file, 'utf8');
+    for (const m of src.matchAll(/<CircleBtn\b[\s\S]*?\/>/g)) {
+      if (!m[0].includes('label=')) {
+        bare.push(`${file.split('/src/')[1]}: ${/glyph="([^"]*)"/.exec(m[0])?.[1] ?? '?'}`);
+      }
+    }
+  }
+  expect(bare, 'an icon button with no name reads as nothing at all').toEqual([]);
+});

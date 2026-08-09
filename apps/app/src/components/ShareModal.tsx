@@ -84,7 +84,7 @@ export function ShareModal({ onClose }: { onClose: () => void }) {
                   <Text style={s.partnerName}>{share.labels?.[name] ?? name}</Text>
                 )}
                 <Text style={[s.badge, badge(name) === 'sharing' && s.badgeOn]}>{badge(name)}</Text>
-                <CircleBtn glyph="✎" size={24} onPress={() => { setRenaming(name); setLabelText(share.labels?.[name] ?? name); }} />
+                <CircleBtn glyph="✎" label="Edit" size={24} onPress={() => { setRenaming(name); setLabelText(share.labels?.[name] ?? name); }} />
                 <ConfirmDelete
                   size={24}
                   onDelete={() => putShare({ ...share, partners: share.partners.filter((p) => p !== name) })}

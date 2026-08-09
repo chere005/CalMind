@@ -237,7 +237,7 @@ export function Habits() {
     <View style={s.page}>
       <TopBar
         title="Habits"
-        controls={<CircleBtn testID="habits-edit" glyph="✎" size={30} active={edit} onPress={() => setEdit(!edit)} />}
+        controls={<CircleBtn testID="habits-edit" glyph="✎" label="Edit" size={30} active={edit} onPress={() => setEdit(!edit)} />}
         picker={<SectionPick />}
       />
 
@@ -252,9 +252,9 @@ export function Habits() {
           </Pressable>
         </View>
         <View style={s.pager}>
-          <CircleBtn testID="habits-prev" glyph="‹" size={30} onPress={() => page(-1)} />
+          <CircleBtn testID="habits-prev" glyph="‹" label="Previous" size={30} onPress={() => page(-1)} />
           <Text style={s.pagerLabel}>{pagerLabel}</Text>
-          <CircleBtn glyph="›" size={30} onPress={() => page(1)} />
+          <CircleBtn glyph="›" label="Next" size={30} onPress={() => page(1)} />
         </View>
       </View>
 
@@ -266,7 +266,7 @@ export function Habits() {
           <>
             <View style={s.headRow}>
               <View style={s.nameCol}>
-                <CircleBtn glyph="⌃" size={30} onPress={collapseAll} />
+                <CircleBtn glyph="⌃" label="Collapse all" size={30} onPress={collapseAll} />
               </View>
               {days.map((d) => (
                 <View key={d} testID="habit-daycol" style={s.dayCol}>
@@ -312,7 +312,7 @@ export function Habits() {
                   <View style={[s.secPill, { backgroundColor: tint(sec.payload.color, '2e') }]}>
                     <Text style={s.secPillText}>{sec.payload.name}</Text>
                   </View>
-                  <CircleBtn glyph="+" color={sec.payload.color} size={26} onPress={() => { setAddingIn(sec.id); setAddText(''); }} />
+                  <CircleBtn glyph="+" label="Add" color={sec.payload.color} size={26} onPress={() => { setAddingIn(sec.id); setAddText(''); }} />
                   <View style={s.secRule} />
                 </View>
                 {addingIn === sec.id && (

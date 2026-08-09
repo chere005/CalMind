@@ -302,7 +302,7 @@ function CalendarManager({ onClose }: { onClose: () => void }) {
             <Text style={s.h2}>Calendars</Text>
             <View style={s.addRow}>
               <Field value={newName} onChangeText={setNewName} placeholder="New calendar" style={s.addField} onSubmitEditing={add} />
-              <CircleBtn glyph="+" color={T.accent} size={34} onPress={add} />
+              <CircleBtn glyph="+" label="Add" color={T.accent} size={34} onPress={add} />
             </View>
             {calendars.map((c, i) => (
               <View key={c.id}>
@@ -322,7 +322,7 @@ function CalendarManager({ onClose }: { onClose: () => void }) {
                 ) : (
                   <Text style={s.rowText}>{c.payload.name}</Text>
                 )}
-                <CircleBtn glyph="✎" size={26} onPress={() => { setRenaming(c.id); setRenameText(c.payload.name); }} />
+                <CircleBtn glyph="✎" label="Edit" size={26} onPress={() => { setRenaming(c.id); setRenameText(c.payload.name); }} />
                 <ConfirmDelete onDelete={() => remove(c)} />
                 </View>
               </View>
