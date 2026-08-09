@@ -743,6 +743,31 @@ drifted from it. Restoring the stated behaviour is a fix, not a decision.
       refused to deploy. Worth noting: that is twice today the deploy gate has
       stopped something I would otherwise have shipped.
 
+## 3y · The phone walk, continued — the rest came back clean (2026-08-09)
+
+After the three safe-area bugs, I kept opening screens on the simulator rather
+than reasoning about them. Verified by eye at this point:
+
+- [x] Calendar (month), the day panel, the legend with Sean's real folders
+- [x] Notes list and the note editor, and the Recipe editor after its fix
+- [x] The username menu after its fix — hangs under the pill, status bar clear
+- [x] The calendar picker dropdown, including the "SHARED WITH ME" group and
+      the partner badge
+- [x] Settings: fits the phone, no overflow. The passkey section is correctly
+      ABSENT on native — `passkeyAvailable()` is false without
+      window.PublicKeyCredential, which is the intended web-only gating rather
+      than something missing.
+- [x] The New item modal from + Add: fits, Cancel and Save both reachable, no
+      status-bar overlap.
+
+Nothing further found. Worth recording as a clean sweep rather than silence —
+three bugs came out of the first pass and none out of the second, which is
+the shape you want.
+
+One habit worth keeping from this: I wasted several taps eyeballing
+coordinates off a resized screenshot before measuring the target's pixels
+directly. Measuring takes one command and works first time.
+
 ## 4 · Gated — waiting on Sean's explicit word
 
 - [ ] **E2EE envelopes** (design settled, build gated): X25519 +
