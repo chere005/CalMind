@@ -1,0 +1,98 @@
+import { expect, test } from '@playwright/test';
+
+/**
+ * A button is as big as it looks — on the web too.
+ *
+ * react-native-web does not implement hitSlop. Every icon control in this app
+ * asks for `hitSlop={8}` and got it on the native builds and not in a browser,
+ * so the same button was 42px wide on the phone app and 26px in Safari. That
+ * gap is invisible to a mouse and costs a thumb its press.
+ *
+ * The fix is a transparent child stretched past its parent's edges. That
+ * technique has one way to go wrong, and it is the interesting half of this
+ * file: a control's extra area is a real element that can lie ON TOP of its
+ * neighbour, stealing presses meant for something else. So the second test
+ * walks every screen and checks that each control still owns its own middle.
+ */
+
+async function signUp(page: import('@playwright/test').Page, prefix: string) {
+  const user = `${prefix}${String(Date.now()).slice(-6)}`;
+  await page.goto('.');
+  await page.getByText('Sign up', { exact: true }).click();
+  await page.getByPlaceholder('Username').fill(user);
+  await page.getByPlaceholder('Email').fill(user + '@example.com');
+  await page.getByPlaceholder('Password', { exact: true }).fill('e2epassword');
+  await page.getByPlaceholder('Confirm password').fill('e2epassword');
+  await page.getByText('Sign up', { exact: true }).click();
+  await expect(page.getByTestId('tab-reminders')).toBeVisible({ timeout: 20_000 });
+  return user;
+}
+
+test('an icon button answers a press outside its drawn edge', async ({ page }) => {
+  test.setTimeout(60_000);
+  await signUp(page, 'hit');
+  await page.getByTestId('tab-calendar').click();
+
+  const btn = page.getByTestId('cal-completed');
+  await expect(btn).toBeVisible();
+
+  // A toggle whose active state is a background colour, so the DOM says
+  // plainly whether a press landed.
+  const bg = () => btn.evaluate((el) => getComputedStyle(el).backgroundColor);
+  const box = (await btn.boundingBox())!;
+  const atRest = await bg();
+
+  await page.mouse.click(box.x + box.width + 5, box.y + box.height / 2);
+  await expect
+    .poll(bg, { message: 'a press five pixels outside the drawn edge is still on the button' })
+    .not.toBe(atRest);
+
+  // How far it reaches is read off the element rather than probed with more
+  // clicks: a click landing or missing says as much about what is painted on
+  // top as about the slop, and an earlier version of this test passed a
+  // deliberately broken 40px slop for exactly that reason.
+  const reach = await btn.evaluate((el) => {
+    const p = el.getBoundingClientRect();
+    const c = (el.firstElementChild as HTMLElement).getBoundingClientRect();
+    return { left: p.left - c.left, right: c.right - p.right, top: p.top - c.top, bottom: c.bottom - p.bottom };
+  });
+  // Seven, not eight: an absolute child is placed from its parent's PADDING
+  // box, and these circles carry a 1px border, so -8px lands 7px past the
+  // drawn edge. Worth pinning rather than rounding away — a slop that quietly
+  // grew would cover the neighbours, which is what the next test is about.
+  for (const [side, px] of Object.entries(reach)) {
+    expect(Math.round(px), `the extra area reaches ${side} by what hitSlop asks for, no further`).toBe(7);
+  }
+});
+
+test('no control steals the middle of the one beside it', async ({ page }) => {
+  test.setTimeout(90_000);
+  await signUp(page, 'own');
+
+  for (const tab of ['reminders', 'calendar', 'add', 'notes', 'habits']) {
+    await page.getByTestId(`tab-${tab}`).click();
+    await page.waitForTimeout(350);
+
+    // For every button on screen: whatever sits at its centre must be the
+    // button itself or something inside it. Anything else means a neighbour's
+    // extra area is lying over it and will swallow the press.
+    const stolen = await page.evaluate(() => {
+      const bad: string[] = [];
+      for (const el of Array.from(document.querySelectorAll('[role="button"], [data-testid^="pick-"]'))) {
+        const r = el.getBoundingClientRect();
+        if (r.width === 0 || r.height === 0) continue;
+        const x = r.left + r.width / 2;
+        const y = r.top + r.height / 2;
+        if (x < 0 || y < 0 || x > innerWidth || y > innerHeight) continue;
+        const hit = document.elementFromPoint(x, y);
+        if (!hit) continue;
+        if (el.contains(hit) || hit.contains(el)) continue;
+        const name = el.getAttribute('data-testid') ?? el.getAttribute('aria-label') ?? '?';
+        const thief = (hit as HTMLElement).closest('[data-testid],[aria-label]');
+        bad.push(`${name} <- ${thief?.getAttribute('data-testid') ?? thief?.getAttribute('aria-label') ?? hit.nodeName}`);
+      }
+      return Array.from(new Set(bad));
+    });
+    expect(stolen, `${tab}: a control's centre is covered by something else`).toEqual([]);
+  }
+});

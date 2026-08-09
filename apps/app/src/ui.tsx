@@ -17,6 +17,32 @@ import { themed, T } from './theme';
 const noSteal =
   Platform.OS === 'web' ? ({ onMouseDown: (e: { preventDefault(): void }) => e.preventDefault() } as object) : null;
 
+/**
+ * What hitSlop was supposed to do, on the one platform that ignores it.
+ *
+ * react-native-web does not implement hitSlop, so a control there is exactly
+ * as big as it is drawn, while the same control on the native builds is
+ * sixteen pixels wider. Proven rather than assumed: a click five pixels
+ * outside a 26px CircleBtn — plainly on the button to anyone looking — left
+ * it untouched, and the same click at dead centre fired it. The platforms
+ * disagreed silently, in the direction that hurts a phone in Safari.
+ *
+ * A transparent child, absolutely positioned past its parent's edges, is
+ * clicked instead: it is INSIDE the pressable, so the press bubbles to the
+ * same handler. Nothing moves — absolute children take no layout space — and
+ * nothing changes colour, which matters because specs read a swatch's
+ * background off the pressable itself.
+ *
+ * The extension matches hitSlop's 8 rather than bettering it, so web and
+ * native now miss and hit in the same places. It does mean two controls ten
+ * pixels apart overlap slightly at the edges; that is already true on native
+ * and is the behaviour being matched.
+ */
+function WebHitSlop({ slop = 8 }: { slop?: number }) {
+  if (Platform.OS !== 'web') return null;
+  return <View style={{ position: 'absolute', top: -slop, left: -slop, right: -slop, bottom: -slop }} />;
+}
+
 export function Pill({
   label,
   onPress,
@@ -84,6 +110,7 @@ export function CircleBtn({
         pressed && s.pressed,
       ]}
     >
+      <WebHitSlop />
       <Text style={{ color: active ? T.accent : color, fontSize: size * 0.55, lineHeight: size * 0.62, fontWeight: '700' }}>{glyph}</Text>
     </Pressable>
   );
@@ -116,6 +143,7 @@ export function ConfirmDelete({ onDelete, onPressIn, size = 26, testID, forceArm
       hitSlop={8}
       style={[s.circle, { width: size, height: size, borderRadius: size / 2 }, armed && s.armed]}
     >
+      <WebHitSlop />
       <Text style={{ color: armed ? '#fff' : T.dim, fontSize: size * 0.55, lineHeight: size * 0.62, fontWeight: '700' }}>×</Text>
     </Pressable>
   );
