@@ -719,6 +719,30 @@ Running total for the "open it on the phone" habit: the recipe photo import
 unreachable, WidgetSetup the same, and this. None of the three could be seen
 in a browser, because a browser has no status bar to hide under.
 
+## 3x · Opening the widget page no longer kills the widget (2026-08-09)
+
+This has been on the list as "Sean's call" since I found it, and it did not
+need to be: the server's own comment said one key per user "handed out once",
+and the code rotated on every call. The comment was the intent; the code had
+drifted from it. Restoring the stated behaviour is a fix, not a decision.
+
+- [x] **Server**: `widget_token` rotates only when asked (`rotate: true`).
+      Without it, an account that already holds a key is told so and nothing
+      changes. The key cannot be shown again — only its hash is kept — so the
+      page offers rotation rather than performing it.
+- [x] **The page** says which case you are in: a first visit mints one and
+      says it is yours to keep; a later visit explains the key is already out
+      there and puts "Issue a new key" behind a press.
+- [x] Specs rewritten on both sides. The server one used to ASSERT the
+      destruction ("opening the widget page again REVOKES the widget you
+      already have"); it now proves the opposite, including that the feed
+      still answers on the original key and that a rotation does retire it.
+      Three feed specs had to start asking for rotation by name, since a plain
+      second call now correctly hands out nothing.
+- [x] The gesture gate caught the e2e that asserted the old warning text and
+      refused to deploy. Worth noting: that is twice today the deploy gate has
+      stopped something I would otherwise have shipped.
+
 ## 4 · Gated — waiting on Sean's explicit word
 
 - [ ] **E2EE envelopes** (design settled, build gated): X25519 +

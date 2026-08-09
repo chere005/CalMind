@@ -161,11 +161,23 @@ export function WidgetSetup({ onClose }: { onClose: () => void }) {
   const [showRaw, setShowRaw] = useState(false);
   const [err, setErr] = useState('');
 
+  // Opening this page must not cost you the key the widget is already using.
+  // It asks WITHOUT rotate: a first-time account gets one, an account that
+  // already has one is simply told so — the key itself cannot come back, since
+  // the server keeps only its hash.
+  const [held, setHeld] = useState(false);
   useEffect(() => {
-    apiPost<{ token: string }>(session!.serverUrl, { action: 'widget_token' }, session!.token)
-      .then((r) => setToken(r.token))
-      .catch(() => setErr('could not mint the widget token — are you online?'));
+    apiPost<{ token: string | null; exists?: boolean }>(session!.serverUrl, { action: 'widget_token' }, session!.token)
+      .then((r) => { setToken(r.token ?? ''); setHeld(!!r.exists); })
+      .catch(() => setErr('could not reach the server — are you online?'));
   }, [session]);
+
+  const rotate = () => {
+    setErr('');
+    apiPost<{ token: string | null }>(session!.serverUrl, { action: 'widget_token', rotate: true }, session!.token)
+      .then((r) => { setToken(r.token ?? ''); setHeld(false); })
+      .catch(() => setErr('could not issue a new key — are you online?'));
+  };
 
   const base = session!.serverUrl.replace(/api\/index\.php$/, '');
   // The suite's pin: whatever the calendar is showing when you copy.
@@ -185,10 +197,22 @@ export function WidgetSetup({ onClose }: { onClose: () => void }) {
             That means a widget already on the home screen quietly stops
             updating the moment this page opens — invisible, and it reads as
             the widget being broken. Say so instead. */}
-        <Text testID="widget-replaces" style={s.warn}>
-          Opening this page issues a new key, which retires the last one. If you already
-          have the widget, paste this script over the old one or it will stop updating.
-        </Text>
+        {held ? (
+          <View testID="widget-held" style={s.heldRow}>
+            <Text style={s.warn}>
+              This account already has a widget key, and it is still working. It cannot be
+              shown twice — the server keeps only its fingerprint. Issue a new one only if
+              you are setting the widget up again; the widget you have now will stop
+              updating until you paste the new script over it.
+            </Text>
+            <Pill testID="widget-rotate" label="Issue a new key" onPress={rotate} />
+          </View>
+        ) : (
+          <Text testID="widget-replaces" style={s.warn}>
+            This key is yours to keep. Paste the script below into Scriptable; if you ever
+            issue a new one, the widget will stop updating until you paste the new script.
+          </Text>
+        )}
         <Text style={s.lede}>
           A home-screen widget for <Text style={s.bold}>{session?.username}</Text> that shows your agenda and opens
           CalMind when tapped.
@@ -207,7 +231,13 @@ export function WidgetSetup({ onClose }: { onClose: () => void }) {
         <Text style={s.step}>Open Scriptable → tap + (new script), delete the sample, then paste everything below:</Text>
         <View style={s.codeBox}>
           <ScrollView style={s.codeScroll} nestedScrollEnabled>
-            <Text testID="script-body" style={s.code}>{token ? script : 'Minting your token…'}</Text>
+            <Text testID="script-body" style={s.code}>
+              {token
+                ? script
+                : held
+                  ? 'Your key is already out there, and cannot be shown twice — issue a new one above to get a script you can paste.'
+                  : 'Minting your key…'}
+            </Text>
           </ScrollView>
         </View>
         <Pill
@@ -260,6 +290,7 @@ const s = themed(() => StyleSheet.create({
   codeBox: { backgroundColor: T.surface, borderWidth: 1, borderColor: T.line, borderRadius: 10, padding: 10, maxHeight: 260 },
   codeScroll: { flexGrow: 0 },
   code: { color: T.text, fontFamily: 'Menlo', fontSize: 11, lineHeight: 16 },
+  heldRow: { gap: 10, marginBottom: 6 },
   warn: { color: T.gold, fontSize: 14, lineHeight: 21, marginTop: 12 },
   rawToggle: { color: T.muted, fontSize: 14, marginTop: 6 },
   raw: { color: T.dim, fontSize: 12, fontFamily: 'Menlo' },

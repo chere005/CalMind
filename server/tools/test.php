@@ -185,7 +185,9 @@ t('the widget token reads the feed — dated rows in, undated non-riders out', f
               'payload' => ['text' => 'not on the widget', 'due' => null, 'time' => null, 'done' => false,
                             'repeat' => null, 'folderId' => 'f', 'sectionId' => 's', 'indent' => 0, 'ord' => 'W']];
     api(['action' => 'sync', 'cursor' => 0, 'changes' => [$dated, $loose]], $tokenA);
-    $wt = api(['action' => 'widget_token'], $tokenA)['body']['token'];
+    // rotate: these specs want a usable key, not the "you already have one"
+    // answer that a second plain call now (correctly) gives.
+    $wt = api(['action' => 'widget_token', 'rotate' => true], $tokenA)['body']['token'];
     ok(strlen($wt) === 48, 'a widget token minted');
     global $port;
     $feed = json_decode((string) @file_get_contents("http://127.0.0.1:$port/api/index.php?feed=1&t=$wt"), true);
@@ -211,7 +213,9 @@ t('the feed follows the suite: rolled repeats keep future dates, hidden folders 
         ['id' => 'prefs_reminders', 'type' => 'pref', 'updated' => 8100, 'payload' => ['hidden' => ['fhid']]],
     ];
     api(['action' => 'sync', 'cursor' => 0, 'changes' => $rows], $tokenA);
-    $wt = api(['action' => 'widget_token'], $tokenA)['body']['token'];
+    // rotate: these specs want a usable key, not the "you already have one"
+    // answer that a second plain call now (correctly) gives.
+    $wt = api(['action' => 'widget_token', 'rotate' => true], $tokenA)['body']['token'];
     $feed = json_decode((string) @file_get_contents("http://127.0.0.1:$port/api/index.php?feed=1&t=$wt"), true);
     $today = date('Y-m-d');
     $texts = fn($d) => array_column($feed['days'][$d] ?? [], 'text');
@@ -233,7 +237,9 @@ t('the cals= pin narrows the feed to the calendars baked at copy time', function
         ['id' => 'evA', 'type' => 'event', 'updated' => 8200, 'payload' => ['text' => 'home thing', 'date' => date('Y-m-d'), 'time' => null, 'repeat' => null, 'calendarId' => 'calA', 'ord' => 'a']],
         ['id' => 'evB', 'type' => 'event', 'updated' => 8200, 'payload' => ['text' => 'work thing', 'date' => date('Y-m-d'), 'time' => null, 'repeat' => null, 'calendarId' => 'calB', 'ord' => 'b']],
     ]], $tokenA);
-    $wt = api(['action' => 'widget_token'], $tokenA)['body']['token'];
+    // rotate: these specs want a usable key, not the "you already have one"
+    // answer that a second plain call now (correctly) gives.
+    $wt = api(['action' => 'widget_token', 'rotate' => true], $tokenA)['body']['token'];
     $texts = function (string $extra) use ($wt) {
         global $port;
         $feed = json_decode((string) @file_get_contents("http://127.0.0.1:$port/api/index.php?feed=1&t=$wt$extra"), true);
@@ -357,30 +363,31 @@ t('removal on either side ends sharing instantly, both ways', function () use ($
         ['id' => 'rs', 'type' => 'reminder', 'updated' => 10, 'payload' => ['text' => 'x', 'due' => null, 'time' => null, 'done' => false, 'repeat' => null, 'folderId' => 'fs', 'sectionId' => 'ss', 'indent' => 0, 'ord' => 'a']]], $tokQ)['status'], 'writes die with the handshake');
 });
 
-t('opening the widget page again REVOKES the widget you already have', function () {
-    // The two blocks in handle_widget_token contradict each other: the first
-    // returns null for "already minted; the client keeps its copy", and the
-    // second then deletes that token and mints a fresh one. So every visit to
-    // Settings → Widget silently kills the widget already on the home screen.
+t('opening the widget page does NOT retire the key the widget is using', function () {
+    // It used to. The two blocks in handle_widget_token contradicted each
+    // other — the first returned null for "already minted; the client keeps
+    // its copy", the second then deleted that token and minted a fresh one —
+    // so every visit to Settings → Widget silently killed the widget on the
+    // home screen. Invisible, and it reads as the widget being broken rather
+    // than as something you did.
     $tok = api(['action' => 'signup', 'username' => 'widgy', 'email' => 'w@example.com', 'password' => 'widgypassword'])['body']['token'];
     $first = api(['action' => 'widget_token'], $tok)['body']['token'];
-    ok($first !== '', 'a token is minted');
-    $second = api(['action' => 'widget_token'], $tok)['body']['token'];
-    ok($second !== '', 'a second visit also answers with a token');
-    // THIS is the behaviour, stated rather than assumed. It is not obviously
-    // wrong — only the hash is stored, so the old one cannot be shown again —
-    // but it is invisible, and an invisible revocation reads as a broken
-    // widget. See TODO.md.
-    ok($first !== $second, 'and it is a DIFFERENT token');
-    // The consequence, spelled out: the widget already on the home screen is
-    // now holding a dead token and will simply stop updating.
+    ok($first !== '' && $first !== null, 'the first visit mints a key');
+
+    $again = api(['action' => 'widget_token'], $tok)['body'];
+    eq(true, $again['exists'] ?? false, 'a second visit says one already exists');
+    eq(null, $again['token'], 'and hands out nothing — only the hash is kept, so it cannot be shown twice');
+
+    // The feed still works on the original key, which is the whole point.
     global $port;
-    $ctx = stream_context_create(['http' => ['method' => 'GET', 'ignore_errors' => true]]);
-    @file_get_contents("http://127.0.0.1:$port/api/index.php?feed=1&t=" . urlencode($first) . "&cals=all", false, $ctx);
-    $code = 0;
-    foreach ($http_response_header ?? [] as $h) { if (preg_match('#^HTTP/\S+ (\d{3})#', $h, $m)) { $code = (int) $m[1]; } }
-    eq(401, $code, 'the FIRST token is dead — the old widget stops updating');
-    eq(200, api(['action' => 'whoami'], $tok)['status'], 'the account itself is fine');
+    $feed = @file_get_contents("http://127.0.0.1:$port/api/index.php?feed=1&t=$first");
+    ok($feed !== false, 'the key the widget already holds still feeds');
+
+    // Rotation is available, but only when asked for by name.
+    $rot = api(['action' => 'widget_token', 'rotate' => true], $tok)['body']['token'];
+    ok($rot !== '' && $rot !== null && $rot !== $first, 'rotate mints a different key');
+    $dead = @file_get_contents("http://127.0.0.1:$port/api/index.php?feed=1&t=$first");
+    ok($dead === false, 'and the old one stops feeding, as a rotation should');
 });
 
 t('an OVERSIZED record is REFUSED by name, not dropped in silence', function () {

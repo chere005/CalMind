@@ -691,9 +691,13 @@ test('the widget setup page bakes the pin and carries the whole script', async (
   // right-aligned rather than crammed in front of the title, and a real
   // empty-state line. These two copies (this page and
   // tools/scriptable-widget.js) drifted apart once already.
-  // And it says out loud that opening it retired the previous key — a widget
-  // already on the home screen stops updating, silently, otherwise.
-  await expect(page.getByTestId('widget-replaces')).toContainText('retires the last one');
+  // Opening this page used to RETIRE the key the widget was already using, so
+  // a visit out of curiosity killed the widget on the home screen with nothing
+  // said. It does not any more: a first visit mints one and says it is yours
+  // to keep.
+  await expect(page.getByTestId('widget-replaces')).toContainText('yours to keep');
+
+  await expect(page.getByTestId('copy-script')).toBeVisible({ timeout: 10_000 });
 
   const script = await page.getByTestId('script-body').innerText();
   for (const mark of [
@@ -709,6 +713,18 @@ test('the widget setup page bakes the pin and carries the whole script', async (
   // The regression it shipped as: amber headings and the time inline.
   expect(script).not.toContain('#f0b429');
   expect(script).not.toContain('row.time + " "');
+
+  // A SECOND visit hands out nothing rather than rotating: the key cannot be
+  // shown twice (only its hash is kept), so the page offers the rotation
+  // instead of performing it. That is the guard the old behaviour lacked —
+  // opening this page used to retire the key the widget was using, silently.
+  await page.getByText('← Calendar', { exact: true }).click();
+  await page.getByText(user, { exact: true }).click();
+  await page.getByText('Settings', { exact: true }).click();
+  await page.getByTestId('open-widget').click();
+  await expect(page.getByTestId('widget-held')).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByTestId('widget-rotate')).toBeVisible();
+  await expect(page.getByTestId('widget-replaces')).toHaveCount(0);
 });
 
 test('habits shows five day columns on a phone and seven with room, paging without gaps', async ({ page }) => {

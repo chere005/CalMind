@@ -425,33 +425,39 @@ function widget_tokens_file(array $cfg): string { return $cfg['data_dir'] . '/wi
 
 /** The user's READ-ONLY widget token, minted once — the suite's rule holds:
  *  the feed token is a read credential, and nothing behind it may write. */
-function handle_widget_token(array $cfg): never
+/**
+ * The widget's read-only key. ONE per user, handed out once — which is what
+ * the old comment here claimed and the old code did not do: it rotated on
+ * every call, so merely OPENING the widget page retired the key the widget on
+ * the home screen was using. Nothing said so until the widget quietly stopped
+ * updating, which reads as the widget being broken rather than as something
+ * you did.
+ *
+ * Rotation is now something you ask for. Without `rotate`, an account that
+ * already has a key is told so and nothing changes; the key itself cannot be
+ * shown again because only its hash is kept.
+ */
+function handle_widget_token(array $cfg, array $in): never
 {
-    $user = require_auth($cfg);
-    $t = with_lock($cfg, 'widgettokens', function () use ($cfg, $user) {
-        $all = store_read($cfg, widget_tokens_file($cfg));
-        foreach ($all as $hash => $u) {
-            if ($u === $user) { return null; }   // already minted; the client keeps its copy
+    $user   = require_auth($cfg);
+    $rotate = !empty($in['rotate']);
+    $out = with_lock($cfg, 'widgettokens', function () use ($cfg, $user, $rotate) {
+        $all  = store_read($cfg, widget_tokens_file($cfg));
+        $held = false;
+        foreach ($all as $u) {
+            if ($u === $user) { $held = true; break; }
         }
+        if ($held && !$rotate) {
+            return ['token' => null, 'exists' => true];
+        }
+        $all   = array_filter($all, fn($u) => $u !== $user);
         $token = bin2hex(random_bytes(24));
         $all[hash('sha256', $token)] = $user;
         store_write($cfg, widget_tokens_file($cfg), $all);
-        return $token;
+        return ['token' => $token, 'exists' => false];
     });
-    // A re-mint replaces nothing: one token per user, handed out once. If it
-    // was minted before and lost, rotate by deleting the file server-side.
-    if ($t === null) {
-        $t = with_lock($cfg, 'widgettokens', function () use ($cfg, $user) {
-            $all = store_read($cfg, widget_tokens_file($cfg));
-            $all = array_filter($all, fn($u) => $u !== $user);
-            $token = bin2hex(random_bytes(24));
-            $all[hash('sha256', $token)] = $user;
-            store_write($cfg, widget_tokens_file($cfg), $all);
-            return $token;
-        });
-    }
-    usage_log($cfg, 'widget_token', $user);
-    reply(200, ['ok' => true, 'token' => $t]);
+    usage_log($cfg, $rotate ? 'widget_token_rotate' : 'widget_token', $user);
+    reply(200, ['ok' => true, 'token' => $out['token'], 'exists' => $out['exists']]);
 }
 
 /** GET feed: the widget's 21 days — reminders (undated riders + dated + the
