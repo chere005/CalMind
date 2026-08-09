@@ -235,6 +235,20 @@ describe('scaling — the one arithmetic a recipe asks of you', () => {
     expect(scaleIngredient('1 to 2 cups stock', 2)).toBe('2 to 4 cups stock');
   });
 
+  it("Sean's own cards, which my invented ones never looked like", () => {
+    // Read off the phone against real recipes. Both of these were wrong, and
+    // neither shape existed in the test data I made up.
+    // A slash range: the scaler took '200' and left '/250' stranded in the
+    // name, so doubling produced the nonsense '400 /250 g'.
+    expect(scaleIngredient('200/250 g guanciale', 2)).toBe('400/500 g guanciale');
+    // A compound noun: 'egg' heads 'egg yolks' and must not take the count.
+    expect(scaleIngredient('3 egg yolks', 2)).toBe('6 egg yolks');
+    // These two were already right and must stay right.
+    expect(scaleIngredient('3/4 cup grated pecorino', 2)).toBe('1 ½ cups grated pecorino');
+    expect(scaleIngredient('300 g pasta (spaghetti is traditional)', 2))
+      .toBe('600 g pasta (spaghetti is traditional)');
+  });
+
   it('a line with no number is left exactly alone', () => {
     // Half a pinch is not a quantity, and inventing one would be worse than
     // leaving the cook to judge it.

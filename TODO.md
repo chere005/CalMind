@@ -256,6 +256,13 @@ Next up, in Sean's order:
       2 tbsps. Unit conversion is NOT done — 12 tbsp butter stays 12 tbsp
       rather than becoming ¾ cup; that is the obvious next ask if Sean wants
       it.
+- [x] **Scaling checked against Sean's REAL recipes on the iOS build**, which
+      found two bugs my invented cards could not: '200/250 g guanciale' (a
+      slash range — the scaler took 200 and stranded '/250' in the name,
+      doubling to the nonsense '400 /250 g') and '3 egg yolks' → '6 eggs
+      yolks' (pluralising the head of a compound noun). Both fixed and pinned
+      with his shapes. Lesson worth keeping: the invented test data agreed
+      with me, and his didn't.
 - [ ] Photo import flow (recipe-import → recipe-photos → recipe-title →
       recipe-save) is covered by e2e/ocr.spec.ts — keep that spec on the real
       flow, not a shortcut.

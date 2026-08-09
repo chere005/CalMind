@@ -38,7 +38,10 @@ const NUM = String.raw`\d+\s+\d\/\d|\d+\s+[½¼¾⅓⅔⅛]|\d\/\d|\d+(?:[.,]\d+
 // is a pattern worth seeing: without it '2-3 cloves garlic' parsed as the
 // bare 2 and left '-3 cloves garlic' as the ingredient's name, so the unit
 // was never found and the text came back worse than it went in.
-const LEAD = new RegExp(`^(${NUM})(?:(\\s*-\\s*|\\s+to\\s+)(${NUM}))?\\s*([a-zA-Z]+)?\\s*(.*)$`);
+// The separator may be a dash, the word 'to', or a slash — '200/250 g' is a
+// range on a real card. A slash between SINGLE digits is a fraction instead
+// ('3/4 cup'), and NUM already claims that shape before this ever sees it.
+const LEAD = new RegExp(`^(${NUM})(?:(\\s*-\\s*|\\s+to\\s+|\\s*/\\s*)(${NUM}))?\\s*([a-zA-Z]+)?\\s*(.*)$`);
 
 /** '2tbsp olive oil' → '2 tbsp olive oil'; '1/2 CUP milk' → '½ cup milk';
  *  '2-3 cloves garlic' keeps its range and finds its unit. */
@@ -273,6 +276,20 @@ const NICE: [number, string][] = [
 ];
 // Abbreviations never take an 's'; 2 tbsp, not 2 tbsps.
 const INVARIANT = new Set(['g', 'kg', 'ml', 'l', 'tsp', 'tbsp', 'oz', 'lb', 'lbs']);
+// Words that count the thing rather than name it. '1 clove garlic' doubled is
+// '2 cloves garlic', but '3 egg yolks' doubled is '6 egg yolks' — 'egg' heads
+// a compound noun there, and pluralising it gives the tell-tale 'eggs yolks'.
+const MEASURE = new Set([
+  'cup', 'clove', 'can', 'stick', 'slice', 'pinch', 'dash', 'sprig', 'head',
+  'bunch', 'package', 'packet', 'jar', 'bottle', 'tin', 'strip', 'piece',
+  'fillet', 'rasher', 'knob', 'handful', 'scoop', 'sheet', 'stalk', 'pint',
+  'quart', 'gallon',
+]);
+
+function singularOf(word: string): string {
+  if (/(?:ch|sh|s|x|z)es$/i.test(word)) return word.slice(0, -2);
+  return /s$/i.test(word) && !/ss$/i.test(word) ? word.slice(0, -1) : word;
+}
 
 function qtyValue(raw: string): number | null {
   const q = raw.trim().replace(',', '.');
@@ -326,7 +343,12 @@ export function scaleIngredient(text: string, factor: number): string {
     : qtyText(scaled);
   // A range takes its plural from the top of the range: 2-3 cloves, not clove.
   const count = second !== null ? second * factor : scaled;
-  const word = unit === '' ? '' : countWord(unit, count);
+  // Only recount a word that is doing the counting: a measure word, or the
+  // whole name of the thing. 'egg' in '3 egg yolks' is neither.
+  const tail = rest.trim();
+  const namesTheThing = tail === '' || /^[,;(]/.test(tail);
+  const recount = unit !== '' && (MEASURE.has(singularOf(unit).toLowerCase()) || namesTheThing);
+  const word = unit === '' ? '' : recount ? countWord(unit, count) : unit;
   return tidy([qty, word, rest].filter((p) => p !== '').join(' ').trim());
 }
 
