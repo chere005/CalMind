@@ -627,6 +627,27 @@ detour on the markdown button.
       changed: back sits at the left of the centred column, picker and
       username at its right. Correct at both widths.
 
+## 3p · Calendar parity, checked against the suite (2026-08-09)
+
+- [x] **Today's two fixes are confirmed correct by the suite itself**, which I
+      should have checked at the time rather than after. Its legend CSS says
+      the legend "shows in both month and week views" in as many words, and
+      its calpick sits in the header with no view-mode gate. The suite's note
+      that in week mode "the chrome around it steps aside" refers only to
+      `.cell.wk-hide { display: none }` — the OTHER weeks' cells, not the
+      legend and not the picker.
+- [x] Header shape matches: back + title in a left group, picker beside the
+      user menu on the right. The picker button is the selected calendar's
+      colour as a dot, rainbow for All — ours too.
+- [x] Week mode is a swipe-up in the suite as well, so having no visible
+      Week/Month toggle on the Calendar is parity, not an omission. (Habits
+      has one because the suite's Habits has one.)
+- [ ] **Divergence, minor, not changed**: the suite caps its legend bar at
+      22vh and scrolls within it (~186pt on a phone); ours caps at a flat
+      88pt. Sean's current legend fits in both, so this only bites once his
+      folder list grows. Left alone on a day he has already had enough
+      unasked-for UI movement — worth a line, not a change.
+
 ## 4 · Gated — waiting on Sean's explicit word
 
 - [ ] **E2EE envelopes** (design settled, build gated): X25519 +
