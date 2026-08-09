@@ -180,6 +180,17 @@ device's next sync comes back 401 and it must return to the login, not treat a
 dead token as "offline" and keep taking edits that can never land. The device
 that made the change keeps working.
 
+Nor did any of them get INTERRUPTED. Every spec finishes what it starts —
+types, presses Enter, moves on — while a phone constantly does the opposite.
+`e2e/interrupted.spec.ts` renames a reminder and switches tab without
+pressing Enter (the inline edit holds its text locally and writes it on blur,
+so this rests entirely on blur firing when the screen is torn out from under
+it), and types half a sentence into a note before navigating away and
+reloading. Both survive — and both run in the WebKit config too, because
+whether blur fires on a teardown is precisely the sort of thing two engines
+answer differently, and an edit that survives in Chromium and vanishes in
+WebKit would vanish on Sean's phone specifically.
+
 Nor did any of them type anything LONG. Every spec uses tidy little strings
 ("buy milk", "peel garlic"), while real use pastes URLs and dictates
 sentences. `e2e/longtext.spec.ts` puts a running sentence and an
