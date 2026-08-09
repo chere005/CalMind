@@ -32,10 +32,16 @@ function moveAt(rows: string[], from: number, to: number): string[] {
 export function RecipeEditor({ note, onClose }: { note: Rec<'note'>; onClose: () => void }) {
   const { mutate } = useStore();
   const parsed = recipeFromPages([note.payload.body]);
+  // recipeFromPages CONSUMES the line it read as a title. When the note
+  // already has a title of its own, that line has no home to go to — and
+  // since Save writes this parse back over the note, it would simply be
+  // deleted. The Recipe button lives beside B/I/U in the note's toolbar, so
+  // this is one mis-tap from any note in the app, not an exotic path.
+  const strayTitle = note.payload.title && parsed.title ? [parsed.title] : [];
   const [title, setTitle] = useState(note.payload.title || parsed.title || '');
   const [ingredients, setIngredients] = useState<string[]>(parsed.ingredients);
   const [steps, setSteps] = useState<string[]>(parsed.steps);
-  const [extra] = useState<string[]>(parsed.extra);
+  const [extra] = useState<string[]>([...strayTitle, ...parsed.extra]);
   // The free text that isn't recipe: kept by default, dropped on request —
   // the checkbox is the deliberate way to shed it (Sean's ask).
   const [includeNotes, setIncludeNotes] = useState(true);

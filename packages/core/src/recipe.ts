@@ -202,5 +202,8 @@ export function recipeFromPages(pages: string[]): RecipeParts {
     else if (/^\d+[.)]\s/.test(l)) steps.push(l.replace(/^\d+[.)]\s*/, ''));
     else extra.push(l);
   }
+  // NOTE for callers: the title line is CONSUMED — it comes back as `title`
+  // and is not in `extra`. A caller that doesn't use the title must put the
+  // line back, or it is simply gone. RecipeEditor does exactly that.
   return { title: flat.title, ingredients, steps, extra };
 }

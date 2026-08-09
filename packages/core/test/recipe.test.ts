@@ -158,3 +158,16 @@ describe('scrubLine — OCR symbol noise never reaches the note', () => {
     expect(r.body).not.toMatch(/[\u2122\u00ae#\u2022]/);
   });
 });
+
+describe('the leftovers keep their shape', () => {
+  it('CONSUMES the title line — callers that do not use it must put it back', () => {
+    // This is the sharp edge behind a real bug: the Recipe button sits beside
+    // B/I/U, so it is one mis-tap from any note. On "Shopping list / milk /
+    // eggs" the first line is taken as a title, and a note that already HAS a
+    // title has no use for it — so unless the caller restores the line, Save
+    // writes the note back with its first line deleted.
+    const r = recipeFromPages(['Shopping list\nmilk\neggs']);
+    expect(r.title).toBe('Shopping list');
+    expect(r.extra).toEqual(['milk', 'eggs']);
+  });
+});
