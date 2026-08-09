@@ -15,7 +15,7 @@ module.exports = {
   displayName: 'CalMind',
   // A widget extension's id must extend its HOST app's — the watch app, not
   // the phone app. The default (root id + name) would parent it wrongly.
-  bundleIdentifier: 'com.seancheren.calmind.watchkitapp.complication',
+  bundleIdentifier: 'com.seancheren.calmind.watchkitapp.widget',
   deploymentTarget: '10.0',
   entitlements: {
     'com.apple.security.application-groups': ['group.com.seancheren.calmind'],
