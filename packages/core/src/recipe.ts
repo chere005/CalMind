@@ -204,6 +204,20 @@ export function formatRecipe(pages: string[]): RecipeResult {
       out.push(`${++stepNo}. ${l}`);
       continue;
     }
+    // An explicit "Ingredients" heading used to swallow everything after it,
+    // because nothing closed the block but another heading. On a note whose
+    // method is plain prose — no METHOD line, just a paragraph — the whole
+    // rest of the page became ingredients: the instructions, the word
+    // References, and a YouTube link, all bulleted, with no steps at all.
+    // A sentence ends the run: full stop and no quantity in front of it.
+    // "300 g pasta (spaghetti is traditional…)" keeps its place because it
+    // opens with a quantity, and "2 cups flour." because it does too.
+    if (block === 'ingredients' && !QTY.test(l) && /[.!?]$/.test(l)) {
+      block = 'none';
+      sawQty = false;      // …and what follows is prose too, not more of the list
+      out.push(l);
+      continue;
+    }
     if (block === 'ingredients' || QTY.test(l)) {
       sawQty = true;
       out.push('- ' + l);

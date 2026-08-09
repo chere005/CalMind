@@ -51,6 +51,32 @@ DIRECTIONS
     expect(r.extra).toEqual([]);
   });
 
+  it('an Ingredients heading does not swallow the rest of the note', () => {
+    // Sean's Pasta all'Uovo: a heading, three ingredients, then the method as
+    // plain prose with no METHOD line, then a References section with a link.
+    // Nothing closed the ingredient block but another heading, so pressing
+    // Recipe on it turned the instructions, the word "References" and a
+    // YouTube URL into bulleted ingredients — eight of them, and no steps.
+    const r = recipeFromPages([
+      'Ingredients\n200 g farina 00\n2 eggs\n2 pinches of salt\n' +
+      'Form a well with the flour, break the eggs in it. Add the salt.\n' +
+      'Do whatever you want with it.\nReferences\n' +
+      'Pasta Grannies (https://www.youtube.com/watch?v=abc_123)',
+    ]);
+    expect(r.ingredients).toEqual(['200 g farina 00', '2 eggs', '2 pinches of salt']);
+    expect(r.extra.join(' ')).toContain('Form a well');
+    expect(r.extra.join(' ')).toContain('References');
+    expect(r.extra.join(' '), 'and the link is intact').toContain('https://www.youtube.com/watch?v=abc_123');
+    expect(r.ingredients.join(' '), 'no prose bulleted as food').not.toContain('References');
+  });
+
+  it('a sentence only ends the list when it is not itself an ingredient', () => {
+    // The guard keys on "no quantity in front of it", so the two shapes that
+    // legitimately end in punctuation keep their place in the list.
+    const r = recipeFromPages(['Ingredients\n300 g pasta (spaghetti is traditional.)\n2 cups flour.\n1 onion']);
+    expect(r.ingredients).toEqual(['300 g pasta (spaghetti is traditional.)', '2 cups flour.', '1 onion']);
+  });
+
   it('an ingredient with no number in front of it still counts as one', () => {
     // Straight off Sean's phone screenshot: five quantities parsed, and
     // "a pinch of salt" fell through to the leftovers under Include notes,

@@ -321,6 +321,16 @@ Next up, in Sean's order:
       the emphasis still goes. '_' is allowed in ordinary text too.
       Found by round-tripping his REAL note shapes through core — no writes,
       no risk to his data, and it turned up what synthetic cards had not.
+- [x] **An "Ingredients" heading swallowed the whole rest of the note.** Only
+      another heading closed the block, so on Sean's Pasta all'Uovo — heading,
+      three ingredients, then the method as plain prose with no METHOD line,
+      then a References section — pressing Recipe produced EIGHT ingredients
+      (the instructions, the word "References", a YouTube link) and no steps.
+      Saving would have rewritten the note as that.
+      A sentence now ends the run: full stop and no quantity in front of it.
+      Both shapes that legitimately end in punctuation keep their place,
+      because they open with a quantity — "2 cups flour." and "300 g pasta
+      (spaghetti is traditional.)". Pinned both ways.
 - [ ] Photo import flow (recipe-import → recipe-photos → recipe-title →
       recipe-save) is covered by e2e/ocr.spec.ts — keep that spec on the real
       flow, not a shortcut.
