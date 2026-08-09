@@ -18,6 +18,15 @@
  */
 
 const WEBAUTHN_CHALLENGE_TTL = 300;      // five minutes to finish a ceremony
+/**
+ * A hard ceiling on stored challenges. Pruning by age alone bounds the file by
+ * TRAFFIC, and passkey_login_begin is deliberately answerable without a token
+ * — so anyone could make every other request on the server read and rewrite a
+ * file of whatever size they liked. Normal use needs a handful. Under a burst
+ * the oldest are evicted and someone mid-ceremony retries, which is a far
+ * better failure than the whole API slowing to a crawl.
+ */
+const WEBAUTHN_MAX_CHALLENGES = 200;
 const COSE_ES256 = -7;
 const COSE_RS256 = -257;
 

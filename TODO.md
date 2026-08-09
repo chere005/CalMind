@@ -313,6 +313,15 @@ Next up, in Sean's order:
       `CALMIND_LIVE=1 npx playwright test live-passkey`; skipped by default so
       the normal run stays offline. Leaves an account behind (no delete-account
       endpoint) and says which one.
+- [x] **The challenge store is capped, not just aged out.**
+      `passkey_login_begin` takes no token by design (asking who you are first
+      would leak which usernames exist), which makes it the one endpoint a
+      stranger can make write to disk — and every other request reads and
+      rewrites that same file. Pruning by age alone bounds it by TRAFFIC.
+      Now capped at 200, evicting by ARRIVAL order: a burst all lands inside
+      the same second, so sorting on the timestamp orders equal keys
+      arbitrarily and could evict the challenge belonging to the person
+      actually signing in. The test caught exactly that.
 - [ ] **Native tiers**: iOS/Android want the platform APIs, not this shim.
       passkey.ts is web-guarded so the buttons simply do not appear there.
 - [ ] **WebAuthn forbids an IP address as an RP id** — the e2e run had to move

@@ -15,6 +15,16 @@ $tzCfg = is_file($root . '/lib/config.php') ? require $root . '/lib/config.php' 
 date_default_timezone_set((string) ($tzCfg['timezone'] ?? 'America/Chicago'));
 
 
+// Constants only, no state: webauthn.php defines no globals and touches
+// nothing, so requiring it here lets a spec name WEBAUTHN_MAX_CHALLENGES
+// rather than hardcoding a number that would silently drift from the server's.
+require_once $root . '/lib/webauthn.php';
+// The data files are ENCRYPTED (store.php, ENC1: + AES). Reading one with
+// json_decode returns null, and a spec that then counted `?: []` would pass on
+// an empty array while proving nothing — which is exactly how the first
+// version of the cap spec below went green against a cap that did not work.
+require_once $root . '/lib/store.php';
+
 $scratch = sys_get_temp_dir() . '/calmind-api-test-' . getmypid();
 @mkdir($scratch, 0700, true);
 
@@ -95,7 +105,7 @@ t('login checks the hash, and the stored file holds no plaintext', function () u
     $r = api(['action' => 'login', 'username' => 'alice', 'password' => 'alicepass']);
     eq(200, $r['status'], 'right pass');
     global $scratch;
-    require dirname(__DIR__) . '/lib/store.php';
+    require_once dirname(__DIR__) . '/lib/store.php';
     $acc = store_read(['data_dir' => $scratch], $scratch . '/accounts.json');
     ok(!str_contains(json_encode($acc), 'alicepass'), 'no plaintext password at rest');
     ok(str_starts_with($acc['alice']['hash'], '$2y$') || str_starts_with($acc['alice']['hash'], '$argon2'), 'a real hash');
@@ -574,6 +584,26 @@ t('a counter that goes backwards is refused, and a removed passkey stops working
     openssl_sign($ad2 . hash('sha256', $cd2, true), $sig2, $pkKey, OPENSSL_ALGO_SHA256);
     eq(401, api(['action' => 'passkey_login_finish', 'id' => $pkId, 'clientDataJSON' => $b64u($cd2),
         'authenticatorData' => $b64u($ad2), 'signature' => $b64u($sig2)])['status'], 'a removed passkey');
+});
+
+t('the challenge store cannot be grown without limit by anyone', function () use ($pkOrigin, $pkRp) {
+    // passkey_login_begin takes no token — deliberately, since asking who you
+    // are before a discoverable login would leak which names exist. That makes
+    // it the one endpoint a stranger can make write to disk, and every other
+    // request on the server reads and rewrites that same file.
+    for ($i = 0; $i < 240; $i++) {
+        api(['action' => 'passkey_login_begin']);
+    }
+    global $scratch;
+    $cfg = ['data_dir' => $scratch];
+    $all = store_read($cfg, $scratch . '/challenges.json');
+    ok(count($all) > 0, 'the challenge file is actually being read (it is encrypted)');
+    ok(count($all) <= WEBAUTHN_MAX_CHALLENGES, 'the file is capped, not merely aged out — got ' . count($all));
+    // And the cap keeps the NEWEST, so a ceremony started a moment ago still
+    // completes while the flood's own challenges are the ones evicted.
+    $begin = api(['action' => 'passkey_login_begin']);
+    $all2 = store_read($cfg, $scratch . '/challenges.json');
+    ok(isset($all2[$begin['body']['challenge']]), 'the challenge just issued survived the cap');
 });
 
 t('the password is still a way in', function () use ($pkUser) {

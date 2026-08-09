@@ -595,6 +595,14 @@ function challenge_issue(array $cfg, string $user = ''): string
         $now = time();
         $all = array_filter($all, fn($v) => ($v['created'] ?? 0) > $now - WEBAUTHN_CHALLENGE_TTL);
         $all[$c] = ['user' => $user, 'created' => $now];
+        // Keep the newest by ARRIVAL, not by timestamp. A burst arrives inside
+        // the same second, so sorting on `created` orders equal keys
+        // arbitrarily and can evict the challenge issued a microsecond ago —
+        // which is the one belonging to the person actually signing in. PHP
+        // keeps insertion order, and this row was just appended.
+        if (count($all) > WEBAUTHN_MAX_CHALLENGES) {
+            $all = array_slice($all, -WEBAUTHN_MAX_CHALLENGES, null, true);
+        }
         store_write($cfg, challenges_file($cfg), $all);
     });
     return $c;
