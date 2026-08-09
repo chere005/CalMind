@@ -23,8 +23,22 @@ function app_config(): array
 {
     $cfg = is_file(__DIR__ . '/config.php') ? require __DIR__ . '/config.php' : [];
     $cfg['data_dir'] ??= getenv('CALMIND_DATA_DIR') ?: dirname(__DIR__) . '/data';
+    $cfg['timezone'] ??= 'America/Chicago';
     return $cfg;
 }
+
+/**
+ * The clock. The server keeps UTC unless told otherwise, and the feed asks it
+ * what day it is — so without this, "today" turned over at 7pm Chicago and the
+ * widget spent every evening calling tomorrow today, rolling reminders a day
+ * early with it. The suite learned this the same way and pins the same
+ * default; the config key is the one place to move it.
+ */
+function app_clock(): void
+{
+    date_default_timezone_set((string) (app_config()['timezone'] ?? 'America/Chicago'));
+}
+app_clock();
 
 function reply(int $status, array $body): never
 {

@@ -5,6 +5,16 @@
  */
 
 $root    = dirname(__DIR__);
+// The harness asks what day it is and compares that against what the SERVER
+// says, so both have to keep the same clock or the run turns red every evening
+// between 7pm Chicago and midnight UTC — which is exactly how the missing
+// timezone announced itself. The config is read the way app_config() reads it
+// rather than including app.php, which would collide with the store the specs
+// require directly further down.
+$tzCfg = is_file($root . '/lib/config.php') ? require $root . '/lib/config.php' : [];
+date_default_timezone_set((string) ($tzCfg['timezone'] ?? 'America/Chicago'));
+
+
 $scratch = sys_get_temp_dir() . '/calmind-api-test-' . getmypid();
 @mkdir($scratch, 0700, true);
 
@@ -335,6 +345,17 @@ t('removal on either side ends sharing instantly, both ways', function () use ($
     eq(null, api(['action' => 'shared_pull'], $tokP)['body']['partner'], 'and pat loses quinn the same instant');
     eq(403, api(['action' => 'shared_put', 'partner' => 'pat', 'record' =>
         ['id' => 'rs', 'type' => 'reminder', 'updated' => 10, 'payload' => ['text' => 'x', 'due' => null, 'time' => null, 'done' => false, 'repeat' => null, 'folderId' => 'fs', 'sectionId' => 'ss', 'indent' => 0, 'ord' => 'a']]], $tokQ)['status'], 'writes die with the handshake');
+});
+
+t("the server's day is Chicago's, not UTC", function () {
+    // The feed asks the server what day it is. Left on UTC that answer turned
+    // over at 7pm Chicago, so the widget spent every evening calling tomorrow
+    // "today" and rolling reminders a day early with it.
+    eq('America/Chicago', date_default_timezone_get(), 'the default the config can move');
+    // And the answer itself: the server's date must equal Chicago's date,
+    // which is the thing that actually bit — not merely a string setting.
+    $chicago = (new DateTime('now', new DateTimeZone('America/Chicago')))->format('Y-m-d');
+    eq($chicago, date('Y-m-d'), "date('Y-m-d') is the Chicago day");
 });
 
 echo "\n────────────────────────────────\n$pass passed, $fail failed\n";

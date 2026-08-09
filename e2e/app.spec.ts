@@ -649,6 +649,27 @@ test('the widget setup page bakes the pin and carries the whole script', async (
   const raw = await page.getByText(/feed=1&t=/).last().innerText();
   expect(raw).toContain('&cals=all'); // every calendar showing → the all pin
   await expect(page.getByText(/every calendar/)).toBeVisible();
+
+  // …and the script it hands over is the SUITE's widget, not the flat list a
+  // rewrite once shipped: a header row, uppercase day headings with today in
+  // green over its own rule, a heavier rule between days, the time
+  // right-aligned rather than crammed in front of the title, and a real
+  // empty-state line. These two copies (this page and
+  // tools/scriptable-widget.js) drifted apart once already.
+  const script = await page.getByTestId('script-body').innerText();
+  for (const mark of [
+    'head.addText("Calendar")',      // the header row
+    'toUpperCase()',                 // uppercase day headings
+    'rule(2, "#3a3a3a")',            // the divider between days
+    'rule(1, isToday ? "#2f5f4d"',   // today's own green underline
+    'No more items today.',          // the empty state, not an omitted day
+    'row.addSpacer();',              // the time pushed to the far edge
+  ]) {
+    expect(script, `the widget script kept: ${mark}`).toContain(mark);
+  }
+  // The regression it shipped as: amber headings and the time inline.
+  expect(script).not.toContain('#f0b429');
+  expect(script).not.toContain('row.time + " "');
 });
 
 test('habits shows five day columns on a phone and seven with room, paging without gaps', async ({ page }) => {

@@ -8,4 +8,7 @@ return [
     // 'data_dir'  => '/home/protected/data-calmind-test',
     // 'data_key'  => '',          // empty = auto-generate .datakey in the data dir
     // 'send_mail' => true,        // real recovery mail via PHP mail(); codes always log
+    // 'timezone'  => 'America/Chicago',  // the server's day. Without it PHP keeps
+                                   // UTC and the feed's "today" turns over at 7pm
+                                   // Chicago — the widget calls tomorrow today.
 ];
