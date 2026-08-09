@@ -790,6 +790,27 @@ honest — the next iteration trusts it.
   Chrome and Edge can install the same page as a desktop app with no
   Tauri in the picture at all.
 
+## Iteration 46 — one-tap rename, and a guard against the green that lies
+- HABITS RENAME ON ONE TAP once the pencil is on. The suite offers three
+  ways into a habit's name — double-click, long-press, or a single tap
+  while editing — and the third arrived with the edit mode itself and was
+  never wired. The spec holds both halves, so the double-tap gate that
+  protects a normal tap still stands with the pencil off.
+- THE GESTURE SUITE NOW REFUSES A STALE EXPORT. The specs drive
+  apps/app/dist, not the source, so an edit that never got exported is
+  tested in its absence: PASS for code that isn't there, FAIL for a fix
+  that is. Worse than red, because it looks like an answer.
+  It cost real time today — a `cd` left the shell in apps/app, the
+  `export:web && playwright` chain short-circuited on a script that
+  doesn't exist there, and the next run quietly used the old bundle, which
+  made a working change look broken and sent me hunting a testID that was
+  fine. TESTING.md had already named a stale dist as the usual reason a
+  spec disagrees with dev; nothing was standing in front of it.
+  playwright's globalSetup (e2e/freshness.ts) now compares the newest
+  source against dist/index.html and stops with the command to fix it.
+  Checked both ways: green fresh, refuses after touching one file.
+- 168 core + 22 server + 36 gesture. Deployed, live == local.
+
 ## NEXT: the Add-Recipe page (Sean's spec, precise)
 - A structured page in Notes, the akisbookshelf add-quote shape: Title;
   an INGREDIENTS section whose + parses units (grams, cups, tsp, tbsp…)
