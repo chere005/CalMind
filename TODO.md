@@ -659,6 +659,23 @@ Third of Sean's four questions closed with evidence. The two left are the
 ones the suite cannot answer: the Copy-as-Markdown format, and the Habits
 pencil where the suite's code and its own CLAUDE.md disagree.
 
+## 3u · Sean's own requests, audited for coverage (2026-08-09)
+
+Having found the legend balancing untested, I went through what he has asked
+for this run and checked each had a spec that would notice it breaking.
+
+- [x] **"Only show things on the legend which actually have an occurrence in
+      the current view"** — the inclusion half was covered; the EXCLUSION half,
+      which is the whole point of a filter, was not. A calendar with nothing on
+      it this month is now asserted absent. The container is asserted visible
+      first, so an empty legend cannot pass for a filtered one.
+- [x] **"On mobile only show 5 days of habits in weeks"** — already covered
+      properly: five at 390, seven at 1100, and the paging step matching the
+      columns shown so no day falls between pages. Nothing to add.
+- [x] **Legend line-balancing** — covered now (3t).
+- [x] **Relative dates, Chicago time, the status-bar metas** — core tests,
+      server tests and the live smoke respectively.
+
 ## 4 · Gated — waiting on Sean's explicit word
 
 - [ ] **E2EE envelopes** (design settled, build gated): X25519 +

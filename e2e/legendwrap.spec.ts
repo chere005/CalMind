@@ -67,4 +67,19 @@ test('a legend with many calendars wraps, balances, and names only what is in vi
   expect(rows.length, 'six chips need two lines at this width').toBe(2);
   expect(Math.min(...rows), 'no line is left with a single chip').toBeGreaterThan(1);
   expect(rows.reduce((a, b) => a + b, 0), 'every calendar in view is named').toBe(6);
+
+  // The other half of what he asked for, and the half that actually does the
+  // filtering: a calendar with nothing on it this month is NOT named. Six
+  // chips appearing proves the inclusion; only an empty one proves there is a
+  // filter at all.
+  await page.getByTestId('pick-calendar').click();
+  await page.getByText('Manage calendars', { exact: true }).click();
+  await page.getByPlaceholder('New calendar').fill('Dormant');
+  await page.getByPlaceholder('New calendar').press('Enter');
+  await page.getByText('Done', { exact: true }).click();
+  await expect(page.getByTestId('legend-me')).toBeVisible();
+  await expect(
+    page.getByTestId('legend-me').getByText('Dormant', { exact: true }),
+    'a calendar with no occurrence this month is not in the legend',
+  ).toHaveCount(0);
 });
