@@ -72,7 +72,7 @@ describe('watchRows — what the wrist is handed', () => {
     const [row] = watchRows([rem('a', 'tea', { due: '2026-08-08', time: '16:30' })]);
     // folderId joined the set when the iOS widget gained a folder picker —
     // the widget filters by folder, so the row has to say which one it is in.
-    expect(row).toEqual({ id: 'a', text: 'tea', due: '2026-08-08', time: '16:30', done: false, folderId: 'f' });
+    expect(row).toEqual({ id: 'a', text: 'tea', due: '2026-08-08', time: '16:30', done: false, folderId: 'f', sectionId: 's' });
   });
 
   it('an empty store is an empty list, not a crash', () => {
@@ -97,6 +97,22 @@ describe('watchFeed — folders for the widget picker', () => {
   it('a deleted folder does not reach the picker', () => {
     const gone = { ...(fold('f9', 'Old', 'reminders', 'a') as Record<string, unknown>), deleted: true } as AnyRec;
     expect(watchFeed([gone], '2026-08-09').folders).toEqual([]);
+  });
+});
+
+describe('watchFeed — sections, so the wrist shows the phone\'s structure', () => {
+  const sec = (id: string, name: string, folderId: string, ord: string): AnyRec =>
+    ({ id, type: 'section', updated: 1, payload: { name, folderId, ord } } as AnyRec);
+
+  it('carries sections in list order with their folder', () => {
+    const { sections } = watchFeed([sec('s2', 'Later', 'f1', 'b'), sec('s1', 'Now', 'f1', 'a')], '2026-08-09');
+    expect(sections.map((x) => x.name)).toEqual(['Now', 'Later']);
+    expect(sections[0]).toEqual({ id: 's1', name: 'Now', folderId: 'f1' });
+  });
+
+  it('a deleted section does not reach the wrist', () => {
+    const gone = { ...(sec('s9', 'Old', 'f1', 'a') as Record<string, unknown>), deleted: true } as AnyRec;
+    expect(watchFeed([gone], '2026-08-09').sections).toEqual([]);
   });
 });
 
@@ -127,5 +143,47 @@ describe('watchFeed — reminders plus the coming events', () => {
     const recs = [rem('r1', 'walk'), cal('c1', '#123456'), ev('e1', '2026-08-10', null)];
     const feed = watchFeed(recs, '2026-08-09');
     expect(feed.items.map((r) => r.id)).toEqual(['r1']);
+  });
+});
+
+/**
+ * The wrist's time format, mirrored here.
+ *
+ * The Swift is the real implementation (WatchFormat, and its deliberate twin
+ * in the complication — a widget extension cannot see the app's sources).
+ * Nothing in this repo runs Swift, so these cases pin the RULES Sean gave,
+ * and the two Swift copies are written to match them. If a case here is
+ * wrong, both copies are wrong.
+ *
+ * His spec, verbatim: "Today 3pm event name" or "8/15 5pm event name".
+ */
+describe('the watch clock — the rules the Swift copies implement', () => {
+  const clock = (hhmm: string | null): string | null => {
+    if (!hhmm || hhmm.length < 4) return null;
+    const [h, m] = hhmm.split(':').map(Number);
+    if (h === undefined || m === undefined || Number.isNaN(h) || Number.isNaN(m)) return null;
+    const suffix = h < 12 ? 'am' : 'pm';
+    const h12 = h % 12 === 0 ? 12 : h % 12;
+    return m === 0 ? `${h12}${suffix}` : `${h12}:${String(m).padStart(2, '0')}${suffix}`;
+  };
+
+  it('drops :00 on the hour and the leading zero', () => {
+    expect(clock('15:00')).toBe('3pm');
+    expect(clock('09:00')).toBe('9am');
+  });
+
+  it('half past keeps its minutes', () => {
+    expect(clock('15:30')).toBe('3:30pm');
+    expect(clock('09:05')).toBe('9:05am');
+  });
+
+  it('noon and midnight, the two that catch 12-hour clocks out', () => {
+    expect(clock('12:00')).toBe('12pm');
+    expect(clock('00:00')).toBe('12am');
+    expect(clock('00:30')).toBe('12:30am');
+  });
+
+  it('an all-day event has no time at all — never a midnight', () => {
+    expect(clock(null)).toBeNull();
   });
 });

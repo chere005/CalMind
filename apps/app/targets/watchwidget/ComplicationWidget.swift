@@ -41,34 +41,53 @@ func nextEvents() -> [Ev] {
     }
 }
 
-/// The circle's one word: today's time ("15:30") or the day ("Wed") — the
-/// next thing, never a tally. Sean's rule, from the summary page complaint:
-/// a count of what exists says nothing; what is NEXT earns the space.
-func whenShort(_ e: Ev) -> String {
-    let fmt = DateFormatter()
-    fmt.dateFormat = "yyyy-MM-dd"
-    if let d = fmt.date(from: e.date), !Calendar.current.isDateInToday(d) {
-        let out = DateFormatter()
-        out.dateFormat = "EEE"
-        return out.string(from: d)
-    }
-    return e.time ?? "today"
+/**
+ Sean's format, verbatim: `Today 3pm event name` or `8/15 5pm event name`.
+
+ 12-hour, lowercase am/pm, no leading zero, no ':00' on the hour, and NO
+ separator glyph between the parts — the ' · ' that used to sit there is
+ gone. Half past reads '3:30pm'; an all-day event has no time to show, so it
+ reads 'Today Chase' rather than inventing a midnight.
+
+ Duplicated from the watch app's WatchFormat on purpose: a widget extension
+ is its own target and cannot see the app's sources. Change one, change both
+ — they are the same words on the same wrist.
+ */
+private let ymdFmt: DateFormatter = {
+    let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"; return f
+}()
+
+func todayStr() -> String { ymdFmt.string(from: Date()) }
+
+/// "15:30" -> "3:30pm", "15:00" -> "3pm", "00:30" -> "12:30am".
+func clock12(_ hhmm: String?) -> String? {
+    guard let hhmm, hhmm.count >= 4 else { return nil }
+    let parts = hhmm.split(separator: ":")
+    guard parts.count == 2, let h = Int(parts[0]), let m = Int(parts[1]) else { return nil }
+    let suffix = h < 12 ? "am" : "pm"
+    let h12 = h % 12 == 0 ? 12 : h % 12
+    return m == 0 ? "\(h12)\(suffix)" : "\(h12):\(String(format: "%02d", m))\(suffix)"
 }
 
-/// "2026-08-12" + "15:30" -> "Wed 15:30", today's just "15:30", all-day "Wed".
+/// "Today" when it is, otherwise "8/15" — no leading zeros.
+func dayLabel12(_ date: String) -> String {
+    let today = todayStr()
+    if date == today { return "Today" }
+    guard let d = ymdFmt.date(from: date) else { return date }
+    let c = Calendar.current.dateComponents([.month, .day], from: d)
+    guard let mo = c.month, let da = c.day else { return date }
+    return "\(mo)/\(da)"
+}
+
+/// The circle has room for one thing: the time if there is one, else the day.
+func whenShort(_ e: Ev) -> String {
+    clock12(e.time) ?? dayLabel12(e.date)
+}
+
+/// The when, as Sean writes it: "Today 3pm", "8/15 5pm", or just "8/15" for
+/// an all-day event.
 func when(_ e: Ev) -> String {
-    let fmt = DateFormatter()
-    fmt.dateFormat = "yyyy-MM-dd"
-    let day: String
-    if let d = fmt.date(from: e.date), !Calendar.current.isDateInToday(d) {
-        let out = DateFormatter()
-        out.dateFormat = "EEE"
-        day = out.string(from: d)
-    } else {
-        day = ""
-    }
-    let bits = [day, e.time ?? ""].filter { !$0.isEmpty }
-    return bits.isEmpty ? "all day" : bits.joined(separator: " ")
+    [dayLabel12(e.date), clock12(e.time)].compactMap { $0 }.joined(separator: " ")
 }
 
 struct Entry: TimelineEntry {
@@ -102,7 +121,7 @@ struct EventLine: View {
         HStack(spacing: 4) {
             Circle().fill(Color(hex: e.color)).frame(width: 6, height: 6)
             Text(when(e)).foregroundStyle(.secondary)
-            Text(e.text).lineLimit(1)
+            Text(e.text).lineLimit(1).truncationMode(.tail)
         }
         .font(.caption2)
     }

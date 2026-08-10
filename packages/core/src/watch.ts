@@ -15,10 +15,13 @@ import type { AnyRec, Rec } from './types';
 import { byOrd } from './order';
 import { sortByDate } from './sort';
 
-export type WatchRow = { id: string; text: string; due: string | null; time: string | null; done: boolean; folderId: string };
+export type WatchRow = { id: string; text: string; due: string | null; time: string | null; done: boolean; folderId: string; sectionId: string };
 
-/** A folder as the iOS widget's picker lists it. */
+/** A folder as the iOS widget's picker lists it, and the watch groups by. */
 export type WatchFolder = { id: string; name: string; color: string };
+
+/** A section, so the wrist can show the same structure the phone does. */
+export type WatchSection = { id: string; name: string; folderId: string };
 
 export function watchRows(recs: AnyRec[]): WatchRow[] {
   const reminders = recs
@@ -33,8 +36,9 @@ export function watchRows(recs: AnyRec[]): WatchRow[] {
       text: r.payload.text,
       done: r.payload.done,
       folderId: r.payload.folderId,
+      sectionId: r.payload.sectionId,
     })),
-  ).map(({ id, text, due, time, done, folderId }) => ({ id, text, due, time, done, folderId }));
+  ).map(({ id, text, due, time, done, folderId, sectionId }) => ({ id, text, due, time, done, folderId, sectionId }));
 }
 
 /** An event as the watch shows it: what, when, which calendar's colour. */
@@ -50,7 +54,7 @@ export type WatchEvent = { id: string; text: string; date: string; time: string 
  * fails. 30 events covers every face and tab while staying far from the
  * cliff.
  */
-export function watchFeed(recs: AnyRec[], today: string): { items: WatchRow[]; events: WatchEvent[]; folders: WatchFolder[] } {
+export function watchFeed(recs: AnyRec[], today: string): { items: WatchRow[]; events: WatchEvent[]; folders: WatchFolder[]; sections: WatchSection[] } {
   const calColor = new Map(
     recs.filter((r): r is Rec<'calendar'> => r.type === 'calendar' && !r.deleted).map((c) => [c.id, c.payload.color]),
   );
@@ -77,5 +81,12 @@ export function watchFeed(recs: AnyRec[], today: string): { items: WatchRow[]; e
     .filter((r): r is Rec<'folder'> => r.type === 'folder' && !r.deleted && r.payload.app === 'reminders')
     .sort((a, b) => byOrd(a.payload, b.payload))
     .map((f) => ({ id: f.id, name: f.payload.name, color: f.payload.color }));
-  return { items: watchRows(recs), events, folders };
+  // Sections travel too: Sean asked the wrist to show the same folder and
+  // section structure the phone does, rather than one flat list. In list
+  // order, so the watch never has to sort anything.
+  const sections = recs
+    .filter((r): r is Rec<'section'> => r.type === 'section' && !r.deleted)
+    .sort((a, b) => byOrd(a.payload, b.payload))
+    .map((x) => ({ id: x.id, name: x.payload.name, folderId: x.payload.folderId }));
+  return { items: watchRows(recs), events, folders, sections };
 }

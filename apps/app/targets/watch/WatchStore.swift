@@ -5,9 +5,26 @@ import WidgetKit
 struct WatchItem: Codable, Identifiable {
     let id: String
     let text: String
-    let due: String?    // "YYYY-MM-DD"
-    let time: String?   // "HH:MM"
+    let due: String?        // "YYYY-MM-DD"
+    let time: String?       // "HH:MM"
     let done: Bool
+    // Optional so a cache written before the wrist grouped by folder still
+    // decodes — the same widening the feed has always used.
+    let folderId: String?
+    let sectionId: String?
+}
+
+/// A folder and a section, so the wrist can show the phone's structure.
+struct WatchFolder: Codable, Identifiable {
+    let id: String
+    let name: String
+    let color: String
+}
+
+struct WatchSection: Codable, Identifiable {
+    let id: String
+    let name: String
+    let folderId: String
 }
 
 struct WatchEvent: Codable, Identifiable {
@@ -24,6 +41,8 @@ struct WatchEvent: Codable, Identifiable {
 final class WatchStore: NSObject, ObservableObject, WCSessionDelegate {
     @Published var items: [WatchItem] = []
     @Published var events: [WatchEvent] = []
+    @Published var folders: [WatchFolder] = []
+    @Published var sections: [WatchSection] = []
 
     /// What this watch actually knows, so a screen can never again show the
     /// same words for 'nothing is due' and 'nothing ever arrived'. That
@@ -55,7 +74,12 @@ final class WatchStore: NSObject, ObservableObject, WCSessionDelegate {
     private func decode(_ data: Data, source: String = "phone") {
         // events arrived later than items — a cache written before they
         // existed still decodes, it just has none to show.
-        struct List: Codable { let items: [WatchItem]; let events: [WatchEvent]? }
+        struct List: Codable {
+            let items: [WatchItem]
+            let events: [WatchEvent]?
+            let folders: [WatchFolder]?
+            let sections: [WatchSection]?
+        }
         // try? here was the same silence that hid WCSession 7006 for a day.
         let list: List
         do {
@@ -68,10 +92,14 @@ final class WatchStore: NSObject, ObservableObject, WCSessionDelegate {
             DispatchQueue.main.async { self.feed = .failed(why) }
             return
         }
-        NSLog("[WatchStore] decoded items=%d events=%d", list.items.count, (list.events ?? []).count)
+        NSLog("[WatchStore] decoded items=%d events=%d folders=%d sections=%d",
+              list.items.count, (list.events ?? []).count,
+              (list.folders ?? []).count, (list.sections ?? []).count)
         DispatchQueue.main.async {
             self.items = list.items
             self.events = list.events ?? []
+            self.folders = list.folders ?? []
+            self.sections = list.sections ?? []
             self.feed = .loaded(from: source)
         }
     }

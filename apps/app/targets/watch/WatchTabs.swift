@@ -94,7 +94,7 @@ struct SummaryView: View {
                     Label {
                         VStack(alignment: .leading, spacing: 1) {
                             Text(e.text).lineLimit(2)
-                            Text(dayLabel(e.date) + (e.time.map { " · " + $0 } ?? ""))
+                            Text(WatchFormat.when(date: e.date, time: e.time, today: todayStr()))
                                 .font(.caption2)
                                 .foregroundStyle(.secondary)
                         }
@@ -131,7 +131,7 @@ struct EventListView: View {
                                         .frame(width: 8, height: 8)
                                     VStack(alignment: .leading, spacing: 1) {
                                         Text(e.text).font(.body)
-                                        if let t = e.time {
+                                        if let t = WatchFormat.clock(e.time) {
                                             Text(t).font(.caption2).foregroundStyle(.secondary)
                                         }
                                     }
