@@ -4,8 +4,11 @@
  * tap; no scheme needed).
  *
  * A widget is its own process: it reads the same App Group cache the watch
- * complication reads ("watchlist.json", written by WatchBridge on every
- * store change), and its check-offs queue in the group as "pendingTicks"
+ * complication reads ("watchlist.json"). WatchBridge writes that key on the
+ * PHONE on every store change — it did not until 2026-08-10, which is why
+ * this widget showed its waiting state forever: the only writer was the
+ * WATCH app, filling the watch's own container on another device. Its
+ * check-offs queue in the group as "pendingTicks"
  * for the app to apply through the same toggle a phone tap uses — the watch
  * tick pattern, one transport over.
  *

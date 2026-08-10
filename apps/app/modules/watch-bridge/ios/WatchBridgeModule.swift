@@ -1,5 +1,6 @@
 import ExpoModulesCore
 import WatchConnectivity
+import WidgetKit
 
 /**
  The JS side calls WatchBridge.push(json) after every store change (src/watch.ts);
@@ -53,6 +54,23 @@ final class WatchSession: NSObject, WCSessionDelegate {
 
   func push(json: String) {
     pending = json
+    // The PHONE's home-screen widget reads this, and until now nothing wrote
+    // it. HomeWidget.swift reads "watchlist.json" out of the App Group, and
+    // the only writer of that key was WatchStore.swift — which runs on the
+    // WATCH, writing the watch's own container on a different device. So the
+    // complication had data and the phone widget never could: it showed its
+    // waiting state forever, however many times the app was opened.
+    //
+    // The target's own config comment said "written by WatchBridge on every
+    // store change". It was not. A comment describing a thing nobody
+    // implemented reads exactly like a thing that works.
+    //
+    // Written FIRST and unconditionally: the widget's data must not depend on
+    // whether a watch is paired, activated or reachable — every guard below
+    // this point is about WCSession, and a phone with no watch at all should
+    // still fill its widget.
+    Self.cacheForWidget(json)
+
     guard WCSession.isSupported() else {
       NSLog("[WatchBridge] WCSession not supported on this device")
       return
@@ -131,7 +149,26 @@ extension WatchSession {
   static func drainWidgetTicks() -> [String] {
     let d = UserDefaults(suiteName: "group.com.seancheren.calmind")
     let ticks = d?.stringArray(forKey: "pendingTicks") ?? []
-    if !ticks.isEmpty { d?.removeObject(forKey: "pendingTicks") }
+    if !ticks.isEmpty {
+      d?.removeObject(forKey: "pendingTicks")
+      // The queued ticks are gone, so the widget's own "already ticked" list
+      // is stale — the app owns those rows now. Ask for a redraw so the
+      // widget does not keep showing a tick it has already handed over.
+      WidgetCenter.shared.reloadAllTimelines()
+    }
     return ticks
+  }
+
+  /// The phone-side write of the cache the home-screen widget reads, plus the
+  /// nudge that makes it redraw. Both halves are needed: WidgetKit will not
+  /// re-read the group on its own schedule quickly enough to feel connected
+  /// to the app, and a widget that updates an hour later reads as broken.
+  static func cacheForWidget(_ json: String) {
+    guard let d = UserDefaults(suiteName: "group.com.seancheren.calmind") else {
+      NSLog("[WatchBridge] no App Group — the widget cannot be fed")
+      return
+    }
+    d.set(Data(json.utf8), forKey: "watchlist.json")
+    WidgetCenter.shared.reloadAllTimelines()
   }
 }
