@@ -37,6 +37,11 @@ const recs = [
   r('hidden', TODAY, null, 'f2'),      // its folder is 'none' — must NOT travel
   r('rider', null, null, 'f3'),        // undated, folder is 'all' — rides today
   r('late', '2026-08-01', null, 'f1'), // overdue — the calendar puts it on today
+  // A LATER day, so the second-day assertions actually execute. Without one
+  // the fixture had a single day, dropFirst().first was nil, and every check
+  // about a non-today heading was skipped — it passed with the comma put
+  // back, which is the bug it exists to catch.
+  r('later', '2026-08-12', '14:00', 'f1'),
   prefsPut([], 'calendar', { folderModes: { f1: 'dated', f2: 'none', f3: 'all' } }),
 ];
 process.stdout.write(JSON.stringify(watchFeed(recs, TODAY)));
@@ -94,10 +99,11 @@ def grab_priv(name):
 
 # Colour is SwiftUI; the check is about grouping and filtering, so Line's
 # colour becomes a plain string and hexColor is stubbed to pass it through.
-widget_logic = (grab_func('drawnDays') + '\n' + grab_priv('dayHeading'))
+widget_logic = (grab_func('drawnDays') + '\n' + grab_priv('dayHeading') + '\n' + grab_priv('clock12'))
 widget_logic = widget_logic.replace('Provider.drawnDays', 'drawnDays')
 types += '''
 struct Line { let id: String; let text: String; let time: String?; let isReminder: Bool; let overdue: Bool; let color: String? }
+struct DaySection { let heading: String; let isToday: Bool; let lines: [Line] }
 func hexColor(_ hex: String) -> String { hex }
 let LABEL: String? = nil
 ''' + widget_logic
@@ -149,19 +155,36 @@ for l in todayLines where l.isReminder {
 // The widget's own layer, both branches of every rule it applies.
 let all = drawnDays(feed: feed, ticked: [], wanted: [], today: today)
 check(!all.isEmpty, "with no folder selection the widget draws something — an empty picker must not mean an empty widget")
-let firstHeading = all.first?.0 ?? ""
-check(firstHeading.uppercased().contains("TODAY"), "the first day heading names today — got '\(firstHeading)'")
+let firstHeading = all.first?.heading ?? ""
+// Sean's reference: "TODAY · AUG 10", and a middle dot on every other day.
+check(firstHeading.hasPrefix("TODAY · "), "today's heading keeps its DATE — got '\(firstHeading)'")
+check(all.first?.isToday == true, "the first day knows it is today, so the view can colour it green")
+check(!firstHeading.contains(","), "the separator is a middle dot, not a comma — got '\(firstHeading)'")
+// Unconditional: an `if let` that finds nothing is a check that did not run,
+// and reads exactly like one that passed.
+check(all.count >= 2, "the fixture must produce a SECOND day, or the checks below never execute")
+let later = all.dropFirst().first
+check(later?.heading.contains(" · ") == true, "a later day uses the middle dot — got '\(later?.heading ?? "nil")'")
+check(later?.heading.contains(",") == false, "…and no comma — got '\(later?.heading ?? "nil")'")
+check(later?.isToday == false, "a later day is not today")
+// 12-hour, the reference's style: the suffix always shown. NOT the watch's
+// compact rule, which drops it below 8pm because a wrist has no room.
+check(clock12("15:30") == "3:30pm", "3:30pm — got \(clock12("15:30"))")
+check(clock12("14:00") == "2pm", "2pm — got \(clock12("14:00"))")
+check(clock12("09:05") == "9:05am", "9:05am — got \(clock12("09:05"))")
+check(clock12("00:00") == "12am", "midnight is 12am — got \(clock12("00:00"))")
+check(clock12("12:00") == "12pm", "noon is 12pm — got \(clock12("12:00"))")
 
 // A queued tick disappears at once, before the app has woken to apply it.
 let afterTick = drawnDays(feed: feed, ticked: ["shown"], wanted: [], today: today)
-let afterIds = afterTick.flatMap { $0.1.map { $0.id } }
+let afterIds = afterTick.flatMap { $0.lines.map { $0.id } }
 check(!afterIds.contains("shown"), "a widget-ticked row goes immediately — got \(afterIds)")
 
 // A folder selection filters REMINDERS and leaves events alone: an event has
 // no folder, and dropping every event when a folder is picked would be a
 // silent second rule nobody asked for.
 let picked = drawnDays(feed: feed, ticked: [], wanted: ["f1"], today: today)
-let pickedIds = picked.flatMap { $0.1.map { $0.id } }
+let pickedIds = picked.flatMap { $0.lines.map { $0.id } }
 check(pickedIds.contains("shown"), "the picked folder's reminder stays — got \(pickedIds)")
 check(pickedIds.contains("e1"), "an event survives a folder selection — got \(pickedIds)")
 check(!pickedIds.contains("rider"), "another folder's reminder goes — got \(pickedIds)")

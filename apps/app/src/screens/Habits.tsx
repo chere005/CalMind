@@ -251,7 +251,12 @@ export function Habits() {
     <View style={s.page}>
       <TopBar
         title="Habits"
-        controls={<CircleBtn testID="habits-edit" glyph="✎" label="Edit" size={30} active={edit} onPress={() => setEdit(!edit)} />}
+        controls={
+          <>
+            <Pressable onPress={collapseAll} hitSlop={8} accessibilityRole="button" accessibilityLabel={allCollapsed ? 'Expand all' : 'Collapse all'} style={s.collapseAllBtn}><WebHitSlop /><Chevron open={!allCollapsed} double /></Pressable>
+            <CircleBtn testID="habits-edit" glyph="✎" label="Edit" size={30} active={edit} onPress={() => setEdit(!edit)} />
+          </>
+        }
         picker={<SectionPick />}
       />
 
@@ -279,18 +284,13 @@ export function Habits() {
         {view === 'week' && (
           <>
             <View style={s.headRow}>
-              <View style={s.nameCol}>
-                <Pressable
-                  onPress={collapseAll}
-                  hitSlop={8}
-                  accessibilityRole="button"
-                  accessibilityLabel={allCollapsed ? 'Expand all' : 'Collapse all'}
-                  style={s.collapseAllBtn}
-                >
-                  <WebHitSlop />
-                  <Chevron open={!allCollapsed} double />
-                </Pressable>
-              </View>
+              {/* The name column keeps its WIDTH — it is what aligns the day
+                  columns with the rows beneath — but the collapse-all that
+                  used to sit in it has moved to the top bar, right of the
+                  name, where Reminders and Notes now have theirs. Leaving a
+                  second copy here would have been two controls doing one
+                  thing, which is how they drift apart. */}
+              <View style={s.nameCol} />
               {days.map((d) => (
                 <View key={d} testID="habit-daycol" style={s.dayCol}>
                   <View testID="habit-dayhead" style={[s.dayHead, d === today && s.dayHeadToday]}>

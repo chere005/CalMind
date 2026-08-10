@@ -22,6 +22,16 @@ private let BG = Color(red: 0.067, green: 0.067, blue: 0.067)   // #111111
 private let LABEL = Color(white: 0.933)                          // #eeeeee
 private let META = Color(red: 0.541, green: 0.541, blue: 0.541)  // #8a8a8a
 private let OVERDUE = Color(red: 1.0, green: 0.4, blue: 0.4)     // #ff6666
+// The Scriptable widget's own colours. The tick box was Color.accentColor,
+// which is the SYSTEM tint and had nothing to do with this app — Sean saw a
+// blue box beside green dots, the exact inverse of the reference. A reminder
+// is green here; an EVENT keeps its calendar's colour, which is why the dot
+// reads from the line rather than from a constant.
+private let REMINDER = Color(red: 0.204, green: 0.827, blue: 0.600)  // #34d399
+private let HEADING = Color(white: 0.604)                            // #9a9a9a
+private let RULE_TODAY = Color(red: 0.184, green: 0.373, blue: 0.302) // #2f5f4d
+private let RULE_DAY = Color(white: 0.141)                           // #242424
+private let DATE_LABEL = Color(white: 0.722)                         // #b8b8b8
 
 struct WRow: Codable, Identifiable {
     let id: String
@@ -93,16 +103,35 @@ private func todayStr() -> String {
     return f.string(from: Date())
 }
 
-/// "2026-08-12" -> "WED, AUG 12", with TODAY/TOMORROW where it reads better —
-/// the Scriptable widget's own longDate, uppercased for the heading.
+/// "2026-08-12" -> "WED · AUG 12", today -> "TODAY · AUG 10".
+///
+/// The Scriptable widget's own longDate, uppercased. Three things it does
+/// that this did not: today KEEPS its date, the separator is a middle dot
+/// rather than a comma, and there is no TOMORROW case — the reference has
+/// only the two forms and Sean asked to match it.
 private func dayHeading(_ ymd: String, today: String) -> String {
-    if ymd == today { return "TODAY" }
     let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"
     guard let d = f.date(from: ymd) else { return ymd.uppercased() }
-    if let t = f.date(from: today), let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: t),
-       Calendar.current.isDate(d, inSameDayAs: tomorrow) { return "TOMORROW" }
-    let out = DateFormatter(); out.dateFormat = "EEE, MMM d"
-    return out.string(from: d).uppercased()
+    let md = DateFormatter(); md.dateFormat = "MMM d"
+    let day = md.string(from: d).uppercased()
+    if ymd == today { return "TODAY · " + day }
+    let wd = DateFormatter(); wd.dateFormat = "EEE"
+    return wd.string(from: d).uppercased() + " · " + day
+}
+
+/// "15:30" -> "3:30pm", "14:00" -> "2pm".
+///
+/// The widget was drawing the feed's raw "HH:MM", so it read 24-hour while
+/// every other surface spoke 12. This is the SCRIPTABLE reference's style —
+/// the suffix always shown — deliberately NOT the watch's compact rule,
+/// where am/pm is dropped below 8pm because a wrist has no room for it. A
+/// home-screen widget does.
+private func clock12(_ hhmm: String) -> String {
+    let parts = hhmm.split(separator: ":")
+    guard parts.count == 2, let h = Int(parts[0]), let m = Int(parts[1]) else { return hhmm }
+    let suffix = h < 12 ? "am" : "pm"
+    let h12 = h % 12 == 0 ? 12 : h % 12
+    return m == 0 ? "\(h12)\(suffix)" : "\(h12):\(String(format: "%02d", m))\(suffix)"
 }
 
 private func hexColor(_ hex: String) -> Color {
@@ -183,16 +212,27 @@ struct Line: Identifiable {
     let color: Color
 }
 
+/// A day as the view draws it. `isToday` travels because the heading STRING
+/// cannot answer it — today is green over a green rule, every other day grey
+/// over a dark one, and a view that re-parsed the heading to find out would
+/// be deciding the same thing twice.
+struct DaySection: Identifiable {
+    var id: String { heading }
+    let heading: String
+    let isToday: Bool
+    let lines: [Line]
+}
+
 struct Entry: TimelineEntry {
     let date: Date
-    let days: [(String, [Line])]
+    let days: [DaySection]
     /// Carried so the view can say WHICH empty it is.
     let state: Load
 }
 
 struct Provider: AppIntentTimelineProvider {
     func placeholder(in context: Context) -> Entry {
-        Entry(date: Date(), days: [("TODAY", [Line(id: "x", text: "Water the plants", time: nil, isReminder: true, overdue: false, color: LABEL)])], state: .waiting)
+        Entry(date: Date(), days: [DaySection(heading: "TODAY · AUG 10", isToday: true, lines: [Line(id: "x", text: "Water the plants", time: nil, isReminder: true, overdue: false, color: LABEL)])], state: .waiting)
     }
 
     func snapshot(for configuration: SelectFolders, in context: Context) async -> Entry {
@@ -228,9 +268,9 @@ struct Provider: AppIntentTimelineProvider {
     /// Grouping and ordering are already decided in core. What is left is what
     /// core cannot know: which folders THIS INSTANCE of the widget was
     /// configured for, and which ticks are queued but not yet applied.
-    static func drawnDays(feed: Feed, ticked: Set<String>, wanted: Set<String>, today: String) -> [(String, [Line])] {
+    static func drawnDays(feed: Feed, ticked: Set<String>, wanted: Set<String>, today: String) -> [DaySection] {
         let folderOf = Dictionary(uniqueKeysWithValues: feed.items.map { ($0.id, $0.folderId) })
-        let days: [(String, [Line])] = (feed.days ?? []).compactMap { day in
+        let days: [DaySection] = (feed.days ?? []).compactMap { day in
             let lines = day.lines.compactMap { l -> Line? in
                 if ticked.contains(l.id) { return nil }
                 if l.isReminder, !wanted.isEmpty {
@@ -239,9 +279,14 @@ struct Provider: AppIntentTimelineProvider {
                 return Line(id: l.id, text: l.text, time: l.time, isReminder: l.isReminder,
                             overdue: l.overdue, color: l.color.map(hexColor) ?? LABEL)
             }
-            return lines.isEmpty ? nil : (dayHeading(day.date, today: today), lines)
+            return lines.isEmpty ? nil
+                : DaySection(heading: dayHeading(day.date, today: today), isToday: day.date == today, lines: lines)
         }
-        return Array(days.prefix(6))
+        // Enough days that the SPACE budget below is what runs out, not this.
+        // It was 6 and the budget rarely reached it; the widget still stopped
+        // early because the budget counted only rows and every heading it
+        // drew was free. Both are honest now.
+        return Array(days.prefix(8))
     }
 }
 
@@ -251,21 +296,39 @@ struct HomeWidgetView: View {
     var entry: Entry
     @Environment(\.widgetFamily) var family
 
-    private var lineBudget: Int {
+    /// How much VERTICAL ROOM there is, in units of one row.
+    ///
+    /// The old budget counted rows only, so every day heading — a line of
+    /// text, a hairline rule and two gaps — was drawn for free. Four day
+    /// groups cost four headings the budget never knew about, which is how
+    /// the widget could stop after a couple of items and still leave half the
+    /// card empty: it had "spent" its rows without having filled the space.
+    ///
+    /// A heading is about 1.4 rows tall (10pt bold + 1pt rule + 8pt of
+    /// spacing against a ~17pt row), so it is charged as such. Sean asked for
+    /// it to keep adding until the space runs out and to adapt to the size,
+    /// which is what a space budget does and a fixed count cannot.
+    private var spaceBudget: Double {
         switch family {
-        case .systemSmall:  return 4
-        case .systemLarge:  return 14
-        default:            return 6
+        case .systemSmall:  return 5
+        case .systemLarge:  return 21
+        default:            return 9.5
         }
     }
+    private let headingCost = 1.4
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack {
+            // firstTextBaseline, not the default centring: two different type
+            // sizes centred against each other is exactly what makes a header
+            // like this look a pixel off, and Sean asked for the baselines to
+            // line up rather than the boxes.
+            HStack(alignment: .firstTextBaseline) {
                 Text("Calendar").font(.system(size: 15, weight: .bold)).foregroundStyle(.white)
                 Spacer()
                 Text(Date(), format: .dateTime.month(.abbreviated).day())
-                    .font(.system(size: 13, weight: .medium)).foregroundStyle(META)
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(DATE_LABEL)
             }
             .padding(.bottom, 8)
 
@@ -286,24 +349,35 @@ struct HomeWidgetView: View {
     }
 
     private var content: some View {
-        var budget = lineBudget
-        var out: [(String, [Line])] = []
-        for (day, lines) in entry.days where budget > 0 {
-            let take = Array(lines.prefix(budget))
-            budget -= take.count
-            out.append((day, take))
+        // Spend the budget day by day: a heading costs its own height, then
+        // each row costs one. A day whose heading would fit but which has no
+        // room for even one row is not worth drawing — a heading with nothing
+        // under it is the emptiness it was supposed to fix.
+        var budget = spaceBudget
+        var out: [DaySection] = []
+        for day in entry.days {
+            let room = budget - headingCost
+            if room < 1 { break }
+            let take = Array(day.lines.prefix(Int(room)))
+            budget -= headingCost + Double(take.count)
+            out.append(DaySection(heading: day.heading, isToday: day.isToday, lines: take))
         }
         return VStack(alignment: .leading, spacing: 0) {
-            ForEach(Array(out.enumerated()), id: \.offset) { idx, pair in
+            ForEach(Array(out.enumerated()), id: \.offset) { idx, day in
                 if idx > 0 {
                     // The heavier rule is the only thing separating one day
                     // from the next — Scriptable's 2pt divider.
                     Rectangle().fill(Color.white.opacity(0.16)).frame(height: 2).padding(.vertical, 5)
                 }
-                Text(pair.0)
-                    .font(.system(size: 10, weight: .bold)).foregroundStyle(META)
-                Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1).padding(.top, 2).padding(.bottom, 5)
-                ForEach(pair.1) { line in row(line) }
+                Text(day.heading)
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(day.isToday ? REMINDER : HEADING)
+                // Today's underline is green, every other day's nearly black:
+                // the reference's own two rules, and the thing that makes
+                // today findable at a glance.
+                Rectangle().fill(day.isToday ? RULE_TODAY : RULE_DAY)
+                    .frame(height: 1).padding(.top, 2).padding(.bottom, 5)
+                ForEach(day.lines) { line in row(line) }
             }
         }
     }
@@ -317,7 +391,7 @@ struct HomeWidgetView: View {
                 Button(intent: TickIntent(id: line.id)) {
                     Image(systemName: "square")
                         .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(line.overdue ? OVERDUE : Color.accentColor)
+                        .foregroundStyle(line.overdue ? OVERDUE : REMINDER)
                 }
                 .buttonStyle(.plain)
             } else {
@@ -329,7 +403,7 @@ struct HomeWidgetView: View {
                 .lineLimit(1)
             Spacer(minLength: 0)
             if let t = line.time {
-                Text(t).font(.system(size: 11)).foregroundStyle(META)
+                Text(clock12(t)).font(.system(size: 11)).foregroundStyle(META)
             }
         }
         .padding(.bottom, 5)

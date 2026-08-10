@@ -185,17 +185,45 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
     // a Pressable at the bottom of the scroll content; here setPanelEdit(false)
     // appeared exactly ONCE in the whole file, in the Escape handler above. On
     // a phone there was no way out of the day panel's edit mode at all.
-    // What may swallow a click and still MEAN "stay in edit mode". Kept
-    // deliberately short: react-native-web Pressables do not propagate their
-    // click to document at all, so every button, row and cell is already
-    // excluded by construction and listing them here only widens the net. The
-    // entries that earn their place are the ones that DO propagate — a real
-    // <input> or <textarea>, which is the field you are editing in.
+    // What may swallow a click and still MEAN "stay in edit mode".
     //
-    // A broad '[data-testid^="cal-"]' was tried first and kept the day's own
-    // TITLE, which is a label: tapping it did nothing, which is the bug.
-    const KEEP = ['[role="button"]', 'input', 'textarea', 'select'].join(',');
+    // This was once just role/input/textarea, on the belief that every row and
+    // button is a react-native-web Pressable and those do not propagate their
+    // click to document. That belief was WRONG: RNW only sets role="button"
+    // when accessibilityRole is given, and a plain <Pressable> — which is what
+    // a row is — renders a bare <div> whose click bubbles all the way up. So
+    // the rule was closing edit mode on the very long-press that opened it,
+    // and the Notes spec caught it the moment the collapse-all stopped being
+    // the first thing in the row.
+    //
+    // Named prefixes, not a whole screen's: '[data-testid^="cal-"]' was tried
+    // and it kept the day's own TITLE, which is a label and must exit.
+    const KEEP = [
+      '[role="button"]', 'input', 'textarea', 'select',
+      '[data-testid^="dp-"]', '[data-testid^="day-"]', '[data-testid="cal-grid"]',
+      '[data-testid="cal-completed"]', '[data-testid="cal-add"]', '[data-testid="cal-edit-done"]',
+      '[data-testid="cal-prev"]', '[data-testid="cal-next"]',
+      '[data-testid^="pick-"]', '[data-testid^="tab-"]',
+    ].join(',');
+    // The click that BELONGS to the gesture that opened edit mode must not
+    // also close it. A long-press flips pageEdit at ~480ms, the grips appear,
+    // the row shifts under the cursor, and the mouseup that follows lands on
+    // whatever is now beneath it — a bare container with no testid, which no
+    // allow-list can recognise. So edit mode opened and shut in one press.
+    //
+    // The suite guards the same thing the same way (`suppressClick`). The
+    // rule here is exact rather than a timeout: this listener is attached
+    // MID-PRESS, so the opening gesture's pointerdown already happened and
+    // its trailing click is the one click that arrives without a pointerdown
+    // of its own. Anything a person taps afterwards begins with a pointerdown,
+    // which clears the flag. A time window was tried first and swallowed
+    // deliberate taps that came too soon after — it made the tests red, which
+    // is the tests doing their job.
+    let ownClick = true;
+    const onDown = () => { ownClick = false; };
+    document.addEventListener('pointerdown', onDown, true);
     const onClick = (ev: Event) => {
+      if (ownClick) { ownClick = false; return; }
       const t = ev.target as Element | null;
       if (t && typeof t.closest === 'function' && t.closest(KEEP)) return;
       setPanelEdit(false);
@@ -204,6 +232,7 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
     return () => {
       document.removeEventListener('keydown', onKey, true);
       document.removeEventListener('click', onClick);
+      document.removeEventListener('pointerdown', onDown, true);
     };
   }, [panelEdit]);
   const [rolledId, setRolledId] = useState<string | null>(null);

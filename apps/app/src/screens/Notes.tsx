@@ -124,17 +124,43 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
     // had the identical gap and I fixed only Reminders first — same two ways
     // out, Escape and an invisible strip at the bottom of the scroll content,
     // neither of which exists on a phone.
-    // What may swallow a click and still MEAN "stay in edit mode". Kept
-    // deliberately short: react-native-web Pressables do not propagate their
-    // click to document at all, so every button, row and cell is already
-    // excluded by construction and listing them here only widens the net. The
-    // entries that earn their place are the ones that DO propagate — a real
-    // <input> or <textarea>, which is the field you are editing in.
+    // What may swallow a click and still MEAN "stay in edit mode".
     //
-    // A broad '[data-testid^="cal-"]' was tried first and kept the day's own
-    // TITLE, which is a label: tapping it did nothing, which is the bug.
-    const KEEP = ['[role="button"]', 'input', 'textarea', 'select'].join(',');
+    // This was once just role/input/textarea, on the belief that every row and
+    // button is a react-native-web Pressable and those do not propagate their
+    // click to document. That belief was WRONG: RNW only sets role="button"
+    // when accessibilityRole is given, and a plain <Pressable> — which is what
+    // a row is — renders a bare <div> whose click bubbles all the way up. So
+    // the rule was closing edit mode on the very long-press that opened it,
+    // and the Notes spec caught it the moment the collapse-all stopped being
+    // the first thing in the row.
+    //
+    // Named prefixes, not a whole screen's: '[data-testid^="cal-"]' was tried
+    // and it kept the day's own TITLE, which is a label and must exit.
+    const KEEP = [
+      '[role="button"]', 'input', 'textarea', 'select',
+      '[data-testid^="note-"]', '[data-testid^="nsec-"]', '[data-testid^="sec"]',
+      '[data-testid^="fold"]', '[data-testid^="pick-"]', '[data-testid^="tab-"]',
+    ].join(',');
+    // The click that BELONGS to the gesture that opened edit mode must not
+    // also close it. A long-press flips pageEdit at ~480ms, the grips appear,
+    // the row shifts under the cursor, and the mouseup that follows lands on
+    // whatever is now beneath it — a bare container with no testid, which no
+    // allow-list can recognise. So edit mode opened and shut in one press.
+    //
+    // The suite guards the same thing the same way (`suppressClick`). The
+    // rule here is exact rather than a timeout: this listener is attached
+    // MID-PRESS, so the opening gesture's pointerdown already happened and
+    // its trailing click is the one click that arrives without a pointerdown
+    // of its own. Anything a person taps afterwards begins with a pointerdown,
+    // which clears the flag. A time window was tried first and swallowed
+    // deliberate taps that came too soon after — it made the tests red, which
+    // is the tests doing their job.
+    let ownClick = true;
+    const onDown = () => { ownClick = false; };
+    document.addEventListener('pointerdown', onDown, true);
     const onClick = (ev: Event) => {
+      if (ownClick) { ownClick = false; return; }
       const t = ev.target as Element | null;
       if (t && typeof t.closest === 'function' && t.closest(KEEP)) return;
       setPageEdit(false);
@@ -143,6 +169,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
     return () => {
       document.removeEventListener('keydown', onKey, true);
       document.removeEventListener('click', onClick);
+      document.removeEventListener('pointerdown', onDown, true);
     };
   }, [pageEdit]);
   const [dateField, setDateField] = useNoteScoped(openId, '');
@@ -565,13 +592,17 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
 
   return (
     <View style={s.page}>
-      <TopBar title="Notes" picker={<FolderPick app="notes" />} />
+      {/* Right of the name, as in Reminders and as Sean asked. */}
+      <TopBar
+        title="Notes"
+        controls={<Pressable onPress={collapseAllNotes} hitSlop={8} accessibilityRole="button" accessibilityLabel={allCollapsed ? 'Expand all' : 'Collapse all'} style={s.collapseAllBtn}><WebHitSlop /><Chevron open={!allCollapsed} double /></Pressable>}
+        picker={<FolderPick app="notes" />}
+      />
       {/* A live drag holds the scroll still — see Habits for the why. */}
       <ScrollView contentContainerStyle={s.scroll} scrollEnabled={drag.dragIdx === null && secDrag.dragging === null}>
         {/* The phone's tap-to-exit; the web keeps its document listener. */}
         <EditExit active={pageEdit} onExit={() => setPageEdit(false)}>
         <View style={s.toolbarRow}>
-          <Pressable onPress={collapseAllNotes} hitSlop={8} accessibilityRole="button" accessibilityLabel={allCollapsed ? 'Expand all' : 'Collapse all'} style={s.collapseAllBtn}><WebHitSlop /><Chevron open={!allCollapsed} double /></Pressable>
           {pageEdit && (
             <View style={s.editDone}>
               <Pill testID="notes-edit-done" label="Done" primary onPress={() => setPageEdit(false)} />
