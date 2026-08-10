@@ -238,15 +238,13 @@ Run it by hand after anything touching focus, selection, or layout:
 npx playwright test -c playwright.webkit.config.ts   # 16/16
 ```
 
-**A failure here is usually LOAD, and the code is still at fault.**
-`app.spec.ts:353` is flaky in a measurable way: 7 of 7 passes on an idle
-machine, and a failure both times the machine was busy — once under an
-emulator plus two xcodebuilds, once straight after a four-minute Chromium
-run. The note editor focuses its body on a 50ms timer; starve that timer and
-it lands after the blur it was meant to precede (TODO.md has the design
-question). So repeat a red run on a quiet machine before believing it — and
-do not conclude the code is innocent when it passes, because a race that
-only needs a busy CPU is exactly what CI will find.
+**`app.spec.ts:353` here is INTERMITTENT and its cause is open.** Two
+failures in about fifteen runs, both after heavy real work; 7 of 7 idle
+passes; and 5 of 5 passes under deliberate CPU starvation, which is what
+killed the tidy 'it is just load' explanation. Counts are in TODO.md. Repeat
+a red run before believing it, and do not read a green one as proof — the
+note editor does contain a 50ms deferred focus that is a race by
+construction, whoever wins it today.
 
 Every one of those signs up a FRESH account and drives half a dozen records,
 which is not the shape the app actually runs against. `e2e/seeded.spec.ts`
