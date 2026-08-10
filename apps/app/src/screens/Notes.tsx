@@ -17,6 +17,7 @@ import { useRowDrag } from '../components/rowdrag';
 import { useSectionDrag, type SectionSlot } from '../components/sectiondrag';
 import { useSwipeLeft } from '../components/swiperow';
 import { Chevron } from '../components/Chevron';
+import { EditExit } from '../components/EditExit';
 import { RecipeEditor } from './RecipeEditor';
 
 // Half, as written, and double — the three a cook actually asks for.
@@ -567,6 +568,8 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
       <TopBar title="Notes" picker={<FolderPick app="notes" />} />
       {/* A live drag holds the scroll still — see Habits for the why. */}
       <ScrollView contentContainerStyle={s.scroll} scrollEnabled={drag.dragIdx === null && secDrag.dragging === null}>
+        {/* The phone's tap-to-exit; the web keeps its document listener. */}
+        <EditExit active={pageEdit} onExit={() => setPageEdit(false)}>
         <View style={s.toolbarRow}>
           <Pressable onPress={collapseAllNotes} hitSlop={8} accessibilityRole="button" accessibilityLabel={allCollapsed ? 'Expand all' : 'Collapse all'} style={s.collapseAllBtn}><WebHitSlop /><Chevron open={!allCollapsed} double /></Pressable>
           {pageEdit && (
@@ -758,6 +761,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
               </View>
             ))}
         {pageEdit && <Pressable style={s.editBackdropFill} onPress={() => setPageEdit(false)} />}
+        </EditExit>
       </ScrollView>
       {emptyAsk && (
         <Modal transparent animationType="fade" onRequestClose={() => setEmptyAsk(null)}>

@@ -32,6 +32,7 @@ import { ItemModal, type ItemKind } from '../components/ItemModal';
 import { useSwipeLeft } from '../components/swiperow';
 import { BalancedRow } from '../components/BalancedRow';
 import { Chevron } from '../components/Chevron';
+import { EditExit } from '../components/EditExit';
 import { CircleBtn, ConfirmDelete, Pill, Rule, WebHitSlop } from '../ui';
 
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
@@ -332,6 +333,8 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
       {(legend.length > 0 || sharedLegend.length > 0) && <Rule />}
 
       <ScrollView style={s.panel} contentContainerStyle={s.panelInner}>
+        {/* The phone's tap-to-exit; the web keeps its document listener. */}
+        <EditExit active={panelEdit} onExit={() => setPanelEdit(false)}>
         <View style={s.panelHead}>
           <Text testID="cal-day-title" style={s.panelTitle}>{dayLabel}</Text>
           <View style={s.panelBtns}>
@@ -467,6 +470,7 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
           sharedItems.events.length + sharedItems.reminders.length + sharedItems.notes.length === 0 && (
           <Text style={s.empty}>Nothing on this day</Text>
         )}
+        </EditExit>
       </ScrollView>
       {modal?.mode === 'create' && (
         <ItemModal
