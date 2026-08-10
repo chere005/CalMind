@@ -11,6 +11,10 @@
 
 require_once __DIR__ . '/store.php';
 require_once __DIR__ . '/webauthn.php';
+// Built for .ics and wired to nothing for months; recipe_fetch is its first
+// caller. The SSRF care in it is the reason a user-supplied URL can be
+// fetched at all.
+require_once __DIR__ . '/fetchurl.php';
 
 const USERNAME_RE   = '/^[A-Za-z0-9_-]{2,20}$/';
 const REC_ID_RE     = '/^[A-Za-z0-9_-]{1,64}$/';
@@ -836,4 +840,42 @@ function handle_passkey_remove(array $cfg, array $in): never
     });
     usage_log($cfg, 'passkey_remove', $user);
     reply(200, ['ok' => true]);
+}
+
+/**
+ * Fetch a recipe page so the client can read its structured data.
+ *
+ * The browser cannot do this itself — a recipe site does not send CORS
+ * headers to a web app, and a native build fetching arbitrary pages has the
+ * same SSRF problem from the phone's network. So the server fetches, through
+ * fetchurl.php, which was built carefully for exactly this and wired to
+ * nothing until now: public addresses only, checked on every redirect hop,
+ * bounded in time and size.
+ *
+ * Returns the HTML and nothing else. The PARSING lives in core
+ * (recipeFromHtml), where it is tested — the server has no opinion about
+ * what a recipe is, and a change to the parser must not need a deploy.
+ *
+ * Authed: it makes the server issue requests, so it is not an open proxy.
+ */
+function handle_recipe_fetch(array $cfg, array $in): never
+{
+    require_auth($cfg);
+    $url = trim((string) ($in['url'] ?? ''));
+    if ($url === '') {
+        fail(400, 'no url');
+    }
+    $res = fetch_url($url);
+    if (!$res['ok']) {
+        // The reason travels: 'that is not a public address' and 'the page
+        // took too long' are different problems for whoever pasted the link.
+        fail(400, (string) ($res['error'] ?? 'could not fetch that page'));
+    }
+    // A recipe page is HTML. Anything else — a PDF, an image, a 4MB video —
+    // has no JSON-LD to find and is not worth carrying back to the client.
+    $body = (string) $res['body'];
+    if (stripos($body, '<html') === false && stripos($body, '<script') === false) {
+        fail(400, 'that page does not look like a web page');
+    }
+    reply(200, ['ok' => true, 'html' => $body]);
 }

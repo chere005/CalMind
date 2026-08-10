@@ -15,11 +15,12 @@ import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 // phone that put "← Note" beneath the time and left the 📷 unreachable behind
 // the status bar: not cosmetic, the photo import could not be tapped at all.
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ingredientParts, parseIngredient, recipeBody, recipeFromPages, type Rec } from '@calmind/core';
+import { ingredientParts, parseIngredient, recipeBody, recipeFromHtml, recipeFromPages, type Rec } from '@calmind/core';
 import { useStore } from '../store';
 import { themed, T } from '../theme';
 import { CircleBtn, ConfirmDelete, Field, Pill, WebHitSlop } from '../ui';
 import { OCR_UNSUPPORTED, ocrImages, ocrSupported } from '../components/ocr';
+import { apiPost } from '../api';
 import { useRowDrag } from '../components/rowdrag';
 import { useSwipeLeft } from '../components/swiperow';
 
@@ -56,6 +57,10 @@ export function RecipeEditor({ note, onClose }: { note: Rec<'note'>; onClose: ()
   const [ingField, setIngField] = useState('');
   const [stepField, setStepField] = useState('');
   const [busy, setBusy] = useState('');
+  // The URL field is folded away until asked for: pasting a link is the
+  // occasional path, and a permanent text box above every recipe is clutter.
+  const [urlOpen, setUrlOpen] = useState(false);
+  const [urlField, setUrlField] = useState('');
   // Tap a line to fix it. Before this the only way to mend a typo — and OCR
   // hands you plenty — was to delete the row and type the whole thing again,
   // which on a phone is the difference between correcting a recipe and
@@ -98,6 +103,41 @@ export function RecipeEditor({ note, onClose }: { note: Rec<'note'>; onClose: ()
     const t = stepField.trim();
     if (t) setSteps([...steps, t]); // steps number down the BOTTOM
     setStepField('');
+  };
+
+  /**
+   * Import from a URL: the server fetches (a recipe site sends no CORS
+   * headers, and a phone fetching arbitrary pages has the same SSRF problem
+   * the server already solved), core parses the page's own schema.org data.
+   *
+   * Structured data beats OCR outright when a site publishes it — exact
+   * ingredients, exact steps, no chatter to strip. Sean's rule holds for both
+   * paths: ingredients and steps ONLY.
+   */
+  const importUrl = async () => {
+    const url = urlField.trim();
+    if (!url) return;
+    setBusy('Reading that page…');
+    try {
+      const res = await apiPost<{ html?: string; error?: string }>('recipe_fetch', { url });
+      const r = res.html ? recipeFromHtml(res.html) : null;
+      if (!r) {
+        // A page with no recipe in it is the common case for a wrong paste,
+        // and saying so beats appearing to work and adding nothing.
+        setBusy('No recipe found on that page.');
+        setTimeout(() => setBusy(''), 5000);
+        return;
+      }
+      if (r.title && !title) setTitle(r.title);
+      if (r.ingredients.length) setIngredients((cur) => [...r.ingredients, ...cur]);
+      if (r.steps.length) setSteps((cur) => [...cur, ...r.steps]);
+      setUrlField('');
+      setUrlOpen(false);
+      setBusy('');
+    } catch (err) {
+      setBusy(err instanceof Error ? err.message : 'could not read that page');
+      setTimeout(() => setBusy(''), 5000);
+    }
   };
 
   const importPhotos = async () => {
@@ -146,9 +186,26 @@ export function RecipeEditor({ note, onClose }: { note: Rec<'note'>; onClose: ()
       <ScrollView style={[s.page, { paddingTop: insets.top }]} contentContainerStyle={s.inner} scrollEnabled={ingDrag.dragIdx === null && stepDrag.dragIdx === null}>
         <View style={s.headRow}>
           <Pressable onPress={onClose} hitSlop={8}><Text style={s.back}>← Note</Text></Pressable>
+          <CircleBtn testID="recipe-link" glyph="🔗" label="Import from a link" size={32} onPress={() => setUrlOpen((v) => !v)} />
           <CircleBtn testID="recipe-photos" glyph="📷" label="Read a photo" size={32} onPress={() => void importPhotos()} />
         </View>
         <Text style={s.h1}>Recipe</Text>
+        {urlOpen && (
+          <View style={s.urlRow}>
+            <Field
+              testID="recipe-url"
+              value={urlField}
+              onChangeText={setUrlField}
+              placeholder="Paste a recipe link"
+              autoFocus
+              style={s.urlField}
+              onSubmitEditing={() => void importUrl()}
+            />
+            <Pressable testID="recipe-url-go" onPress={() => void importUrl()} style={s.urlGo}>
+              <Text style={s.urlGoText}>Get</Text>
+            </Pressable>
+          </View>
+        )}
         {busy !== '' && <Text style={s.busy}>{busy}</Text>}
         <Field testID="recipe-title" value={title} onChangeText={setTitle} placeholder="Title" style={s.title} />
 
@@ -302,6 +359,10 @@ export function RecipeEditor({ note, onClose }: { note: Rec<'note'>; onClose: ()
 const s = themed(() => StyleSheet.create({
   page: { flex: 1, backgroundColor: T.bg },
   inner: { padding: 20, paddingBottom: 60, gap: 10, maxWidth: 640, width: '100%', alignSelf: 'center' },
+  urlRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  urlField: { flex: 1 },
+  urlGo: { backgroundColor: T.surface2, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 999 },
+  urlGoText: { color: T.text, fontWeight: '600' },
   headRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   back: { color: T.dim, fontSize: 15 },
   h1: { color: T.text, fontSize: 26, fontWeight: '800' },
