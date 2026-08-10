@@ -115,6 +115,20 @@ than a red run, because it looks like an answer.
   It also caught a test of its own making: a hardcoded date passed until
   midnight and then failed for reasons unrelated to the code. The harness
   derives its dates now.
+
+- TAP TARGETS on the web are measured, never read off the source. `hitSlop`
+  is a no-op under react-native-web, so a control is exactly as big as it is
+  drawn there and bigger on native — the two disagree silently, in the
+  direction that hurts Safari on a phone. All three pickers' checkboxes were
+  18pt tall in a browser (a fontSize-16 glyph) against 32pt on a device.
+  Measured from the CENTRE outward: reach was 9px, exactly the element's own
+  edge, and 17px with the WebHitSlop overlay — 34pt.
+
+  The measurement was wrong first, which is the part worth keeping. It
+  counted a hit whenever the element under the point CONTAINED the control,
+  so every ancestor passed: it was measuring the whole row and would have
+  reported success with the fix absent. Before trusting a measurement, ask
+  what would make it read false.
 - The SCRIPTABLE WIDGET, actually executed (`test/widget.test.ts`). Its
   Scriptable globals are stubbed just enough to record what the script builds,
   then the structure is asserted: the header row, uppercase day headings with
