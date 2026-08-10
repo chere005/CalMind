@@ -214,6 +214,25 @@ behaviour that differs by engine and a red run full of harness noise teaches
 nobody anything. It lives in its own config so the ordinary `npx playwright
 test` neither changes nor needs the WebKit download.
 
+**It is NOT in the deploy gate, and that cost something.** `deploy-test.sh`
+runs core, the PHP specs and the Chromium suite; the WebKit config is
+manual. Through an entire session of shipping to web it was never run — and
+the first run of it found a real defect that Chromium could not see (a 50ms
+deferred focus in the note editor, `TODO.md`). An engine Sean reads the app
+in every day had, in practice, zero coverage.
+
+It is still not in the gate, deliberately: there is a KNOWN WebKit failure
+right now (`app.spec.ts:353`, analysed in TODO.md and waiting on a design
+call), and wiring a red suite into the gate would just teach everyone to
+pass `--no-gestures`. Run it by hand after anything touching focus,
+selection, or layout:
+
+```sh
+npx playwright test -c playwright.webkit.config.ts   # expect 15/16 today
+```
+
+When that known failure is fixed, put it in the gate.
+
 Every one of those signs up a FRESH account and drives half a dozen records,
 which is not the shape the app actually runs against. `e2e/seeded.spec.ts`
 closes that: it runs `server/tools/seed-example.php` against the harness to
