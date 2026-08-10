@@ -1130,6 +1130,34 @@ one section, every name one line, nothing wrapping. Times are 12-hour
 everywhere on the wrist — "Today 3pm Chase", "8/15 5pm Chase" — with an
 all-day event showing no time rather than a midnight.
 
+**watchOS, VERIFIED ON SCREEN** (2026-08-10). All four pages rendered on a
+watchOS simulator with a seeded grouped feed, because Sean's watch was
+off-network all night and none of this had ever been looked at:
+
+- Summary: 'Due today' with its items and NO tally — his first complaint
+  about this screen — and a checked-off row disappears from here too.
+- Reminders: folder header `Home` (two folders exist), sections `Now` and
+  `Later` beneath it (Home has two), and `Work` with NO section header
+  because it has only one. Check-off removes the row and closes an emptied
+  section.
+- Events: `3:30pm`, `2pm` under day headings.
+- Month: every day present, the 1st alone on Saturday, today in green.
+
+THREE bugs came out of finally looking, none of them findable by test or by
+reading — nothing here runs SwiftUI, and in each case both halves of the code
+were correct in isolation:
+
+- a pre-`groups` cache drew a BLANK reminders page (Sean's watch holds exactly
+  that cache; it would have hit him on first launch),
+- the month grid dropped its first eleven cells, forever, because LazyVGrid
+  would not lay them out — the arithmetic was always right,
+- check-off did NOTHING after the grouping moved to core: tick() cleared
+  `items` while the page drew `groups`, so a tap left the row in place and
+  the natural second tap queued a second toggle, rolling a repeat twice.
+
+The lesson, bluntly: three hours went into polling an unreachable watch when
+a simulator would have drawn it in one build. Look at the thing.
+
 **iPhone home-screen widget** — written, tested by inspection only, NOT
 shipped. It draws like `tools/scriptable-widget.js`, takes a folder
 selection through `AppIntentConfiguration`, and checks items off via
