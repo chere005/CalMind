@@ -167,7 +167,22 @@ final class WatchStore: NSObject, ObservableObject, WCSessionDelegate {
     /// there, not here). transferUserInfo queues while the phone is away.
     /// Locally the row just leaves the list — the next push is the truth.
     func tick(_ id: String) {
-        DispatchQueue.main.async { self.items.removeAll { $0.id == id } }
+        DispatchQueue.main.async {
+            self.items.removeAll { $0.id == id }
+            // GROUPS too, and this is why: the reminders page draws groups
+            // now, not items. Removing only from items left the row sitting
+            // there after a tap — so you tap again, and the phone applies a
+            // SECOND toggle, which rolls a repeating reminder twice. A
+            // regression I introduced when the grouping moved to core, and
+            // invisible without actually tapping the thing on a watch.
+            self.groups = self.groups.map { g in
+                WatchGroup(
+                    folderName: g.folderName,
+                    sections: g.sections
+                        .map { WatchGroup.Part(sectionName: $0.sectionName, items: $0.items.filter { $0.id != id }) }
+                        .filter { !$0.items.isEmpty })
+            }.filter { !$0.sections.isEmpty }
+        }
         guard WCSession.isSupported() else { return }
         WCSession.default.transferUserInfo(["tick": id])
     }
