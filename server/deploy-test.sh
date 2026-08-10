@@ -59,6 +59,14 @@ if [ "$WEB" = 1 ]; then
   if [ "$GESTURES" = 1 ]; then
     echo "==> gestures (--no-gestures to skip)"
     npx playwright test >/dev/null 2>&1 || { echo "gesture suite failed — not deploying (npx playwright test to see it)" >&2; exit 1; }
+    # A native build's bundling step writes over dist, and an xcodebuild that
+    # overlaps a deploy has now DELETED the export between the gate and the
+    # upload — leaving a run that passed its tests and then shipped nothing,
+    # or worse, shipped half. Check the export still exists and still names
+    # the bundle the gate ran against, and refuse rather than upload rubble.
+    [ -f apps/app/dist/index.html ] || { echo "dist/index.html vanished after the gate — something else rebuilt over it; not deploying" >&2; exit 1; }
+    AFTER=$(grep -o 'index-[a-zA-Z0-9]*\.js' apps/app/dist/index.html | head -1)
+    [ -n "$AFTER" ] || { echo "dist/index.html names no bundle — not deploying" >&2; exit 1; }
   fi
 fi
 
