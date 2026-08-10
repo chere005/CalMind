@@ -848,7 +848,7 @@ const s = themed(() => StyleSheet.create({
   secName: { color: T.gold, fontSize: 16, lineHeight: 20, fontWeight: '600' },
   chevron: { color: T.dim, fontSize: 16, width: 20, textAlign: 'center' },
   chevWrap: { width: 20, alignItems: 'center', justifyContent: 'center' },
-  collapseAllBtn: { width: 26, height: 26, borderRadius: 13, borderWidth: 1, borderColor: T.line, alignItems: 'center', justifyContent: 'center' },
+  collapseAllBtn: { width: 24, height: 24, borderRadius: 12, borderWidth: 1, borderColor: T.line, alignItems: 'center', justifyContent: 'center' },
   toolbarRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingBottom: 2 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 8, height: 44 },
   rowBody: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },

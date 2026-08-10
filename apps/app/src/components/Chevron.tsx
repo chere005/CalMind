@@ -7,8 +7,9 @@
  * own. There were three treatments before — a drawn chevron at 15 for folders
  * and 14 for sections in Reminders and Notes, a 12pt '▸/▾' in the calendar's
  * day panel, and a 14pt '›/⌄' in Habits — which is what Sean saw as the same
- * control drawn differently on every page. Thirteen is a little smaller than
- * any of them, which is the other half of what he asked for.
+ * control drawn differently on every page. It landed at 13, then Sean asked
+ * for smaller again ('a bit smaller everywhere including the collapse all
+ * button'), so: 11.
  *
  * Not to be confused with the '›' at the end of a note row: that one means
  * "open this", not "collapse this", and is deliberately left alone.
@@ -17,7 +18,7 @@ import React from 'react';
 import Svg, { Polyline } from 'react-native-svg';
 import { T } from '../theme';
 
-export const CHEVRON = 13;
+export const CHEVRON = 11;
 
 export function Chevron({ open, size = CHEVRON, color }: { open: boolean; size?: number; color?: string }) {
   const w = size;

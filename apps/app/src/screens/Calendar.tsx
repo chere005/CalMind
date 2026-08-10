@@ -7,7 +7,7 @@
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { PanResponder, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { PanResponder, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { prefsOf, duplicateItem,
   timeLabel,
   addDays,
@@ -61,10 +61,6 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
   const [showDone, setShowDone] = useState(false);
   const swipe = useSwipeLeft();
   // Week mode sticks per device, like the suite's localStorage calWeekMode.
-  // The suite caps its legend bar at 22vh and scrolls inside it. A flat 88pt
-  // was under half that on a phone, which only shows once someone's folder
-  // list is long enough to need the room.
-  const { height: winH } = useWindowDimensions();
   const [weekMode, setWeekMode] = useState(false);
   const [wkAnchor, setWkAnchor] = useState(today);
   useEffect(() => {
@@ -244,12 +240,14 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
         ))}
       </View>
       <Rule />
-      {/* The legend follows the window, whatever shape the window is. It was
-          gated off in week mode, so a fortnight of coloured marks came with
-          nothing to read them by — and `cells` is already the two-week range,
-          so the names were right all along and simply not drawn. */}
+      {/* The legend was a ScrollView capped at 22vh, mirroring the suite —
+          until Sean said a legend should not scroll. It sizes to its content
+          now; monthLegend already keeps it to what is visibly on the calendar,
+          which is what keeps 'to its content' small. (It was also once gated
+          off in week mode — `cells` is already the two-week range, so the
+          names were right all along and simply not drawn.) */}
       {(legend.length > 0 || sharedLegend.length > 0) && (
-        <ScrollView style={[s.legend, { maxHeight: Math.round(winH * 0.22) }]} contentContainerStyle={s.legendInner} horizontal={false}>
+        <View style={[s.legend, s.legendInner]}>
           {/* One row per owner, the owner named ONCE in small caps — the
               suite's legend, not a soup of @-prefixed items.
 
@@ -289,7 +287,7 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
               </BalancedRow>
             </View>
           )}
-        </ScrollView>
+        </View>
       )}
       {/* The legend's closing rule belongs to the legend. A month holding
           nothing shows no key at all, and two hairlines stacked on each
