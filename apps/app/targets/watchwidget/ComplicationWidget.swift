@@ -25,11 +25,20 @@ struct Ev: Codable {
 /// 30 already sorted, so the next two are the first two.
 func nextEvents() -> [Ev] {
     struct List: Codable { let items: [Row]; let events: [Ev]? }
-    guard
-        let d = UserDefaults(suiteName: "group.com.seancheren.calmind")?.data(forKey: "watchlist.json"),
-        let list = try? JSONDecoder().decode(List.self, from: d)
-    else { return [] }
-    return Array((list.events ?? []).prefix(2))
+    guard let d = UserDefaults(suiteName: "group.com.seancheren.calmind")?.data(forKey: "watchlist.json") else {
+        return []
+    }
+    do {
+        let list = try JSONDecoder().decode(List.self, from: d)
+        return Array((list.events ?? []).prefix(2))
+    } catch {
+        // A complication has one line and no room to explain itself, so this
+        // cannot surface the way the app's screens do. It can at least leave a
+        // trace: a silent decode failure here draws exactly like a genuinely
+        // empty calendar, which is the confusion that cost an evening.
+        NSLog("[Complication] decode FAILED: %@", String(describing: error))
+        return []
+    }
 }
 
 /// The circle's one word: today's time ("15:30") or the day ("Wed") — the

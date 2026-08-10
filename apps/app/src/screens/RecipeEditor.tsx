@@ -37,7 +37,7 @@ function moveAt(rows: string[], from: number, to: number): string[] {
 
 export function RecipeEditor({ note, onClose }: { note: Rec<'note'>; onClose: () => void }) {
   const insets = useSafeAreaInsets();
-  const { mutate } = useStore();
+  const { mutate, session } = useStore();
   const parsed = recipeFromPages([note.payload.body]);
   // recipeFromPages CONSUMES the line it read as a title. When the note
   // already has a title of its own, that line has no home to go to — and
@@ -119,7 +119,12 @@ export function RecipeEditor({ note, onClose }: { note: Rec<'note'>; onClose: ()
     if (!url) return;
     setBusy('Reading that page…');
     try {
-      const res = await apiPost<{ html?: string; error?: string }>('recipe_fetch', { url });
+      if (!session) {
+        setBusy('Sign in to import from a link.');
+        setTimeout(() => setBusy(''), 4000);
+        return;
+      }
+      const res = await apiPost<{ html?: string }>(session.serverUrl, { action: 'recipe_fetch', url }, session.token);
       const r = res.html ? recipeFromHtml(res.html) : null;
       if (!r) {
         // A page with no recipe in it is the common case for a wrong paste,

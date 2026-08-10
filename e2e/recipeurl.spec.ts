@@ -65,8 +65,14 @@ test('a recipe link fills in ingredients and steps, and nothing else', async ({ 
   await page.getByTestId('recipe-url').fill('https://example.com/pancakes');
   await page.getByTestId('recipe-url-go').click();
 
-  await expect(page.getByText('2 cups flour')).toBeVisible({ timeout: 10_000 });
-  await expect(page.getByText('½ cup milk')).toBeVisible();
+  // The editor splits an ingredient into a NAME and a right-justified
+  // measure badge, so the row is 'flour' + '2 cups', not one string. Assert
+  // what the screen does — an assertion written against the raw text passed
+  // while the parse was broken and failed once it worked.
+  await expect(page.getByText('flour', { exact: true })).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByText('2 cups', { exact: true })).toBeVisible();
+  await expect(page.getByText('milk', { exact: true })).toBeVisible();
+  await expect(page.getByText('½ cup', { exact: true })).toBeVisible();
   await expect(page.getByText('Mix the dry things')).toBeVisible();
   await expect(page.getByText('Add the wet things')).toBeVisible();
 

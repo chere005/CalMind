@@ -52,9 +52,20 @@ struct Feed: Codable {
     let folders: [WFolder]?
 }
 
-private func loadFeed() -> Feed? {
-    guard let raw = UserDefaults(suiteName: GROUP)?.data(forKey: CACHE) else { return nil }
-    return try? JSONDecoder().decode(Feed.self, from: raw)
+/// What the widget knows. Three states, never collapsed into one: a widget
+/// that draws 'Nothing due' when it actually failed to read the list is the
+/// same bug that cost an evening on the watch — a failure rendered as a
+/// normal, reassuring screen.
+enum Load {
+    case waiting            // CalMind has not written a cache yet
+    case ok(Feed)
+    case failed
+}
+
+private func loadFeed() -> Load {
+    guard let raw = UserDefaults(suiteName: GROUP)?.data(forKey: CACHE) else { return .waiting }
+    guard let feed = try? JSONDecoder().decode(Feed.self, from: raw) else { return .failed }
+    return .ok(feed)
 }
 
 private func todayStr() -> String {
@@ -100,7 +111,8 @@ struct FolderQuery: EntityQuery {
     }
     func suggestedEntities() async throws -> [FolderOption] { all() }
     private func all() -> [FolderOption] {
-        (loadFeed()?.folders ?? []).map { FolderOption(id: $0.id, name: $0.name) }
+        guard case let .ok(feed) = loadFeed() else { return [] }
+        return (feed.folders ?? []).map { FolderOption(id: $0.id, name: $0.name) }
     }
 }
 
@@ -154,11 +166,13 @@ struct Line: Identifiable {
 struct Entry: TimelineEntry {
     let date: Date
     let days: [(String, [Line])]
+    /// Carried so the view can say WHICH empty it is.
+    let state: Load
 }
 
 struct Provider: AppIntentTimelineProvider {
     func placeholder(in context: Context) -> Entry {
-        Entry(date: Date(), days: [("TODAY", [Line(id: "x", text: "Water the plants", time: nil, isReminder: true, overdue: false, color: LABEL)])])
+        Entry(date: Date(), days: [("TODAY", [Line(id: "x", text: "Water the plants", time: nil, isReminder: true, overdue: false, color: LABEL)])], state: .waiting)
     }
 
     func snapshot(for configuration: SelectFolders, in context: Context) async -> Entry {
@@ -173,7 +187,8 @@ struct Provider: AppIntentTimelineProvider {
     }
 
     private func build(_ configuration: SelectFolders) -> Entry {
-        guard let feed = loadFeed() else { return Entry(date: Date(), days: []) }
+        let state = loadFeed()
+        guard case let .ok(feed) = state else { return Entry(date: Date(), days: [], state: state) }
         let today = todayStr()
         let ticked = Set(UserDefaults(suiteName: GROUP)?.stringArray(forKey: TICKS) ?? [])
         // No selection means everything — an empty picker should not mean an
@@ -199,7 +214,7 @@ struct Provider: AppIntentTimelineProvider {
             // Overdue collapses into today rather than trailing behind it.
             .filter { $0 >= today || !byDay[$0]!.isEmpty }
             .map { ($0, byDay[$0]!.sorted { ($0.time ?? "") < ($1.time ?? "") }) }
-        return Entry(date: Date(), days: Array(days.prefix(6)))
+        return Entry(date: Date(), days: Array(days.prefix(6)), state: state)
     }
 }
 
@@ -228,7 +243,14 @@ struct HomeWidgetView: View {
             .padding(.bottom, 8)
 
             if entry.days.isEmpty {
-                Text("Nothing due.").font(.system(size: 12)).foregroundStyle(META)
+                switch entry.state {
+                case .waiting:
+                    Text("Open CalMind once").font(.system(size: 12)).foregroundStyle(META)
+                case .failed:
+                    Text("Can't read the list").font(.system(size: 12)).foregroundStyle(OVERDUE)
+                case .ok:
+                    Text("Nothing due.").font(.system(size: 12)).foregroundStyle(META)
+                }
             } else {
                 content
             }

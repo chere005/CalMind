@@ -431,7 +431,12 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
               placeholder="Write…"
               placeholderTextColor={T.muted}
               multiline
-              autoFocus
+              // NO autoFocus. It used to grab focus the instant the editor
+              // opened, which fought the title focus on a brand-new note:
+              // title wins the race, body blurs, and onBlur below collapses
+              // the editor straight back to a read view. The body is focused
+              // deliberately by whoever opened it (tap-to-edit, just below)
+              // rather than by racing.
               onBlur={() => {
                 setBodyEditing(false);
                 setDraft(null);
@@ -453,6 +458,8 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
                 if (scale !== 1) return;
                 setDraft(open.payload.body);
                 setBodyEditing(true);
+                // The field does not exist until this has rendered.
+                setTimeout(() => bodyRef.current?.focus(), 50);
               }}
             >
               {shownBody === '' ? (
