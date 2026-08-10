@@ -130,5 +130,23 @@ function fetch_url(string $url, int $hops = 0): array
     if (strlen($body) > FETCH_MAX_BYTES) {
         return $no('that file is too big');
     }
-    return ['ok' => $status >= 200 && $status < 300, 'status' => $status, 'body' => $body, 'error' => ''];
+    // A non-2xx used to come back with error:'' — technically true, since
+    // nothing went wrong at THIS end, and useless to everyone above. The
+    // recipe importer showed a blank message for a site that had plainly
+    // refused it, which read to the user as a dead button. Every caller of
+    // this deserves a sentence, so say it here once rather than in each of
+    // them.
+    $ok = $status >= 200 && $status < 300;
+    $why = '';
+    if (!$ok) {
+        $why = match (true) {
+            $status === 0   => 'that page did not answer',
+            $status === 403,
+            $status === 401 => "that site refused this server ($status) — some block them",
+            $status === 404 => 'there is nothing at that address (404)',
+            $status >= 500  => "that site is having trouble ($status)",
+            default         => "that site answered $status",
+        };
+    }
+    return ['ok' => $ok, 'status' => $status, 'body' => $body, 'error' => $why];
 }
