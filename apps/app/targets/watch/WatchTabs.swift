@@ -169,26 +169,49 @@ struct MonthView: View {
         let days = cal.range(of: .day, in: .month, for: now)?.count ?? 30
         let first = cal.date(from: cal.dateComponents([.year, .month], from: now))!
         let lead = (cal.component(.weekday, from: first) - cal.firstWeekday + 7) % 7
-        let cols = Array(repeating: GridItem(.flexible(), spacing: 2), count: 7)
+        // Rows built BY HAND rather than with LazyVGrid.
+        //
+        // The grid was handed correct data — a diagnostic confirmed
+        // ym=2026-08 days=31 lead=6 weekdayOfFirst=7, all right — and still
+        // dropped its first eleven cells: the whole leading row and the 1st
+        // through 5th, with everything from the 6th on placed perfectly. Three
+        // theories died against that (an empty Text() cell not being laid out,
+        // a row hidden above, lazy materialisation), and the arithmetic was
+        // never wrong. Seven cells to a row in an HStack is boring, has no
+        // laziness to misjudge, and can be read at a glance.
+        let cells: [Int?] = Array(repeating: nil, count: lead) + (1...days).map { Optional($0) }
+        let weeks = stride(from: 0, to: cells.count, by: 7).map {
+            Array(cells[$0 ..< min($0 + 7, cells.count)])
+        }
         ScrollView {
             Text(now.formatted(.dateTime.month(.wide)))
                 .font(.headline)
-            LazyVGrid(columns: cols, spacing: 3) {
-                ForEach(0..<lead, id: \.self) { _ in Text("") }
-                ForEach(1...days, id: \.self) { d in
-                    let ds = String(format: "%@-%02d", ym, d)
-                    VStack(spacing: 1) {
-                        Text("\(d)")
-                            .font(.system(size: 11))
-                            .foregroundStyle(ds == today ? Color.green : .primary)
-                        Circle()
-                            .fill(dated.contains(ds) ? Color.accentColor : .clear)
-                            .frame(width: 4, height: 4)
+            VStack(spacing: 3) {
+                ForEach(Array(weeks.enumerated()), id: \.offset) { _, week in
+                    HStack(spacing: 2) {
+                        ForEach(0..<7, id: \.self) { i in
+                            let d = i < week.count ? week[i] : nil
+                            VStack(spacing: 1) {
+                                Text(d.map(String.init) ?? " ")
+                                    .font(.system(size: 11))
+                                    .foregroundStyle(
+                                        d.map { String(format: "%@-%02d", ym, $0) } == today ? Color.green : .primary)
+                                Circle()
+                                    .fill(d.map { dated.contains(String(format: "%@-%02d", ym, $0)) } == true
+                                          ? Color.accentColor : .clear)
+                                    .frame(width: 4, height: 4)
+                            }
+                            .frame(maxWidth: .infinity)
+                        }
                     }
                 }
             }
         }
         .navigationTitle("Month")
+        .onAppear {
+            NSLog("[MonthView] ym=%@ days=%d lead=%d firstWeekday=%d weekdayOfFirst=%d",
+                  ym, days, lead, cal.firstWeekday, cal.component(.weekday, from: first))
+        }
     }
 }
 
