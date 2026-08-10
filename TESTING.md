@@ -112,6 +112,29 @@ than a red run, because it looks like an answer.
   Proven by breaking one copy's drop-the-':00' rule and watching six
   mismatches appear.
 
+  `tools/check-watch-feed.sh` covers the seam BETWEEN the two languages,
+  which is where the worst watch bug so far actually lived. core's
+  `watchFeed()` writes the JSON and `WatchStore.swift`'s Codable structs
+  read it; both sides were fully tested and both were green while the wrist
+  showed a flat, ungrouped page for a week. Each side had been tested
+  against its own idea of the shape, and nothing ran them against each
+  other. So this generates the fixture with the real `watchFeed` and decodes
+  it with the real structs — including a folder carrying no `app` field,
+  the milestone-1 shape Sean's oldest folders still have, which is the exact
+  record the feed was dropping.
+
+  It also runs the wrist's one piece of its own logic: `drawnGroups`, the
+  fallback that draws a flat list when a payload arrives with no groups.
+  That was a computed property over `store`, so it could only ever execute
+  inside a rendered view on a watch; it is static and pure now for no other
+  reason than that something can call it. Both branches are checked.
+
+  Proven the only way that counts — by restoring each original bug and
+  watching it go red: the strict `app === 'reminders'` comparison drops
+  Home and collapses three groups to two, and removing the fallback turns
+  four rows into zero, which is the blank page a watchOS simulator caught
+  before Sean's wrist did.
+
   It also caught a test of its own making: a hardcoded date passed until
   midnight and then failed for reasons unrelated to the code. The harness
   derives its dates now.

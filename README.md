@@ -100,6 +100,9 @@ npm run test:core                            # vitest, incl. the spec/*.json rep
 npm run test:server                          # boots php -S on a scratch dir, drives real HTTP
 npm run test:e2e                             # exports the web app, then drives real gestures
 npm run test:webkit                          # the spine + the header rules, in Sean's engine
+npm run test:watch                           # the two Swift copies agree, and the wrist
+                                             #   decodes what core actually sends
+npm run test:deploy                          # the deploy guards, proven by breaking copies
 ./desktop/smoke.sh                           # macOS: builds, carries THIS export, runs, quits
 php -S 127.0.0.1:8788 -t server/public       # the API
 npm run web                                  # Expo web on :8081 (proxies nothing — talks to :8788)

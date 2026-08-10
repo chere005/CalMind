@@ -33,9 +33,18 @@ struct ReminderListView: View {
     /// launch of this build would have shown him nothing at all until a fresh
     /// push arrived. One flat group is a poor layout and an honest one; the
     /// next push replaces it.
+    /// Pure and static so something can actually RUN it. As a computed
+    /// property over `store` it could only execute inside a rendered view on
+    /// a watch — which is the same "behaviour nothing can reach" that put the
+    /// grouping rules in core in the first place. tools/check-watch-feed.sh
+    /// calls this one directly.
+    static func drawnGroups(groups: [WatchGroup], items: [WatchItem]) -> [WatchGroup] {
+        if !groups.isEmpty { return groups }
+        return [WatchGroup(folderName: nil, sections: [.init(sectionName: nil, items: items)])]
+    }
+
     private var drawn: [WatchGroup] {
-        if !store.groups.isEmpty { return store.groups }
-        return [WatchGroup(folderName: nil, sections: [.init(sectionName: nil, items: store.items)])]
+        Self.drawnGroups(groups: store.groups, items: store.items)
     }
     var body: some View {
         Group {
