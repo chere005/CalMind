@@ -365,7 +365,11 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
               <Text style={[s.rowText, r.payload.done && s.rowDone]}>{r.payload.text}</Text>
             </Pressable>
             {overdue && <Text style={[s.chip, { color: T.overdue }]}>{dueLabel(r.payload.due!)}</Text>}
-            {rider && <Text style={s.chip}>every day</Text>}
+            {/* The ride-along folder's reminders sit under TODAY every day
+                until they are ticked. The chip used to say "every day", which
+                describes the rule rather than the row: the row is here, on
+                this day, and "today" is what it is doing. Sean's wording. */}
+            {rider && <Text style={s.chip}>today</Text>}
             {r.payload.time && <Text style={s.chip}>{timeLabel(r.payload.time)}</Text>}
             {panelEdit && (
               <>

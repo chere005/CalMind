@@ -681,10 +681,18 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
                   .sort((a, b) => byOrd(a.payload, b.payload))
                   .map((sec) => (
                     <View key={sec.id} style={s.section}>
-                      <View style={s.secHead}>
+                      {/* A partner's section collapses like my own. The
+                          folder above it already did; the sections inside it
+                          did not, so the only way to put one away was to put
+                          the whole partner away. Keyed 'sh:' so a shared
+                          section id can never collide with one of mine, and
+                          the fold is MINE — device-local, never written to
+                          their store, never synced. */}
+                      <Pressable testID={`shared-secfold-${sec.payload.name}`} style={s.secHead} onPress={() => toggleNFold(`sh:${sec.id}`)} hitSlop={8}>
+                        <View style={s.chevWrap}><WebHitSlop /><Chevron open={!nfolded.has(`sh:${sec.id}`)} /></View>
                         <Text style={s.secName}>{sec.payload.name}</Text>
-                      </View>
-                      {sharedRecs
+                      </Pressable>
+                      {!nfolded.has(`sh:${sec.id}`) && sharedRecs
                         .filter((r): r is Rec<'note'> => r.type === 'note' && r.payload.sectionId === sec.id)
                         .sort((a, b) => byOrd(a.payload, b.payload))
                         .map((n) => (

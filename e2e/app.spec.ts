@@ -484,6 +484,20 @@ test('sharing: mutual handshake, @partner view, a tick lands in their store', as
   await pageB.getByTestId('pick-reminders').click();
   await pageB.getByText('All', { exact: true }).click();
   await expect(pageB.getByText('chop onions')).toBeVisible({ timeout: 15_000 });
+
+  // A partner's SECTION folds, not just their folder. Sean asked for this
+  // because the folder was the only handle: putting one section away meant
+  // putting the whole partner away. The fold is B's own — device-local, never
+  // written to A's store — so A must be unaffected, which is what the last
+  // assertion here is for.
+  await pageB.getByTestId('shared-secfold-General').first().click();
+  await expect(pageB.getByText('chop onions')).toBeHidden({ timeout: 5_000 });
+  await pageB.getByTestId('shared-secfold-General').first().click();
+  await expect(pageB.getByText('chop onions')).toBeVisible({ timeout: 5_000 });
+  // A still sees their own row: B folding it away is a view, not an edit.
+  await pageA.getByTestId('tab-reminders').click();
+  await expect(pageA.getByText('chop onions')).toBeVisible({ timeout: 10_000 });
+
   await pageB.getByTestId('all-shared-tick').first().click();
   await expect(pageB.getByText('chop onions')).toBeHidden({ timeout: 10_000 });
 
