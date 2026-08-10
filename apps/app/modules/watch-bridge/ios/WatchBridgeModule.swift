@@ -66,6 +66,11 @@ final class WatchSession: NSObject, WCSessionDelegate {
           s.isWatchAppInstalled ? "yes" : "NO",
           s.isReachable ? "yes" : "no",
           json.count)
+    // Whether the feed carries events at all, without putting Sean's data in
+    // a log: an empty array is a distinct substring. 'No events on the watch'
+    // is either the phone sending none or the watch not drawing them, and
+    // those have opposite fixes.
+    NSLog("[WatchBridge] events empty=%@", json.contains("\"events\":[]") ? "YES" : "no")
     do {
       try s.updateApplicationContext(["list": json])
       pending = nil
