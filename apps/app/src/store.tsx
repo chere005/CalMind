@@ -322,18 +322,46 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   // Boot: restore the session and its snapshot, then catch up with the server.
   useEffect(() => {
     (async () => {
-      const raw = await AsyncStorage.getItem(SESSION_KEY);
-      if (raw) {
-        const s = JSON.parse(raw) as Session;
-        const snap = await AsyncStorage.getItem(snapKey(s.username));
-        engineRef.current = SyncEngine.fromSnapshot(snap ? JSON.parse(snap) : null);
-        hydratedRef.current = engineRef.current.toSnapshot().cursor > 0;
-        setSessionState(s);
-        sessionRef.current = s;
-        refresh();
-        void syncNow();
+      // NOTHING here may prevent setReady(true). Unguarded, this was the
+      // worst failure in the app: a corrupt session or snapshot in storage —
+      // or storage simply refusing — threw out of this function, setReady
+      // never ran, and the app sat on its loading screen FOREVER. Not an
+      // error, not a login page: a permanent blank. And it would survive
+      // every relaunch, because the bad bytes are still there.
+      //
+      // So each step is allowed to fail on its own terms: an unreadable
+      // session means signed out, an unreadable snapshot means a fresh
+      // engine. Damaged data costs you a login, never the app.
+      try {
+        const raw = await AsyncStorage.getItem(SESSION_KEY).catch(() => null);
+        let s: Session | null = null;
+        try {
+          s = raw ? (JSON.parse(raw) as Session) : null;
+        } catch {
+          // A session that will not parse is not a session. Drop it rather
+          // than meet it again on every launch.
+          await AsyncStorage.removeItem(SESSION_KEY).catch(() => {});
+        }
+        if (s) {
+          const snap = await AsyncStorage.getItem(snapKey(s.username)).catch(() => null);
+          let parsed: unknown = null;
+          try {
+            parsed = snap ? JSON.parse(snap) : null;
+          } catch {
+            // The snapshot is a CACHE of what the server holds. Losing it
+            // costs a resync, which the sync below does anyway.
+            parsed = null;
+          }
+          engineRef.current = SyncEngine.fromSnapshot(parsed as never);
+          hydratedRef.current = engineRef.current.toSnapshot().cursor > 0;
+          setSessionState(s);
+          sessionRef.current = s;
+          refresh();
+          void syncNow();
+        }
+      } finally {
+        setReady(true);
       }
-      setReady(true);
     })();
   }, [refresh, syncNow]);
 
