@@ -89,6 +89,7 @@ export function CalendarPick() {
                           ? { hidden: calendars.map((c) => c.id), hiddenShared: sharedCals.map((c) => c.id) }
                           : { lastView: 'all', hidden: [], hiddenShared: [] })}
                       >
+                        <WebHitSlop />
                         <Text style={[s.box, allOn && s.boxOn]}>{allOn ? '☑' : '☐'}</Text>
                       </Pressable>
                       <Pressable style={s.rowMain} onPress={() => { setPrefs({ lastView: 'all', hidden: [], hiddenShared: [] }); setOpen(false); }}>
@@ -106,6 +107,7 @@ export function CalendarPick() {
                         hitSlop={8}
                         onPress={() => setPrefs({ hidden: off ? hidden.filter((id) => id !== c.id) : [...hidden, c.id], lastView: 'all' })}
                       >
+                        <WebHitSlop />
                         <Text style={[s.box, !off && s.boxOn]}>{off ? '☐' : '☑'}</Text>
                       </Pressable>
                       <Pressable style={s.rowMain} onPress={() => { setPrefs({ lastView: c.id, hidden: calendars.filter((x) => x.id !== c.id).map((x) => x.id), hiddenShared: sharedCals.map((x) => x.id) }); setOpen(false); }}>
@@ -125,6 +127,7 @@ export function CalendarPick() {
                         hitSlop={8}
                         onPress={() => setPrefs({ hiddenShared: off ? hiddenShared.filter((id) => id !== c.id) : [...hiddenShared, c.id] })}
                       >
+                        <WebHitSlop />
                         <Text style={[s.box, !off && s.boxOn]}>{off ? '☐' : '☑'}</Text>
                       </Pressable>
                       <View style={s.rowMain}>
