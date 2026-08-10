@@ -130,12 +130,31 @@ WHY IT IS STILL HERE. Two fixes were tried and both were worse:
 
 Reverted to the committed state rather than leave a half-fix in the tree.
 
-WHAT TO DO. The real answer is probably that the body should not be focused
-imperatively at all — the editor should mount already focused, once, with no
-second actor. That means untangling `useNoteScoped`'s reset, the body's
-onBlur collapse, and the fresh-note effect together, with the WebKit suite
-run alongside the Chromium one throughout. Not a small change, and not one
-to make at 2am.
+THE MECHANISM, found on the fourth failure and worth more than the fixes
+were. The body's `onBlur -> setBodyEditing(false)` collapses the editor
+whenever focus LEAVES IT — including to the title of the same note. So with
+synchronous focus: + focuses the body, filling the title blurs it, the
+editor collapses, and the `note-body-edit` a spec then reaches for is gone.
+That is exactly why removing the deferral broke notesswitch and both
+recipeurl specs: all three do + -> title -> body.
+
+Which means the 50ms delay is not incidental. Those specs DEPEND on the
+steal — the body gets focus back after the title is filled, so the field is
+still there for them. Any fix that stops the theft must also decide what
+tapping the title should do to an open body editor.
+
+WHAT TO DO — and it is a DESIGN question for Sean, not a bug to hunt.
+Today, moving focus to the title closes the body editor and renders its
+markers ('note body renders its markers as styled text when you tap away'
+asserts precisely that). If instead the title is treated as part of the same
+editing session — blur to the title leaves the body open — the race
+disappears, the body can be focused synchronously at mount, and the specs
+stop needing the steal. That is a coherent design and probably the right
+one, but it changes what 'tap away' means and is his call.
+
+Whoever does it: change `useNoteScoped`'s reset, the onBlur collapse and the
+fresh-note effect TOGETHER, and run BOTH configs after every step. Four
+one-at-a-time patches each fixed one spec and broke another.
 
 RUN IT: `npx playwright test --config=playwright.webkit.config.ts`. That
 config had never been run in this session before tonight, which is how a
