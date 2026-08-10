@@ -24,6 +24,19 @@ struct ReminderListView: View {
     /// Nothing is decided here. core's watchGroups made every call — which
     /// folder gets a header, which section does, what happens to a row whose
     /// folder never arrived — and those rules are tested there. This draws.
+    ///
+    /// EXCEPT for one fallback, which a watchOS simulator caught before Sean's
+    /// wrist did: a cache written before `groups` existed decodes with items
+    /// but no groups (`list.groups ?? []`), and drawing groups then produced a
+    /// completely BLANK page — not even the empty state, because items was not
+    /// empty. His watch is in exactly that state right now, so the first
+    /// launch of this build would have shown him nothing at all until a fresh
+    /// push arrived. One flat group is a poor layout and an honest one; the
+    /// next push replaces it.
+    private var drawn: [WatchGroup] {
+        if !store.groups.isEmpty { return store.groups }
+        return [WatchGroup(folderName: nil, sections: [.init(sectionName: nil, items: store.items)])]
+    }
     var body: some View {
         Group {
             if store.items.isEmpty {
@@ -33,7 +46,7 @@ struct ReminderListView: View {
                     .foregroundStyle(.secondary)
             } else {
                 List {
-                    ForEach(Array(store.groups.enumerated()), id: \.offset) { _, group in
+                    ForEach(Array(drawn.enumerated()), id: \.offset) { _, group in
                         Section {
                             ForEach(Array(group.sections.enumerated()), id: \.offset) { _, part in
                                 if let s = part.sectionName {
