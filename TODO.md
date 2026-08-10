@@ -189,12 +189,24 @@ reserved those columns. Replacing it with `Color.clear.frame(height: 1)` —
 which does have a frame — changed NOTHING on screen. Do not spend time there
 again.
 
-What the pixels actually say: reading the grid by column, `6` sits in column
-5 of its row, which is exactly where the 6th of August belongs in the week
-beginning Sunday the 2nd. So the row is correct and cells 2, 3, 4, 5 of it
-are absent, as is the entire preceding row (six blanks and the 1st). Eleven
-consecutive cells from the start of the grid, and the twelfth onward draw
-perfectly. That pattern — a clean prefix missing — is what to explain next.
+MEASURED, so the next attempt does not start from an impression. On a
+416px-wide screenshot the seven columns sit at x = 30, 89, 148, 207, 266,
+325, 384. The first drawn row has lit spans at 261-272, 320-330 and 379-390
+— columns 5, 6 and 7 — and the digits are unambiguously 6, 7, 8. For the
+week beginning Sunday the 2nd, that is exactly where the 6th, 7th and 8th
+belong, so the PLACEMENT is right.
+
+A vertical brightness scan shows the title band at y=112-144 and the first
+grid row at y=168-184, a gap of ~24px where a row is ~42px. So there is no
+row hidden above and nothing is merely scrolled off: the grid's first eleven
+cells (six leading blanks, then the 1st through the 5th) are simply not
+drawn, and everything from the 6th onward is perfect.
+
+A clean missing PREFIX of exactly one row plus four cells is the thing to
+explain. Suspect LazyVGrid materialisation next, not the cell contents —
+and note that a swipe does not scroll a watchOS ScrollView (the crown does,
+and the simulator harness cannot turn it), so 'scroll up to check' is not
+available by that route.
 
 NOT a regression: `git log` shows MonthView untouched this session. It has
 been wrong for as long as the page has existed, and nobody saw it because
