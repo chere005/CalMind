@@ -32,7 +32,7 @@ test('a note deleted on another device leaves its editor gracefully, not blank',
   await page.getByTestId('tab-notes').click();
   await page.getByTestId('secadd-General').first().click();
   await page.getByTestId('note-title').fill('doomed');
-  await page.getByText('← All notes').click();
+  await page.getByTestId('note-back').click();
   await page.waitForTimeout(2_000); // let the push land
 
   // The other device deletes it.

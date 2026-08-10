@@ -13,7 +13,7 @@ import { expect, test } from '@playwright/test';
  * body of "Pasta Aglio, Olio e Peperoncino", one keypress from replacing it.
  *
  * READ THIS BEFORE TRUSTING IT. This spec passes with the fix and WITHOUT it,
- * measured both ways. On the web, clicking "← All notes" blurs the field, and
+ * measured both ways. On the web, clicking the editor BACK button blurs the field, and
  * the blur handler clears the draft — so the browser never reaches the state
  * that broke. On iOS a tap elsewhere does not blur a TextInput, the draft
  * survives, and the next note opens wearing it. The fix (clearing the drafts
@@ -47,14 +47,14 @@ test('opening a second note never shows the first one’s text', async ({ page }
     await page.getByTestId('secadd-General').first().click();
     await page.getByTestId('note-title').fill(title!);
     await page.getByTestId('note-body-edit').fill(body!);
-    await page.getByText('← All notes').click();
+    await page.getByTestId('note-back').click();
   }
 
   // Open Alpha and put the cursor in its body — that is what arms the draft.
   await page.getByTestId('note-row').filter({ hasText: 'Alpha' }).click();
   await page.getByTestId('note-body-view').click();
   await expect(page.getByTestId('note-body-edit')).toHaveValue('the first recipe');
-  await page.getByText('← All notes').click();
+  await page.getByTestId('note-back').click();
 
   // Now Beta. It must be Beta's own words, and not already in an editor.
   await page.getByTestId('note-row').filter({ hasText: 'Beta' }).click();
@@ -67,7 +67,7 @@ test('opening a second note never shows the first one’s text', async ({ page }
   await page.getByTestId('note-body-view').click();
   await page.getByTestId('note-body-edit').press('End');
   await page.getByTestId('note-body-edit').type('!');
-  await page.getByText('← All notes').click();
+  await page.getByTestId('note-back').click();
   await page.reload();
   await page.getByTestId('tab-notes').click();
   await page.getByTestId('note-row').filter({ hasText: 'Beta' }).click();

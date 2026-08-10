@@ -120,6 +120,29 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
   // finished reminders wears no stray heading until Completed is switched on.
   const myReminders = useMemo(() => items.reminders.filter(({ rec: r }) => showDone || !r.payload.done), [items, showDone]);
   const theirReminders = useMemo(() => sharedItems.reminders.filter(({ rec: r }) => !r.payload.done), [sharedItems]);
+  /**
+   * The groups the day panel can draw, so collapse-all knows what "all" is.
+   * Only the ones actually on screen count — a key for a group that is not
+   * drawn would make the arrow claim everything is folded while something
+   * visible is still open.
+   */
+  const groupKeys = useMemo(() => {
+    const keys: string[] = [];
+    if (items.events.length) keys.push('events');
+    if (sharedItems.events.length) keys.push('events:@');
+    if (myReminders.length) keys.push('reminders');
+    if (theirReminders.length) keys.push('reminders:@');
+    if (items.notes.length) keys.push('notes');
+    if (sharedItems.notes.length) keys.push('notes:@');
+    return keys;
+  }, [items, sharedItems, myReminders, theirReminders]);
+  const allCollapsed = groupKeys.length > 0 && groupKeys.every((k) => folded.has(k));
+  const collapseAllGroups = () => {
+    const next = allCollapsed ? new Set<string>() : new Set(groupKeys);
+    setFolded(next);
+    AsyncStorage.setItem('calmind.calFold', JSON.stringify([...next])).catch(() => {});
+  };
+
   const calById = useMemo(() => new Map(recs.filter((r): r is Rec<'calendar'> => r.type === 'calendar').map((c) => [c.id, c.payload])), [recs]);
 
   const page = (dir: -1 | 1) => {
@@ -283,7 +306,28 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
       {/* The picker does not come and go with the view. Dropping it in week
           mode took the folder dropdown away AND shifted everything left of it
           — two complaints from one line. */}
-      <TopBar title="Calendar" picker={<CalendarPick />} />
+      {/* Measured across all four tabs: the bar's geometry is already
+          identical everywhere — back at x16, picker at x184, everything
+          centred on the same line. The ONLY difference was that Calendar had
+          no collapse-all, leaving a 140pt gap where the others have one. Its
+          day panel has foldable groups, so it gets the same control in the
+          same place rather than the bar having a hole on one tab. */}
+      <TopBar
+        title="Calendar"
+        controls={
+          <Pressable
+            onPress={collapseAllGroups}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel={allCollapsed ? 'Expand all' : 'Collapse all'}
+            style={s.collapseAllBtn}
+          >
+            <WebHitSlop />
+            <Chevron open={!allCollapsed} double />
+          </Pressable>
+        }
+        picker={<CalendarPick />}
+      />
       {/* The date centred over the grid; ◉ jumps home to today. */}
       <View style={s.pagerRow}>
         <CircleBtn testID="cal-prev" glyph="‹" label="Previous" size={32} onPress={() => page(-1)} />
@@ -472,7 +516,17 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
         {!folded.has('notes') && items.notes.map((n) => (
           <View key={n.id} {...swipe.handlersFor(n.id)} style={[s.row, s.rowNoSelect]}>
             <Text style={[s.markGlyph, { color: T.dim }]}>▤</Text>
-            <Pressable style={s.rowBodyFlex} onPress={() => rowPress(n.id)} onLongPress={() => setPanelEdit(true)} delayLongPress={350}>
+            {/* Sean: tapping a note here goes straight into EDITING it, not
+                to a read view and not to the notes list. A note on a day is
+                something you opened the calendar to work on. The double-tap
+                still arms the panel's edit mode for the row controls. */}
+            <Pressable
+              testID="dp-note-row"
+              style={s.rowBodyFlex}
+              onPress={() => { rowPress(n.id); onNoteCreated?.(n.id); }}
+              onLongPress={() => setPanelEdit(true)}
+              delayLongPress={350}
+            >
               <Text style={s.rowText}>{n.payload.title}</Text>
             </Pressable>
             {panelEdit && (
@@ -564,6 +618,9 @@ const s = themed(() => StyleSheet.create({
   markGlyph: { fontSize: 10, color: T.dim },
   panel: { flex: 1 },
   panelInner: { padding: 16, gap: 8 },
+  // The same box the other three tabs use for collapse-all — the bar has to
+  // look identical, not merely similar.
+  collapseAllBtn: { width: 26, height: 26, borderRadius: 13, borderWidth: 1, borderColor: T.line, alignItems: 'center', justifyContent: 'center' },
   panelHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   panelTitle: { color: T.gold, fontSize: 15, fontWeight: '700' },
   row: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 4 },

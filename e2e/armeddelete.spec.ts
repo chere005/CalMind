@@ -29,18 +29,18 @@ test('arming delete on one note does not prime it on the next', async ({ page })
   for (const title of ['Keep me', 'Also keep me']) {
     await page.getByTestId('secadd-General').first().click();
     await page.getByTestId('note-title').fill(title);
-    await page.getByText('← All notes').click();
+    await page.getByTestId('note-back').click();
   }
 
   // Arm the delete on the first note, then think better of it and leave.
   await page.getByTestId('note-row').filter({ hasText: 'Keep me' }).first().click();
   await page.getByText('Delete', { exact: true }).click();
-  await page.getByText('← All notes').click();
+  await page.getByTestId('note-back').click();
 
   // Open the other note and press Delete ONCE. That is an arming press.
   await page.getByTestId('note-row').filter({ hasText: 'Also keep me' }).click();
   await page.getByText('Delete', { exact: true }).click();
-  await page.getByText('← All notes').click();
+  await page.getByTestId('note-back').click();
 
   await expect(
     page.getByTestId('note-row').filter({ hasText: 'Also keep me' }),

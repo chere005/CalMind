@@ -40,7 +40,7 @@ test('a newer edit from another device does not eat the sentence being typed', a
   await page.getByTestId('tab-notes').click();
   await page.getByTestId('secadd-General').first().click();
   await page.getByTestId('note-title').fill('shared note');
-  await page.getByText('← All notes').click();
+  await page.getByTestId('note-back').click();
   await page.waitForTimeout(2_000);
 
   // The other device signs in and opens the same note.
@@ -96,7 +96,7 @@ test('the same holds for the title, which has no edit mode to hide behind', asyn
   await page.getByTestId('tab-notes').click();
   await page.getByTestId('secadd-General').first().click();
   await page.getByTestId('note-title').fill('working title');
-  await page.getByText('← All notes').click();
+  await page.getByTestId('note-back').click();
   await page.waitForTimeout(2_000);
 
   const other = await context.browser()!.newContext();

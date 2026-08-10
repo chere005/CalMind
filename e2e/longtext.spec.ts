@@ -57,7 +57,7 @@ test('a long line does not push the page sideways', async ({ page }) => {
   await page.getByTestId('secadd-General').first().click();
   await page.getByTestId('note-title').fill(LONG);
   await page.getByTestId('note-body-edit').fill(`${NOSPACE}\n${LONG}`);
-  await page.getByText('← All notes').click();
+  await page.getByTestId('note-back').click();
   expect(await overflow(page), 'the notes list stays inside the screen').toBeLessThanOrEqual(0);
 
   // And the row is still a row: it opens, rather than being a wall of text

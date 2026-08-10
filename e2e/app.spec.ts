@@ -163,12 +163,18 @@ test('a note drags between folders and re-files', async ({ page }) => {
   await page.getByText('Done', { exact: true }).click();
   // One note in each folder's General.
   const adds = page.getByTestId('secadd-General');
+  // Assert the field HOLDS the name before navigating away. Without this the
+  // spec raced note creation: one run in three left the row showing its
+  // default 'Aug 10, 2026 at 5:26pm' title, and the failure pointed at the
+  // drag rather than at the setup that had not finished.
   await adds.first().click();
   await page.getByTestId('note-title').fill('first note');
-  await page.getByText('← All notes').click(); // the editor auto-opens on create
+  await expect(page.getByTestId('note-title')).toHaveValue('first note');
+  await page.getByTestId('note-back').click(); // the editor auto-opens on create
   await adds.nth(1).click();
   await page.getByTestId('note-title').fill('second note');
-  await page.getByText('← All notes').click();
+  await expect(page.getByTestId('note-title')).toHaveValue('second note');
+  await page.getByTestId('note-back').click();
   // Drag the first note down past the second (into the Recipes General).
   const rows = page.getByTestId('note-row');
   await expect(rows).toHaveCount(2);
@@ -521,7 +527,7 @@ test('Notes edit mode can be left the same two ways Reminders can', async ({ pag
   await page.getByTestId('tab-notes').click();
   await page.getByTestId('secadd-General').first().click();
   await page.getByTestId('note-title').fill('leave me');
-  await page.getByText('← All notes').click();
+  await page.getByTestId('note-back').click();
 
   await longPress(page, page.getByTestId('note-row').filter({ hasText: 'leave me' }));
   await expect(page.getByTestId('notes-edit-done')).toBeVisible();
@@ -601,6 +607,43 @@ test('Habits enters edit mode by HOLDING, and leaves by tapping outside', async 
   // Holding a HABIT enters it too — Sean named both.
   await longPress(page, page.getByTestId('habit-name').first());
   await expect(page.getByTestId('habit-grip').first()).toBeVisible();
+});
+
+test('a note takes a date from the LIST, and the calendar opens it for editing', async ({ page }) => {
+  // Sean's three: a calendar icon beside duplicate so a date can be put on a
+  // note without opening it; the mini editor with exactly remove / today /
+  // done; and tapping a note in the calendar opening it straight into
+  // editing rather than a read view.
+  await signup(page);
+  await page.getByTestId('tab-notes').click();
+  await page.getByTestId('secadd-General').first().click();
+  await page.getByTestId('note-title').fill('dated note');
+  await expect(page.getByTestId('note-title')).toHaveValue('dated note');
+  await page.getByTestId('note-back').click();
+
+  // The icon lives in EDIT mode, beside duplicate.
+  await longPress(page, page.getByTestId('note-row').filter({ hasText: 'dated note' }));
+  await page.getByTestId('note-date-dated note').click();
+
+  // Exactly three controls, and 'today' is the one that sets a date.
+  await expect(page.getByTestId('note-date-clear')).toBeVisible();
+  await expect(page.getByTestId('note-date-today')).toBeVisible();
+  await expect(page.getByTestId('note-date-done')).toBeVisible();
+  await page.getByTestId('note-date-today').click();
+  await page.getByTestId('note-date-done').click();
+
+  // It reaches the CALENDAR, which is the point of putting a date on a note.
+  await page.getByTestId('tab-calendar').click();
+  await expect(page.getByText('dated note')).toBeVisible({ timeout: 10_000 });
+
+  // …and tapping it there opens the note's EDITOR, not the notes list.
+  await page.getByTestId('dp-note-row').filter({ hasText: 'dated note' }).click();
+  await expect(page.getByTestId('note-title')).toHaveValue('dated note');
+
+  // The editor's back returns to the CALENDAR, since that is where we came
+  // from — the whole reason it stopped saying "All notes".
+  await page.getByTestId('note-back').click();
+  await expect(page.getByTestId('cal-grid')).toBeVisible({ timeout: 10_000 });
 });
 
 test('sharing: mutual handshake, @partner view, a tick lands in their store', async ({ browser }) => {
@@ -758,12 +801,12 @@ test("sharing: a calendar shows under the partner's day-panel group; notes read 
   await pageA.getByTestId('kind-note').click();
   await pageA.getByPlaceholder(/What\?/).fill('shopping list');
   await pageA.getByText('Save', { exact: true }).click();
-  await pageA.getByText('← All notes').click();
+  await pageA.getByTestId('note-back').click();
   await pageA.getByTestId('tab-notes').click();
   await pageA.getByTestId('secadd-General').first().click();
   await pageA.getByTestId('note-title').fill('the recipe');
   await pageA.getByTestId('note-body-edit').fill('**garlic** first');
-  await pageA.getByText('← All notes').click();
+  await pageA.getByTestId('note-back').click();
   await pageA.getByText(userA, { exact: true }).click();
   await pageA.getByText('Settings', { exact: true }).click();
   await pageA.getByTestId('open-share').click();
@@ -1272,7 +1315,7 @@ test('Notes can make a section at all — the folder head carries the +', async 
   // It's a real section: a note files into it and lands there after a reload.
   await page.getByTestId('secadd-Recipes').first().click();
   await page.getByTestId('note-title').fill('pancakes');
-  await page.getByText('← All notes').click();
+  await page.getByTestId('note-back').click();
   await page.reload();
   await page.getByTestId('tab-notes').click();
   await expect(page.getByTestId('secadd-Recipes')).toBeVisible({ timeout: 10_000 });

@@ -3,11 +3,12 @@
  * plus a plain-text body autosaving on the store's debounce. Notes never
  * convert out and never repeat; a date in the title puts one on the calendar.
  */
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { defaultNoteTitle, looksLikeDefaultNoteTitle, deleteSection, renameSection, sectionNameTaken, byOrd, richLines, scaleRecipeBody, duplicateItem, formatRecipe, prefsPut, moveNote, moveSection, moveSectionEmptyingFolder, newId, nowStr, ordBetween, parseDateField, parseWhenFromText, todayStr, type Rec } from '@calmind/core';
 import { useStore } from '../store';
+import { useNav } from '../nav';
 import { themed, T } from '../theme';
 import { TopBar } from '../chrome';
 import { FolderPick, useFolderView } from '../components/FolderPick';
@@ -53,6 +54,7 @@ function useNoteScoped<T>(noteId: string | null, initial: T): [T, React.Dispatch
 
 export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | null; onOpenConsumed?: () => void }) {
   const { recs, mutate, sharedRecs, sharedPartnerLabel } = useStore();
+  const nav = useNav();
   const { view, visible: visibleFolders, visibleShared, sharedView, sharedPartner } = useFolderView('notes');
   const setNotePrefs = (lastView: string) => mutate((e) => e.put(prefsPut(recs, 'notes', { lastView })));
   const [openId, setOpenId] = useState<string | null>(null);
@@ -77,6 +79,17 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
   // The suite's page edit mode: long-press a row to enter, tap away or
   // Escape to leave; grips and row controls exist only inside it.
   const [pageEdit, setPageEdit] = useState(false);
+  /** Which note the mini date editor is open for, or null. */
+  const [dateFor, setDateFor] = useState<string | null>(null);
+  /**
+   * Was this editor reached from another TAB (the calendar's day panel, the
+   * Add sheet) rather than from the notes list?
+   *
+   * Sean: the editor's back should return to where you came from. "← All
+   * notes" always went to the list, so opening a note from the calendar and
+   * pressing back left you in Notes — one tab away from what you were doing.
+   */
+  const cameFromTab = useRef(false);
   const [nfolded, setNFolded] = useState<Set<string>>(new Set());
   const [foldedFolders, setFoldedFolders] = useState<Set<string>>(new Set());
   useEffect(() => {
@@ -207,6 +220,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
   React.useEffect(() => {
     if (openNoteId) {
       freshEdit.current = openNoteId;
+      cameFromTab.current = true;
       setOpenId(openNoteId);
       onOpenConsumed?.();
     }
@@ -383,8 +397,24 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
     return (
       <View style={s.page}>
         <View style={s.edHead}>
-          <Pressable style={s.ddPill} onPress={() => setOpenId(null)}>
-            <Text style={s.backText}>← All notes</Text>
+          {/* A real BACK, not a link to one destination. Arriving from the
+              calendar's day panel and pressing this returns to the calendar;
+              arriving from the list returns to the list. It said "← All
+              notes" and always meant it, which is why coming from the
+              calendar left you a tab away from what you were doing. */}
+          <Pressable
+            testID="note-back"
+            accessibilityRole="button"
+            accessibilityLabel="Back"
+            style={s.ddPill}
+            onPress={() => {
+              const external = cameFromTab.current;
+              cameFromTab.current = false;
+              setOpenId(null);
+              if (external) nav.goBack();
+            }}
+          >
+            <Text style={s.backText}>{'‹  Back'}</Text>
           </Pressable>
           <Dropdown
             value={open.payload.folderId}
@@ -718,8 +748,27 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
                             rather than sitting next to the X contradicting it. */}
                         {!(pageEdit || swipe.swiped === n.id) && <Text style={s.chev}>›</Text>}
                       </Pressable>
+                      {/* The date itself is the other way in: Sean asked that
+                          tapping a date in edit mode open the same editor. */}
+                      {pageEdit && n.payload.date && (
+                        <Pressable testID={`note-datechip-${n.payload.title}`} onPress={() => setDateFor(n.id)} hitSlop={6}>
+                          <WebHitSlop slop={6} />
+                          <Text style={s.dateChip}>{n.payload.date}</Text>
+                        </Pressable>
+                      )}
                       {pageEdit && (
                         <>
+                          {/* A date without opening the note — Sean's. Beside
+                              duplicate, and it opens the same mini editor an
+                              existing date chip does. */}
+                          <CircleBtn
+                            testID={`note-date-${n.payload.title}`}
+                            glyph="📅"
+                            label={n.payload.date ? 'Change date' : 'Add a date'}
+                            size={22}
+                            color={n.payload.date ? T.accent : T.dim}
+                            onPress={() => setDateFor(n.id)}
+                          />
                           <CircleBtn testID="note-dup" glyph="⧉" label="Duplicate" size={22} onPress={() => {
                             const res = duplicateItem(recs, n.id, newId);
                             if (!('error' in res)) mutate((e) => res.put.forEach((p) => e.put(p)));
@@ -794,6 +843,58 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
         {pageEdit && <Pressable style={s.editBackdropFill} onPress={() => setPageEdit(false)} />}
         </EditExit>
       </ScrollView>
+      {/* The mini date/time editor: exactly the three controls Sean named —
+          remove the date, set it to today, done. Nothing else, because a
+          fourth control here is a second date picker nobody asked for and
+          the note editor already has the full one. */}
+      {dateFor && (() => {
+        const note = recs.find((x): x is Rec<'note'> => x.type === 'note' && x.id === dateFor && !x.deleted);
+        if (!note) return null;
+        const setDate = (date: string | null) =>
+          mutate((e) => e.put({ ...note, payload: { ...note.payload, date } }));
+        return (
+          <Modal transparent animationType="fade" onRequestClose={() => setDateFor(null)}>
+            <Pressable style={s.dateBackdrop} onPress={() => setDateFor(null)}>
+              <Pressable style={s.dateCard} onPress={() => {}}>
+                <Text style={s.dateTitle} numberOfLines={1}>{note.payload.title}</Text>
+                <Field
+                  testID="note-date-field"
+                  value={note.payload.date ?? ''}
+                  onChangeText={(t) => setDate(t.trim() === '' ? null : t)}
+                  placeholder="m/d or 2026-08-12"
+                  style={s.dateMiniField}
+                />
+                <View style={s.dateRow}>
+                  <CircleBtn
+                    testID="note-date-clear"
+                    glyph="×"
+                    label="Remove the date"
+                    size={36}
+                    onPress={() => { setDate(null); setDateFor(null); }}
+                  />
+                  <CircleBtn
+                    testID="note-date-today"
+                    glyph="◉"
+                    label="Today"
+                    size={36}
+                    color={T.gold}
+                    onPress={() => { setDate(todayStr()); }}
+                  />
+                  <CircleBtn
+                    testID="note-date-done"
+                    glyph="✓"
+                    label="Done"
+                    size={36}
+                    color={T.accent}
+                    active
+                    onPress={() => setDateFor(null)}
+                  />
+                </View>
+              </Pressable>
+            </Pressable>
+          </Modal>
+        );
+      })()}
       {emptyAsk && (
         <Modal transparent animationType="fade" onRequestClose={() => setEmptyAsk(null)}>
           <Pressable style={s.askBackdrop} onPress={() => setEmptyAsk(null)}>
@@ -999,6 +1100,12 @@ const s = themed(() => StyleSheet.create({
   gripHidden: { opacity: 0 },
   editBackdropFill: { flexGrow: 1, minHeight: 160 },
   editDone: { marginLeft: 'auto' },
+  dateChip: { color: T.gold, fontSize: 12, paddingHorizontal: 6 },
+  dateBackdrop: { flex: 1, backgroundColor: '#0009', alignItems: 'center', justifyContent: 'center', padding: 24 },
+  dateCard: { width: '100%', maxWidth: 340, backgroundColor: T.surface, borderRadius: 14, borderWidth: 1, borderColor: T.line, padding: 16, gap: 12 },
+  dateTitle: { color: T.text, fontSize: 15, fontWeight: '600' },
+  dateMiniField: { marginTop: 0 },
+  dateRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', marginTop: 4 },
   rowGrip: { width: 16, alignItems: 'center', justifyContent: 'center' },
   rowGripText: { color: T.lineSoft, fontSize: 13, userSelect: 'none' },
   dropLine: { height: 2, backgroundColor: T.accent, borderRadius: 1, marginVertical: 1 },

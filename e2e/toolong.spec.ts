@@ -27,7 +27,7 @@ test('an over-long note says so instead of quietly living on one device', async 
   await page.getByTestId('secadd-General').first().click();
   await page.getByTestId('note-title').fill('War and Peace');
   await page.getByTestId('note-body-edit').fill('x'.repeat(70_000));
-  await page.getByText('← All notes').click();
+  await page.getByTestId('note-back').click();
   await page.waitForTimeout(3_000);
 
   await page.getByText(user, { exact: true }).click();

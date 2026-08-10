@@ -41,7 +41,7 @@ test('a plain note keeps its FIRST line through the Recipe page', async ({ page 
   await page.getByTestId('secadd-General').first().click();
   await page.getByTestId('note-title').fill('Shopping');
   await page.getByTestId('note-body-edit').fill('Shopping list\nmilk\neggs\nbread');
-  await page.getByText('← All notes').click();
+  await page.getByTestId('note-back').click();
   await page.getByTestId('note-row').filter({ hasText: 'Shopping' }).click();
 
   await page.getByTestId('recipe-import').click();
@@ -57,7 +57,7 @@ test('the Recipe page on an ordinary note gives the words back unharmed', async 
   await page.getByTestId('secadd-General').first().click();
   await page.getByTestId('note-title').fill('Boiler');
   await page.getByTestId('note-body-edit').fill(PROSE);
-  await page.getByText('← All notes').click();
+  await page.getByTestId('note-back').click();
   await page.getByTestId('note-row').filter({ hasText: 'Boiler' }).click();
 
   // In and straight out again through Save — the mis-tap, then the reflex.
@@ -91,7 +91,7 @@ test('editing a recipe twice does not eat it', async ({ page }) => {
   await page.getByTestId('note-body-edit').fill(
     '**Ingredients**\n- 2 cups flour\n- a pinch of salt\n\n**Directions**\n1. Whisk it.\n2. Fry it.\n\nGrandma doubled the butter.',
   );
-  await page.getByText('← All notes').click();
+  await page.getByTestId('note-back').click();
   await page.getByTestId('note-row').filter({ hasText: 'Pancakes' }).click();
 
   // Save it three times over, opening the page fresh each round.
