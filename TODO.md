@@ -99,6 +99,52 @@ visual. Deploy to **test only** (`./server/deploy-test.sh`) as changes land.
       play) plus CBOR/COSE verification in framework-less PHP. Recommended
       later, web-first, passwords staying as the fallback. Awaiting his word.
 
+## 0.45 · The watch actually syncs — 2026-08-09, later the same night
+
+Two stacked failures, each invisible alone, both silent by design.
+
+- **WCSession error 7006, 'Watch app is not installed.'** The watch app had
+  been sideloaded wrist-first with devicectl, so iOS never registered it as
+  CalMind's companion and WCSession refused to carry anything. Paired, both
+  apps open, complication drawing — and no delivery. The push used `try?`,
+  the `.catch(() => {})` pattern in Swift, so it left no trace and cost most
+  of a day. Removing it turned a day of guessing into one console read.
+- **The watch's UDID was never in the profile** — 'cannot install at this
+  time' from the Watch app. Xcode only registers devices it BUILDS AGAINST,
+  and every build that day targeted a phone. One build with the watch as
+  destination fixed it.
+- **The events were never missing.** `.tabViewStyle(.verticalPage)` stacked
+  Summary/Reminders/Events/Calendar with no indicator, so left/right did
+  nothing and nothing on screen said more pages existed. `.page` restores
+  the dots. A UI bug that read, all the way through, as a sync bug.
+
+Shipped alongside: the notes `+` (the inline naming step WAS the bug — see
+below), chevrons 13→11, the legend no longer scrolls, default note titles,
+AASA live on prod with the Content-Type Apache would not set on its own.
+
+**The lesson worth keeping:** every one of these was silent. A `try?`, a
+missing indicator, an unregistered device — none of them said anything, and
+each one made the next diagnosis harder. Search for the quiet failures
+first; they are where the days go.
+
+### Still open
+
+- **iOS home-screen widget** — target written and committed
+  (`targets/appwidget/`, interactive check-off via AppIntents, App Group
+  cache shared with the watch, ticks queued as `pendingTicks`). NOT built
+  in: needs `expo prebuild`, which regenerates `ios/` and would rebuild the
+  signing fixed by hand that night.
+- **Native iOS OCR** — not started. Vision-framework replacement for
+  tesseract.js so photo import works off the browser.
+- **URL recipe import** — core `recipeFromHtml` done and tested (JSON-LD
+  schema.org/Recipe, ingredients + steps ONLY per Sean). Needs the app-side
+  fetch and a paste-a-URL entry point.
+- **Docs/comments/testing pass incl. macOS and Android** — not started.
+  Neither platform was exercised in this session at all.
+- **The `+` deploy lesson**: the deployed bundle hash did not match the
+  local build for hours while Sean reported a fixed bug as broken. Compare
+  index.html to index.html before believing a deploy landed.
+
 ## 0.44 · Sean's live batch, round three — 2026-08-09, the devices session
 
 First session to put the app on his REAL iPhone 15 Pro and Apple Watch
