@@ -742,7 +742,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
                         .filter((r): r is Rec<'note'> => r.type === 'note' && r.payload.sectionId === sec.id)
                         .sort((a, b) => byOrd(a.payload, b.payload))
                         .map((n) => (
-                          <View key={n.id} style={s.row}>
+                          <View key={n.id} style={[s.row, s.sharedRow]}>
                             <Pressable
                               testID="all-shared-note"
                               onPress={() => setNotePrefs(`@${sharedPartner}:${f.id}`)}
@@ -932,6 +932,11 @@ const s = themed(() => StyleSheet.create({
   // (16) plus the head's own gap (8). A partner's sections have no grip
   // to push them, so they get the same distance as padding instead.
   sharedSecHead: { paddingLeft: 24 },
+  // …and the same for a partner's ROWS, which lack the drag grip mine
+  // carry (16) plus the row's gap — 8 here, not the 10 Reminders uses, so
+  // this is 24 and not 26. Copying the number across would have been off by
+  // two in the one place the whole change is about.
+  sharedRow: { paddingLeft: 24 },
   ownerBadge: { color: T.accent, fontSize: 12, fontWeight: '700', backgroundColor: T.accentSoft, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3, overflow: 'hidden' },
   folderRule: { flex: 1, height: 1, backgroundColor: T.lineSoft },
   section: { gap: 6 },

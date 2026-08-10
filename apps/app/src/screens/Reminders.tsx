@@ -570,8 +570,20 @@ export function Reminders() {
                             </Pressable>
                           )}
                           {editing !== r.id && dueChip(r)}
+                          {/* The edit cluster FLOATS over the row's right edge
+                              rather than taking layout space in it.
+
+                              As an ordinary flex child it squeezed the text
+                              from 298pt to 160pt, which made a long reminder
+                              re-wrap; the row grew, and the row below it moved
+                              down 86pt. Measured, not guessed. Sean asked for
+                              the buttons to "just appear" and said the text may
+                              be elided, which is exactly what an absolutely
+                              positioned cluster with an opaque background does:
+                              nothing reflows, and the text it covers is simply
+                              not shown. */}
                           {pageEdit && (
-                            <>
+                            <View style={s.editCluster}>
                               <CircleBtn testID="rem-pencil" glyph="✎" label="Edit" size={24} onPressIn={() => { holdCluster.current = true; }} onPress={() => { if (editing === r.id) saveEdit(r); setEditing(null); setModalRec(r); }} />
                               {r.payload.indent === 0 && (
                                 <CircleBtn testID="rem-dup" glyph="⧉" label="Duplicate" size={24} onPressIn={() => { holdCluster.current = true; }} onPress={() => {
@@ -587,7 +599,7 @@ export function Reminders() {
                                 <CircleBtn glyph="‹" label="Previous" size={24} onPressIn={() => { holdCluster.current = true; }} onPress={() => { if (editing === r.id) saveEdit(r); setEditing(null); outdent(r); }} />
                               )}
                               <ConfirmDelete onPressIn={() => { holdCluster.current = true; }} onDelete={() => { setEditing(null); mutate((e) => e.del(r.id)); }} />
-                            </>
+                            </View>
                           )}
                           {swipe.swiped === r.id && !pageEdit && (
                             <ConfirmDelete
@@ -650,7 +662,7 @@ export function Reminders() {
                           .sort((a, b) => byOrd(a.payload, b.payload))
                           .map((x) => ({ due: x.payload.due, indent: x.payload.indent, rec: x })),
                       ).map(({ rec: r }, ri, arr) => (
-                        <View key={r.id} style={[s.row, ri === arr.length - 1 && s.rowLast, r.payload.indent > 0 && s.rowIndented]}>
+                        <View key={r.id} style={[s.row, s.sharedRow, ri === arr.length - 1 && s.rowLast, r.payload.indent > 0 && s.rowIndented]}>
                           <Pressable
                             testID="all-shared-tick"
                             onPress={() => void sharedPut({ ...r, payload: reminderToggle(r.payload, todayStr()) })}
@@ -800,10 +812,20 @@ const s = themed(() => StyleSheet.create({
   // (16) plus the head's own gap (8). A partner's sections have no grip
   // to push them, so they get the same distance as padding instead.
   sharedSecHead: { paddingLeft: 24 },
+  // …and the same for a partner's ROWS. Mine lead with a drag grip (16)
+  // plus the row's own gap (10); theirs have no grip, so they sat 26pt
+  // to the left of mine. Fixing the section heads alone left the rows
+  // under them still hanging out past their own header.
+  sharedRow: { paddingLeft: 26 },
   ownerBadge: { color: T.accent, fontSize: 12, fontWeight: '700', backgroundColor: T.accentSoft, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3, overflow: 'hidden' },
   folderRule: { flex: 1, height: 1, backgroundColor: T.lineSoft },
   section: { gap: 6 },
-  secHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 },
+  // minHeight so swapping the section NAME for its rename field cannot
+  // change the head's height. Measured: the name is 20pt, the field 28,
+  // and that difference moved every row below it down by 12 the moment
+  // edit mode opened. Sean asked for the buttons to just appear, and a
+  // list that jumps is the opposite of that.
+  secHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6, minHeight: 28 },
   chevron: { color: T.dim, fontSize: 16, width: 20, textAlign: 'center' },
   // An explicit HEIGHT, not the glyph's. This box had width 20 and no
   // height, so its height WAS the chevron — and on the web, where
@@ -818,8 +840,19 @@ const s = themed(() => StyleSheet.create({
   collapseAllBtn: { width: 26, height: 26, borderRadius: 13, borderWidth: 1, borderColor: T.line, alignItems: 'center', justifyContent: 'center' },
   secName: { color: T.gold, fontSize: 16, lineHeight: 20, fontWeight: '600' },
   secRename: { flex: 1, paddingVertical: 4 },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: T.lineSoft },
+  // …and the same for a ROW, whose text swaps for an inline field two
+  // points taller.
+  row: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, minHeight: 36, borderBottomWidth: 1, borderBottomColor: T.lineSoft },
   rowLast: { borderBottomWidth: 0, paddingBottom: 2 },
+  // Pinned to the row's right edge and OUT of the flex flow, so turning
+  // edit mode on cannot change a single measurement in the row. The
+  // opaque background is what makes the covered text read as elided
+  // rather than as two things overlapping.
+  editCluster: {
+    position: 'absolute', right: 0, top: 0, bottom: 0,
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    paddingLeft: 10, backgroundColor: T.bg,
+  },
   rowGrip: { width: 16, alignItems: 'center', justifyContent: 'center' },
   rowGripText: { color: T.lineSoft, fontSize: 13, userSelect: 'none' },
   dropLine: { height: 2, backgroundColor: T.accent, borderRadius: 1, marginVertical: 1 },
@@ -858,6 +891,10 @@ const s = themed(() => StyleSheet.create({
   chipRolled: { color: T.accent, fontWeight: '700' },
   repRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingLeft: 34, paddingBottom: 6, alignItems: 'center' },
   repCount: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  toolbar: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingTop: 10 },
+  // minHeight 32 — a Pill's height — so the Done button appearing in edit
+  // mode cannot make this row taller. It could, and did: the toolbar grew by
+  // 6 and pushed the entire list down with it. The control Sean asked for to
+  // FIX the shift was the thing causing the remaining shift.
+  toolbar: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingTop: 10, minHeight: 42 },
   repN: { color: T.text, fontSize: 14, minWidth: 20, textAlign: 'center' },
 }));

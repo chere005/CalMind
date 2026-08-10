@@ -613,6 +613,22 @@ test('sharing: mutual handshake, @partner view, a tick lands in their store', as
   const mineBox = (await pageB.getByTestId('secfold-General').locator('svg').first().boundingBox())!;
   expect(Math.abs(theirs.x - mineBox.x), "a partner's sections line up with my own").toBeLessThanOrEqual(2);
 
+  // The ROWS under those headers, which the first pass missed: fixing the
+  // section heads alone left every shared row hanging out past its own
+  // header. Mine lead with a drag grip (16) plus the row's gap; theirs have
+  // no grip. Measured on the ticks, which is the leftmost thing in both.
+  //
+  // B needs a row of their OWN to compare against — up to here B has only
+  // ever looked at A's list, so there was nothing to line up with.
+  await pageB.getByTestId('secadd-General').first().click();
+  await pageB.getByTestId('rem-add-field').fill('my own row');
+  await pageB.getByTestId('rem-add-field').press('Enter');
+  await pageB.keyboard.press('Escape');
+  await expect(pageB.getByText('my own row')).toBeVisible();
+  const theirTick = (await pageB.getByTestId('all-shared-tick').first().boundingBox())!;
+  const myTick = (await pageB.getByTestId('tick').first().boundingBox())!;
+  expect(Math.abs(theirTick.x - myTick.x), "a partner's rows line up with my own").toBeLessThanOrEqual(2);
+
   // A partner's SECTION folds, not just their folder. Sean asked for this
   // because the folder was the only handle: putting one section away meant
   // putting the whole partner away. The fold is B's own — device-local, never
