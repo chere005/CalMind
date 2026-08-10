@@ -36,6 +36,7 @@ twin = '\n'.join([
     grab(comp, 'todayStr'), grab(comp, 'clock12'), grab(comp, 'dayLabel12'), grab(comp, 'when'),
     # LATE_HOUR is a top-level `let`, not a func, so grab() cannot reach it.
     next(l for l in comp.splitlines() if l.startswith('let LATE_HOUR')),
+    next(l for l in comp.splitlines() if l.startswith('var CLOCK24')),
 ])
 open(sys.argv[1], 'w').write('''
 import Foundation
@@ -86,6 +87,20 @@ if WatchFormat.when(date: other, time: "17:00", today: today) != "\(otherLabel) 
 if when(Ev(id: "x", text: "Chase", date: today, time: "15:00")) != "3" { print("complication copy: today should be time only"); bad += 1 }
 if when(Ev(id: "x", text: "Chase", date: today, time: nil)) != "Today" { print("complication copy: all-day today keeps the word"); bad += 1 }
 if when(Ev(id: "x", text: "Chase", date: other, time: "17:00")) != "\(otherLabel) 5" { print("complication copy: a later day names itself"); bad += 1 }
+// Sean's Settings choice, which BOTH copies must honour: the wrist and the
+// complication are separate processes and each carries its own flag, so this
+// is exactly the kind of duplication that drifts.
+WatchFormat.clock24 = true
+CLOCK24 = true
+for (input, want) in [("15:30", "15:30"), ("09:05", "09:05"), ("00:00", "00:00"), ("20:00", "20:00")] {
+    let a = WatchFormat.clock(input) ?? "nil"
+    let b = clock12(input) ?? "nil"
+    if a != want { print("watch app 24h: clock(\\(input)) = \\(a), want \\(want)"); bad += 1 }
+    if b != want { print("complication 24h: clock12(\\(input)) = \\(b), want \\(want)"); bad += 1 }
+}
+WatchFormat.clock24 = false
+CLOCK24 = false
+
 print(bad == 0 ? "watch format: both copies agree with the core spec" : "watch format: \\(bad) MISMATCHES")
 exit(bad == 0 ? 0 : 1)
 ''' % (fmt.replace('import Foundation', ''), twin))

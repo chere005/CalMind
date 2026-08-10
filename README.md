@@ -6,21 +6,24 @@ Feel free to deploy this on your own website, build and deploy the iOS version, 
 
 **This is a personal project to have some fun with claude code, which generated essentially all of the code, and the rest of this readme:**
 
-One codebase for web, iOS, Android — and a SwiftUI watch app — for the CalMind
-suite: Reminders, Calendar, Notes, Habits and Add, at full feature parity with
-the plain-PHP suite at
+One codebase for web, iOS, Android and a macOS desktop shell — plus a SwiftUI
+watch app, a watch-face complication and an iPhone home-screen widget — for the
+CalMind suite: Reminders, Calendar, Notes, Habits and Add, at full feature
+parity with the plain-PHP suite at
 [chere005/seancheren-site](https://github.com/chere005/seancheren-site) whose
 successor architecture this is. Everything the product *does* is written once,
 in TypeScript, and every surface renders it: the outline drags, the repeat
-rolls, the four full themes, mutual-consent sharing with live ticks, the
-Scriptable widget with its setup page, the ?tick= quick-done, and the
-watch list pushed over WatchConnectivity — all proven end-to-end by the three
-test harnesses (`TESTING.md` is the map; `PARITY.md` is the build ledger).
+rolls, the four full themes, mutual-consent sharing with live ticks, recipes
+read out of a photo or a URL, the Scriptable widget with its setup page, the
+?tick= quick-done, and the watch and widget feeds — all proven by the harnesses
+in `TESTING.md`, which is the map of which one watches what. `PARITY.md` is the
+build ledger and `TODO.md` is what is still owed, including the current test
+counts.
 
 ## The map
 
 ```
-packages/core/     The brain, shared verbatim by all three surfaces: the
+packages/core/     The brain, shared verbatim by every surface: the
                    slash-only US-order parser (and the relative words people
                    actually type — tomorrow, in 2 weeks, in 30mins), repeats
                    with month/year clamping, undated-first outline-block sort,
@@ -47,8 +50,9 @@ apps/app/targets/  Apple targets GENERATED into the Xcode project by
                    Directory ORDER matters: the plugin embeds in sort order,
                    which is why 'appwidget' and 'watchwidget' are named as
                    they are.
-apps/watch/        Historical: the hand-wired watch bridge notes. The app
-                   itself lives in apps/app/targets/watch/ now.
+apps/watch/        A signpost only — one README, no code. Kept because
+                   'watch' is what you search for; it points at the three
+                   places the watch actually lives.
 server/            The sync API in PHP — deployable to NearlyFreeSpeech
                    unchanged. A dumb store with auth — passwords, and passkeys
                    via WebAuthn written by hand, since the host has no
@@ -59,11 +63,22 @@ server/            The sync API in PHP — deployable to NearlyFreeSpeech
                    re-checked on every request).
 e2e/               Playwright: the exported web app + the real PHP API on a
                    scratch dir, driven by real mouse events.
+tools/             The checks no browser can reach, plus the export's own
+                   plumbing: the two Swift seams (core's JSON through the
+                   wrist's and the widget's REAL decoders and their drawing
+                   logic), the App Group rule, the deploy guards proven by
+                   breaking copies, the web-head patch every export needs,
+                   the tap-target sweep, and the Scriptable widget script.
 desktop/           CalMind Desktop — a Tauri 2 shell around the identical web
                    export. Rust opens the window; everything else is the
                    shared code. macOS builds locally (desktop/README.md);
-                   Windows builds on a manual GitHub Actions job.
+                   Windows builds on the manual `desktop-windows` GitHub
+                   Actions job.
 ```
+
+`server/prod-only/` is the one exception to "nothing here goes to prod": the
+`.well-known` passkey pair, which only works at the apex. It has its own
+README and its own script.
 
 ## The sync model
 
@@ -96,20 +111,31 @@ codes land in `data/mail.log`, which is also how the server tests read them.
 
 ```sh
 npm install                                  # once, at the root
+npm test                                     # the two fast ones: core + server
 npm run test:core                            # vitest, incl. the spec/*.json replay
 npm run test:server                          # boots php -S on a scratch dir, drives real HTTP
 npm run test:e2e                             # exports the web app, then drives real gestures
+npm run test:e2e:fast                        # …the same, against the export already built
 npm run test:webkit                          # the spine + the header rules, in Sean's engine
 npm run test:watch                           # the two Swift copies agree, and the wrist
-                                             #   decodes what core actually sends
-npm run test:widget                          # the phone widget decodes what core sends,
-                                             #   and no App Group key is read with no writer
+                                             #   decodes and DRAWS what core actually sends
+npm run test:widget                          # the phone widget decodes and draws what core
+                                             #   sends, and no App Group key is read with
+                                             #   no writer on the same device
 npm run test:deploy                          # the deploy guards, proven by breaking copies
 ./desktop/smoke.sh                           # macOS: builds, carries THIS export, runs, quits
+node tools/sweep-tap-targets.mjs             # every clickable box on the web, in points
+                                             #   (wants dist served on :8791 — see its header)
 php -S 127.0.0.1:8788 -t server/public       # the API
 npm run web                                  # Expo web on :8081 (proxies nothing — talks to :8788)
+npm run export:web                           # the dist the e2e suite and both shells run on
 cd apps/app && npx expo start                # then i / a for the iOS / Android simulator
 ```
+
+`export:web` is the export PLUS `tools/patch-web-html.mjs`; a bare
+`expo export` ships an `index.html` with no manifest and no status-bar metas,
+so nothing should call it directly. The gesture run refuses to start against a
+stale `dist` rather than lying in either direction.
 
 Counts live in TODO.md's steady-state line rather than here, because a number
 written into prose is a number that goes stale — this file said 145 for a good
@@ -124,7 +150,12 @@ generated by `expo prebuild` from `apps/app/targets/*` — `ios/` is
 gitignored and disposable. Prebuild CLEARS `ios/` before running pods, so
 back it up first if a device build matters that day; a target whose bundle
 id has never been registered will fail to sign and, because extensions embed
-in the host app, will block every build until it is.
+in the host app, will block every build until it is. `ios.buildNumber` in
+`app.json` is HAND-bumped and worth bumping: every build used to be
+`0.1.0/1`, so "is the thing I just installed actually on the device?" had no
+evidence either way. The watch app picks it up through
+`CURRENT_PROJECT_VERSION`, which is the only reason it was possible to see
+that iOS had left the wrist on an older build than the phone.
 
 ## The three environments
 
@@ -175,13 +206,37 @@ breaking a copy and requiring the copy to fail.
 - **The server stays dumb.** If a feature seems to need server-side logic,
   it's either client logic or new clear *metadata* — never payload reading.
 - Tests ride with every change, suite-style: core logic in vitest, server
-  endpoints in `server/tools/test.php`, and anything gesture-shaped is checked
-  by eye until a browser-driver harness lands.
+  endpoints in `server/tools/test.php`, gestures in Playwright under a real
+  mouse, and the native seams in `tools/*.sh`. What is left for an eye is
+  named in TESTING.md rather than assumed — colour, rhythm, and the pixels
+  only a phone or a wrist can draw.
+- **A new check is worth nothing until it has been watched failing.** Break
+  the thing it guards, see it go red, put it back. Green that cannot go red
+  is the most expensive kind of green here; TESTING.md keeps the tally of
+  the ones that fooled us.
 
 ## Milestones
 
-1. **Reminders end-to-end** *(this repo today)* — auth with change-password and
-   email recovery, Reminders on web/iOS/Android, watch list, NFSN test deploy.
-2. Calendar, Notes, Habits, Add on the proven skeleton; drag-reorder; sharing.
-3. E2EE: client-side KDF, wrapped DEKs, recovery keys; sharing via keypairs.
-4. Store builds (EAS), the complication, widgets.
+1. ~~**Reminders end-to-end**~~ — auth with change-password and email recovery
+   (and passkeys since), Reminders on web/iOS/Android, watch list, NFSN test
+   deploy. **Done.**
+2. ~~**Calendar, Notes, Habits, Add** on the proven skeleton; drag-reorder;
+   sharing.~~ **Done** — mutual-consent sharing with live ticks, drags on every
+   list, and recipes on top (OCR from photos, import from a URL, ½x/1x/2x
+   scaling).
+3. ~~**The complication and the widgets.**~~ **Done** — the watch app checks
+   items off, the Modular complication shows the next two events, and the
+   iPhone home-screen widget draws the calendar's own day list with
+   interactive check-off. Everything but the pixels is under test; see
+   TESTING.md for where that stops.
+4. **E2EE** — client-side KDF, wrapped DEKs, recovery keys; sharing via
+   keypairs. **Not started.** Today the server encrypts `payload` at rest
+   (`ENC1:`) and holds the key, which is not the same promise. The protocol,
+   the merge rules and the server do not change when this lands — only who
+   can read the payload.
+5. **Store builds (EAS)** — **not started**; there is no `eas.json`. iOS and
+   Android install from local builds, signed by the free Personal Team, which
+   is why provisioning profiles expire every seven days.
+6. **Calendar integrations** — groundwork only, on purpose. Core parses
+   iCalendar and expands RRULEs, both fully tested; nothing yet commits to
+   OAuth or CalDAV, and the questions are with Sean.

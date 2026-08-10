@@ -24,12 +24,16 @@ struct Ev: Codable {
 /// event, and the feed keeps them apart on purpose. The phone sends the next
 /// 30 already sorted, so the next two are the first two.
 func nextEvents() -> [Ev] {
-    struct List: Codable { let items: [Row]; let events: [Ev]? }
+    struct List: Codable { let items: [Row]; let events: [Ev]?; let clock24: Bool? }
     guard let d = UserDefaults(suiteName: "group.com.seancheren.calmind")?.data(forKey: "watchlist.json") else {
         return []
     }
     do {
         let list = try JSONDecoder().decode(List.self, from: d)
+        // Sean's Settings choice rides with the list; set it before anything
+        // formats a time. Optional, so a cache written before the setting
+        // existed still decodes and reads as 12-hour, which is what it was.
+        CLOCK24 = list.clock24 ?? false
         return Array((list.events ?? []).prefix(2))
     } catch {
         // A complication has one line and no room to explain itself, so this
@@ -73,6 +77,7 @@ func clock12(_ hhmm: String?) -> String? {
     guard let hhmm, hhmm.count >= 4 else { return nil }
     let parts = hhmm.split(separator: ":")
     guard parts.count == 2, let h = Int(parts[0]), let m = Int(parts[1]) else { return nil }
+    if CLOCK24 { return "\(String(format: "%02d", h)):\(String(format: "%02d", m))" }
     let suffix = h >= LATE_HOUR ? "pm" : ""
     let h12 = h % 12 == 0 ? 12 : h % 12
     return m == 0 ? "\(h12)\(suffix)" : "\(h12):\(String(format: "%02d", m))\(suffix)"
@@ -80,6 +85,9 @@ func clock12(_ hhmm: String?) -> String? {
 
 /// From this hour on, a time carries its "pm". 20 = 8pm, Sean's line.
 let LATE_HOUR = 20
+/// Sean's Settings choice, read from the same cached feed the events come
+/// from. A complication is its own process and cannot see a pref record.
+var CLOCK24 = false
 
 /// "Today" when it is, otherwise "8/15" — no leading zeros.
 func dayLabel12(_ date: String) -> String {

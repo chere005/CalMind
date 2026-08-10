@@ -488,7 +488,7 @@ test("the calendar panel's edit mode can be left at all", async ({ page }) => {
   // bottom of their scroll content; here setPanelEdit(false) appeared exactly
   // once in the whole file, in the Escape handler — so on a phone, which has
   // no Escape, there was no way out of this edit mode whatsoever.
-  await signup(page);
+  const user = await signup(page);
   await page.getByTestId('tab-calendar').click();
   await page.getByText('+ Add', { exact: true }).click();
   await page.getByTestId('kind-event').click();
@@ -533,6 +533,42 @@ test('Notes edit mode can be left the same two ways Reminders can', async ({ pag
   await expect(page.getByTestId('notes-edit-done')).toBeVisible();
   await page.getByText('General', { exact: true }).first().click();
   await expect(page.getByTestId('notes-edit-done')).toBeHidden();
+});
+
+test('the 12/24-hour setting reaches the screens, and survives a reload', async ({ page }) => {
+  // One setting on 'suite', which every surface is supposed to honour. The
+  // watch and the widget cannot read a pref record — the flag rides in
+  // watchFeed and their own checks cover them — so this pins the two the
+  // browser CAN see, plus the fact that it syncs rather than living in this
+  // tab only.
+  const user = await signup(page);
+  await page.getByTestId('tab-calendar').click();
+  await page.getByText('+ Add', { exact: true }).click();
+  await page.getByTestId('kind-event').click();
+  // The time goes in the text, which is how a person types it here.
+  await page.getByPlaceholder(/What\?/).fill('standup 2pm');
+  await page.getByText('Save', { exact: true }).click();
+  await expect(page.getByText('2pm', { exact: true })).toBeVisible({ timeout: 10_000 });
+
+  // Switch to 24-hour in Settings — through the username menu, as a person
+  // does, since there is no direct testid for it.
+  await page.getByText(user, { exact: true }).click();
+  await page.getByText('Settings', { exact: true }).click();
+  await page.getByTestId('clock-24').click();
+  await page.getByLabel('Done').click();
+  await expect(page.getByText('14:00', { exact: true })).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByText('2pm', { exact: true })).toBeHidden();
+
+  // It is a synced pref, not a tab-local toggle: it survives a reload.
+  await page.reload();
+  await expect(page.getByText('14:00', { exact: true })).toBeVisible({ timeout: 15_000 });
+
+  // …and back again, so the default is reachable too.
+  await page.getByText(user, { exact: true }).click();
+  await page.getByText('Settings', { exact: true }).click();
+  await page.getByTestId('clock-12').click();
+  await page.getByLabel('Done').click();
+  await expect(page.getByText('2pm', { exact: true })).toBeVisible({ timeout: 10_000 });
 });
 
 test('sharing: mutual handshake, @partner view, a tick lands in their store', async ({ browser }) => {

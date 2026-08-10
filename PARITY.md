@@ -1192,3 +1192,137 @@ The through-line: nothing here failed loudly. Each looked like an ordinary
 empty state, and each made the next diagnosis harder. When something is
 "not working" and every log is clean, look for the place that cannot report
 its own failure.
+
+## The reachable seams — 2026-08-10
+
+Suites at the end: 351 core, 38 server, 117 gesture (+1 skipped), 16 WebKit,
+plus the native checks no browser can reach. Everything below is on TEST;
+prod was touched once, and only the `.well-known` pair.
+
+**This section supersedes the "NOT shipped" note above it.** The iPhone
+home-screen widget signs, installs and draws on Sean's phone — his words on
+seeing it were that it "looks nice". What is still true is narrower and worth
+keeping separate: nobody working on it has SEEN it render, and cannot from
+here.
+
+**The theme, again: behaviour nothing can reach.** Every seam bug this day
+produced had the same shape — two sides, each correct about its own idea, and
+nothing running them against each other.
+
+- **The wrist drew one flat page for a week.** `watchFeed` filtered folders
+  with `payload.app === 'reminders'`, but a milestone-1 folder carries no
+  `app` at all and IS a reminders folder — `types.ts` says so, `folderApp()`
+  exists for exactly this, and manage/normalize/FolderPick all go through it.
+  Sean's oldest folders are that shape, so the watch got an empty folder list
+  and `watchGroups` returned one anonymous group. Silent, because an empty
+  folder list is also what a folder-less account sends: the wrist could not
+  tell "you have no folders" from "your folders were dropped on the way here",
+  and neither could I — I read `folders=0` off the console and concluded the
+  phone had not pushed.
+- **The phone widget had no data source at all.** `HomeWidget.swift` read
+  `watchlist.json` out of the App Group; the only writer was `WatchStore` —
+  on the WATCH, filling the watch's own container on a different device. An
+  App Group is shared between an app and its extensions on ONE device; it is
+  not a wire between phone and wrist. Every individual piece was right
+  (entitlements, group name, key), and what was missing was a writer. The
+  target's own config comment said "written by WatchBridge on every store
+  change"; it was not, and a comment describing something nobody implemented
+  reads exactly like something that works. `push()` writes the cache and
+  reloads timelines BEFORE any WCSession guard — a phone with no watch at all
+  should still fill its widget.
+- **The widget ignored the calendar's rules.** `widgetDays` walked every open
+  reminder and dropped it on its due date; the calendar obeys the per-folder
+  tri-state and gathers what is late onto today. So a folder Sean had switched
+  off still filled his home screen. It calls `dayItems()` now — not a second
+  implementation that resembles the first.
+
+**Four checks came out of that, and they are the durable part.**
+`check-watch-format.sh` runs BOTH real Swift clock copies (the app's and the
+complication's deliberate twin) against the cases core pins — nothing
+re-typed, so a copy that changes is a copy that gets run. `check-watch-feed.sh`
+and `check-widget-feed.sh` push core's REAL feed through the real Codable
+structs and then through the wrist's `drawnGroups` and the widget's
+`drawnDays`. Both of those were computed properties over live state, reachable
+only inside a rendered view on a device; they are static and pure now for one
+reason — so something can call them. `check-appgroup.sh` states the general
+rule the widget bug broke: every App Group key that is READ has a writer on
+the same device, phone and watch counted as the separate devices they are.
+Each proven by restoring the original bug and watching it go red.
+
+**Edit mode had no way out on a phone.** The suite's tap-outside rule was
+web-only, so on Reminders, Notes and the Calendar's day panel there was no
+exit at all once you were in — the Calendar's had never had one. All three now
+carry a visible Done, plus a native wrapper (EditExit) for the tap-outside.
+Entering edit mode also used to shove the page around; it moves nothing now —
+the edit cluster floats, the heads carry a minHeight, the toolbar has a fixed
+height. The Done button I added was itself the last 6pt of shift.
+
+**Glyphs, measured rather than eyeballed.** One chevron across folders,
+sections and collapse-all, at 60% with its stroke scaled to match (a fixed
+stroke would have left a stubbier glyph, not the same one smaller); collapse-
+all is a DOUBLE caret so it stops reading as Back; Habits' was a text '⌃' in a
+circle and is drawn now. Every icon sat LOW in its button — the line box
+reserves descender space `+` and `‹` never use, measured at 2.56pt on the tab
+bar and back to 0.00 after. `tools/sweep-tap-targets.mjs` measures every
+clickable box on four screens and found two things reading the source did not:
+collapse-all shrunk to a 24pt TARGET when its icon was made smaller, and
+Reminders' collapse-all still static long after Notes' was made dynamic — a
+miss on something Sean asked for directly. All three pickers' checkboxes were
+18pt on the web against 32 on a device, the `hitSlop` trap exactly as
+CLAUDE.md describes it.
+
+**The deploy scripts had two gates that were decoration.** The PHP lint piped
+every file through one grep and ended in `|| true` — grep SUCCEEDS when it
+finds a line, so the status was inverted and then discarded, and a file with a
+syntax error shipped. The post-gate bundle check never captured a BEFORE, so
+it passed whether or not something had rebuilt `dist` underneath it. Both fail
+now, both watched failing. `deploy-prod.sh` is new and narrow: the
+`.well-known` pair, `--yes` required, `--verify` read-only. The `.htaccess`
+that gives the association file its `application/json` had been living ONLY on
+the server — lose it and passkeys break everywhere with no error.
+`check-deploy-guards.sh` proves all eight guards by breaking copies. Its first
+version did not neuter `ssh`/`rsync`, so the case that proves the consent gate
+— by removing the consent gate — went on to write production. Byte-identical,
+nothing served changed, and the tool and CLAUDE.md both say it now.
+
+**The silent-failure sweep, continued from last night.** Nine `.catch(() => {})`
+sites triaged: eight are fold-state writes that lose nothing but which sections
+were collapsed, and each now SAYS so rather than making the next reader
+re-derive it. The ninth was hiding a real case — `sharedPut` failing AND its
+reconcile failing left a partner's row showing a change that existed on no
+other device; that sets `syncState: 'offline'` now, the word the top bar
+already uses. Beside it: damaged storage bricked the app on launch
+*permanently* (the parses were guarded, the reads were not), a correct password
+could bounce you back to the login screen, and a failed session removal took
+the sign-out with it.
+
+**Recipes and OCR.** One bad photo used to throw away every page already
+read — on BOTH readers, and the web one is the one in daily use; each page is
+caught separately now and the count of failures is reported. A failed URL
+import said nothing at all through an empty `??`. HTML-blob instructions were
+being welded into a single step. A real recipe page is pinned as a fixture now
+rather than one this repo imagines. The partial-failure path itself is still
+verified by reading the code, and TESTING.md says so out loud.
+
+**The WebKit flake, measured instead of theorised.** `app.spec.ts:353`: two
+failures in about fifteen runs, both after heavy real work; 7 of 7 idle passes;
+5 of 5 passes under deliberate CPU starvation, which killed the tidy "it is
+just load" story. The cause stays open, written down as open. The note editor
+does contain a 50ms deferred focus that is a race by construction — two of
+them, sharing one field — whoever wins it today.
+
+**iOS builds have a build number now**, which is what made the next thing
+answerable at all: across four installs iOS never propagated the watch app
+from the phone — the wrist sat on build 1 while the phone carried 6. A direct
+`devicectl` install fixed it, and only worked while the watch was awake and
+holding a tunnel. Before today every build was `0.1.0/1` and the question had
+no evidence either way.
+
+### Still open
+
+- **Nobody has SEEN the widget render** beyond Sean's word. Entitlements, the
+  cache writer, core's shape, the decoder and `drawnDays` are all covered; the
+  pixels are not, and cannot be from here.
+- **Why the companion path does not update the watch app.** Until that is
+  known, the wrist needs the direct install.
+- **E2EE and store builds** — neither started; see README's milestones.

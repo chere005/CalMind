@@ -213,9 +213,13 @@ export function todayStr(d = new Date()): string {
 }
 
 /** A stored 'HH:MM' back in the suite's spoken style: '3pm', '2:30pm'. */
-export function timeLabel(t: string | null | undefined): string {
+export function timeLabel(t: string | null | undefined, clock24 = false): string {
   if (!t) return '';
   const [h0, m] = t.split(':').map(Number) as [number, number];
+  // 24-hour keeps the leading zero and the minutes ALWAYS: '09:00', not '9'.
+  // Dropping ':00' is a 12-hour habit — "9" on a 24-hour clock reads like a
+  // number, not a time.
+  if (clock24) return `${String(h0).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
   const ap = h0 >= 12 ? 'pm' : 'am';
   const h = h0 % 12 === 0 ? 12 : h0 % 12;
   return m ? `${h}:${String(m).padStart(2, '0')}${ap}` : `${h}${ap}`;

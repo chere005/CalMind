@@ -94,9 +94,14 @@ struct SummaryView: View {
                     Label {
                         VStack(alignment: .leading, spacing: 1) {
                             Text(e.text).lineLimit(2)
+                            // The event's own CALENDAR colour, the one the
+                            // picker shows beside its name — Sean asked for
+                            // the time to carry it rather than the generic
+                            // secondary grey, so a glance says which calendar
+                            // it belongs to without reading a word.
                             Text(WatchFormat.when(date: e.date, time: e.time, today: todayStr()))
                                 .font(.caption2)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(Color(hex: e.color))
                         }
                     } icon: {
                         Image(systemName: "calendar")
@@ -132,7 +137,7 @@ struct EventListView: View {
                                     VStack(alignment: .leading, spacing: 1) {
                                         Text(e.text).font(.body)
                                         if let t = WatchFormat.clock(e.time) {
-                                            Text(t).font(.caption2).foregroundStyle(.secondary)
+                                            Text(t).font(.caption2).foregroundStyle(Color(hex: e.color))
                                         }
                                     }
                                 }

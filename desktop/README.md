@@ -23,10 +23,12 @@ bundling an .app.
 
 ## Windows
 
-Tauri cannot cross-compile from macOS. The intended route is a GitHub
-Actions job using `tauri-apps/tauri-action` with a `windows-latest` runner —
-same repo, same export, produces the `.msi`/`.exe`. Not wired up yet;
-add it when a Windows build is actually wanted.
+Tauri cannot cross-compile from macOS, so Windows builds on a runner:
+`.github/workflows/desktop-windows.yml`, `tauri-apps/tauri-action` on
+`windows-latest`, same repo and same export, producing the `.msi`/`.exe` as
+an artifact. It is `workflow_dispatch` only — trigger it from the Actions
+tab when a Windows build is actually wanted; it never runs on push. No one
+has smoked the artifact yet, so treat the first one as unverified.
 
 ## Icons
 

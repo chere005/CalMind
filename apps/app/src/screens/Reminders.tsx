@@ -12,6 +12,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { byOrd, deleteSection, duplicateItem, moveReminderBlock, moveSection, moveSectionEmptyingFolder, newId, nowStr, ordBetween, parseWhenFromText, reminderToggle, remindersMarkdown, renameSection, repeatLabel, sectionNameTaken, sortByDate, timeLabel, todayStr, type Rec, type Repeat, type RepeatUnit } from '@calmind/core';
 import * as Clipboard from 'expo-clipboard';
 import { useStore } from '../store';
+import { useClock24 } from '../useClock24';
 import { themed, T } from '../theme';
 import { TopBar } from '../chrome';
 import { FolderPick, useFolderView } from '../components/FolderPick';
@@ -39,6 +40,7 @@ export function Reminders() {
   const [editText, setEditText] = useState('');
   const holdCluster = React.useRef(false);
   const swipe = useSwipeLeft();
+  const clock24 = useClock24();
   const [pageEdit, setPageEdit] = useState(false);
   const exitEdit = () => { setPageEdit(false); setEditing(null); };
   useEffect(() => {
@@ -374,7 +376,7 @@ export function Reminders() {
     const overdue = !done && due !== null && due < todayStr();
     const bits = [
       due ? new Date(`${due}T12:00:00`).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) : '',
-      timeLabel(time),
+      timeLabel(time, clock24),
       repeatLabel(repeat),
     ].filter(Boolean);
     return <Text style={[s.chip, overdue && s.chipOverdue, rolledId === r.id && s.chipRolled]}>{bits.join(' · ')}</Text>;
@@ -711,7 +713,7 @@ export function Reminders() {
                             style={s.tick}
                           />
                           <Text style={s.rowText}>{r.payload.text}</Text>
-                          {dueChipStatic(r, todayStr())}
+                          {dueChipStatic(r, todayStr(), clock24)}
                         </View>
                       ))}
                     </View>
@@ -756,6 +758,9 @@ export function Reminders() {
  */
 function SharedReminders({ viewKey, partner }: { viewKey: string; partner: string }) {
   const { sharedRecs, sharedPut, sharedPartnerLabel } = useStore();
+  // MY clock setting, not the partner's — it is how I read a time, and their
+  // prefs are not in my store anyway.
+  const clock24 = useClock24();
   const shown = sharedPartnerLabel ?? partner;
   const today = todayStr();
   const folderId = viewKey.slice(viewKey.indexOf(':') + 1);
@@ -816,7 +821,7 @@ function SharedReminders({ viewKey, partner }: { viewKey: string; partner: strin
                   {r.payload.done && <Text style={s.tickMark}>✓</Text>}
                 </Pressable>
                 <Text style={s.rowText}>{r.payload.text}</Text>
-                {dueChipStatic(r, today)}
+                {dueChipStatic(r, today, clock24)}
               </View>
             ))}
           </View>
@@ -826,10 +831,10 @@ function SharedReminders({ viewKey, partner }: { viewKey: string; partner: strin
   );
 }
 
-function dueChipStatic(r: ReminderRec, today: string) {
+function dueChipStatic(r: ReminderRec, today: string, clock24: boolean) {
   if (!r.payload.due) return null;
   const overdue = r.payload.due < today && !r.payload.done;
-  return <Text style={[s.chip, overdue && s.chipOverdue]}>{r.payload.due}{r.payload.time ? ` ${timeLabel(r.payload.time)}` : ''}</Text>;
+  return <Text style={[s.chip, overdue && s.chipOverdue]}>{r.payload.due}{r.payload.time ? ` ${timeLabel(r.payload.time, clock24)}` : ''}</Text>;
 }
 
 const s = themed(() => StyleSheet.create({

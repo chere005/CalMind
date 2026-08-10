@@ -6,7 +6,33 @@ would have caught it.** This file is the map of which harness watches what,
 and what nobody watches but a person. Keep it in step, or a thing ends up in
 neither list and nobody is looking at it.
 
-## The three runs
+## Every harness, in one place
+
+Eight run against the working tree; two more exist only against a deployed
+instance (`smoke-live.sh` and the live passkey spec, both further down). Three
+of the eight are the deploy gate. The other five have to be *remembered*,
+which is why they are listed here rather than left to be discovered.
+
+| run | what it watches | in the deploy gate? |
+|---|---|---|
+| `npm run test:core` | the behaviour itself, incl. the `spec/*.json` replay | **yes** |
+| `npm run test:server` | the API over real HTTP on a scratch dir | **yes** |
+| `npm run test:e2e` | gestures, real mouse, on the EXPORTED app | **yes** |
+| `npm run test:webkit` | the spine + header rules + scaling, in Sean's engine | no |
+| `npm run test:watch` | both Swift clock copies; core's JSON through the wrist's real decoder and `drawnGroups` | no |
+| `npm run test:widget` | core's JSON through HomeWidget's real decoder and `drawnDays`; every App Group key read has a writer on its own device | no |
+| `npm run test:deploy` | the deploy guards, each proven by breaking a copy | no |
+| `./desktop/smoke.sh` | the macOS shell carries THIS export | no |
+
+The five outside the gate are outside it for a reason each — WebKit needs its
+own browser download, the native checks need `swift` and `python3` (they lift
+the real Swift out of the targets rather than re-typing it), the deploy guards
+rewrite copies of the real scripts, and the desktop smoke compiles Rust — but
+"outside the gate" has already cost a real bug (below). Run them by hand after
+anything they touch. Counts live in TODO.md's steady-state line; a number
+written into prose goes stale, and this file is not exempt.
+
+The three that gate a deploy, spelled out:
 
 ```sh
 npm -w @calmind/core test     # core: vitest, ~1s
@@ -151,6 +177,22 @@ than a red run, because it looks like an answer.
   asserts what a person would see: the dated one shows, the undated one
   rides on today, the overdue one is gathered onto today, the event sits
   beside them, and the 'none' folder appears on no day at all.
+
+  Then it runs the widget's OWN layer, the same way the watch check runs
+  `drawnGroups`. `drawnDays` used to reach into UserDefaults and a WidgetKit
+  configuration, so it could only ever execute inside a rendered widget on a
+  phone — behaviour nothing can reach, which is the shape every bug on this
+  seam has had. It is static and pure for exactly one reason: so something
+  can call it. What it covers is what core cannot know — which folders THIS
+  instance was configured for, and which ticks are queued but not yet
+  applied — plus the day headings and the row cap.
+
+  Proven by breaking it two ways: drop the optimistic tick filter and a
+  ticked row stays on screen; let a folder selection filter events as well
+  as reminders and the event vanishes. That second rule is worth stating,
+  because it is easy to "tidy" away — picking a folder filters REMINDERS,
+  and events survive, since an event has no folder and dropping them all
+  would be a second rule nobody asked for.
 
   `tools/check-appgroup.sh` states the rule the first of those bugs broke:
   every App Group key that is READ has a WRITER on the same device, with
@@ -458,6 +500,16 @@ passed first try, which is the answer you want and the reason to keep them.
   The script's FORMATTING is pinned by the widget spec (header row, uppercase
   day headings, the rules, the right-aligned time) because two copies of it
   drifted apart once and the flat one shipped.
+- **The NATIVE home-screen widget's pixels.** Everything behind them is
+  covered — the entitlements, the cache writer, core's shape, HomeWidget's
+  decoder and `drawnDays` — and none of that is the same as having seen it.
+  It cannot be seen from here either: a simulator build carries no
+  entitlements whether it is signed or not, so App Groups do not exist there
+  and the widget has nothing to read. It needs Sean's phone and a look. The
+  same goes for the watch, with one difference worth remembering — the watch
+  app itself DOES render on a watchOS simulator, and the day someone finally
+  looked at one it produced three bugs in an hour, so there is no excuse for
+  waiting on a wrist.
 - OCR against REAL photographs. e2e/ocr.spec.ts drives the real engine, but
   over a fixture card this repo draws itself (e2e/fixtures/recipe-card.svg,
   rasterised by the browser mid-run) — so it proves the pipeline and the

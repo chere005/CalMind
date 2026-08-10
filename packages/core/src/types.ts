@@ -78,6 +78,16 @@ export type Prefs = {
   folderModes?: Record<string, FolderMode>;
   view?: 'week' | 'month'; // habits: which grid the bar above it picked
   theme?: string; // suite: the chosen palette (midnight when absent)
+  /**
+   * suite: 24-hour times instead of 12. Absent = 12-hour, which is what every
+   * surface did before the setting existed, so an account that never touches
+   * it sees no change.
+   *
+   * It lives on 'suite' rather than per app because it is one person's habit,
+   * not a property of a list — and it syncs, so the phone, the web, the watch
+   * and the widget agree without being set four times.
+   */
+  clock24?: boolean;
 };
 
 export type FolderMode = 'all' | 'dated' | 'none';

@@ -93,6 +93,9 @@ final class WatchStore: NSObject, ObservableObject, WCSessionDelegate {
             let folders: [WatchFolder]?
             let sections: [WatchSection]?
             let groups: [WatchGroup]?
+            /// Optional so a cache written before the setting existed still
+            /// decodes — it simply reads as 12-hour, which is what it was.
+            let clock24: Bool?
         }
         // try? here was the same silence that hid WCSession 7006 for a day.
         let list: List
@@ -115,6 +118,9 @@ final class WatchStore: NSObject, ObservableObject, WCSessionDelegate {
             self.folders = list.folders ?? []
             self.sections = list.sections ?? []
             self.groups = list.groups ?? []
+            // Set before the views read it: every formatter on this device
+            // asks WatchFormat, so one assignment moves the whole watch.
+            WatchFormat.clock24 = list.clock24 ?? false
             self.feed = .loaded(from: source)
         }
     }

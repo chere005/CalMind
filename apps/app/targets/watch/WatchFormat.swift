@@ -41,10 +41,18 @@ enum WatchFormat {
     ///
     /// Midnight and noon are still the two that catch 12-hour clocks out:
     /// 00:00 is "12" and 12:00 is "12", neither carrying a suffix now.
+    /// Sean's Settings choice, pushed with the list. The wrist cannot read a
+    /// pref record — it is another process on another device — so the flag
+    /// travels in the feed and every formatter here takes it.
+    static var clock24 = false
+
     static func clock(_ hhmm: String?) -> String? {
         guard let hhmm, hhmm.count >= 4 else { return nil }
         let parts = hhmm.split(separator: ":")
         guard parts.count == 2, let h = Int(parts[0]), let m = Int(parts[1]) else { return nil }
+        // 24-hour keeps its leading zero and its minutes: "09:00", never "9".
+        // The compact rule below is a 12-hour habit and makes no sense here.
+        if clock24 { return "\(String(format: "%02d", h)):\(String(format: "%02d", m))" }
         let suffix = h >= lateHour ? "pm" : ""
         let h12 = h % 12 == 0 ? 12 : h % 12
         return m == 0 ? "\(h12)\(suffix)" : "\(h12):\(String(format: "%02d", m))\(suffix)"

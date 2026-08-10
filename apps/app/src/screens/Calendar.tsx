@@ -24,6 +24,7 @@ import { prefsOf, duplicateItem,
   type Rec,
 } from '@calmind/core';
 import { useStore } from '../store';
+import { useClock24 } from '../useClock24';
 import { themed, T } from '../theme';
 import { TopBar } from '../chrome';
 import { CalendarPick, useCalendarView } from '../components/CalendarPick';
@@ -44,6 +45,7 @@ let calDay: string | null = null;
 export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => void }) {
   const { recs, mutate, sharedRecs, sharedPartner, sharedPartnerLabel, sharedPut, session } = useStore();
   const { visible: visibleCals, calendars, visibleShared } = useCalendarView();
+  const clock24 = useClock24();
   const today = todayStr();
   const [ym, setYm] = useState((calDay ?? today).slice(0, 7));
   const [day, setDayState] = useState(calDay ?? today);
@@ -385,7 +387,7 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
             <Pressable style={s.rowBodyFlex} onPress={() => rowPress(e.id)} onLongPress={() => setPanelEdit(true)} delayLongPress={350}>
               <Text style={s.rowText}>{e.payload.text}</Text>
             </Pressable>
-            {e.payload.time && <Text style={s.chip}>{timeLabel(e.payload.time)}</Text>}
+            {e.payload.time && <Text style={s.chip}>{timeLabel(e.payload.time, clock24)}</Text>}
             {panelEdit && (
               <>
                 <CircleBtn glyph="✎" label="Edit" size={24} onPress={() => setModal({ mode: 'edit', kind: 'event', rec: e })} />
@@ -407,7 +409,7 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
           <View key={`sh${e.id}`} style={s.row}>
             <View style={[s.dot, s.rowDot, { backgroundColor: sharedCalById.get(e.payload.calendarId)?.color ?? T.folderBlue }]} />
             <Text style={s.rowText}>{e.payload.text}</Text>
-            {e.payload.time && <Text style={s.chip}>{timeLabel(e.payload.time)}</Text>}
+            {e.payload.time && <Text style={s.chip}>{timeLabel(e.payload.time, clock24)}</Text>}
           </View>
         ))}
         {myReminders.length > 0 && (
@@ -431,7 +433,7 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
                 describes the rule rather than the row: the row is here, on
                 this day, and "today" is what it is doing. Sean's wording. */}
             {rider && <Text testID="rider-chip" style={s.chip}>today</Text>}
-            {r.payload.time && <Text style={s.chip}>{timeLabel(r.payload.time)}</Text>}
+            {r.payload.time && <Text style={s.chip}>{timeLabel(r.payload.time, clock24)}</Text>}
             {panelEdit && (
               <>
                 <CircleBtn glyph="✎" label="Edit" size={24} onPress={() => setModal({ mode: 'edit', kind: 'reminder', rec: r })} />
@@ -458,7 +460,7 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
             />
             <Text style={s.rowText}>{r.payload.text}</Text>
             {overdue && <Text style={[s.chip, { color: T.overdue }]}>{dueLabel(r.payload.due!)}</Text>}
-            {r.payload.time && <Text style={s.chip}>{timeLabel(r.payload.time)}</Text>}
+            {r.payload.time && <Text style={s.chip}>{timeLabel(r.payload.time, clock24)}</Text>}
           </View>
         ))}
         {items.notes.length > 0 && (

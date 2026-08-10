@@ -80,6 +80,9 @@ struct Feed: Codable {
     let events: [WEvent]?
     let folders: [WFolder]?
     let days: [WDay]?
+    /// Sean's Settings choice. Optional, so a cache written before the
+    /// setting existed still decodes as the 12-hour it always was.
+    let clock24: Bool?
 }
 
 /// What the widget knows. Three states, never collapsed into one: a widget
@@ -126,9 +129,11 @@ private func dayHeading(_ ymd: String, today: String) -> String {
 /// the suffix always shown — deliberately NOT the watch's compact rule,
 /// where am/pm is dropped below 8pm because a wrist has no room for it. A
 /// home-screen widget does.
-private func clock12(_ hhmm: String) -> String {
+private func clock12(_ hhmm: String, clock24: Bool = false) -> String {
     let parts = hhmm.split(separator: ":")
     guard parts.count == 2, let h = Int(parts[0]), let m = Int(parts[1]) else { return hhmm }
+    // 24-hour keeps its leading zero and its minutes: "09:00", never "9".
+    if clock24 { return "\(String(format: "%02d", h)):\(String(format: "%02d", m))" }
     let suffix = h < 12 ? "am" : "pm"
     let h12 = h % 12 == 0 ? 12 : h % 12
     return m == 0 ? "\(h12)\(suffix)" : "\(h12):\(String(format: "%02d", m))\(suffix)"
@@ -226,6 +231,8 @@ struct DaySection: Identifiable {
 struct Entry: TimelineEntry {
     let date: Date
     let days: [DaySection]
+    /// Carried so the ROW can format its time. The view cannot reach the feed.
+    var clock24 = false
     /// Carried so the view can say WHICH empty it is.
     let state: Load
 }
@@ -256,6 +263,7 @@ struct Provider: AppIntentTimelineProvider {
         let wanted = Set((configuration.folders ?? []).map(\.id))
         return Entry(date: Date(),
                      days: Provider.drawnDays(feed: feed, ticked: ticked, wanted: wanted, today: todayStr()),
+                     clock24: feed.clock24 ?? false,
                      state: state)
     }
 
@@ -403,7 +411,7 @@ struct HomeWidgetView: View {
                 .lineLimit(1)
             Spacer(minLength: 0)
             if let t = line.time {
-                Text(clock12(t)).font(.system(size: 11)).foregroundStyle(META)
+                Text(clock12(t, clock24: entry.clock24)).font(.system(size: 11)).foregroundStyle(META)
             }
         }
         .padding(.bottom, 5)

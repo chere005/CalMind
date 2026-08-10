@@ -56,7 +56,7 @@ export type WatchEvent = { id: string; text: string; date: string; time: string 
  * fails. 30 events covers every face and tab while staying far from the
  * cliff.
  */
-export function watchFeed(recs: AnyRec[], today: string): { items: WatchRow[]; events: WatchEvent[]; folders: WatchFolder[]; sections: WatchSection[]; groups: WatchGroup[]; days: WidgetDay[] } {
+export function watchFeed(recs: AnyRec[], today: string): { items: WatchRow[]; events: WatchEvent[]; folders: WatchFolder[]; sections: WatchSection[]; groups: WatchGroup[]; days: WidgetDay[]; clock24: boolean } {
   const calColor = new Map(
     recs.filter((r): r is Rec<'calendar'> => r.type === 'calendar' && !r.deleted).map((c) => [c.id, c.payload.color]),
   );
@@ -113,6 +113,10 @@ export function watchFeed(recs: AnyRec[], today: string): { items: WatchRow[]; e
     sections,
     groups: watchGroups(items, folders, sections),
     days: widgetDays(recs, today),
+    // The watch and the widget are other processes in another language and
+    // cannot read a pref record. The flag travels with the list so all four
+    // surfaces speak the same clock from one setting.
+    clock24: prefsOf(recs, 'suite').clock24 === true,
   };
 }
 

@@ -22,6 +22,12 @@ export function Settings({ onClose }: { onClose: () => void }) {
     // The choice syncs like any pref, so every device follows.
     mutate((e) => e.put(prefsPut(recs, 'suite', { theme: name })));
   };
+  // 12- vs 24-hour, on 'suite' beside the theme: it is one person's habit, and
+  // it syncs, so the phone, the web, the WATCH and the WIDGET all follow one
+  // setting rather than four. The native two cannot read a pref record, so the
+  // flag rides along in the watch feed.
+  const clock24 = prefsOf(recs, 'suite').clock24 === true;
+  const setClock24 = (on: boolean) => mutate((e) => e.put(prefsPut(recs, 'suite', { clock24: on })));
   const [oldPass, setOldPass] = useState('');
   const [newPass, setNewPass] = useState('');
   const [canPasskey, setCanPasskey] = useState(false);
@@ -147,6 +153,25 @@ export function Settings({ onClose }: { onClose: () => void }) {
               </Pressable>
             ))}
           </View>
+          <View style={s.clockRow}>
+            <Text style={s.clockLabel}>Time format</Text>
+            <View style={s.clockSeg}>
+              <Pressable
+                testID="clock-12"
+                onPress={() => setClock24(false)}
+                style={[s.clockOpt, !clock24 && s.clockOptOn]}
+              >
+                <Text style={[s.clockOptText, !clock24 && s.clockOptTextOn]}>12h</Text>
+              </Pressable>
+              <Pressable
+                testID="clock-24"
+                onPress={() => setClock24(true)}
+                style={[s.clockOpt, clock24 && s.clockOptOn]}
+              >
+                <Text style={[s.clockOptText, clock24 && s.clockOptTextOn]}>24h</Text>
+              </Pressable>
+            </View>
+          </View>
           {note ? <Text style={s.note}>{note}</Text> : null}
           <ViewportDiag />
           {/* The suite's settings footer: one row of three identical round icon
@@ -234,6 +259,13 @@ const s = themed(() => StyleSheet.create({
   diagText: { color: T.muted, fontSize: 11, fontFamily: Platform.OS === 'web' ? 'monospace' : undefined },
   who: { color: T.dim, fontSize: 13 },
   themeRow: { flexDirection: 'row', gap: 12, justifyContent: 'center', marginTop: 4 },
+  clockRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 14 },
+  clockLabel: { color: T.text, fontSize: 14 },
+  clockSeg: { flexDirection: 'row', borderWidth: 1, borderColor: T.line, borderRadius: 999, overflow: 'hidden' },
+  clockOpt: { paddingHorizontal: 14, paddingVertical: 6, minWidth: 52, alignItems: 'center' },
+  clockOptOn: { backgroundColor: T.accentSoft },
+  clockOptText: { color: T.dim, fontSize: 13, fontWeight: '600' },
+  clockOptTextOn: { color: T.accent },
   pkSection: { gap: 8, marginTop: 6, borderTopWidth: 1, borderTopColor: T.line, paddingTop: 10 },
   pkHead: { color: T.dim, fontSize: 12, textTransform: 'uppercase', letterSpacing: 1 },
   pkRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
