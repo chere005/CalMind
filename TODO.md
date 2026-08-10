@@ -99,10 +99,20 @@ visual. Deploy to **test only** (`./server/deploy-test.sh`) as changes land.
       play) plus CBOR/COSE verification in framework-less PHP. Recommended
       later, web-first, passwords staying as the fallback. Awaiting his word.
 
-## KNOWN BUG · the new-note focus is a 50ms race — WebKit only
+## LATENT · the new-note focus is a 50ms race (does NOT reproduce)
 
-`e2e/app.spec.ts:353` fails under `playwright.webkit.config.ts` and passes
-in Chromium. 15/16 there; everything else green.
+Recorded as a known WebKit failure and then measured properly: the WebKit
+suite passes 16/16, four consecutive runs. `app.spec.ts:353` went red ONCE,
+while an Android emulator, an iOS simulator and two xcodebuilds were
+competing for CPU — starve a 50ms timer and it lands after the blur it was
+meant to precede. That is the whole failure.
+
+So: the race below is real in principle and does not manifest on a machine
+that is not being hammered. Left here because the DESIGN note at the end is
+worth having, not because anything is broken today. I overstated this twice
+before measuring it — first as user-facing, then as deterministic — and the
+same CPU contention made a healthy test suite look like a hang the same
+night.
 
 WHAT HAPPENS. Opening a note from `+` sets bodyEditing and then focuses the
 body through `setTimeout(bodyRef.current?.focus(), 50)` (Notes.tsx). The

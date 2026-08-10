@@ -221,17 +221,20 @@ the first run of it found a real defect that Chromium could not see (a 50ms
 deferred focus in the note editor, `TODO.md`). An engine Sean reads the app
 in every day had, in practice, zero coverage.
 
-It is still not in the gate, deliberately: there is a KNOWN WebKit failure
-right now (`app.spec.ts:353`, analysed in TODO.md and waiting on a design
-call), and wiring a red suite into the gate would just teach everyone to
-pass `--no-gestures`. Run it by hand after anything touching focus,
-selection, or layout:
+Run it by hand after anything touching focus, selection, or layout:
 
 ```sh
-npx playwright test -c playwright.webkit.config.ts   # expect 15/16 today
+npx playwright test -c playwright.webkit.config.ts   # 16/16
 ```
 
-When that known failure is fixed, put it in the gate.
+**A failure here may be your MACHINE, not the code.** `app.spec.ts:353` went
+red exactly once, while an Android emulator, an iOS simulator and two
+xcodebuilds were competing for CPU — the note editor focuses its body on a
+50ms timer, and under that starvation the timer lands after the blur it was
+supposed to precede. Four consecutive runs on an unloaded machine: 16/16.
+The race is real in principle and latent in practice (see TODO.md); the same
+contention also made a healthy suite look like a hang the same night. Before
+believing a red run, check what else is running.
 
 Every one of those signs up a FRESH account and drives half a dozen records,
 which is not the shape the app actually runs against. `e2e/seeded.spec.ts`
