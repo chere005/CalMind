@@ -293,7 +293,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
 
   const signOut = useCallback(async () => {
-    await AsyncStorage.removeItem(SESSION_KEY);
+    // Same rule as the 401 path, and this one matters more because it is the
+    // deliberate act: pressing Log out with storage refusing used to throw
+    // before clearSession, so nothing happened and you stayed signed in with
+    // no error at all. The disk copy is a cache; clearing memory is the
+    // sign-out. Do that regardless.
+    await AsyncStorage.removeItem(SESSION_KEY).catch(() => {});
     clearSession();
   }, [clearSession]);
 
