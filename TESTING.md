@@ -129,6 +129,16 @@ than a red run, because it looks like an answer.
   so every ancestor passed: it was measuring the whole row and would have
   reported success with the fix absent. Before trusting a measurement, ask
   what would make it read false.
+
+  `tools/sweep-tap-targets.mjs` does this across every clickable element on
+  the four tabs, both pickers and the recipe editor, and flags anything under
+  30pt. It found two things reading the source did not: the collapse-all
+  button shrunk to a 24pt TARGET when its icon was made smaller, and
+  Reminders' collapse-all still drawing a static chevron long after Notes'
+  was made dynamic. It also proves each screen it claims to have opened
+  actually opened — the first version measured the recipe editor's link row
+  twice with the row closed, and the two passes agreed, which is what a
+  measurement that cannot fail looks like.
 - The SCRIPTABLE WIDGET, actually executed (`test/widget.test.ts`). Its
   Scriptable globals are stubbed just enough to record what the script builds,
   then the structure is asserted: the header row, uppercase day headings with
