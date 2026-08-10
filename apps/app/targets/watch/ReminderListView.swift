@@ -94,8 +94,9 @@ struct ReminderListView: View {
         }
     }
 
-    /// The same words the complication uses — "Today 3pm", "8/15 5pm" — so a
-    /// time never reads one way on the face and another in the list.
+    /// The same words the complication uses — "3" for today, "8/15 5" for a
+    /// later day, "8pm" for tonight — so a time never reads one way on the
+    /// face and another in the list.
     private func chip(_ item: WatchItem) -> String? {
         let today = WatchFormat.todayStr()
         guard let due = item.due else { return WatchFormat.clock(item.time) }

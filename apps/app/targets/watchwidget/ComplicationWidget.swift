@@ -59,15 +59,27 @@ private let ymdFmt: DateFormatter = {
 
 func todayStr() -> String { ymdFmt.string(from: Date()) }
 
-/// "15:30" -> "3:30pm", "15:00" -> "3pm", "00:30" -> "12:30am".
+/// "15:30" -> "3:30", "15:00" -> "3", "20:00" -> "8pm", "21:30" -> "9:30pm".
+///
+/// Sean's rule, and it is about SPACE rather than correctness: drop am/pm
+/// unless the time is 8pm or later, and then show pm. A complication is a
+/// few characters wide, and "3pm" spends two of them on something he can
+/// infer — nothing in his day is at 3am. Late evening is the one place the
+/// guess goes wrong, so that is where the suffix stays.
+///
+/// Deliberately never "am": the only times that carry a suffix are 20:00 and
+/// after, which are all pm.
 func clock12(_ hhmm: String?) -> String? {
     guard let hhmm, hhmm.count >= 4 else { return nil }
     let parts = hhmm.split(separator: ":")
     guard parts.count == 2, let h = Int(parts[0]), let m = Int(parts[1]) else { return nil }
-    let suffix = h < 12 ? "am" : "pm"
+    let suffix = h >= LATE_HOUR ? "pm" : ""
     let h12 = h % 12 == 0 ? 12 : h % 12
     return m == 0 ? "\(h12)\(suffix)" : "\(h12):\(String(format: "%02d", m))\(suffix)"
 }
+
+/// From this hour on, a time carries its "pm". 20 = 8pm, Sean's line.
+let LATE_HOUR = 20
 
 /// "Today" when it is, otherwise "8/15" — no leading zeros.
 func dayLabel12(_ date: String) -> String {
@@ -84,10 +96,20 @@ func whenShort(_ e: Ev) -> String {
     clock12(e.time) ?? dayLabel12(e.date)
 }
 
-/// The when, as Sean writes it: "Today 3pm", "8/15 5pm", or just "8/15" for
-/// an all-day event.
+/// The when, as Sean writes it: "3" for something today, "8/15 5" for a
+/// later day, "8pm" for tonight, and just "Today" or "8/15" when the event
+/// is all-day and has no time to show.
+///
+/// TODAY IS NOT NAMED. On the face, "Today" is the one word that cannot be
+/// news — the complication is only ever showing what is next, and the room
+/// it takes is room the event's name does not get. A date appears exactly
+/// when it is not today, which is when it carries information.
 func when(_ e: Ev) -> String {
-    [dayLabel12(e.date), clock12(e.time)].compactMap { $0 }.joined(separator: " ")
+    if e.date == todayStr() {
+        // An all-day event today has no time, so it still needs the word.
+        return clock12(e.time) ?? "Today"
+    }
+    return [dayLabel12(e.date), clock12(e.time)].compactMap { $0 }.joined(separator: " ")
 }
 
 struct Entry: TimelineEntry {
