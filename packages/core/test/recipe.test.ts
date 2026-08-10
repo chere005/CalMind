@@ -653,3 +653,35 @@ describe('recipeFromHtml — the shapes real sites actually ship', () => {
     expect(recipeFromHtml(page(ld({ '@type': 'VideoObject', name: 'A video' })))).toBeNull();
   });
 });
+
+describe('recipeFromHtml — ingredient shapes the wild produces', () => {
+  const page = (o: unknown) =>
+    `<html><head><script type="application/ld+json">${JSON.stringify(o)}</script></head><body>x</body></html>`;
+  const recipe = (ings: unknown) => page({ '@type': 'Recipe', name: 'X', recipeIngredient: ings, recipeInstructions: ['Do it'] });
+
+  it('a single ingredient given as a bare string, not an array', () => {
+    expect(recipeFromHtml(recipe('2 cups flour'))!.ingredients).toEqual(['2 cups flour']);
+  });
+
+  it('drops empties and whitespace-only entries rather than listing blanks', () => {
+    const r = recipeFromHtml(recipe(['1 egg', '', '   ', '2 cups flour']))!;
+    expect(r.ingredients).toEqual(['1 egg', '2 cups flour']);
+  });
+
+  it('non-string entries are skipped, not stringified into [object Object]', () => {
+    const r = recipeFromHtml(recipe(['1 egg', { name: 'flour' }, null, 42, '1 tsp salt']))!;
+    expect(r.ingredients).toEqual(['1 egg', '1 tsp salt']);
+  });
+
+  it('a recipe with steps but NO ingredients is still a recipe', () => {
+    const r = recipeFromHtml(page({ '@type': 'Recipe', name: 'Method only', recipeInstructions: ['Stir', 'Serve'] }))!;
+    expect(r).not.toBeNull();
+    expect(r.steps).toEqual(['Stir', 'Serve']);
+    expect(r.ingredients).toEqual([]);
+  });
+
+  it('the older `ingredients` key still works — sites that never updated', () => {
+    const r = recipeFromHtml(page({ '@type': 'Recipe', name: 'Old', ingredients: ['3 ripe bananas'], recipeInstructions: ['Mash'] }))!;
+    expect(r.ingredients).toEqual(['3 ripe bananas']);
+  });
+});
