@@ -87,7 +87,19 @@ than a red run, because it looks like an answer.
   behaviour, so it moved here, and the app keeps only the WatchConnectivity
   plumbing: open reminders only (nothing done, deleted, or of another kind),
   the Reminders list's own order, and a subtask travelling under its parent
-  rather than sorting away from it.
+  rather than sorting away from it, and — since the iOS widget gained a
+  folder picker — the reminder folders it offers, notes folders excluded.
+  The exact-field-set assertion on a row is the reason adding `folderId`
+  could not slip through unnoticed; keep it exact, not a subset.
+
+  What no test covers, and could not: what the WATCH does with the feed
+  once it has it. An evening was lost to 'my watch is not syncing' when the
+  phone was delivering correctly the whole time and the wrist showed
+  'Nothing due today' — the words it also shows when it has received
+  nothing at all. WatchStore now publishes `.waiting` / `.loaded` /
+  `.failed(reason)` and every empty screen reads it, so the two can never
+  be confused again. That distinction is enforced by construction rather
+  than by a test, because nothing here can run SwiftUI.
 - The SCRIPTABLE WIDGET, actually executed (`test/widget.test.ts`). Its
   Scriptable globals are stubbed just enough to record what the script builds,
   then the structure is asserted: the header row, uppercase day headings with
