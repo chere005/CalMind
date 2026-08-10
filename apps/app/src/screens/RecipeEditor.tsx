@@ -159,7 +159,18 @@ export function RecipeEditor({ note, onClose }: { note: Rec<'note'>; onClose: ()
       const picked = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsMultipleSelection: true, quality: 0.9 });
       if (picked.canceled || picked.assets.length === 0) return;
       setBusy(`Reading 0/${picked.assets.length}…`);
-      const pages = await ocrImages(picked.assets.map((a) => a.uri), (d, t) => setBusy(`Reading ${d}/${t}…`));
+      // A partial failure still carries the pages that DID read — take them
+      // and say what was lost, rather than throwing the good ones away.
+      let partial = '';
+      const pages = await ocrImages(picked.assets.map((a) => a.uri), (d, t) => setBusy(`Reading ${d}/${t}…`))
+        .catch((err: unknown) => {
+          const carried = (err as { pages?: string[] })?.pages;
+          if (carried?.length) {
+            partial = err instanceof Error ? err.message : 'some photos could not be read';
+            return carried;
+          }
+          throw err;
+        });
       const r = recipeFromPages(pages);
       if (r.title && !title) setTitle(r.title);
       if (r.ingredients.length) setIngredients((cur) => [...r.ingredients, ...cur]);
@@ -170,6 +181,12 @@ export function RecipeEditor({ note, onClose }: { note: Rec<'note'>; onClose: ()
       // slow one. Say so, and say what usually fixes it.
       if (!r.title && !r.ingredients.length && !r.steps.length && !r.extra.length) {
         setBusy('No text found in that photo — try a straighter, brighter shot.');
+        setTimeout(() => setBusy(''), 5000);
+        return;
+      }
+      if (partial) {
+        // What DID read is already in the fields above; this says what did not.
+        setBusy(partial);
         setTimeout(() => setBusy(''), 5000);
         return;
       }

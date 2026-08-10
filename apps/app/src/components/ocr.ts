@@ -48,11 +48,28 @@ export async function ocrImages(
   }
   if (native) {
     const pages: string[] = [];
+    let failed = 0;
     for (let i = 0; i < uris.length; i++) {
       // One at a time, reporting as it goes: a card is usually one or two
       // photos, and a progress line that moves beats a faster silence.
-      pages.push(await native.recognize(uris[i]!));
+      //
+      // Per-photo, because an unguarded await threw the WHOLE import away on
+      // one bad frame — photograph both sides of a card, have the second fail,
+      // and the first is discarded too. Keeping what was read is the point;
+      // the count of what was not is reported rather than swallowed.
+      try {
+        pages.push(await native.recognize(uris[i]!));
+      } catch {
+        failed++;
+      }
       onProgress(i + 1, uris.length);
+    }
+    // Everything failed: that IS the error, and the caller should say so.
+    if (pages.length === 0) {
+      throw new Error(uris.length === 1 ? 'That photo could not be read.' : 'None of those photos could be read.');
+    }
+    if (failed > 0) {
+      throw Object.assign(new Error(`${failed} of ${uris.length} photos could not be read.`), { pages });
     }
     return pages;
   }
