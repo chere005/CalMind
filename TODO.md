@@ -1,6 +1,6 @@
 # TODO — in priority order
 
-The working list as of 2026-08-08 (ralph iteration 22). PARITY.md stays the
+The working list as of 2026-08-10. PARITY.md stays the
 ledger of what's *done*; this is what's still owed, top priority first.
 Standing rules: behavior lives in packages/core, RN primitives only, the old
 suite (seancheren-reminders) IS the spec — grep its CSS/PHP before guessing a
@@ -570,6 +570,54 @@ options differ in what the user sees:
 (a) is the honest one and needs a little UI. Not doing it unasked: this is
 the sync contract, the most safety-critical part of the app.
 
+## 0b · Sean's batch, 2026-08-10 (all landed unless marked)
+
+- [x] **The watch showed one flat page.** `watchFeed` filtered folders with
+      `payload.app === 'reminders'`, but a milestone-1 folder carries no
+      `app` at all and IS a reminders folder (types.ts). Sean's oldest
+      folders are exactly that shape, so the wrist got an empty folder list
+      and `watchGroups` returned one anonymous group. Silent, because an
+      empty list is also what a folder-less account sends.
+- [x] **The wrist's compact clock** — no am/pm below 8pm, and the
+      complication drops "Today" and shows only the time.
+- [x] **The chevron at 60%**, stroke scaled with it; collapse-all is a
+      DOUBLE caret so it stops reading as the Back button; Habits' collapse
+      -all was a text '⌃' in a 30pt CircleBtn and is the drawn one now.
+- [x] **Every icon sat LOW in its button** — the line box reserves descender
+      space `+` and `‹` never use, measured at 2.56pt on the tab bar's '+'.
+      `+ − ‹ ›` are drawn now; measured back to 0.00.
+- [x] **Edit mode**: a visible Done on all three screens, the suite's
+      tap-outside rule on web, and a native wrapper for the phone (EditExit)
+      — the Calendar's panel edit mode had NO way out on a phone at all.
+      Entering it now moves nothing: the edit cluster floats, the heads carry
+      a minHeight, and the toolbar has a fixed height (the Done button I
+      added was itself the last 6pt of shift).
+- [x] **Shared blocks**: partner sections fold, they and their rows indent to
+      match my own, and the owner badge sits left of the divider.
+- [x] **The phone widget had no data source** — nothing on the phone ever
+      wrote the App Group cache it reads; the only writer was the WATCH app,
+      filling the watch's container on another device.
+- [x] **The widget shows what the CALENDAR shows** — `widgetDays` calls
+      `dayItems`, so "Manage reminders"' tri-state applies and an overdue
+      item lands on today.
+- [x] **Deploy scripts**: two gates that could not fail (the PHP lint's
+      status was grep's and then discarded; the bundle check never captured a
+      BEFORE), a real `deploy-prod.sh` for the `.well-known` pair, and the
+      `.htaccess` that gives the AASA its content type is in the repo instead
+      of only on the server.
+
+Open, and both need Sean:
+
+- [ ] **Nobody has SEEN the widget render** beyond Sean's word that it "looks
+      nice". Entitlements, the cache writer, core's shape, the decoder and
+      drawnDays are all covered; the pixels are not, and cannot be from here.
+- [ ] **iOS never propagated the watch app** from the phone across four
+      installs — the wrist sat on build 1 while the phone carried 6. A direct
+      `devicectl` install to the watch fixed it, and only worked while the
+      watch was awake and holding a tunnel. Worth knowing why the companion
+      path does not update it; until then, the watch needs the direct install
+      and the build number is what proves it landed.
+
 ## 1 · In flight
 
 - [x] **Overdue date chips in the Calendar day panel** — landed, deployed,
@@ -1091,11 +1139,17 @@ much as the finds — they say where not to look next time.
 - [ ] `git pull --autostash` first — two sessions share this repo; stage
       explicit paths only, never `git add -A`, hold commits on files the other
       session has half-refactored.
-- [ ] Keep the suites green: 279 core + 37 server + 104 gesture (+4 skipped) + 16 WebKit,
-      plus 9 live checks (16 with the API) and 6 desktop. The README points
-      here rather than carrying numbers of its own, so this line has to be
-      the one that is right — it was 93 an hour after the gesture suite passed
-      96, which is exactly how the README's own "145 tests" went stale.
+- [ ] Keep the suites green: 351 core + 38 server + 117 gesture (+1 skipped) + 16 WebKit,
+      plus 9 live checks (16 with the API) and 6 desktop. And the native ones,
+      which no browser can reach: `npm run test:watch` (both Swift time
+      formatters against core's cases; core's JSON through the wrist's real
+      decoder, incl. drawnGroups), `npm run test:widget` (core's JSON through
+      HomeWidget's real decoder AND its drawnDays; every App Group key read
+      has a writer on its own device), `npm run test:deploy` (8 guards, each
+      proven by breaking a copy of the real script). The README points here
+      rather than carrying numbers of its own, so this line has to be the one
+      that is right — it was 93 an hour after the gesture suite passed 96,
+      which is exactly how the README's own "145 tests" went stale.
       `npx playwright test --list` gives the gesture total without a run.
       The gesture run refuses to start against a stale export (e2e/freshness.ts).
 - [ ] Confirm live test == local dist (md5 of served index.html vs
