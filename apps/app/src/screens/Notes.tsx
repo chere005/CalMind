@@ -174,7 +174,22 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
   }, [recs, visibleFolders]);
 
   /** Every section, so the button can both act and show which way it points. */
-  const allSectionIds = folders.flatMap((f) => sectionsOf(f.id).map((x) => x.id));
+  const mySectionIds = folders.flatMap((f) => sectionsOf(f.id).map((x) => x.id));
+  // …and the partner's, when their blocks are actually on screen. Sean asked
+  // for this after the shared folds landed: a collapse-all that skipped them
+  // left the button claiming "all collapsed" over sections that were still
+  // open. Only under the All view with a partner, because that is the only
+  // place those blocks render — counting sections that are not drawn would
+  // make the arrow point the wrong way for a reason nobody could see.
+  const sharedSectionIds =
+    view === 'all' && sharedPartner
+      ? visibleShared.flatMap((f) =>
+          sharedRecs
+            .filter((r): r is Rec<'section'> => r.type === 'section' && r.payload.folderId === f.id)
+            .map((x) => `sh:${x.id}`),
+        )
+      : [];
+  const allSectionIds = [...mySectionIds, ...sharedSectionIds];
   const allCollapsed = allSectionIds.length > 0 && allSectionIds.every((id) => nfolded.has(id));
   const collapseAllNotes = () => {
     foldSave(allCollapsed ? new Set<string>() : new Set(allSectionIds));

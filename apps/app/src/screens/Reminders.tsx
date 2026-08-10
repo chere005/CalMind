@@ -45,7 +45,31 @@ export function Reminders() {
     const onKey = (ev: KeyboardEvent) => { if (ev.key === 'Escape') exitEdit(); };
     // Capture phase: a focused field can swallow Escape before it bubbles.
     document.addEventListener('keydown', onKey, true);
-    return () => document.removeEventListener('keydown', onKey, true);
+    // The suite's rule, ported verbatim from reminders/index.php: "A tap stays
+    // in edit only if it lands on the thing you're editing or an edit control."
+    // Anything else leaves. CalMind approximated that with one Pressable at the
+    // bottom of the scroll content, so a tap in the blank space BESIDE a row
+    // did nothing, and a list longer than the window had no exit on screen at
+    // all — measured before changing it.
+    //
+    // Web only, like the Escape handler above it: this needs a document, and
+    // the phone's reliable way out is the Done button in the toolbar. That is
+    // a real divergence and it is deliberate, not an oversight.
+    const KEEP = [
+      '[role="button"]', 'input', 'textarea', 'select',
+      '[data-testid^="rem-"]', '[data-testid^="sec-"]', '[data-testid^="fold"]',
+      '[data-testid^="pick-"]', '[data-testid^="tab-"]',
+    ].join(',');
+    const onClick = (ev: Event) => {
+      const t = ev.target as Element | null;
+      if (t && typeof t.closest === 'function' && t.closest(KEEP)) return;
+      exitEdit();
+    };
+    document.addEventListener('click', onClick);
+    return () => {
+      document.removeEventListener('keydown', onKey, true);
+      document.removeEventListener('click', onClick);
+    };
   }, [pageEdit]);
   const enterEdit = (r: ReminderRec) => { setPageEdit(true); setEditing(r.id); setEditText(r.payload.text); };
   const [addingSection, setAddingSection] = useState<string | null>(null); // folderId
@@ -255,7 +279,22 @@ export function Reminders() {
   };
 
   /** Every section, so the button can both act and show which way it points. */
-  const allSectionIds = folders.flatMap((f) => sectionsOf(f.id).map((x) => x.id));
+  const mySectionIds = folders.flatMap((f) => sectionsOf(f.id).map((x) => x.id));
+  // …and the partner's, when their blocks are actually on screen. Sean asked
+  // for this after the shared folds landed: a collapse-all that skipped them
+  // left the button claiming "all collapsed" over sections that were still
+  // open. Only under the All view with a partner, because that is the only
+  // place those blocks render — counting sections that are not drawn would
+  // make the arrow point the wrong way for a reason nobody could see.
+  const sharedSectionIds =
+    view === 'all' && sharedPartner
+      ? visibleShared.flatMap((f) =>
+          sharedRecs
+            .filter((r): r is Rec<'section'> => r.type === 'section' && r.payload.folderId === f.id)
+            .map((x) => `sh:${x.id}`),
+        )
+      : [];
+  const allSectionIds = [...mySectionIds, ...sharedSectionIds];
   const allCollapsed = allSectionIds.length > 0 && allSectionIds.every((id) => folded.has(id));
   const collapseAll = () => {
     const next = allCollapsed ? new Set<string>() : new Set(allSectionIds);
@@ -339,6 +378,18 @@ export function Reminders() {
         <CircleBtn glyph="☑" label="Completed" active={showDone} onPress={() => setShowDone(!showDone)} />
         {session?.username === 'sean' && <CircleBtn testID="rem-copymd" glyph="⧉" label="Duplicate" onPress={copyMarkdown} />}
         {copyNote !== '' && <Text testID="rem-copynote" style={s.copyNote}>{copyNote}</Text>}
+        {/* A VISIBLE way out. Edit mode had exactly two: Escape, which a phone
+            does not have, and a 160pt strip below the list, which is invisible
+            and off screen entirely once the list is longer than the window.
+            Sean reported it as "tapping to exit edit mode doesn't work" — it
+            was worse than that, there was no reliable way out on a phone at
+            all. Appears only while editing, so the toolbar is unchanged the
+            rest of the time. */}
+        {pageEdit && (
+          <View style={s.editDone}>
+            <Pill testID="rem-edit-done" label="Done" primary onPress={exitEdit} />
+          </View>
+        )}
       </View>
 
       {/* A live drag holds the scroll still — see Habits for the why. */}
@@ -722,7 +773,10 @@ function dueChipStatic(r: ReminderRec, today: string) {
 
 const s = themed(() => StyleSheet.create({
   page: { flex: 1, backgroundColor: T.bg },
-  scroll: { padding: 16, paddingBottom: 48, gap: 18 },
+  // flexGrow so the edit backdrop below the list can actually take the
+  // leftover height; without it the content container is only as tall as
+  // its content and the backdrop's flexGrow has nothing to grow into.
+  scroll: { padding: 16, paddingBottom: 48, gap: 18, flexGrow: 1 },
   folderBlock: { gap: 8 },
   folderHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   folderName: {
@@ -767,7 +821,10 @@ const s = themed(() => StyleSheet.create({
   rowNoSelect: { userSelect: 'none' } as import('react-native').ViewStyle,
   // visibility, not display: entering edit mode must not nudge text sideways.
   gripHidden: { opacity: 0 },
-  editBackdropFill: { minHeight: 160 },
+  // Fills whatever is left below the list, rather than a fixed 160: on a
+  // short list the blank area a person actually taps is all of it.
+  editBackdropFill: { flexGrow: 1, minHeight: 160 },
+  editDone: { marginLeft: 'auto' },
   rowIndented: { paddingLeft: 28 },
   rowBody: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   rowText: { color: T.text, fontSize: 16, flexShrink: 1 },

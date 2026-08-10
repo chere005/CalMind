@@ -80,7 +80,14 @@ echo "==> lint"
 # SUCCEEDS when it finds a line, i.e. when there are errors. Inverted and then
 # discarded: a file with a syntax error printed its error and shipped anyway.
 # Proven by breaking store.php and watching the whole thing exit 0.
+phpsum() { find server -name '*.php' -type f -exec shasum {} \; | sort | shasum | cut -c1-12; }
 LINT=$(find server -name '*.php' -print0 | xargs -0 -n1 php -l 2>&1 | grep -v 'No syntax errors' || true)
+# What was linted, so the upload can prove it is still shipping THAT. The gates
+# below take minutes — an export, a full gesture suite — and the rsync happens
+# at the end of them. Anything edited in that window used to ship having been
+# linted in neither sense: not checked, and not the thing that was checked.
+# Demonstrated by accident, editing app.php while a deploy of it was running.
+PHP_BEFORE=$(phpsum)
 if [ -n "$LINT" ]; then
   echo "$LINT" >&2
   echo "PHP syntax errors above — not deploying" >&2
@@ -129,6 +136,16 @@ if [ "$WEB" = 1 ]; then
   AFTER=$(grep -o 'index-[a-zA-Z0-9]*\.js' apps/app/dist/index.html | head -1)
   [ "$AFTER" = "$BEFORE" ] || {
     echo "dist was rebuilt under this deploy: gated $BEFORE, now $AFTER — not deploying" >&2; exit 1; }
+fi
+
+# The PHP half of the same question the bundle check asks: is this still the
+# tree the gates ran against? Checked here, immediately before the first
+# upload, because everything between the lint and this point takes minutes.
+PHP_AFTER=$(phpsum)
+if [ "$PHP_AFTER" != "$PHP_BEFORE" ]; then
+  echo "server/*.php changed under this deploy: linted $PHP_BEFORE, now $PHP_AFTER" >&2
+  echo "something edited the PHP after the gates ran — not deploying" >&2
+  exit 1
 fi
 
 # rsync only creates the final path element, so make the parents first.

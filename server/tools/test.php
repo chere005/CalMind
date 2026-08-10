@@ -513,6 +513,42 @@ t('the URL fetcher refuses the addresses a server must never be asked for', func
     ok(str_contains(fetch_url('file:///etc/passwd')['error'], 'only http'), 'and says which schemes it speaks');
 });
 
+t('recipe_fetch: the ENDPOINT is behind auth and behind the address guard', function () {
+    // The tests above drive fetch_url() directly, and the browser specs mock
+    // this action out entirely — so between them, nothing ran the actual
+    // endpoint. A handler that stopped calling fetch_url, or dropped
+    // require_auth, would have left every one of them green while the server
+    // became an unauthenticated proxy that fetches whatever it is told to.
+    // What is being checked here is the WIRING, not the guard.
+    $u = 'chef' . substr((string) mt_rand(), 0, 6);
+    $tok = api(['action' => 'signup', 'username' => $u, 'email' => $u . '@example.com', 'password' => 'recipepassword'])['body']['token'] ?? '';
+    ok($tok !== '', 'signed up for a token');
+
+    // No token at all: a URL fetcher anyone can aim is the whole problem.
+    eq(401, api(['action' => 'recipe_fetch', 'url' => 'https://example.com/'])['status'], 'refused without a token');
+
+    // With a token, the private addresses must STILL be refused — and the
+    // reason has to be the guard's, which is what proves the handler goes
+    // through it rather than round it.
+    foreach (['http://127.0.0.1/x', 'http://169.254.169.254/latest/meta-data', 'https://localhost/x'] as $bad) {
+        $r = api(['action' => 'recipe_fetch', 'url' => $bad], $tok);
+        eq(400, $r['status'], "refused: $bad");
+        ok(str_contains((string) ($r['body']['error'] ?? ''), 'not one this server will fetch'),
+            "and for the guard's reason: $bad — got '" . ($r['body']['error'] ?? '') . "'");
+    }
+    // file:// reads the disk if nobody checks the scheme.
+    $f = api(['action' => 'recipe_fetch', 'url' => 'file:///etc/passwd'], $tok);
+    eq(400, $f['status'], 'file:// refused at the endpoint');
+    ok(str_contains((string) ($f['body']['error'] ?? ''), 'only http'), 'and says which schemes it speaks');
+
+    // An empty url is a 400 with a message, not a 500 and not a blank one —
+    // a message that says nothing is how a real failure looked like nothing
+    // happening at all.
+    $e = api(['action' => 'recipe_fetch', 'url' => ''], $tok);
+    eq(400, $e['status'], 'an empty url is a 400');
+    ok(trim((string) ($e['body']['error'] ?? '')) !== '', 'and carries a reason');
+});
+
 t("the server's day is Chicago's, not UTC", function () {
     // The feed asks the server what day it is. Left on UTC that answer turned
     // over at 7pm Chicago, so the widget spent every evening calling tomorrow

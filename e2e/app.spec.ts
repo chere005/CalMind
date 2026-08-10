@@ -427,6 +427,62 @@ test('edit mode gates the row controls: absent, long-press reveals, Escape leave
   await expect(page.getByTestId('rem-dup')).toBeHidden();
 });
 
+test('edit mode can be LEFT without a keyboard: a Done button and a tap outside', async ({ page }) => {
+  // Sean: "tapping to exit edit mode doesn't work." It was worse than that.
+  // The only two ways out were Escape — which a phone does not have — and one
+  // 160pt Pressable at the bottom of the scroll content, which is invisible
+  // and, once the list is longer than the window, not on screen at all.
+  await signup(page);
+  await page.getByTestId('tab-reminders').click();
+  await page.getByTestId('secadd-General').first().click();
+  await page.getByTestId('rem-add-field').fill('escape me');
+  await page.getByTestId('rem-add-field').press('Enter');
+  await page.keyboard.press('Escape');
+
+  // The visible way out, which is the one that works on a phone.
+  await longPress(page, page.getByTestId('rem-body').filter({ hasText: 'escape me' }));
+  await expect(page.getByTestId('rem-dup')).toBeVisible();
+  await expect(page.getByTestId('rem-edit-done')).toBeVisible();
+  await page.getByTestId('rem-edit-done').click();
+  await expect(page.getByTestId('rem-dup')).toBeHidden();
+  // …and it is only there while editing, so the toolbar is otherwise unchanged.
+  await expect(page.getByTestId('rem-edit-done')).toBeHidden();
+
+  // The suite's rule: a tap leaves edit mode unless it lands on an edit
+  // control. Below the list is genuinely blank, so it leaves.
+  await longPress(page, page.getByTestId('rem-body').filter({ hasText: 'escape me' }));
+  await expect(page.getByTestId('rem-dup')).toBeVisible();
+  const vp = page.viewportSize()!;
+  await page.mouse.click(vp.width / 2, vp.height - 120);
+  await expect(page.getByTestId('rem-dup')).toBeHidden();
+
+  // …and on something that is neither a control nor the blank strip below the
+  // list: the folder's own name. That strip is a Pressable of its own and
+  // would satisfy the check above with the tap rule deleted entirely, so
+  // without this the rule is not actually under test.
+  await longPress(page, page.getByTestId('rem-body').filter({ hasText: 'escape me' }));
+  await expect(page.getByTestId('rem-dup')).toBeVisible();
+  await page.getByText('Reminders', { exact: true }).first().click();
+  await expect(page.getByTestId('rem-dup')).toBeHidden();
+
+  // And the other half of the rule: a tap on the thing you are EDITING must
+  // not close the thing you are editing in. The long-press opens an inline
+  // field on the row, and clicking into that field has to leave edit mode
+  // alone — otherwise the row would shut under the caret.
+  //
+  // This is the assertion that actually exercises the allow-list. Rows and
+  // buttons are react-native-web Pressables, and those do not propagate their
+  // click to `document` at all, so a tap on one never reaches the rule and
+  // "keeps edit mode" whether the allow-list is there or not. A TextInput is a
+  // real <input> and does propagate, so this one can tell the difference —
+  // proven by dropping the guard and watching it go red.
+  await longPress(page, page.getByTestId('rem-body').filter({ hasText: 'escape me' }));
+  await expect(page.getByTestId('rem-edit')).toBeVisible();
+  await page.getByTestId('rem-edit').click();
+  await expect(page.getByTestId('rem-edit')).toBeVisible();
+  await expect(page.getByTestId('rem-dup').first()).toBeVisible();
+});
+
 test('sharing: mutual handshake, @partner view, a tick lands in their store', async ({ browser }) => {
   const ctxA = await browser.newContext();
   const ctxB = await browser.newContext();
