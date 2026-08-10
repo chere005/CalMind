@@ -421,18 +421,12 @@ export function Reminders() {
         <CircleBtn glyph="☑" label="Completed" active={showDone} onPress={() => setShowDone(!showDone)} />
         {session?.username === 'sean' && <CircleBtn testID="rem-copymd" glyph="⧉" label="Duplicate" onPress={copyMarkdown} />}
         {copyNote !== '' && <Text testID="rem-copynote" style={s.copyNote}>{copyNote}</Text>}
-        {/* A VISIBLE way out. Edit mode had exactly two: Escape, which a phone
-            does not have, and a 160pt strip below the list, which is invisible
-            and off screen entirely once the list is longer than the window.
-            Sean reported it as "tapping to exit edit mode doesn't work" — it
-            was worse than that, there was no reliable way out on a phone at
-            all. Appears only while editing, so the toolbar is unchanged the
-            rest of the time. */}
-        {pageEdit && (
-          <View style={s.editDone}>
-            <Pill testID="rem-edit-done" label="Done" primary onPress={exitEdit} />
-          </View>
-        )}
+        {/* No Done button. It was added to give edit mode a visible exit, and
+            it was itself the last of the vertical shift Sean was complaining
+            about — a Pill is taller than the collapse-all circle, so the
+            toolbar grew and took the list with it. Tapping out is the only
+            way now, which means it has to work everywhere: the headers below
+            are exit targets, not just the blank space. */}
       </View>
 
       {/* A live drag holds the scroll still — see Habits for the why. */}
@@ -444,7 +438,12 @@ export function Reminders() {
         <EditExit active={pageEdit} onExit={exitEdit}>
         {folders.map((f) => (
           <View key={f.id} style={s.folderBlock}>
-            <View style={s.folderHead}>
+            {/* The header ROW is the reliable way out: always on screen, full
+                width, and taller than the 1pt rule. With Done gone, tapping
+                out is the ONLY exit, so it must not depend on blank space
+                below a list that fills the screen. The controls inside keep
+                their own presses — this fires on the row's bare surface. */}
+            <View testID={`head-fold-${f.payload.name}`} style={s.folderHead}>
               {/* The folder's colour is the wash behind its name, not a dot beside it. */}
               <Pressable onPress={() => toggleFolderFold(f.id)} hitSlop={8} style={s.chevWrap}>
                 <WebHitSlop />
@@ -472,6 +471,7 @@ export function Reminders() {
                 <View key={sec.id} style={s.section}>
                   {secDrag.lineKey === `before:${sec.id}` && <View style={s.dropLine} />}
                   <View
+                    testID={`head-sec-${sec.payload.name}`}
                     ref={secDrag.registerHeader(sec.id, f.id)}
                     style={[s.secHead, secDrag.dragging === sec.id && { opacity: 0.55 }]}
                   >
@@ -920,7 +920,11 @@ const s = themed(() => StyleSheet.create({
   rowBody: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   rowText: { color: T.text, fontSize: 16, flexShrink: 1 },
   rowTextDone: { color: T.muted, textDecorationLine: 'line-through' },
-  editField: { flex: 1 },
+  // Sized to the ROW it replaces, so opening the inline editor does not make
+  // the row taller and push everything below it down. The Field's own
+  // paddingVertical is 10 against a 16pt line — 36 total, which is exactly
+  // the row's minHeight. Measured: 36 -> 50 before this, 36 -> 36 after.
+  editField: { flex: 1, height: 20, paddingVertical: 0, paddingHorizontal: 6, borderRadius: 6 },
   tick: {
     width: 24,
     height: 24,

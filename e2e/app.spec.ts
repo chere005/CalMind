@@ -433,11 +433,11 @@ test('edit mode gates the row controls: absent, long-press reveals, Escape leave
   await expect(page.getByTestId('rem-dup')).toBeHidden();
 });
 
-test('edit mode can be LEFT without a keyboard: a Done button and a tap outside', async ({ page }) => {
-  // Sean: "tapping to exit edit mode doesn't work." It was worse than that.
-  // The only two ways out were Escape — which a phone does not have — and one
-  // 160pt Pressable at the bottom of the scroll content, which is invisible
-  // and, once the list is longer than the window, not on screen at all.
+test('edit mode is left by tapping out — there is no Done button', async ({ page }) => {
+  // Sean removed the Done pill: it was itself the last of the vertical shift
+  // he was complaining about. Tapping out is now the ONLY way out, so it has
+  // to work when the list fills the screen and there is no blank space —
+  // which is why the folder and section HEADERS are exit targets too.
   await signup(page);
   await page.getByTestId('tab-reminders').click();
   await page.getByTestId('secadd-General').first().click();
@@ -445,43 +445,27 @@ test('edit mode can be LEFT without a keyboard: a Done button and a tap outside'
   await page.getByTestId('rem-add-field').press('Enter');
   await page.keyboard.press('Escape');
 
-  // The visible way out, which is the one that works on a phone.
+  // The FOLDER header — always on screen, whatever the list length.
   await longPress(page, page.getByTestId('rem-body').filter({ hasText: 'escape me' }));
-  await expect(page.getByTestId('rem-dup')).toBeVisible();
-  await expect(page.getByTestId('rem-edit-done')).toBeVisible();
-  await page.getByTestId('rem-edit-done').click();
+  await expect(page.getByTestId('rem-dup').first()).toBeVisible();
+  await page.getByTestId('head-fold-Reminders').click();
   await expect(page.getByTestId('rem-dup')).toBeHidden();
-  // …and it is only there while editing, so the toolbar is otherwise unchanged.
-  await expect(page.getByTestId('rem-edit-done')).toBeHidden();
 
-  // The suite's rule: a tap leaves edit mode unless it lands on an edit
-  // control. Below the list is genuinely blank, so it leaves.
+  // The SECTION header, the other always-present surface.
   await longPress(page, page.getByTestId('rem-body').filter({ hasText: 'escape me' }));
-  await expect(page.getByTestId('rem-dup')).toBeVisible();
+  await expect(page.getByTestId('rem-dup').first()).toBeVisible();
+  await page.getByTestId('head-sec-General').first().click();
+  await expect(page.getByTestId('rem-dup')).toBeHidden();
+
+  // And blank space below the list, for when there is some.
+  await longPress(page, page.getByTestId('rem-body').filter({ hasText: 'escape me' }));
+  await expect(page.getByTestId('rem-dup').first()).toBeVisible();
   const vp = page.viewportSize()!;
   await page.mouse.click(vp.width / 2, vp.height - 120);
   await expect(page.getByTestId('rem-dup')).toBeHidden();
 
-  // …and on something that is neither a control nor the blank strip below the
-  // list: the folder's own name. That strip is a Pressable of its own and
-  // would satisfy the check above with the tap rule deleted entirely, so
-  // without this the rule is not actually under test.
-  await longPress(page, page.getByTestId('rem-body').filter({ hasText: 'escape me' }));
-  await expect(page.getByTestId('rem-dup')).toBeVisible();
-  await page.getByText('Reminders', { exact: true }).first().click();
-  await expect(page.getByTestId('rem-dup')).toBeHidden();
-
-  // And the other half of the rule: a tap on the thing you are EDITING must
-  // not close the thing you are editing in. The long-press opens an inline
-  // field on the row, and clicking into that field has to leave edit mode
-  // alone — otherwise the row would shut under the caret.
-  //
-  // This is the assertion that actually exercises the allow-list. Rows and
-  // buttons are react-native-web Pressables, and those do not propagate their
-  // click to `document` at all, so a tap on one never reaches the rule and
-  // "keeps edit mode" whether the allow-list is there or not. A TextInput is a
-  // real <input> and does propagate, so this one can tell the difference —
-  // proven by dropping the guard and watching it go red.
+  // The row's own inline field must NOT close it — that is the thing being
+  // edited, and it is a real <input>, which is what reaches the rule at all.
   await longPress(page, page.getByTestId('rem-body').filter({ hasText: 'escape me' }));
   await expect(page.getByTestId('rem-edit')).toBeVisible();
   await page.getByTestId('rem-edit').click();
@@ -490,11 +474,12 @@ test('edit mode can be LEFT without a keyboard: a Done button and a tap outside'
 });
 
 test("the calendar panel's edit mode can be left at all", async ({ page }) => {
-  // The worst of the three. Reminders and Notes each had a Pressable at the
-  // bottom of their scroll content; here setPanelEdit(false) appeared exactly
-  // once in the whole file, in the Escape handler — so on a phone, which has
-  // no Escape, there was no way out of this edit mode whatsoever.
-  const user = await signup(page);
+  // Once the worst of the three: setPanelEdit(false) appeared exactly once in
+  // the whole file, in the Escape handler, so a phone had no way out at all.
+  // There is no Done button here either — "+ Add" stays put, since swapping
+  // it was a control appearing and disappearing in the row Sean did not want
+  // moving.
+  await signup(page);
   await page.getByTestId('tab-calendar').click();
   await page.getByText('+ Add', { exact: true }).click();
   await page.getByTestId('kind-event').click();
@@ -502,43 +487,34 @@ test("the calendar panel's edit mode can be left at all", async ({ page }) => {
   await page.getByText('Save', { exact: true }).click();
   await expect(page.getByText('dentist')).toBeVisible();
 
-  // The visible way out replaces "+ Add" while editing, rather than crowding
-  // beside it: the panel head is already two controls wide on a phone.
   await longPress(page, page.getByText('dentist'));
-  await expect(page.getByTestId('cal-edit-done')).toBeVisible();
-  await expect(page.getByTestId('cal-add')).toBeHidden();
-  await page.getByTestId('cal-edit-done').click();
-  await expect(page.getByTestId('cal-edit-done')).toBeHidden();
-  await expect(page.getByTestId('cal-add')).toBeVisible();
-
-  // …and the suite's tap rule: something that is neither a control nor a row.
-  await longPress(page, page.getByText('dentist'));
-  await expect(page.getByTestId('cal-edit-done')).toBeVisible();
+  await expect(page.getByTestId('cal-completed')).toBeVisible();
+  // The day's own title is a label, not a control: tapping it leaves.
   await page.getByTestId('cal-day-title').click();
-  await expect(page.getByTestId('cal-edit-done')).toBeHidden();
+  // The row controls are gone again — the panel is out of edit mode.
+  await expect(page.getByTestId('dp-note-row')).toHaveCount(0);
+  await expect(page.getByTestId('cal-add')).toBeVisible();
 });
 
-test('Notes edit mode can be left the same two ways Reminders can', async ({ page }) => {
-  // The gap was in BOTH screens and I fixed only Reminders first — same two
-  // exits, Escape and an invisible strip at the bottom of the scroll content,
-  // neither of which is reachable on a phone. Two screens that behave
-  // differently for the same gesture is its own bug, so this pins them level.
+test('Notes edit mode is left by tapping out, exactly as Reminders is', async ({ page }) => {
+  // Three screens, one gesture. The Done pill is gone from here too.
   await signup(page);
   await page.getByTestId('tab-notes').click();
   await page.getByTestId('secadd-General').first().click();
   await page.getByTestId('note-title').fill('leave me');
+  await expect(page.getByTestId('note-title')).toHaveValue('leave me');
   await page.getByTestId('note-back').click();
 
   await longPress(page, page.getByTestId('note-row').filter({ hasText: 'leave me' }));
-  await expect(page.getByTestId('notes-edit-done')).toBeVisible();
-  await page.getByTestId('notes-edit-done').click();
-  await expect(page.getByTestId('notes-edit-done')).toBeHidden();
+  await expect(page.getByTestId('note-dup')).toBeVisible();
+  await page.getByTestId('head-fold-General').click();
+  await expect(page.getByTestId('note-dup')).toBeHidden();
 
-  // …and a tap on something that is neither a control nor the blank strip.
   await longPress(page, page.getByTestId('note-row').filter({ hasText: 'leave me' }));
-  await expect(page.getByTestId('notes-edit-done')).toBeVisible();
-  await page.getByText('General', { exact: true }).first().click();
-  await expect(page.getByTestId('notes-edit-done')).toBeHidden();
+  await expect(page.getByTestId('note-dup')).toBeVisible();
+  const vp = page.viewportSize()!;
+  await page.mouse.click(vp.width / 2, vp.height - 120);
+  await expect(page.getByTestId('note-dup')).toBeHidden();
 });
 
 test('the 12/24-hour setting reaches the screens, and survives a reload', async ({ page }) => {

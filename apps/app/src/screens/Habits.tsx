@@ -332,6 +332,7 @@ export function Habits() {
               <View key={sec.id} style={s.section}>
                 {secDrag.lineKey === `before:${sec.id}` && <View style={s.dropLine} />}
                 <View
+                  testID={`head-sec-${sec.payload.name}`}
                   ref={secDrag.registerHeader(sec.id, HFOLDER)}
                   style={[s.secHead, secDrag.dragging === sec.id && s.dragging]}
                 >

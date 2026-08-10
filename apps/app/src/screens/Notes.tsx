@@ -633,15 +633,16 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
         {/* The phone's tap-to-exit; the web keeps its document listener. */}
         <EditExit active={pageEdit} onExit={() => setPageEdit(false)}>
         <View style={s.toolbarRow}>
-          {pageEdit && (
-            <View style={s.editDone}>
-              <Pill testID="notes-edit-done" label="Done" primary onPress={() => setPageEdit(false)} />
-            </View>
-          )}
+
         </View>
         {folders.map((f) => (
           <View key={f.id} style={s.folderBlock}>
-            <View style={s.folderHead}>
+            {/* The header ROW is the reliable way out: always on screen, full
+                width, and taller than the 1pt rule. With Done gone, tapping
+                out is the ONLY exit, so it must not depend on blank space
+                below a list that fills the screen. The controls inside keep
+                their own presses — this fires on the row's bare surface. */}
+            <View testID={`head-fold-${f.payload.name}`} style={s.folderHead}>
               <Pressable onPress={() => toggleFolderFold(f.id)} hitSlop={8} style={s.chevWrap}>
                 <WebHitSlop />
                 <Chevron open={!foldedFolders.has(f.id)} color={T.text} />
@@ -664,6 +665,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
               <View key={sec.id} style={s.section}>
                 {secDrag.lineKey === `before:${sec.id}` && <View style={s.dropLine} />}
                 <View
+                  testID={`head-sec-${sec.payload.name}`}
                   ref={secDrag.registerHeader(sec.id, f.id)}
                   style={[s.secHead, secDrag.dragging === sec.id && { opacity: 0.55 }]}
                 >

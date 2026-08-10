@@ -414,9 +414,10 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
           <Text testID="cal-day-title" style={s.panelTitle}>{dayLabel}</Text>
           <View style={s.panelBtns}>
             <CircleBtn testID="cal-completed" glyph="☑" label="Completed" active={showDone} onPress={() => setShowDone(!showDone)} />
-            {panelEdit
-              ? <Pill testID="cal-edit-done" label="Done" primary onPress={() => setPanelEdit(false)} />
-              : <Pill testID="cal-add" label="+ Add" primary onPress={() => setModal({ mode: 'create' })} />}
+            {/* "+ Add" stays put in edit mode too: swapping it for a Done was
+                a second control appearing and disappearing in the one row
+                Sean did not want moving. */}
+            <Pill testID="cal-add" label="+ Add" primary onPress={() => setModal({ mode: 'create' })} />
           </View>
         </View>
         {items.events.length > 0 && (
