@@ -178,6 +178,13 @@ Whoever does it: change `useNoteScoped`'s reset, the onBlur collapse and the
 fresh-note effect TOGETHER, and run BOTH configs after every step. Four
 one-at-a-time patches each fixed one spec and broke another.
 
+And note the two sites share ONE TextInput, which is why neither can be
+fixed alone: autoFocus on it serves the + path and the tap-to-edit path at
+once, and that is precisely what broke notesswitch and both recipeurl specs
+when tried. The deferral is not there by accident — the field does not exist
+until bodyEditing has rendered — so removing it means changing WHEN the
+field mounts, not just how it is focused.
+
 RUN IT: `npx playwright test --config=playwright.webkit.config.ts`. That
 config had never been run in this session before tonight, which is how a
 real bug in Sean's own engine sat unnoticed.
