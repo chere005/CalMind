@@ -148,7 +148,7 @@ Series 9. Both are installed and reachable over Wi-Fi.
       complication, which needs a shared container because a widget
       extension is a separate process and cannot read WatchStore's
       UserDefaults.
-- [~] **Modular face complication — BUILT, install pending.** A
+- [x] **Modular face complication — BUILT AND ON HIS WATCH.** A
       `type: 'watch-widget'` target in `apps/app/targets/watchwidget/`, all
       four accessory families, WatchStore's cache moved to the App Group
       suite (standard defaults kept as read fallback), WidgetCenter poked on
@@ -160,6 +160,11 @@ Series 9. Both are installed and reachable over Wi-Fi.
       exactly over the tab bar and likely WAS his "spurious space") and the
       Metro tether that would have stranded the app off home Wi-Fi. The
       complication list shows CalMind only under the NEW watch build; the
+      The watch install took ~an hour of retries: the build was ready long
+      before the transfer was, because the watch's Wi-Fi link kept dropping
+      mid-copy. The working recipe is a poll-for-reachable loop that WAITS
+      30s for the tunnel to settle before invoking devicectl — an install
+      fired the instant the watch appears dies in the encryption handshake.
       widget reads the App Group container — VERIFIED on the sim pair
       (2026-08-09 15:0x, reading Sean's data read-only): the phone pushed
       {items: 29, events: 4}, the watch decoded and WROTE it to the group
@@ -174,7 +179,7 @@ Series 9. Both are installed and reachable over Wi-Fi.
       corner count+label; circle count. Fewer than two shows what there is,
       none says "No events". Events ≠ dated reminders — Sean CONFIRMED
       ("you got it right with just events"), so do not fold reminders in.
-      Rebuilt, install pending.
+      Rebuilt and INSTALLED on the watch 2026-08-09 (~16:5x).
       Two traps burned into this, do not relearn them:
       · Apple REFUSES the bundle id suffix `.complication` outright ("cannot
         be registered … not available") — `.widget` registers fine. Same
@@ -196,7 +201,7 @@ Series 9. Both are installed and reachable over Wi-Fi.
       (count, due-today, next event), the existing reminder list, events
       grouped by day in calendar colours, and a month grid with event dots.
       Still read-only. NOT yet verified on a simulator or wrist.
-- [~] **Check items off from the watch — code-complete, install pending.**
+- [~] **Check items off from the watch — code-complete and INSTALLED.**
       The return path: a tap queues {tick: id} as transferUserInfo (survives
       the phone being away), lands as an onTick event, and the store applies
       it through the SAME reminderToggle a phone tap uses — repeats roll on
