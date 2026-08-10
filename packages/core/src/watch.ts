@@ -54,7 +54,7 @@ export type WatchEvent = { id: string; text: string; date: string; time: string 
  * fails. 30 events covers every face and tab while staying far from the
  * cliff.
  */
-export function watchFeed(recs: AnyRec[], today: string): { items: WatchRow[]; events: WatchEvent[]; folders: WatchFolder[]; sections: WatchSection[]; groups: WatchGroup[] } {
+export function watchFeed(recs: AnyRec[], today: string): { items: WatchRow[]; events: WatchEvent[]; folders: WatchFolder[]; sections: WatchSection[]; groups: WatchGroup[]; days: WidgetDay[] } {
   const calColor = new Map(
     recs.filter((r): r is Rec<'calendar'> => r.type === 'calendar' && !r.deleted).map((c) => [c.id, c.payload.color]),
   );
@@ -93,7 +93,18 @@ export function watchFeed(recs: AnyRec[], today: string): { items: WatchRow[]; e
   // testable at all. items/folders/sections stay for older builds and for
   // the widget, which groups by day rather than by folder.
   const items = watchRows(recs);
-  return { items, events, folders, sections, groups: watchGroups(items, folders, sections) };
+  // days: the iPhone widget's shape, decided here for the same reason the
+  // watch's groups are — it was logic in SwiftUI, which nothing can test.
+  // The widget applies its own folder filter and ticks on top, since both
+  // live in the App Group and change without a push.
+  return {
+    items,
+    events,
+    folders,
+    sections,
+    groups: watchGroups(items, folders, sections),
+    days: widgetDays(items, events, today),
+  };
 }
 
 /**
@@ -144,4 +155,69 @@ export function watchGroups(
   const strays = items.filter((r) => !known.has(r.folderId));
   if (strays.length > 0) out.push({ folderName: null, sections: [{ sectionName: null, items: strays }] });
   return out;
+}
+
+/**
+ * The iPhone home-screen widget's lines, grouped by DAY.
+ *
+ * Same reasoning as watchGroups: this was decision-making in SwiftUI, where
+ * nothing in this repo can test it. The rules, each a sentence:
+ *
+ *   - The day is the section, not the kind — a reminder and an event on the
+ *     same date sit under one heading. That is tools/scriptable-widget.js's
+ *     choice, and Sean asked the widget to look like that one.
+ *   - An undated reminder still belongs where a person looks: today.
+ *   - A reminder already ticked ON THE WIDGET is gone immediately, before the
+ *     app has woken to apply it — the optimistic half of check-off.
+ *   - No folder selection means EVERY folder. An empty picker must not mean
+ *     an empty widget.
+ *   - Within a day, earlier times first; an item with no time leads, since
+ *     it is the day itself rather than a moment in it.
+ */
+export type WidgetLine = {
+  id: string;
+  text: string;
+  time: string | null;
+  isReminder: boolean;
+  overdue: boolean;
+  /** The calendar's colour for an event; null for a reminder. */
+  color: string | null;
+};
+
+export type WidgetDay = { date: string; lines: WidgetLine[] };
+
+export function widgetDays(
+  items: WatchRow[],
+  events: WatchEvent[],
+  today: string,
+  opts: { folderIds?: string[]; ticked?: string[] } = {},
+): WidgetDay[] {
+  const wanted = new Set(opts.folderIds ?? []);
+  const ticked = new Set(opts.ticked ?? []);
+  const byDay = new Map<string, WidgetLine[]>();
+  const push = (date: string, line: WidgetLine) => {
+    const at = byDay.get(date);
+    if (at) at.push(line);
+    else byDay.set(date, [line]);
+  };
+
+  for (const r of items) {
+    if (r.done || ticked.has(r.id)) continue;
+    if (wanted.size > 0 && !wanted.has(r.folderId)) continue;
+    // Undated lands on today — where someone actually looks for it.
+    const day = r.due ?? today;
+    push(day, { id: r.id, text: r.text, time: r.time, isReminder: true, overdue: day < today, color: null });
+  }
+  for (const e of events) {
+    push(e.date, { id: e.id, text: e.text, time: e.time, isReminder: false, overdue: false, color: e.color });
+  }
+
+  return [...byDay.entries()]
+    .sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0))
+    .map(([date, lines]) => ({
+      date,
+      // No time leads: it is the day itself, not a moment in it — day.ts's
+      // own tiebreak, kept so the widget and the calendar agree.
+      lines: lines.slice().sort((a, b) => (a.time ?? '') < (b.time ?? '') ? -1 : (a.time ?? '') > (b.time ?? '') ? 1 : 0),
+    }));
 }

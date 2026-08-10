@@ -4,7 +4,7 @@
  * paired to it — the one place nobody is watching a test run.
  */
 import { describe, it, expect } from 'vitest';
-import { watchFeed, watchGroups, watchRows, type WatchFolder, type WatchRow, type WatchSection } from '../src/watch';
+import { watchFeed, watchGroups, watchRows, widgetDays, type WatchFolder, type WatchRow, type WatchSection } from '../src/watch';
 import type { AnyRec, Rec } from '../src/types';
 
 const rem = (
@@ -240,5 +240,58 @@ describe('watchGroups — the rules the wrist draws by', () => {
 
   it('an empty list is an empty list, not a crash', () => {
     expect(watchGroups([], [], [])).toEqual([]);
+  });
+});
+
+describe('widgetDays — the home-screen widget, decided here not in SwiftUI', () => {
+  const row = (id: string, due: string | null, time: string | null, folderId = 'f1'): WatchRow =>
+    ({ id, text: id, due, time, done: false, folderId, sectionId: 's1' });
+  const ev = (id: string, date: string, time: string | null): WatchEvent =>
+    ({ id, text: id, date, time, color: '#60a5fa' });
+  const TODAY = '2026-08-09';
+
+  it('the DAY is the section: a reminder and an event share one heading', () => {
+    const d = widgetDays([row('r', TODAY, '09:00')], [ev('e', TODAY, '10:00')], TODAY);
+    expect(d).toHaveLength(1);
+    expect(d[0]!.lines.map((l) => l.id)).toEqual(['r', 'e']);
+  });
+
+  it('an undated reminder lands on today, where someone looks for it', () => {
+    const d = widgetDays([row('r', null, null)], [], TODAY);
+    expect(d[0]!.date).toBe(TODAY);
+  });
+
+  it('an overdue reminder is marked, and keeps its own date', () => {
+    const d = widgetDays([row('r', '2026-08-01', null)], [], TODAY);
+    expect(d[0]!.date).toBe('2026-08-01');
+    expect(d[0]!.lines[0]!.overdue).toBe(true);
+  });
+
+  it('a widget-ticked reminder is gone at once — the optimistic half', () => {
+    expect(widgetDays([row('r', TODAY, null)], [], TODAY, { ticked: ['r'] })).toEqual([]);
+  });
+
+  it('NO folder selection means every folder, not none', () => {
+    const d = widgetDays([row('a', TODAY, null, 'f1'), row('b', TODAY, null, 'f2')], [], TODAY);
+    expect(d[0]!.lines.map((l) => l.id)).toEqual(['a', 'b']);
+  });
+
+  it('a folder selection filters reminders to it', () => {
+    const d = widgetDays([row('a', TODAY, null, 'f1'), row('b', TODAY, null, 'f2')], [], TODAY, { folderIds: ['f2'] });
+    expect(d[0]!.lines.map((l) => l.id)).toEqual(['b']);
+  });
+
+  it('within a day, no time leads and then earliest first', () => {
+    const d = widgetDays([row('late', TODAY, '18:00'), row('none', TODAY, null), row('early', TODAY, '07:00')], [], TODAY);
+    expect(d[0]!.lines.map((l) => l.id)).toEqual(['none', 'early', 'late']);
+  });
+
+  it('days come out in date order', () => {
+    const d = widgetDays([row('c', '2026-08-20', null), row('a', TODAY, null)], [ev('b', '2026-08-12', null)], TODAY);
+    expect(d.map((x) => x.date)).toEqual([TODAY, '2026-08-12', '2026-08-20']);
+  });
+
+  it('an empty store is an empty widget, not a crash', () => {
+    expect(widgetDays([], [], TODAY)).toEqual([]);
   });
 });

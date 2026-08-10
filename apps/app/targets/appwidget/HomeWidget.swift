@@ -46,10 +46,30 @@ struct WFolder: Codable, Identifiable, Hashable {
     let color: String
 }
 
+/// The day-grouped shape, decided in core (widgetDays) so the rules — the
+/// day is the section, an undated reminder lands on today, no time leads —
+/// live somewhere a test can reach. The widget still applies the FOLDER
+/// filter and the pending ticks itself: both live in the App Group and
+/// change without the phone pushing anything.
+struct WDay: Codable {
+    let date: String
+    let lines: [WLine]
+}
+
+struct WLine: Codable, Identifiable {
+    let id: String
+    let text: String
+    let time: String?
+    let isReminder: Bool
+    let overdue: Bool
+    let color: String?
+}
+
 struct Feed: Codable {
     let items: [WRow]
     let events: [WEvent]?
     let folders: [WFolder]?
+    let days: [WDay]?
 }
 
 /// What the widget knows. Three states, never collapsed into one: a widget
@@ -191,29 +211,26 @@ struct Provider: AppIntentTimelineProvider {
         guard case let .ok(feed) = state else { return Entry(date: Date(), days: [], state: state) }
         let today = todayStr()
         let ticked = Set(UserDefaults(suiteName: GROUP)?.stringArray(forKey: TICKS) ?? [])
-        // No selection means everything — an empty picker should not mean an
-        // empty widget.
+        // No selection means everything — an empty picker must not mean an
+        // empty widget. (Tested in core; the one-line version of that rule
+        // shipped a blank widget in an earlier draft.)
         let wanted = Set((configuration.folders ?? []).map(\.id))
+        let folderOf = Dictionary(uniqueKeysWithValues: feed.items.map { ($0.id, $0.folderId) })
 
-        var byDay: [String: [Line]] = [:]
-        for r in feed.items where !r.done && !ticked.contains(r.id) {
-            if !wanted.isEmpty, let f = r.folderId, !wanted.contains(f) { continue }
-            // An undated reminder still belongs somewhere a person looks:
-            // today, with the things they meant to do.
-            let day = r.due ?? today
-            guard day <= today || r.due != nil else { continue }
-            byDay[day, default: []].append(
-                Line(id: r.id, text: r.text, time: r.time, isReminder: true,
-                     overdue: (r.due ?? today) < today, color: LABEL))
+        // Grouping and ordering already decided in core. What is left here is
+        // what core cannot know: which folders this INSTANCE of the widget was
+        // configured for, and which ticks are queued but not yet applied.
+        let days: [(String, [Line])] = (feed.days ?? []).compactMap { day in
+            let lines = day.lines.compactMap { l -> Line? in
+                if ticked.contains(l.id) { return nil }
+                if l.isReminder, !wanted.isEmpty {
+                    guard let f = folderOf[l.id] ?? nil, wanted.contains(f) else { return nil }
+                }
+                return Line(id: l.id, text: l.text, time: l.time, isReminder: l.isReminder,
+                            overdue: l.overdue, color: l.color.map(hexColor) ?? LABEL)
+            }
+            return lines.isEmpty ? nil : (dayHeading(day.date, today: today), lines)
         }
-        for e in feed.events ?? [] {
-            byDay[e.date, default: []].append(
-                Line(id: e.id, text: e.text, time: e.time, isReminder: false, overdue: false, color: hexColor(e.color)))
-        }
-        let days = byDay.keys.sorted()
-            // Overdue collapses into today rather than trailing behind it.
-            .filter { $0 >= today || !byDay[$0]!.isEmpty }
-            .map { ($0, byDay[$0]!.sorted { ($0.time ?? "") < ($1.time ?? "") }) }
         return Entry(date: Date(), days: Array(days.prefix(6)), state: state)
     }
 }
@@ -266,7 +283,6 @@ struct HomeWidgetView: View {
             budget -= take.count
             out.append((day, take))
         }
-        let today = todayStr()
         return VStack(alignment: .leading, spacing: 0) {
             ForEach(Array(out.enumerated()), id: \.offset) { idx, pair in
                 if idx > 0 {
@@ -274,7 +290,7 @@ struct HomeWidgetView: View {
                     // from the next — Scriptable's 2pt divider.
                     Rectangle().fill(Color.white.opacity(0.16)).frame(height: 2).padding(.vertical, 5)
                 }
-                Text(dayHeading(pair.0, today: today))
+                Text(pair.0)
                     .font(.system(size: 10, weight: .bold)).foregroundStyle(META)
                 Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1).padding(.top, 2).padding(.bottom, 5)
                 ForEach(pair.1) { line in row(line) }
