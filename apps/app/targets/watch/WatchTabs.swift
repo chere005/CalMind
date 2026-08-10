@@ -208,10 +208,6 @@ struct MonthView: View {
             }
         }
         .navigationTitle("Month")
-        .onAppear {
-            NSLog("[MonthView] ym=%@ days=%d lead=%d firstWeekday=%d weekdayOfFirst=%d",
-                  ym, days, lead, cal.firstWeekday, cal.component(.weekday, from: first))
-        }
     }
 }
 
