@@ -141,6 +141,14 @@ Counts live in TODO.md's steady-state line rather than here, because a number
 written into prose is a number that goes stale — this file said 145 for a good
 while after it stopped being true.
 
+**Times.** One setting on 'suite' (Settings → Time format) switches 12- and
+24-hour, and all four surfaces honour it: web, iOS, the watch and the
+home-screen widget. It syncs like the theme, so it is chosen once. The watch
+and the widget are separate processes in another language and cannot read a
+pref record, so `watchFeed` carries `clock24` and each decoder sets its own
+copy — three implementations of one rule, which is why
+`tools/check-watch-format.sh` runs both Swift copies against the same cases.
+
 Where the app finds the API (`apps/app/src/config.ts`): the deployed site and
 the e2e router use same-origin `api/`; metro dev uses `127.0.0.1:8788`; the
 iOS/Android sims and the desktop shell default to the LIVE test instance —

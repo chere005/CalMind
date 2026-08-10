@@ -194,6 +194,11 @@ than a red run, because it looks like an answer.
   and events survive, since an event has no folder and dropping them all
   would be a second rule nobody asked for.
 
+  Both watch formatters are also run against the 12/24-HOUR setting, which
+  is one pref honoured by four surfaces and therefore three separate Swift
+  implementations of one rule — the shape that drifts. Proven by making the
+  complication ignore the flag: four mismatches, each naming itself.
+
   `tools/check-appgroup.sh` states the rule the first of those bugs broke:
   every App Group key that is READ has a WRITER on the same device, with
   the phone and the watch treated as the separate devices they are.
