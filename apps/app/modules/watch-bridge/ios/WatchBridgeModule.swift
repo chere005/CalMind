@@ -48,10 +48,26 @@ final class WatchSession: NSObject, WCSessionDelegate {
   func push(json: String) {
     pending = json
     guard WCSession.isSupported(), WCSession.default.activationState == .activated else { return }
-    try? WCSession.default.updateApplicationContext(["list": json])
+    do {
+      try WCSession.default.updateApplicationContext(["list": json])
+      pending = nil
+    } catch {
+      // Failure was a silent `try?` here while Sean spent a day on 'my watch
+      // is not syncing' — the .catch(() => {}) pattern in Swift form. The
+      // list stays in `pending`; reachability and re-activation both retry
+      // it, and the log finally says what happened.
+      NSLog("[WatchBridge] updateApplicationContext failed: %@", String(describing: error))
+    }
+  }
+
+  /// The watch coming into range is the moment a failed push becomes
+  /// possible again — retry the one we are holding.
+  func sessionReachabilityDidChange(_ session: WCSession) {
+    if let json = pending { push(json: json) }
   }
 
   func session(_ session: WCSession, activationDidCompleteWith state: WCSessionActivationState, error: Error?) {
+    if let error { NSLog("[WatchBridge] activation failed: %@", String(describing: error)) }
     if let json = pending { push(json: json) }
   }
 
