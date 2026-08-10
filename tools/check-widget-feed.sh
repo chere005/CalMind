@@ -65,6 +65,43 @@ types = '\n'.join(grab(n) for n in ['WRow', 'WEvent', 'WFolder', 'WDay', 'WLine'
 # for ForEach, so it is dropped for this compile.
 types = types.replace(', Identifiable, Hashable', '').replace(', Identifiable', '')
 
+# The widget's OWN logic: what it draws once core's days are in hand — the
+# folder filter, the optimistic tick removal, the day headings, and the cap.
+# It is static and pure for exactly this reason; as a method reaching into
+# UserDefaults and a WidgetKit configuration it could only run inside a
+# rendered widget on a phone.
+def grab_func(name):
+    i = src.index('static func %s(' % name)
+    depth, k = 0, src.index('{', i)
+    while True:
+        if src[k] == '{': depth += 1
+        elif src[k] == '}':
+            depth -= 1
+            if depth == 0: break
+        k += 1
+    return src[i:k+1].replace('static func', 'func')
+
+def grab_priv(name):
+    i = src.index('private func %s(' % name)
+    depth, k = 0, src.index('{', i)
+    while True:
+        if src[k] == '{': depth += 1
+        elif src[k] == '}':
+            depth -= 1
+            if depth == 0: break
+        k += 1
+    return src[i:k+1].replace('private func', 'func')
+
+# Colour is SwiftUI; the check is about grouping and filtering, so Line's
+# colour becomes a plain string and hexColor is stubbed to pass it through.
+widget_logic = (grab_func('drawnDays') + '\n' + grab_priv('dayHeading'))
+widget_logic = widget_logic.replace('Provider.drawnDays', 'drawnDays')
+types += '''
+struct Line { let id: String; let text: String; let time: String?; let isReminder: Bool; let overdue: Bool; let color: String? }
+func hexColor(_ hex: String) -> String { hex }
+let LABEL: String? = nil
+''' + widget_logic
+
 open(sys.argv[1], 'w').write('''
 import Foundation
 %s
@@ -108,6 +145,26 @@ let itemIds = Set(feed.items.map { $0.id })
 for l in todayLines where l.isReminder {
     check(itemIds.contains(l.id), "reminder '\\(l.id)' is in items, so the folder picker can place it")
 }
+
+// The widget's own layer, both branches of every rule it applies.
+let all = drawnDays(feed: feed, ticked: [], wanted: [], today: today)
+check(!all.isEmpty, "with no folder selection the widget draws something — an empty picker must not mean an empty widget")
+let firstHeading = all.first?.0 ?? ""
+check(firstHeading.uppercased().contains("TODAY"), "the first day heading names today — got '\(firstHeading)'")
+
+// A queued tick disappears at once, before the app has woken to apply it.
+let afterTick = drawnDays(feed: feed, ticked: ["shown"], wanted: [], today: today)
+let afterIds = afterTick.flatMap { $0.1.map { $0.id } }
+check(!afterIds.contains("shown"), "a widget-ticked row goes immediately — got \(afterIds)")
+
+// A folder selection filters REMINDERS and leaves events alone: an event has
+// no folder, and dropping every event when a folder is picked would be a
+// silent second rule nobody asked for.
+let picked = drawnDays(feed: feed, ticked: [], wanted: ["f1"], today: today)
+let pickedIds = picked.flatMap { $0.1.map { $0.id } }
+check(pickedIds.contains("shown"), "the picked folder's reminder stays — got \(pickedIds)")
+check(pickedIds.contains("e1"), "an event survives a folder selection — got \(pickedIds)")
+check(!pickedIds.contains("rider"), "another folder's reminder goes — got \(pickedIds)")
 
 print(bad == 0
       ? "widget feed: the phone's JSON and the widget's decoder agree"

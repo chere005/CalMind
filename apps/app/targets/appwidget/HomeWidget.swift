@@ -209,17 +209,27 @@ struct Provider: AppIntentTimelineProvider {
     private func build(_ configuration: SelectFolders) -> Entry {
         let state = loadFeed()
         guard case let .ok(feed) = state else { return Entry(date: Date(), days: [], state: state) }
-        let today = todayStr()
         let ticked = Set(UserDefaults(suiteName: GROUP)?.stringArray(forKey: TICKS) ?? [])
         // No selection means everything — an empty picker must not mean an
         // empty widget. (Tested in core; the one-line version of that rule
         // shipped a blank widget in an earlier draft.)
         let wanted = Set((configuration.folders ?? []).map(\.id))
-        let folderOf = Dictionary(uniqueKeysWithValues: feed.items.map { ($0.id, $0.folderId) })
+        return Entry(date: Date(),
+                     days: Provider.drawnDays(feed: feed, ticked: ticked, wanted: wanted, today: todayStr()),
+                     state: state)
+    }
 
-        // Grouping and ordering already decided in core. What is left here is
-        // what core cannot know: which folders this INSTANCE of the widget was
-        // configured for, and which ticks are queued but not yet applied.
+    /// Pure and static so something can actually RUN it — the same reason
+    /// ReminderListView.drawnGroups is. As a method reaching into
+    /// UserDefaults and a WidgetKit configuration it could only execute
+    /// inside a rendered widget on a phone, which is the one place nothing in
+    /// this repo can look. tools/check-widget-feed.sh calls this directly.
+    ///
+    /// Grouping and ordering are already decided in core. What is left is what
+    /// core cannot know: which folders THIS INSTANCE of the widget was
+    /// configured for, and which ticks are queued but not yet applied.
+    static func drawnDays(feed: Feed, ticked: Set<String>, wanted: Set<String>, today: String) -> [(String, [Line])] {
+        let folderOf = Dictionary(uniqueKeysWithValues: feed.items.map { ($0.id, $0.folderId) })
         let days: [(String, [Line])] = (feed.days ?? []).compactMap { day in
             let lines = day.lines.compactMap { l -> Line? in
                 if ticked.contains(l.id) { return nil }
@@ -231,7 +241,7 @@ struct Provider: AppIntentTimelineProvider {
             }
             return lines.isEmpty ? nil : (dayHeading(day.date, today: today), lines)
         }
-        return Entry(date: Date(), days: Array(days.prefix(6)), state: state)
+        return Array(days.prefix(6))
     }
 }
 
