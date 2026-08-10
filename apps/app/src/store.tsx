@@ -247,8 +247,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const signIn = useCallback(
     async (s: Session) => {
-      await AsyncStorage.setItem(SESSION_KEY, JSON.stringify(s));
-      const snap = await AsyncStorage.getItem(snapKey(s.username));
+      // Signing in must not depend on the disk. Unguarded, storage refusing
+      // threw before the engine was built and before setSessionState — so a
+      // CORRECT password bounced you back to the login screen with no error
+      // at all. persistFailed is the existing way this app says 'saved
+      // nothing', and Settings already shows it; reuse that rather than fail
+      // the sign-in.
+      await AsyncStorage.setItem(SESSION_KEY, JSON.stringify(s))
+        .then(() => setPersistFailed(false))
+        .catch(() => setPersistFailed(true));
+      const snap = await AsyncStorage.getItem(snapKey(s.username)).catch(() => null);
       engineRef.current = SyncEngine.fromSnapshot(snap ? JSON.parse(snap) : null);
       hydratedRef.current = engineRef.current.toSnapshot().cursor > 0;
       setSessionState(s);
@@ -303,7 +311,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, [clearSession]);
 
   const setSession = useCallback(async (s: Session) => {
-    await AsyncStorage.setItem(SESSION_KEY, JSON.stringify(s));
+    // Same rule: a refreshed token must reach memory even if the disk will
+    // not take it, or the app keeps using the old one it can no longer save.
+    await AsyncStorage.setItem(SESSION_KEY, JSON.stringify(s))
+      .then(() => setPersistFailed(false))
+      .catch(() => setPersistFailed(true));
     setSessionState(s);
   }, []);
 
