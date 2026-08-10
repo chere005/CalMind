@@ -11,7 +11,7 @@
  * with a subtask travelling under its parent — a watch that sorted its own
  * way would disagree with the phone it is strapped beside.
  */
-import type { AnyRec, Rec } from './types';
+import { folderApp, type AnyRec, type Rec } from './types';
 import { byOrd } from './order';
 import { sortByDate } from './sort';
 
@@ -77,8 +77,15 @@ export function watchFeed(recs: AnyRec[], today: string): { items: WatchRow[]; e
   // Folders travel so the iOS widget can offer a picker. Reminder folders
   // only: the widget lists things to DO, and a notes folder in that menu is
   // a promise the widget cannot keep.
+  //
+  // Through folderApp(), NOT `app === 'reminders'`: a milestone-1 folder
+  // carries no `app` at all and is a reminders folder by convention
+  // (types.ts). Reading it strictly here sent an account whose folders
+  // predate the field an EMPTY folder list, and the watch drew one flat
+  // ungrouped page — with no error anywhere, because an empty list is what
+  // a genuinely folder-less account looks like too.
   const folders = recs
-    .filter((r): r is Rec<'folder'> => r.type === 'folder' && !r.deleted && r.payload.app === 'reminders')
+    .filter((r): r is Rec<'folder'> => r.type === 'folder' && !r.deleted && folderApp(r.payload) === 'reminders')
     .sort((a, b) => byOrd(a.payload, b.payload))
     .map((f) => ({ id: f.id, name: f.payload.name, color: f.payload.color }));
   // Sections travel too: Sean asked the wrist to show the same folder and

@@ -98,6 +98,34 @@ describe('watchFeed — folders for the widget picker', () => {
     const gone = { ...(fold('f9', 'Old', 'reminders', 'a') as Record<string, unknown>), deleted: true } as AnyRec;
     expect(watchFeed([gone], '2026-08-09').folders).toEqual([]);
   });
+
+  it('a folder with NO app is a reminders folder, and travels', () => {
+    // types.ts states the convention: `app` absent means 'reminders' — the
+    // shape milestone 1 wrote, which is what the OLDEST folders in a real
+    // account still are. Every other reader honours it (folderApp(),
+    // `?? 'reminders'`); this one filtered on strict equality and dropped
+    // them, so an account whose folders predate the field sent the watch an
+    // EMPTY folder list and got a flat, ungrouped page. Sean's did.
+    const old = { id: 'f0', type: 'folder', updated: 1, payload: { name: 'Home', color: '#123456', ord: 'a' } } as AnyRec;
+    expect(watchFeed([old], '2026-08-09').folders.map((f) => f.name)).toEqual(['Home']);
+  });
+
+  it('groups a real pre-app-field account rather than falling back to flat', () => {
+    // The end-to-end shape of the same bug: rows + old-shape folders in, a
+    // GROUPED page out. With the strict filter this returned one anonymous
+    // group — exactly what the wrist was showing.
+    const old = (id: string, name: string, ord: string) =>
+      ({ id, type: 'folder', updated: 1, payload: { name, color: '#123456', ord } } as AnyRec);
+    const sec = (id: string, name: string, folderId: string, ord: string) =>
+      ({ id, type: 'section', updated: 1, payload: { name, folderId, ord } } as AnyRec);
+    const row = (id: string, text: string, folderId: string, sectionId: string) =>
+      ({ id, type: 'reminder', updated: 1, payload: { text, due: null, time: null, done: false, repeat: null, folderId, sectionId, indent: 0, ord: id } } as AnyRec);
+    const { groups } = watchFeed(
+      [old('f1', 'Home', 'a'), old('f2', 'Work', 'b'), sec('s1', 'Now', 'f1', 'a'), row('r1', 'bins', 'f1', 's1'), row('r2', 'invoice', 'f2', 's2')],
+      '2026-08-09',
+    );
+    expect(groups.map((g) => g.folderName)).toEqual(['Home', 'Work']);
+  });
 });
 
 describe('watchFeed — sections, so the wrist shows the phone\'s structure', () => {
