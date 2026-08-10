@@ -55,11 +55,16 @@ export function Reminders() {
     // Web only, like the Escape handler above it: this needs a document, and
     // the phone's reliable way out is the Done button in the toolbar. That is
     // a real divergence and it is deliberate, not an oversight.
-    const KEEP = [
-      '[role="button"]', 'input', 'textarea', 'select',
-      '[data-testid^="rem-"]', '[data-testid^="sec-"]', '[data-testid^="fold"]',
-      '[data-testid^="pick-"]', '[data-testid^="tab-"]',
-    ].join(',');
+    // What may swallow a click and still MEAN "stay in edit mode". Kept
+    // deliberately short: react-native-web Pressables do not propagate their
+    // click to document at all, so every button, row and cell is already
+    // excluded by construction and listing them here only widens the net. The
+    // entries that earn their place are the ones that DO propagate — a real
+    // <input> or <textarea>, which is the field you are editing in.
+    //
+    // A broad '[data-testid^="cal-"]' was tried first and kept the day's own
+    // TITLE, which is a label: tapping it did nothing, which is the bug.
+    const KEEP = ['[role="button"]', 'input', 'textarea', 'select'].join(',');
     const onClick = (ev: Event) => {
       const t = ev.target as Element | null;
       if (t && typeof t.closest === 'function' && t.closest(KEEP)) return;

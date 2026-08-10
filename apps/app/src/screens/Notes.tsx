@@ -123,11 +123,16 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
     // had the identical gap and I fixed only Reminders first — same two ways
     // out, Escape and an invisible strip at the bottom of the scroll content,
     // neither of which exists on a phone.
-    const KEEP = [
-      '[role="button"]', 'input', 'textarea', 'select',
-      '[data-testid^="note-"]', '[data-testid^="nsec-"]', '[data-testid^="fold"]',
-      '[data-testid^="pick-"]', '[data-testid^="tab-"]', '[data-testid^="sec"]',
-    ].join(',');
+    // What may swallow a click and still MEAN "stay in edit mode". Kept
+    // deliberately short: react-native-web Pressables do not propagate their
+    // click to document at all, so every button, row and cell is already
+    // excluded by construction and listing them here only widens the net. The
+    // entries that earn their place are the ones that DO propagate — a real
+    // <input> or <textarea>, which is the field you are editing in.
+    //
+    // A broad '[data-testid^="cal-"]' was tried first and kept the day's own
+    // TITLE, which is a label: tapping it did nothing, which is the bug.
+    const KEEP = ['[role="button"]', 'input', 'textarea', 'select'].join(',');
     const onClick = (ev: Event) => {
       const t = ev.target as Element | null;
       if (t && typeof t.closest === 'function' && t.closest(KEEP)) return;

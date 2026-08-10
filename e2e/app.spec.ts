@@ -483,6 +483,35 @@ test('edit mode can be LEFT without a keyboard: a Done button and a tap outside'
   await expect(page.getByTestId('rem-dup').first()).toBeVisible();
 });
 
+test("the calendar panel's edit mode can be left at all", async ({ page }) => {
+  // The worst of the three. Reminders and Notes each had a Pressable at the
+  // bottom of their scroll content; here setPanelEdit(false) appeared exactly
+  // once in the whole file, in the Escape handler — so on a phone, which has
+  // no Escape, there was no way out of this edit mode whatsoever.
+  await signup(page);
+  await page.getByTestId('tab-calendar').click();
+  await page.getByText('+ Add', { exact: true }).click();
+  await page.getByTestId('kind-event').click();
+  await page.getByPlaceholder(/What\?/).fill('dentist');
+  await page.getByText('Save', { exact: true }).click();
+  await expect(page.getByText('dentist')).toBeVisible();
+
+  // The visible way out replaces "+ Add" while editing, rather than crowding
+  // beside it: the panel head is already two controls wide on a phone.
+  await longPress(page, page.getByText('dentist'));
+  await expect(page.getByTestId('cal-edit-done')).toBeVisible();
+  await expect(page.getByTestId('cal-add')).toBeHidden();
+  await page.getByTestId('cal-edit-done').click();
+  await expect(page.getByTestId('cal-edit-done')).toBeHidden();
+  await expect(page.getByTestId('cal-add')).toBeVisible();
+
+  // …and the suite's tap rule: something that is neither a control nor a row.
+  await longPress(page, page.getByText('dentist'));
+  await expect(page.getByTestId('cal-edit-done')).toBeVisible();
+  await page.getByTestId('cal-day-title').click();
+  await expect(page.getByTestId('cal-edit-done')).toBeHidden();
+});
+
 test('Notes edit mode can be left the same two ways Reminders can', async ({ page }) => {
   // The gap was in BOTH screens and I fixed only Reminders first — same two
   // exits, Escape and an invisible strip at the bottom of the scroll content,

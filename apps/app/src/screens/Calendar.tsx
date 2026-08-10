@@ -176,7 +176,34 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
     if (!panelEdit || typeof document === 'undefined') return;
     const onKey = (ev: KeyboardEvent) => { if (ev.key === 'Escape') setPanelEdit(false); };
     document.addEventListener('keydown', onKey, true);
-    return () => document.removeEventListener('keydown', onKey, true);
+    // The suite's rule, the same one Reminders and Notes use: a tap leaves
+    // edit mode unless it lands on the thing you are editing or an edit
+    // control.
+    //
+    // This screen was the worst of the three. Reminders and Notes at least had
+    // a Pressable at the bottom of the scroll content; here setPanelEdit(false)
+    // appeared exactly ONCE in the whole file, in the Escape handler above. On
+    // a phone there was no way out of the day panel's edit mode at all.
+    // What may swallow a click and still MEAN "stay in edit mode". Kept
+    // deliberately short: react-native-web Pressables do not propagate their
+    // click to document at all, so every button, row and cell is already
+    // excluded by construction and listing them here only widens the net. The
+    // entries that earn their place are the ones that DO propagate — a real
+    // <input> or <textarea>, which is the field you are editing in.
+    //
+    // A broad '[data-testid^="cal-"]' was tried first and kept the day's own
+    // TITLE, which is a label: tapping it did nothing, which is the bug.
+    const KEEP = ['[role="button"]', 'input', 'textarea', 'select'].join(',');
+    const onClick = (ev: Event) => {
+      const t = ev.target as Element | null;
+      if (t && typeof t.closest === 'function' && t.closest(KEEP)) return;
+      setPanelEdit(false);
+    };
+    document.addEventListener('click', onClick);
+    return () => {
+      document.removeEventListener('keydown', onKey, true);
+      document.removeEventListener('click', onClick);
+    };
   }, [panelEdit]);
   const [rolledId, setRolledId] = useState<string | null>(null);
   const rollTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -309,7 +336,9 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
           <Text testID="cal-day-title" style={s.panelTitle}>{dayLabel}</Text>
           <View style={s.panelBtns}>
             <CircleBtn testID="cal-completed" glyph="☑" label="Completed" active={showDone} onPress={() => setShowDone(!showDone)} />
-            <Pill label="+ Add" primary onPress={() => setModal({ mode: 'create' })} />
+            {panelEdit
+              ? <Pill testID="cal-edit-done" label="Done" primary onPress={() => setPanelEdit(false)} />
+              : <Pill testID="cal-add" label="+ Add" primary onPress={() => setModal({ mode: 'create' })} />}
           </View>
         </View>
         {items.events.length > 0 && (
