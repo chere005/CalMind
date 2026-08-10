@@ -170,6 +170,28 @@ RUN IT: `npx playwright test --config=playwright.webkit.config.ts`. That
 config had never been run in this session before tonight, which is how a
 real bug in Sean's own engine sat unnoticed.
 
+## Watch UI, SEEN at last — 2026-08-10, watchOS simulator
+
+Sean's watch was off-network all night, so the grouping and 12-hour work was
+built, tested and never LOOKED AT. A watchOS simulator renders it without his
+wrist: build CalMindWatch for a `platform=watchOS Simulator` destination with
+`CODE_SIGNING_ALLOWED=NO`, then `simctl install/launch` and
+`simctl io <udid> screenshot`. Worth reaching for far earlier than polling an
+unreachable device for three hours.
+
+Confirmed on screen, not inferred:
+
+- **`8/12 3:30pm`** — his format exactly. 12-hour, no leading zero, m/d for a
+  day that is not today, minutes only because it is half past.
+- **Four page dots, first filled** — the horizontal paging that replaced
+  `.verticalPage`. That is the fix for 'I can't see any events': the dots say
+  more pages exist and which one you are on.
+
+Caveat kept honest: the data on screen came from a cache already on that
+simulator, not from the feed this seeded, so the RENDERING is verified and
+the seeding path is not. watchOS simulators take no input injection, so the
+other three pages were not swiped to.
+
 ## 0.45 · The watch actually syncs — 2026-08-09, later the same night
 
 Two stacked failures, each invisible alone, both silent by design.
