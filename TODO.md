@@ -99,6 +99,41 @@ visual. Deploy to **test only** (`./server/deploy-test.sh`) as changes land.
       play) plus CBOR/COSE verification in framework-less PHP. Recommended
       later, web-first, passwords staying as the fallback. Awaiting his word.
 
+## KNOWN BUG · the new-note focus is a 50ms race — WebKit only
+
+`e2e/app.spec.ts:353` fails under `playwright.webkit.config.ts` and passes
+in Chromium. 15/16 there; everything else green.
+
+WHAT HAPPENS. Opening a note from `+` sets bodyEditing and then focuses the
+body through `setTimeout(bodyRef.current?.focus(), 50)` (Notes.tsx). Tap the
+TITLE inside that window — which is what anyone does to rename a note that
+just opened with a date for a name — and 50ms later the caret is yanked back
+into the body. Chromium's timing hides it. WebKit does not, and WebKit is
+what Sean reads the app in every day.
+
+WHY IT IS STILL HERE. Two fixes were tried and both were worse:
+
+  - Guarding the deferred call (skip if an input already has focus) made it
+    decline to focus at all when the title had been touched first, breaking
+    "a section's + lands in the editor TYPING".
+  - Removing the deferral and restoring the body's `autoFocus` broke three
+    more, including "opening a second note never shows the first one's text"
+    — autoFocus and the body's own `onBlur -> setBodyEditing(false)` interact
+    across note switches in a way that needs proper thought.
+
+Reverted to the committed state rather than leave a half-fix in the tree.
+
+WHAT TO DO. The real answer is probably that the body should not be focused
+imperatively at all — the editor should mount already focused, once, with no
+second actor. That means untangling `useNoteScoped`'s reset, the body's
+onBlur collapse, and the fresh-note effect together, with the WebKit suite
+run alongside the Chromium one throughout. Not a small change, and not one
+to make at 2am.
+
+RUN IT: `npx playwright test --config=playwright.webkit.config.ts`. That
+config had never been run in this session before tonight, which is how a
+real bug in Sean's own engine sat unnoticed.
+
 ## 0.45 · The watch actually syncs — 2026-08-09, later the same night
 
 Two stacked failures, each invisible alone, both silent by design.
