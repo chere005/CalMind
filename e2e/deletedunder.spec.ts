@@ -31,8 +31,7 @@ test('a note deleted on another device leaves its editor gracefully, not blank',
 
   await page.getByTestId('tab-notes').click();
   await page.getByTestId('secadd-General').first().click();
-  await page.getByPlaceholder('New note').fill('doomed');
-  await page.getByPlaceholder('New note').press('Enter');
+  await page.getByTestId('note-title').fill('doomed');
   await page.getByText('← All notes').click();
   await page.waitForTimeout(2_000); // let the push land
 
@@ -70,8 +69,7 @@ test('a note deleted on another device leaves its editor gracefully, not blank',
   expect(errors, 'nothing threw when the record went away').toEqual([]);
   await expect(page.getByTestId('note-row').filter({ hasText: 'doomed' })).toHaveCount(0, { timeout: 20_000 });
   await page.getByTestId('secadd-General').first().click();
-  await page.getByPlaceholder('New note').fill('still usable');
-  await page.getByPlaceholder('New note').press('Enter');
+  await page.getByTestId('note-title').fill('still usable');
   // Creation lands in the editor TYPING now, so the live edit field is the
   // proof the screen still works.
   await expect(page.getByTestId('note-body-edit')).toBeVisible();

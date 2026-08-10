@@ -28,8 +28,7 @@ test('arming delete on one note does not prime it on the next', async ({ page })
 
   for (const title of ['Keep me', 'Also keep me']) {
     await page.getByTestId('secadd-General').first().click();
-    await page.getByPlaceholder('New note').fill(title);
-    await page.getByPlaceholder('New note').press('Enter');
+    await page.getByTestId('note-title').fill(title);
     await page.getByText('← All notes').click();
   }
 

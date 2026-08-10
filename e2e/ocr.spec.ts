@@ -39,8 +39,7 @@ test('the recipe importer reads photos into a formatted note', async ({ page, co
   await expect(page.getByTestId('tab-reminders')).toBeVisible({ timeout: 10_000 });
   await page.getByTestId('tab-notes').click();
   await page.getByTestId('secadd-General').first().click();
-  await page.getByPlaceholder('New note').fill('x');
-  await page.getByPlaceholder('New note').press('Enter');
+  await page.getByTestId('note-title').fill('x');
   // Clear the title so the importer may claim it, then open the Recipe page
   // — photos are picked from ITS camera button now, not the note editor.
   await page.getByPlaceholder('Title').fill('');
@@ -103,8 +102,7 @@ test('an awkward card: no title, a wordy last ingredient, a method with no headi
   await expect(page.getByTestId('tab-reminders')).toBeVisible({ timeout: 20_000 });
   await page.getByTestId('tab-notes').click();
   await page.getByTestId('secadd-General').first().click();
-  await page.getByPlaceholder('New note').fill('x');
-  await page.getByPlaceholder('New note').press('Enter');
+  await page.getByTestId('note-title').fill('x');
   await page.getByPlaceholder('Title').fill('');
   await page.getByTestId('recipe-import').click();
   const chooser = page.waitForEvent('filechooser');
@@ -155,8 +153,7 @@ test('a photo it cannot read says so, instead of ending in silence', async ({ pa
   await expect(page.getByTestId('tab-reminders')).toBeVisible({ timeout: 20_000 });
   await page.getByTestId('tab-notes').click();
   await page.getByTestId('secadd-General').first().click();
-  await page.getByPlaceholder('New note').fill('x');
-  await page.getByPlaceholder('New note').press('Enter');
+  await page.getByTestId('note-title').fill('x');
   await page.getByTestId('recipe-import').click();
   const chooser = page.waitForEvent('filechooser');
   await page.getByTestId('recipe-photos').click();

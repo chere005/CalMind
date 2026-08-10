@@ -146,8 +146,7 @@ test("a section's + lands in the editor TYPING, not just open", async ({ page })
   await signup(page);
   await page.getByTestId('tab-notes').click();
   await page.getByTestId('secadd-General').first().click();
-  await page.getByPlaceholder('New note').fill('straight to typing');
-  await page.getByPlaceholder('New note').press('Enter');
+  await page.getByTestId('note-title').fill('straight to typing');
   // The body edit field itself, focused — not the read view.
   await expect(page.getByTestId('note-body-edit')).toBeVisible();
   await expect(page.getByTestId('note-body-edit')).toBeFocused();
@@ -165,12 +164,10 @@ test('a note drags between folders and re-files', async ({ page }) => {
   // One note in each folder's General.
   const adds = page.getByTestId('secadd-General');
   await adds.first().click();
-  await page.getByPlaceholder('New note').fill('first note');
-  await page.getByPlaceholder('New note').press('Enter');
+  await page.getByTestId('note-title').fill('first note');
   await page.getByText('← All notes').click(); // the editor auto-opens on create
   await adds.nth(1).click();
-  await page.getByPlaceholder('New note').fill('second note');
-  await page.getByPlaceholder('New note').press('Enter');
+  await page.getByTestId('note-title').fill('second note');
   await page.getByText('← All notes').click();
   // Drag the first note down past the second (into the Recipes General).
   const rows = page.getByTestId('note-row');
@@ -357,8 +354,7 @@ test('note body renders its markers as styled text when you tap away', async ({ 
   await signup(page);
   await page.getByTestId('tab-notes').click();
   await page.getByTestId('secadd-General').first().click();
-  await page.getByPlaceholder('New note').fill('styled');
-  await page.getByPlaceholder('New note').press('Enter');
+  await page.getByTestId('note-title').fill('styled');
   // The editor auto-opens. Tap the body, type markers, then tap the title.
   await page.getByTestId('note-body-edit').fill('**loud** and *slanted*\n- milk\n> wisdom');
   await page.getByPlaceholder('Title').click();
@@ -539,8 +535,7 @@ test("sharing: a calendar shows under the partner's day-panel group; notes read 
   await pageA.getByText('← All notes').click();
   await pageA.getByTestId('tab-notes').click();
   await pageA.getByTestId('secadd-General').first().click();
-  await pageA.getByPlaceholder('New note').fill('the recipe');
-  await pageA.getByPlaceholder('New note').press('Enter');
+  await pageA.getByTestId('note-title').fill('the recipe');
   await pageA.getByTestId('note-body-edit').fill('**garlic** first');
   await pageA.getByText('← All notes').click();
   await pageA.getByText(userA, { exact: true }).click();
@@ -692,8 +687,7 @@ test('unticking Include notes shows what it would drop, rather than hiding it', 
   const user = await signup(page);
   await page.getByTestId('tab-notes').click();
   await page.getByTestId('secadd-General').first().click();
-  await page.getByPlaceholder('New note').fill('Uovo');
-  await page.getByPlaceholder('New note').press('Enter');
+  await page.getByTestId('note-title').fill('Uovo');
   await page.getByTestId('note-body-edit').fill(
     'Ingredients\n200 g farina 00\n2 eggs\nForm a well with the flour and knead it.\nDo whatever you want with it.',
   );
@@ -1043,8 +1037,7 @@ test('Notes can make a section at all — the folder head carries the +', async 
 
   // It's a real section: a note files into it and lands there after a reload.
   await page.getByTestId('secadd-Recipes').first().click();
-  await page.getByPlaceholder('New note').fill('pancakes');
-  await page.getByPlaceholder('New note').press('Enter');
+  await page.getByTestId('note-title').fill('pancakes');
   await page.getByText('← All notes').click();
   await page.reload();
   await page.getByTestId('tab-notes').click();
@@ -1122,8 +1115,7 @@ test('a recipe line is mended by tapping it, not by deleting and retyping', asyn
   await signup(page);
   await page.getByTestId('tab-notes').click();
   await page.getByTestId('secadd-General').first().click();
-  await page.getByPlaceholder('New note').fill('Pancakes');
-  await page.getByPlaceholder('New note').press('Enter');
+  await page.getByTestId('note-title').fill('Pancakes');
   await page.getByTestId('note-body-edit').fill('2 cups flur\n1. Mix it');
   await page.getByTestId('recipe-import').click();
 
@@ -1157,8 +1149,7 @@ test('recipe lines reorder by dragging the marker they already wear', async ({ p
   await signup(page);
   await page.getByTestId('tab-notes').click();
   await page.getByTestId('secadd-General').first().click();
-  await page.getByPlaceholder('New note').fill('Pancakes');
-  await page.getByPlaceholder('New note').press('Enter');
+  await page.getByTestId('note-title').fill('Pancakes');
   await page.getByTestId('note-body-edit').fill('2 cups flour\n1 cup milk\n3 eggs');
   await page.getByTestId('recipe-import').click();
 
@@ -1189,8 +1180,7 @@ test('the Recipe page says how its lines are handled', async ({ page }) => {
   await signup(page);
   await page.getByTestId('tab-notes').click();
   await page.getByTestId('secadd-General').first().click();
-  await page.getByPlaceholder('New note').fill('Pancakes');
-  await page.getByPlaceholder('New note').press('Enter');
+  await page.getByTestId('note-title').fill('Pancakes');
   await page.getByTestId('note-body-edit').fill('2 cups flour\n1 cup milk');
   await page.getByTestId('recipe-import').click();
   const hint = page.getByTestId('recipe-hint');
@@ -1206,8 +1196,7 @@ test('a recipe line deletes by swiping it, not by a × parked on every row', asy
   await signup(page);
   await page.getByTestId('tab-notes').click();
   await page.getByTestId('secadd-General').first().click();
-  await page.getByPlaceholder('New note').fill('Pancakes');
-  await page.getByPlaceholder('New note').press('Enter');
+  await page.getByTestId('note-title').fill('Pancakes');
   await page.getByTestId('note-body-edit').fill('2 cups flour\n1 cup milk');
   await page.getByTestId('recipe-import').click();
   await expect.poll(() => page.getByTestId('ing-row').allTextContents()).toEqual(['flour2 cups', 'milk1 cup']);
@@ -1230,8 +1219,7 @@ test('the Recipe page can shed the non-recipe notes with its checkbox', async ({
   await signup(page);
   await page.getByTestId('tab-notes').click();
   await page.getByTestId('secadd-General').first().click();
-  await page.getByPlaceholder('New note').fill('Pancakes');
-  await page.getByPlaceholder('New note').press('Enter');
+  await page.getByTestId('note-title').fill('Pancakes');
   // The editor auto-opens; give the body a recipe plus one free-text line.
   await page.getByTestId('note-body-edit').fill('2 cups flour\n1. Mix well\nGrandma loved these, and she always doubled the butter.');
   await page.getByTestId('recipe-import').click();

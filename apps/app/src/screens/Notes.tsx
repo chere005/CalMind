@@ -123,13 +123,17 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
   // Focusing through a ref on the next tick is the version that actually
   // fires on a device; on web it is a harmless no-op over autoFocus.
   const bodyRef = React.useRef<TextInput | null>(null);
+  const titleRef = React.useRef<TextInput | null>(null);
   React.useEffect(() => {
     if (openId && freshEdit.current === openId) {
       freshEdit.current = null;
-      setBodyEditing(true);
-      // The field does not exist until bodyEditing has rendered, so the
+      // Body in edit mode, so it is one tap away — but the caret goes to the
+      // TITLE, because a note made by + has no name yet and that is what the
+      // removed inline field was collecting. Without this it would sit blank
+      // in the list. The field does not exist until this has rendered, so the
       // focus call waits a tick rather than racing the mount.
-      setTimeout(() => bodyRef.current?.focus(), 50);
+      setBodyEditing(true);
+      setTimeout(() => titleRef.current?.focus(), 50);
     }
   }, [openId, setBodyEditing]);
   // Another screen (the Add tab) created a note — land in its editor, as prod does.
@@ -142,12 +146,6 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
   }, [openNoteId, onOpenConsumed]);
   const [addingSection, setAddingSection] = useState<string | null>(null); // folderId
   const [newSecName, setNewSecName] = useState('');
-  const [adding, setAddingRaw] = useState<string | null>(null); // sectionId
-  const [addText, setAddText] = useState('');
-  const setAdding = (v: string | null) => {
-    if (v !== null) addCommitted.current = false;
-    setAddingRaw(v);
-  };
 
   const { folders, sectionsOf, notesOf } = useMemo(() => {
     const folders = visibleFolders;
@@ -233,7 +231,6 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
     return [...seen].map(([id, label]) => ({ id, label }));
   }, [goesChoices]);
 
-  const addCommitted = React.useRef(false);
   // The suite carries the folder-head + in Notes as well as Reminders, always
   // shown rather than hidden in edit mode. Without it there was NO way to make
   // a note section at all: normalize seeds one per folder and that was that.
@@ -255,21 +252,26 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
     });
   };
 
+  /**
+   * + makes the note and opens it, with nothing in between.
+   *
+   * This used to drop an inline 'New note' field into the list and make you
+   * name the note before anything opened — which is what Sean kept reporting
+   * as '+ does not go straight to the new note'. The step itself was the bug,
+   * not what happened after it, and my repro passed for weeks because it
+   * tested the step instead of questioning it.
+   *
+   * The name is typed in the editor's own title field now, so the date-in-the-
+   * name feature moved to that field's blur (see note-title) rather than being
+   * lost with the inline one.
+   */
   const addNote = (section: Rec<'section'>) => {
-    // Enter fires submit AND blur on web — one field, one note.
-    if (addCommitted.current) return;
-    addCommitted.current = true;
-    const raw = addText.trim();
-    setAdding(null);
-    setAddText('');
-    if (!raw) return;
-    const [title, date] = parseWhenFromText(raw, todayStr(), nowStr());
     const id = newId();
     mutate((e) => {
       const first = notesOf(section.id)[0];
       e.put({
         id, type: 'note', updated: 0,
-        payload: { title: title || raw, body: '', date, folderId: section.payload.folderId, sectionId: section.id, ord: ordBetween(null, first?.payload.ord ?? null) },
+        payload: { title: '', body: '', date: null, folderId: section.payload.folderId, sectionId: section.id, ord: ordBetween(null, first?.payload.ord ?? null) },
       });
     });
     freshEdit.current = id;
@@ -323,13 +325,23 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
         <ScrollView contentContainerStyle={s.editor}>
           <View style={s.titleRow}>
             <TextInput
+              ref={titleRef}
               testID="note-title"
               style={s.title}
               value={titleDraft ?? open.payload.title}
               placeholder="Title"
               placeholderTextColor={T.muted}
               onFocus={() => setTitleDraft(open.payload.title)}
-              onBlur={() => setTitleDraft(null)}
+              onBlur={() => {
+                // The inline add field used to do this on the way in. It is
+                // the title's job now, so 'Dentist 8/3' still puts the note on
+                // the calendar — and now it works when renaming too.
+                setTitleDraft(null);
+                const raw = open.payload.title.trim();
+                if (!raw || open.payload.date) return;
+                const [title, date] = parseWhenFromText(raw, todayStr(), nowStr());
+                if (date) mutate((e) => e.put({ ...open, payload: { ...open.payload, title: title || raw, date } }));
+              }}
               onChangeText={(t) => {
                 setTitleDraft(t);
                 mutate((e) => e.put({ ...open, payload: { ...open.payload, title: t } }));
@@ -558,7 +570,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
                       <Text style={s.secName}>{sec.payload.name}</Text>
                     </Pressable>
                   )}
-                  <CircleBtn testID={`secadd-${sec.payload.name}`} glyph="+" label="Add" color={T.accent} size={22} onPress={() => { setAdding(sec.id); setAddText(''); }} />
+                  <CircleBtn testID={`secadd-${sec.payload.name}`} glyph="+" label="Add" color={T.accent} size={22} onPress={() => addNote(sec)} />
                   {pageEdit && (
                     <ConfirmDelete testID={`nsecdel-${sec.payload.name}`} size={22} onDelete={() => {
                       const res = deleteSection(recs, sec.id);
@@ -566,9 +578,6 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
                     }} />
                   )}
                 </View>
-                {adding === sec.id && (
-                  <Field value={addText} onChangeText={setAddText} placeholder="New note" autoFocus onBlur={() => addNote(sec)} onSubmitEditing={() => addNote(sec)} />
-                )}
                 {!nfolded.has(sec.id) && notesOf(sec.id).length === 0 && (
                   <View>
                     {drag.slot !== null && emptyIdxOf(sec.id) === drag.slot && <View style={s.dropLine} />}

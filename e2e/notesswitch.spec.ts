@@ -45,8 +45,7 @@ test('opening a second note never shows the first one’s text', async ({ page }
 
   for (const [title, body] of [['Alpha', 'the first recipe'], ['Beta', 'the second recipe']]) {
     await page.getByTestId('secadd-General').first().click();
-    await page.getByPlaceholder('New note').fill(title!);
-    await page.getByPlaceholder('New note').press('Enter');
+    await page.getByTestId('note-title').fill(title!);
     await page.getByTestId('note-body-edit').fill(body!);
     await page.getByText('← All notes').click();
   }
