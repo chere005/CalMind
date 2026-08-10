@@ -47,10 +47,29 @@ final class WatchSession: NSObject, WCSessionDelegate {
 
   func push(json: String) {
     pending = json
-    guard WCSession.isSupported(), WCSession.default.activationState == .activated else { return }
+    guard WCSession.isSupported() else {
+      NSLog("[WatchBridge] WCSession not supported on this device")
+      return
+    }
+    let s = WCSession.default
+    guard s.activationState == .activated else {
+      NSLog("[WatchBridge] not activated yet (state=%d) — holding %d bytes", s.activationState.rawValue, json.count)
+      return
+    }
+    // The three preconditions WCSession enforces before it will carry
+    // anything. A sideloaded watch app (devicectl straight to the wrist,
+    // which is how this one got there) is the case where isWatchAppInstalled
+    // comes back false while everything LOOKS right — pairing fine, both
+    // apps open, and no delivery. Say which one is false.
+    NSLog("[WatchBridge] paired=%@ watchAppInstalled=%@ reachable=%@ bytes=%d",
+          s.isPaired ? "yes" : "NO",
+          s.isWatchAppInstalled ? "yes" : "NO",
+          s.isReachable ? "yes" : "no",
+          json.count)
     do {
-      try WCSession.default.updateApplicationContext(["list": json])
+      try s.updateApplicationContext(["list": json])
       pending = nil
+      NSLog("[WatchBridge] context delivered")
     } catch {
       // Failure was a silent `try?` here while Sean spent a day on 'my watch
       // is not syncing' — the .catch(() => {}) pattern in Swift form. The
