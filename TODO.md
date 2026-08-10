@@ -105,11 +105,18 @@ visual. Deploy to **test only** (`./server/deploy-test.sh`) as changes land.
 in Chromium. 15/16 there; everything else green.
 
 WHAT HAPPENS. Opening a note from `+` sets bodyEditing and then focuses the
-body through `setTimeout(bodyRef.current?.focus(), 50)` (Notes.tsx). Tap the
-TITLE inside that window — which is what anyone does to rename a note that
-just opened with a date for a name — and 50ms later the caret is yanked back
-into the body. Chromium's timing hides it. WebKit does not, and WebKit is
-what Sean reads the app in every day.
+body through `setTimeout(bodyRef.current?.focus(), 50)` (Notes.tsx). The
+spec performs FOUR interactions inside that 50ms; in WebKit the deferred
+focus lands after the final blur, so the body never collapses to its read
+view and `note-body-view` never appears.
+
+HOW BAD IS IT, HONESTLY. Less than the first draft of this entry claimed,
+and the correction matters for whoever picks it up. Stealing focus from the
+title needs a sub-50ms reaction — press +, register a new screen, reach the
+title — which no human does; only a driver can. What IS reachable is the
+other half: for the first 50ms after + the body is not yet focused, so a
+fast typist's opening keystrokes go nowhere. That is the real defect, it is
+small, and it argues for removing the deferral rather than for urgency.
 
 WHY IT IS STILL HERE. Two fixes were tried and both were worse:
 
