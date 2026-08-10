@@ -1,7 +1,14 @@
 import SwiftUI
 
-/// The watch's four pages, swiped like faces: Summary, Reminders, Events,
-/// and a month at a glance. Still read-only — the phone owns the data.
+/// The watch's four pages: Summary, Reminders, Events, and a month at a
+/// glance.
+///
+/// HORIZONTAL paging, with the dot indicator. It was .verticalPage first,
+/// and Sean reported 'I can't see any events' while the events sat one page
+/// below him — left/right is the gesture anyone tries on a watch, and it did
+/// nothing. Vertical paging is for a single scrolling story (Workout's
+/// metrics), not for peer tabs. The dots are the point: they say how many
+/// pages exist and which one you are on, which is exactly what was missing.
 struct WatchTabs: View {
     @EnvironmentObject var store: WatchStore
 
@@ -12,7 +19,7 @@ struct WatchTabs: View {
             EventListView().environmentObject(store)
             MonthView().environmentObject(store)
         }
-        .tabViewStyle(.verticalPage)
+        .tabViewStyle(.page)
     }
 }
 
