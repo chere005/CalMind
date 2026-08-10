@@ -15,7 +15,10 @@ import type { AnyRec, Rec } from './types';
 import { byOrd } from './order';
 import { sortByDate } from './sort';
 
-export type WatchRow = { id: string; text: string; due: string | null; time: string | null; done: boolean };
+export type WatchRow = { id: string; text: string; due: string | null; time: string | null; done: boolean; folderId: string };
+
+/** A folder as the iOS widget's picker lists it. */
+export type WatchFolder = { id: string; name: string; color: string };
 
 export function watchRows(recs: AnyRec[]): WatchRow[] {
   const reminders = recs
@@ -29,8 +32,9 @@ export function watchRows(recs: AnyRec[]): WatchRow[] {
       time: r.payload.time,
       text: r.payload.text,
       done: r.payload.done,
+      folderId: r.payload.folderId,
     })),
-  ).map(({ id, text, due, time, done }) => ({ id, text, due, time, done }));
+  ).map(({ id, text, due, time, done, folderId }) => ({ id, text, due, time, done, folderId }));
 }
 
 /** An event as the watch shows it: what, when, which calendar's colour. */
@@ -46,7 +50,7 @@ export type WatchEvent = { id: string; text: string; date: string; time: string 
  * fails. 30 events covers every face and tab while staying far from the
  * cliff.
  */
-export function watchFeed(recs: AnyRec[], today: string): { items: WatchRow[]; events: WatchEvent[] } {
+export function watchFeed(recs: AnyRec[], today: string): { items: WatchRow[]; events: WatchEvent[]; folders: WatchFolder[] } {
   const calColor = new Map(
     recs.filter((r): r is Rec<'calendar'> => r.type === 'calendar' && !r.deleted).map((c) => [c.id, c.payload.color]),
   );
@@ -66,5 +70,12 @@ export function watchFeed(recs: AnyRec[], today: string): { items: WatchRow[]; e
       time: e.payload.time,
       color: calColor.get(e.payload.calendarId) ?? '#60a5fa',
     }));
-  return { items: watchRows(recs), events };
+  // Folders travel so the iOS widget can offer a picker. Reminder folders
+  // only: the widget lists things to DO, and a notes folder in that menu is
+  // a promise the widget cannot keep.
+  const folders = recs
+    .filter((r): r is Rec<'folder'> => r.type === 'folder' && !r.deleted && r.payload.app === 'reminders')
+    .sort((a, b) => byOrd(a.payload, b.payload))
+    .map((f) => ({ id: f.id, name: f.payload.name, color: f.payload.color }));
+  return { items: watchRows(recs), events, folders };
 }

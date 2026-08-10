@@ -9,6 +9,7 @@ import { todayStr, watchFeed, type AnyRec } from '@calmind/core';
 
 type Bridge = {
   push: (json: string) => void;
+  drainWidgetTicks?: () => string[];
   addListener?: (event: string, cb: (payload: { id: string }) => void) => { remove(): void };
 };
 let bridge: Bridge | null = null;
@@ -30,6 +31,22 @@ if (Platform.OS === 'ios') {
 export function onWatchTick(cb: (id: string) => void): () => void {
   const sub = bridge?.addListener?.('onTick', ({ id }) => cb(id));
   return () => sub?.remove();
+}
+
+/**
+ * The home-screen widget's queued check-offs, read and cleared in one step.
+ *
+ * The widget cannot reach the store, so it leaves ids in the shared App
+ * Group and the app drains them when it comes forward. Empty everywhere the
+ * bridge does not exist, which is every platform but iOS.
+ */
+export function drainWidgetTicks(): string[] {
+  try {
+    return bridge?.drainWidgetTicks?.() ?? [];
+  } catch {
+    // A widget that cannot hand its ticks over must not stop the app opening.
+    return [];
+  }
 }
 
 export function pushWatchList(recs: AnyRec[]): void {

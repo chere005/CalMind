@@ -11,7 +11,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { watchForUpdate } from './update';
 import { SyncEngine, normalize, prefsOf, folderApp, reminderToggle, shareOf, todayStr, type AnyRec, type Rec } from '@calmind/core';
 import { apiPost, type Session, syncTransport, ApiError } from './api';
-import { onWatchTick, pushWatchList } from './watch';
+import { drainWidgetTicks, onWatchTick, pushWatchList } from './watch';
 import { applyTheme, type ThemeName } from './theme';
 
 const SESSION_KEY = 'calmind.session';
@@ -203,6 +203,25 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       }),
     [mutate],
   );
+
+  // The widget's check-offs, applied when the app comes forward. Same
+  // destination as a watch tick — reminderToggle — so a box ticked on the
+  // home screen behaves exactly like one tapped in the app.
+  useEffect(() => {
+    const apply = () => {
+      const ids = drainWidgetTicks();
+      if (ids.length === 0) return;
+      mutate((e) => {
+        for (const id of ids) {
+          const rec = e.all().find((r) => r.id === id && r.type === 'reminder' && !r.deleted) as Rec<'reminder'> | undefined;
+          if (rec) e.put({ ...rec, payload: reminderToggle(rec.payload, todayStr()) });
+        }
+      });
+    };
+    apply(); // whatever was queued while the app was away
+    const sub = AppState.addEventListener('change', (st) => { if (st === 'active') apply(); });
+    return () => sub.remove();
+  }, [mutate]);
 
   const signIn = useCallback(
     async (s: Session) => {

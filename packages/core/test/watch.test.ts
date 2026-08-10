@@ -70,11 +70,33 @@ describe('watchRows — what the wrist is handed', () => {
 
   it('hands over exactly the fields the watch draws, and no more', () => {
     const [row] = watchRows([rem('a', 'tea', { due: '2026-08-08', time: '16:30' })]);
-    expect(row).toEqual({ id: 'a', text: 'tea', due: '2026-08-08', time: '16:30', done: false });
+    // folderId joined the set when the iOS widget gained a folder picker —
+    // the widget filters by folder, so the row has to say which one it is in.
+    expect(row).toEqual({ id: 'a', text: 'tea', due: '2026-08-08', time: '16:30', done: false, folderId: 'f' });
   });
 
   it('an empty store is an empty list, not a crash', () => {
     expect(watchRows([])).toEqual([]);
+  });
+});
+
+describe('watchFeed — folders for the widget picker', () => {
+  const fold = (id: string, name: string, app: string, ord: string): AnyRec =>
+    ({ id, type: 'folder', updated: 1, payload: { name, app, color: '#123456', ord, rideAlong: false } } as AnyRec);
+
+  it('carries reminder folders in list order, and NOT notes folders', () => {
+    const { folders } = watchFeed(
+      [fold('f2', 'Work', 'reminders', 'b'), fold('n1', 'Recipes', 'notes', 'a'), fold('f1', 'Home', 'reminders', 'a')],
+      '2026-08-09',
+    );
+    // A notes folder in a to-do widget's picker is a promise it cannot keep.
+    expect(folders.map((f) => f.name)).toEqual(['Home', 'Work']);
+    expect(folders[0]).toEqual({ id: 'f1', name: 'Home', color: '#123456' });
+  });
+
+  it('a deleted folder does not reach the picker', () => {
+    const gone = { ...(fold('f9', 'Old', 'reminders', 'a') as Record<string, unknown>), deleted: true } as AnyRec;
+    expect(watchFeed([gone], '2026-08-09').folders).toEqual([]);
   });
 });
 

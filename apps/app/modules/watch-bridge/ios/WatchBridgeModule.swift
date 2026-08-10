@@ -29,6 +29,12 @@ public class WatchBridgeModule: Module {
     Function("push") { (json: String) in
       WatchSession.shared.push(json: json)
     }
+
+    /// The widget's queued check-offs, handed to JS to apply through the
+    /// same toggle as everything else. Returns and clears in one step.
+    Function("drainWidgetTicks") { () -> [String] in
+      WatchSession.drainWidgetTicks()
+    }
   }
 }
 
@@ -106,5 +112,26 @@ final class WatchSession: NSObject, WCSessionDelegate {
 
   func sessionDidDeactivate(_ session: WCSession) {
     session.activate()
+  }
+}
+
+/**
+ The home-screen widget's check-offs.
+
+ The widget is its own process and cannot reach the store, so a tap queues
+ the id in the shared App Group and the app drains it here on foreground.
+ Same destination as a watch tick: reminderToggle, so repeats roll and sync
+ runs exactly as a tap in the app would.
+
+ Drained ATOMICALLY — read and clear together — so a tick cannot be applied
+ twice if the app is foregrounded twice in quick succession, and cannot be
+ lost between the read and the clear.
+ */
+extension WatchSession {
+  static func drainWidgetTicks() -> [String] {
+    let d = UserDefaults(suiteName: "group.com.seancheren.calmind")
+    let ticks = d?.stringArray(forKey: "pendingTicks") ?? []
+    if !ticks.isEmpty { d?.removeObject(forKey: "pendingTicks") }
+    return ticks
   }
 }

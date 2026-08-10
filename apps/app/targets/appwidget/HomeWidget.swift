@@ -2,12 +2,26 @@ import WidgetKit
 import SwiftUI
 import AppIntents
 
-/// The same feed the watch caches, read from the shared App Group container —
-/// a widget is its own process, and the group is the only place both can see.
-/// WatchBridge writes it on every store change; the shapes are the feed's own.
+/**
+ The iPhone home-screen widget, drawn to match tools/scriptable-widget.js —
+ the one Sean has actually been living with. That widget's decisions are kept
+ deliberately: near-black card, one heading per DAY rather than per kind, a
+ square tick box for a reminder (a thing to DO) against a coloured dot for an
+ event, the label one line, the time right-aligned in grey, a hairline under
+ each date and a heavier rule between days.
+
+ It is its own process, so it reads the App Group cache WatchBridge writes on
+ every store change — the same feed the watch and the complication read.
+ */
 private let GROUP = "group.com.seancheren.calmind"
 private let CACHE = "watchlist.json"
 private let TICKS = "pendingTicks"
+
+// The Scriptable widget's palette, carried over rather than re-invented.
+private let BG = Color(red: 0.067, green: 0.067, blue: 0.067)   // #111111
+private let LABEL = Color(white: 0.933)                          // #eeeeee
+private let META = Color(red: 0.541, green: 0.541, blue: 0.541)  // #8a8a8a
+private let OVERDUE = Color(red: 1.0, green: 0.4, blue: 0.4)     // #ff6666
 
 struct WRow: Codable, Identifiable {
     let id: String
@@ -15,40 +29,102 @@ struct WRow: Codable, Identifiable {
     let due: String?
     let time: String?
     let done: Bool
+    let folderId: String?   // optional: a cache written before the picker existed
+}
+
+struct WEvent: Codable, Identifiable {
+    let id: String
+    let text: String
+    let date: String
+    let time: String?
+    let color: String
+}
+
+struct WFolder: Codable, Identifiable, Hashable {
+    let id: String
+    let name: String
+    let color: String
+}
+
+struct Feed: Codable {
+    let items: [WRow]
+    let events: [WEvent]?
+    let folders: [WFolder]?
+}
+
+private func loadFeed() -> Feed? {
+    guard let raw = UserDefaults(suiteName: GROUP)?.data(forKey: CACHE) else { return nil }
+    return try? JSONDecoder().decode(Feed.self, from: raw)
 }
 
 private func todayStr() -> String {
-    let f = DateFormatter()
-    f.dateFormat = "yyyy-MM-dd"
+    let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"
     return f.string(from: Date())
 }
 
-/// Open reminders due today (or overdue), the phone's own ordering kept.
-/// Ticks queued by the widget itself count as done ALREADY — the optimistic
-/// half of check-off, so a tapped row leaves the widget before the app has
-/// even woken to apply it.
-func dueToday() -> [WRow] {
-    struct List: Codable { let items: [WRow] }
-    let d = UserDefaults(suiteName: GROUP)
-    guard let raw = d?.data(forKey: CACHE),
-          let list = try? JSONDecoder().decode(List.self, from: raw) else { return [] }
-    let ticked = Set(d?.stringArray(forKey: TICKS) ?? [])
-    let today = todayStr()
-    return list.items.filter { !$0.done && !ticked.contains($0.id) && $0.due != nil && $0.due! <= today }
+/// "2026-08-12" -> "WED, AUG 12", with TODAY/TOMORROW where it reads better —
+/// the Scriptable widget's own longDate, uppercased for the heading.
+private func dayHeading(_ ymd: String, today: String) -> String {
+    if ymd == today { return "TODAY" }
+    let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"
+    guard let d = f.date(from: ymd) else { return ymd.uppercased() }
+    if let t = f.date(from: today), let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: t),
+       Calendar.current.isDate(d, inSameDayAs: tomorrow) { return "TOMORROW" }
+    let out = DateFormatter(); out.dateFormat = "EEE, MMM d"
+    return out.string(from: d).uppercased()
 }
 
-/// The check-off: queue the id for the app, redraw at once. The app applies
-/// queued ticks through the SAME reminderToggle a phone tap uses (repeats
-/// roll, sync runs) next time it comes to the foreground — the watch's tick
-/// pattern, one transport over. If the app never comes back, the tick is
-/// still queued, not lost.
+private func hexColor(_ hex: String) -> Color {
+    var s = hex.trimmingCharacters(in: CharacterSet(charactersIn: "#"))
+    if s.count == 3 { s = s.map { "\($0)\($0)" }.joined() }
+    guard let v = UInt64(s, radix: 16), s.count == 6 else { return META }
+    return Color(red: Double((v >> 16) & 0xff) / 255, green: Double((v >> 8) & 0xff) / 255, blue: Double(v & 0xff) / 255)
+}
+
+// MARK: - Folder selection
+
+/// The folders the picker offers, read from the same cache. A widget cannot
+/// ask the app at configuration time, so the feed carries them.
+struct FolderOption: AppEntity, Identifiable, Hashable {
+    let id: String
+    let name: String
+
+    static var typeDisplayRepresentation: TypeDisplayRepresentation = "Folder"
+    var displayRepresentation: DisplayRepresentation { DisplayRepresentation(title: "\(name)") }
+    static var defaultQuery = FolderQuery()
+}
+
+struct FolderQuery: EntityQuery {
+    func entities(for identifiers: [String]) async throws -> [FolderOption] {
+        all().filter { identifiers.contains($0.id) }
+    }
+    func suggestedEntities() async throws -> [FolderOption] { all() }
+    private func all() -> [FolderOption] {
+        (loadFeed()?.folders ?? []).map { FolderOption(id: $0.id, name: $0.name) }
+    }
+}
+
+struct SelectFolders: WidgetConfigurationIntent {
+    static var title: LocalizedStringResource = "Choose folders"
+    static var description = IntentDescription("Show only the folders you pick. Leave empty for everything.")
+
+    @Parameter(title: "Folders")
+    var folders: [FolderOption]?
+
+    init() {}
+}
+
+// MARK: - Check-off
+
+/// Queue the id for the app and redraw at once. The app applies queued ticks
+/// through the SAME reminderToggle a phone tap uses — repeats roll, sync runs
+/// — next time it is foregrounded. The watch's tick pattern, one transport
+/// over. If the app never comes back, the tick is queued, not lost.
 struct TickIntent: AppIntent {
     static var title: LocalizedStringResource = "Complete reminder"
     static var isDiscoverable = false
 
-    @Parameter(title: "Reminder")
-    var id: String
-
+    @Parameter(title: "Reminder") var id: String
     init() {}
     init(id: String) { self.id = id }
 
@@ -62,80 +138,165 @@ struct TickIntent: AppIntent {
     }
 }
 
-struct Entry: TimelineEntry {
-    let date: Date
-    let rows: [WRow]
+// MARK: - Timeline
+
+/// One line as the widget draws it — a reminder or an event, already placed
+/// under its day. The day is the section, not the kind: Scriptable's rule.
+struct Line: Identifiable {
+    let id: String
+    let text: String
+    let time: String?
+    let isReminder: Bool
+    let overdue: Bool
+    let color: Color
 }
 
-struct Provider: TimelineProvider {
+struct Entry: TimelineEntry {
+    let date: Date
+    let days: [(String, [Line])]
+}
+
+struct Provider: AppIntentTimelineProvider {
     func placeholder(in context: Context) -> Entry {
-        Entry(date: Date(), rows: [WRow(id: "x", text: "Water the plants", due: nil, time: nil, done: false)])
+        Entry(date: Date(), days: [("TODAY", [Line(id: "x", text: "Water the plants", time: nil, isReminder: true, overdue: false, color: LABEL)])])
     }
-    func getSnapshot(in context: Context, completion: @escaping (Entry) -> Void) {
-        completion(Entry(date: Date(), rows: dueToday()))
+
+    func snapshot(for configuration: SelectFolders, in context: Context) async -> Entry {
+        build(configuration)
     }
-    func getTimeline(in context: Context, completion: @escaping (Timeline<Entry>) -> Void) {
-        // Refresh at the next midnight: "due today" changes meaning there
-        // even if no data changes. Data changes reload via WidgetCenter.
+
+    func timeline(for configuration: SelectFolders, in context: Context) async -> Timeline<Entry> {
+        // Midnight changes what "today" and "overdue" mean even when no data
+        // changes; data changes reload through WidgetCenter.
         let next = Calendar.current.startOfDay(for: Date()).addingTimeInterval(86_400)
-        completion(Timeline(entries: [Entry(date: Date(), rows: dueToday())], policy: .after(next)))
+        return Timeline(entries: [build(configuration)], policy: .after(next))
+    }
+
+    private func build(_ configuration: SelectFolders) -> Entry {
+        guard let feed = loadFeed() else { return Entry(date: Date(), days: []) }
+        let today = todayStr()
+        let ticked = Set(UserDefaults(suiteName: GROUP)?.stringArray(forKey: TICKS) ?? [])
+        // No selection means everything — an empty picker should not mean an
+        // empty widget.
+        let wanted = Set((configuration.folders ?? []).map(\.id))
+
+        var byDay: [String: [Line]] = [:]
+        for r in feed.items where !r.done && !ticked.contains(r.id) {
+            if !wanted.isEmpty, let f = r.folderId, !wanted.contains(f) { continue }
+            // An undated reminder still belongs somewhere a person looks:
+            // today, with the things they meant to do.
+            let day = r.due ?? today
+            guard day <= today || r.due != nil else { continue }
+            byDay[day, default: []].append(
+                Line(id: r.id, text: r.text, time: r.time, isReminder: true,
+                     overdue: (r.due ?? today) < today, color: LABEL))
+        }
+        for e in feed.events ?? [] {
+            byDay[e.date, default: []].append(
+                Line(id: e.id, text: e.text, time: e.time, isReminder: false, overdue: false, color: hexColor(e.color)))
+        }
+        let days = byDay.keys.sorted()
+            // Overdue collapses into today rather than trailing behind it.
+            .filter { $0 >= today || !byDay[$0]!.isEmpty }
+            .map { ($0, byDay[$0]!.sorted { ($0.time ?? "") < ($1.time ?? "") }) }
+        return Entry(date: Date(), days: Array(days.prefix(6)))
     }
 }
+
+// MARK: - View
 
 struct HomeWidgetView: View {
     var entry: Entry
     @Environment(\.widgetFamily) var family
 
-    private var shown: [WRow] {
-        Array(entry.rows.prefix(family == .systemLarge ? 8 : 3))
+    private var lineBudget: Int {
+        switch family {
+        case .systemSmall:  return 4
+        case .systemLarge:  return 14
+        default:            return 6
+        }
     }
 
     var body: some View {
-        if entry.rows.isEmpty {
-            // The empty state earns words, not a zero — the wrist rule.
-            Text("Nothing due today")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-        } else {
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Due today")
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                ForEach(shown) { r in
-                    HStack(spacing: 8) {
-                        // The circle is the control; the text is the poster.
-                        Button(intent: TickIntent(id: r.id)) {
-                            Image(systemName: "circle")
-                                .font(.system(size: 16))
-                                .foregroundStyle(.tint)
-                        }
-                        .buttonStyle(.plain)
-                        Text(r.text)
-                            .font(.footnote)
-                            .lineLimit(1)
-                        Spacer(minLength: 0)
-                        if let t = r.time {
-                            Text(t)
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                Text("Calendar").font(.system(size: 15, weight: .bold)).foregroundStyle(.white)
+                Spacer()
+                Text(Date(), format: .dateTime.month(.abbreviated).day())
+                    .font(.system(size: 13, weight: .medium)).foregroundStyle(META)
+            }
+            .padding(.bottom, 8)
+
+            if entry.days.isEmpty {
+                Text("Nothing due.").font(.system(size: 12)).foregroundStyle(META)
+            } else {
+                content
+            }
+            Spacer(minLength: 0)
+        }
+    }
+
+    private var content: some View {
+        var budget = lineBudget
+        var out: [(String, [Line])] = []
+        for (day, lines) in entry.days where budget > 0 {
+            let take = Array(lines.prefix(budget))
+            budget -= take.count
+            out.append((day, take))
+        }
+        let today = todayStr()
+        return VStack(alignment: .leading, spacing: 0) {
+            ForEach(Array(out.enumerated()), id: \.offset) { idx, pair in
+                if idx > 0 {
+                    // The heavier rule is the only thing separating one day
+                    // from the next — Scriptable's 2pt divider.
+                    Rectangle().fill(Color.white.opacity(0.16)).frame(height: 2).padding(.vertical, 5)
                 }
-                Spacer(minLength: 0)
+                Text(dayHeading(pair.0, today: today))
+                    .font(.system(size: 10, weight: .bold)).foregroundStyle(META)
+                Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1).padding(.top, 2).padding(.bottom, 5)
+                ForEach(pair.1) { line in row(line) }
             }
         }
+    }
+
+    @ViewBuilder
+    private func row(_ line: Line) -> some View {
+        HStack(spacing: 6) {
+            if line.isReminder {
+                // The box is the control. Everything else falls through to
+                // the widget's own tap, which opens the app.
+                Button(intent: TickIntent(id: line.id)) {
+                    Image(systemName: "square")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(line.overdue ? OVERDUE : Color.accentColor)
+                }
+                .buttonStyle(.plain)
+            } else {
+                Text("●").font(.system(size: 9)).foregroundStyle(line.color)
+            }
+            Text(line.text)
+                .font(.system(size: 12))
+                .foregroundStyle(line.overdue ? OVERDUE : LABEL)
+                .lineLimit(1)
+            Spacer(minLength: 0)
+            if let t = line.time {
+                Text(t).font(.system(size: 11)).foregroundStyle(META)
+            }
+        }
+        .padding(.bottom, 5)
     }
 }
 
 @main
 struct CalMindWidget: Widget {
     var body: some WidgetConfiguration {
-        StaticConfiguration(kind: "CalMindWidget", provider: Provider()) { entry in
+        AppIntentConfiguration(kind: "CalMindWidget", intent: SelectFolders.self, provider: Provider()) { entry in
             HomeWidgetView(entry: entry)
-                .containerBackground(.background, for: .widget)
+                .containerBackground(BG, for: .widget)
         }
-        .configurationDisplayName("Due today")
-        .description("Today's reminders, checkable from here.")
+        .configurationDisplayName("Calendar")
+        .description("Today's reminders and events. Tap a box to tick it off.")
         .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
     }
 }
