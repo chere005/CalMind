@@ -6,7 +6,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { deleteSection, renameSection, sectionNameTaken, byOrd, richLines, scaleRecipeBody, duplicateItem, formatRecipe, prefsPut, moveNote, moveSection, moveSectionEmptyingFolder, newId, nowStr, ordBetween, parseDateField, parseWhenFromText, todayStr, type Rec } from '@calmind/core';
+import { defaultNoteTitle, looksLikeDefaultNoteTitle, deleteSection, renameSection, sectionNameTaken, byOrd, richLines, scaleRecipeBody, duplicateItem, formatRecipe, prefsPut, moveNote, moveSection, moveSectionEmptyingFolder, newId, nowStr, ordBetween, parseDateField, parseWhenFromText, todayStr, type Rec } from '@calmind/core';
 import { useStore } from '../store';
 import { themed, T } from '../theme';
 import { TopBar } from '../chrome';
@@ -271,7 +271,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
       const first = notesOf(section.id)[0];
       e.put({
         id, type: 'note', updated: 0,
-        payload: { title: '', body: '', date: null, folderId: section.payload.folderId, sectionId: section.id, ord: ordBetween(null, first?.payload.ord ?? null) },
+        payload: { title: defaultNoteTitle(), body: '', date: null, folderId: section.payload.folderId, sectionId: section.id, ord: ordBetween(null, first?.payload.ord ?? null) },
       });
     });
     freshEdit.current = id;
@@ -331,14 +331,23 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
               value={titleDraft ?? open.payload.title}
               placeholder="Title"
               placeholderTextColor={T.muted}
-              onFocus={() => setTitleDraft(open.payload.title)}
+              selectTextOnFocus
+              onFocus={() => {
+                setTitleDraft(open.payload.title);
+                // selectTextOnFocus is a no-op under react-native-web, so the
+                // web needs the selection made by hand. Native honours the prop.
+                const el = titleRef.current as unknown as { setSelection?: (a: number, b: number) => void } | null;
+                el?.setSelection?.(0, open.payload.title.length);
+              }}
               onBlur={() => {
                 // The inline add field used to do this on the way in. It is
                 // the title's job now, so 'Dentist 8/3' still puts the note on
                 // the calendar — and now it works when renaming too.
                 setTitleDraft(null);
                 const raw = open.payload.title.trim();
-                if (!raw || open.payload.date) return;
+                // The default title is itself a date; parsing it would put
+                // every note nobody renamed onto the calendar.
+                if (!raw || open.payload.date || looksLikeDefaultNoteTitle(raw)) return;
                 const [title, date] = parseWhenFromText(raw, todayStr(), nowStr());
                 if (date) mutate((e) => e.put({ ...open, payload: { ...open.payload, title: title || raw, date } }));
               }}

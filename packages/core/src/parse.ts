@@ -220,3 +220,32 @@ export function timeLabel(t: string | null | undefined): string {
   const h = h0 % 12 === 0 ? 12 : h0 % 12;
   return m ? `${h}:${String(m).padStart(2, '0')}${ap}` : `${h}${ap}`;
 }
+
+/**
+ * The default name a brand-new note wears: 'Aug 9, 2026 at 3:04pm'.
+ *
+ * A note made by + used to arrive with an empty title and sit blank in the
+ * list until you named it. Sean's call: give it the date and time, and select
+ * the whole thing when the field takes focus, so typing replaces it and doing
+ * nothing still leaves something readable.
+ *
+ * Built from the same pieces the rest of the app speaks — timeLabel's spoken
+ * style, not a locale format that would drift between web and native.
+ */
+export function defaultNoteTitle(d = new Date()): string {
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  return `${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()} at ${timeLabel(nowStr(d))}`;
+}
+
+/**
+ * Does this title look like one defaultNoteTitle wrote?
+ *
+ * Needed because the default title IS a date, and the title field parses
+ * dates out of names ('Dentist 8/3' lands on the calendar). Comparing to
+ * defaultNoteTitle() cannot work — the note was named minutes ago and the
+ * clock has moved — so match the shape instead. A note nobody renamed must
+ * not end up on the calendar for the crime of being created.
+ */
+export function looksLikeDefaultNoteTitle(s: string): boolean {
+  return /^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) \d{1,2}, \d{4} at \d{1,2}(:\d{2})?(am|pm)$/.test(s.trim());
+}
