@@ -869,7 +869,20 @@ function handle_recipe_fetch(array $cfg, array $in): never
     if (!$res['ok']) {
         // The reason travels: 'that is not a public address' and 'the page
         // took too long' are different problems for whoever pasted the link.
-        fail(400, (string) ($res['error'] ?? 'could not fetch that page'));
+        //
+        // `?:` not `??`. With `??` an EMPTY error string passed straight
+        // through, and the app showed a blank message — which is how a real
+        // failure (allrecipes.com refuses this server outright) looked like
+        // nothing happening at all. A message that says nothing is worse than
+        // a generic one that says something.
+        $why = trim((string) ($res['error'] ?? ''));
+        if ($why === '') {
+            $code = (int) ($res['status'] ?? 0);
+            $why = $code > 0
+                ? "that site answered $code — some block servers like this one"
+                : 'could not reach that page';
+        }
+        fail(400, $why);
     }
     // A recipe page is HTML. Anything else — a PDF, an image, a 4MB video —
     // has no JSON-LD to find and is not worth carrying back to the client.
