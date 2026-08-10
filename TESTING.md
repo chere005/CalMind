@@ -116,6 +116,17 @@ than a red run, because it looks like an answer.
   midnight and then failed for reasons unrelated to the code. The harness
   derives its dates now.
 
+- OCR PARTIAL FAILURE is NOT tested, and should be said out loud. Both
+  readers — tesseract on the web, Vision on iOS — now catch each photo
+  separately, keep the pages that read, and report how many did not. Before
+  that, one bad frame threw away every page already read, on both paths.
+  The happy path is covered by `e2e/ocr.spec.ts`; the partial-failure path is
+  verified by reading the code, because provoking a mid-batch OCR failure
+  needs a corrupt image the engine accepts and then chokes on, and a fixture
+  like that is its own maintenance problem. If this breaks, it breaks
+  silently — which is exactly why the behaviour is written to keep work
+  rather than to be clever.
+
 - TAP TARGETS on the web are measured, never read off the source. `hitSlop`
   is a no-op under react-native-web, so a control is exactly as big as it is
   drawn there and bigger on native — the two disagree silently, in the
