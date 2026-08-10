@@ -24,6 +24,18 @@ struct WatchEvent: Codable, Identifiable {
 final class WatchStore: NSObject, ObservableObject, WCSessionDelegate {
     @Published var items: [WatchItem] = []
     @Published var events: [WatchEvent] = []
+
+    /// What this watch actually knows, so a screen can never again show the
+    /// same words for 'nothing is due' and 'nothing ever arrived'. That
+    /// ambiguity is what a whole evening of 'my watch is not syncing' was:
+    /// the phone was delivering, the Summary page said 'Nothing due today',
+    /// and neither of us could tell which of the two it meant.
+    enum Feed: Equatable {
+        case waiting                 // no context has ever been decoded here
+        case loaded(from: String)    // "phone" or "cache"
+        case failed(String)          // decode threw; the reason travels
+    }
+    @Published var feed: Feed = .waiting
     private let cacheKey = "watchlist.json"
     // The App Group container, because the complication is its OWN process
     // and standard defaults are invisible to it. Standard stays as the
@@ -32,25 +44,63 @@ final class WatchStore: NSObject, ObservableObject, WCSessionDelegate {
 
     override init() {
         super.init()
-        if let data = shared?.data(forKey: cacheKey) ?? UserDefaults.standard.data(forKey: cacheKey) { decode(data) }
+        if let data = shared?.data(forKey: cacheKey) ?? UserDefaults.standard.data(forKey: cacheKey) {
+            decode(data, source: "cache")
+        }
         guard WCSession.isSupported() else { return }
         WCSession.default.delegate = self
         WCSession.default.activate()
     }
 
-    private func decode(_ data: Data) {
+    private func decode(_ data: Data, source: String = "phone") {
         // events arrived later than items — a cache written before they
         // existed still decodes, it just has none to show.
         struct List: Codable { let items: [WatchItem]; let events: [WatchEvent]? }
-        guard let list = try? JSONDecoder().decode(List.self, from: data) else { return }
+        // try? here was the same silence that hid WCSession 7006 for a day.
+        let list: List
+        do {
+            list = try JSONDecoder().decode(List.self, from: data)
+        } catch {
+            NSLog("[WatchStore] decode FAILED: %@", String(describing: error))
+            // Surfaced, not just logged: a log needs a cable and a person who
+            // knows to look. The wrist says it.
+            let why = short(error)
+            DispatchQueue.main.async { self.feed = .failed(why) }
+            return
+        }
+        NSLog("[WatchStore] decoded items=%d events=%d", list.items.count, (list.events ?? []).count)
         DispatchQueue.main.async {
             self.items = list.items
             self.events = list.events ?? []
+            self.feed = .loaded(from: source)
+        }
+    }
+
+    /// A Codable error's own description is a paragraph. The wrist has room
+    /// for a clause: which key, and what was wrong with it.
+    private func short(_ error: Error) -> String {
+        guard let e = error as? DecodingError else { return "could not read the list" }
+        switch e {
+        case let .keyNotFound(key, _):      return "missing '\(key.stringValue)'"
+        case let .typeMismatch(type, ctx):  return "\(ctx.codingPath.last?.stringValue ?? "a field") is not \(type)"
+        case let .valueNotFound(_, ctx):    return "'\(ctx.codingPath.last?.stringValue ?? "a field")' was null"
+        case .dataCorrupted:                return "the list was damaged"
+        @unknown default:                   return "could not read the list"
         }
     }
 
     private func take(_ context: [String: Any]) {
-        guard let json = context["list"] as? String, let data = json.data(using: .utf8) else { return }
+        guard let json = context["list"] as? String, let data = json.data(using: .utf8) else {
+            // An EMPTY context is the ordinary case on a cold activate — the
+            // phone has not pushed since this app existed. That is 'waiting',
+            // not a failure, and must not overwrite a good cache.
+            if !context.isEmpty {
+                NSLog("[WatchStore] take: no 'list' key (context keys: %@)", context.keys.joined(separator: ","))
+                DispatchQueue.main.async { self.feed = .failed("phone sent an unexpected message") }
+            }
+            return
+        }
+        NSLog("[WatchStore] take: %d bytes", data.count)
         (shared ?? UserDefaults.standard).set(data, forKey: cacheKey)
         decode(data)
         // Fresh data means the face is stale — WidgetKit rerenders on request,
@@ -59,6 +109,9 @@ final class WatchStore: NSObject, ObservableObject, WCSessionDelegate {
     }
 
     func session(_ session: WCSession, activationDidCompleteWith state: WCSessionActivationState, error: Error?) {
+        NSLog("[WatchStore] activated state=%d error=%@ ctxKeys=%@", state.rawValue,
+              error.map { String(describing: $0) } ?? "none",
+              session.receivedApplicationContext.keys.joined(separator: ","))
         take(session.receivedApplicationContext)
     }
 

@@ -6,7 +6,9 @@ struct ReminderListView: View {
     var body: some View {
         Group {
             if store.items.isEmpty {
-                Text("Nothing to do")
+                // Same trap as the Summary page: an empty list and an empty
+                // WATCH must not read alike.
+                Text(store.feed == .waiting ? "Waiting for your phone" : "Nothing to do")
                     .foregroundStyle(.secondary)
             } else {
                 List(store.items) { item in

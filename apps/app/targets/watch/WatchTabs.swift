@@ -57,9 +57,26 @@ struct SummaryView: View {
         let nextEvent = store.events.first
         ScrollView {
             VStack(alignment: .leading, spacing: 8) {
-                Text(dueToday.isEmpty ? "Nothing due today" : "Due today")
-                    .font(.headline)
-                    .foregroundStyle(dueToday.isEmpty ? .secondary : .primary)
+                // 'Nothing due today' used to be shown whether the watch had
+                // the list and nothing was due, or had never received
+                // anything at all. Same words, opposite meanings — and that
+                // ambiguity is exactly what an evening of 'my watch is not
+                // syncing' turned out to be. The state says which.
+                switch store.feed {
+                case .waiting:
+                    Text("Waiting for your phone")
+                        .font(.headline).foregroundStyle(.secondary)
+                    Text("Open CalMind on your iPhone once, with this app on screen.")
+                        .font(.caption2).foregroundStyle(.secondary)
+                case let .failed(why):
+                    Text("Can't read the list")
+                        .font(.headline).foregroundStyle(.orange)
+                    Text(why).font(.caption2).foregroundStyle(.secondary)
+                case .loaded:
+                    Text(dueToday.isEmpty ? "Nothing due today" : "Due today")
+                        .font(.headline)
+                        .foregroundStyle(dueToday.isEmpty ? .secondary : .primary)
+                }
                 ForEach(dueToday.prefix(3)) { r in
                     Label(r.text, systemImage: "circle")
                         .font(.body)
@@ -101,7 +118,7 @@ struct EventListView: View {
     var body: some View {
         Group {
             if store.events.isEmpty {
-                Text("No events coming")
+                Text(store.feed == .waiting ? "Waiting for your phone" : "No events coming")
                     .foregroundStyle(.secondary)
             } else {
                 List {
