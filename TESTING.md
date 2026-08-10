@@ -100,6 +100,21 @@ than a red run, because it looks like an answer.
   `.failed(reason)` and every empty screen reads it, so the two can never
   be confused again. That distinction is enforced by construction rather
   than by a test, because nothing here can run SwiftUI.
+
+  What CAN be checked is the Swift that does not need SwiftUI.
+  `tools/check-watch-format.sh` extracts BOTH real time formatters — the
+  watch app's WatchFormat and its deliberate twin in the complication, which
+  exists because a widget extension cannot see the app's sources — and runs
+  them against the cases pinned in `test/watch.test.ts`. Nothing is re-typed:
+  if a copy changes, the script runs the change. Duplication nothing checks
+  is duplication that drifts, and this drift would surface as a time reading
+  one way on the face and another in the list, which nobody reports as a bug.
+  Proven by breaking one copy's drop-the-':00' rule and watching six
+  mismatches appear.
+
+  It also caught a test of its own making: a hardcoded date passed until
+  midnight and then failed for reasons unrelated to the code. The harness
+  derives its dates now.
 - The SCRIPTABLE WIDGET, actually executed (`test/widget.test.ts`). Its
   Scriptable globals are stubbed just enough to record what the script builds,
   then the structure is asserted: the header row, uppercase day headings with
