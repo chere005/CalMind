@@ -114,17 +114,15 @@ check(groups.first?.folderName == "Home", "first group is Home, got \\(String(de
 // Two sections under Home, so both are named; one under Work, so it is not.
 let homeSections = groups.first?.sections.map { $0.sectionName } ?? []
 check(homeSections == ["Now", "Later"], "Home names both its sections, got \\(homeSections)")
-if groups.count > 1 {
-    let workSections = groups[1].sections.map { $0.sectionName }
-    check(workSections == [nil], "a folder with ONE section has already been named, got \\(workSections)")
-}
+// Written so a SHORT list fails here too, rather than skipping quietly: a
+// check that did not run reads exactly like one that passed.
+let workSections = groups.count > 1 ? groups[1].sections.map { $0.sectionName } : []
+check(workSections == [nil], "a folder with ONE section has already been named, got \\(workSections)")
 // A row whose folder never arrived is still reachable — losing a reminder to
 // a missing header is the worst trade on a 41mm screen.
-if groups.count > 2 {
-    let strayTexts = groups[2].sections.flatMap { $0.items.map { $0.text } }
-    check(groups[2].folderName == nil, "the stray group draws no header")
-    check(strayTexts == ["orphan"], "the orphan is still shown, got \\(strayTexts)")
-}
+let strayTexts = groups.count > 2 ? groups[2].sections.flatMap { $0.items.map { $0.text } } : []
+check(groups.count > 2 && groups[2].folderName == nil, "the stray group draws no header")
+check(strayTexts == ["orphan"], "the orphan is still shown, got \\(strayTexts)")
 
 // The rest of the envelope the wrist reads.
 check(list.items.count == 4, "4 open reminders, got \\(list.items.count)")

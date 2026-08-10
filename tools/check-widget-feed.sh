@@ -139,15 +139,23 @@ let everywhere = days.flatMap { $0.lines.map { $0.id } }
 check(!everywhere.contains("hidden"), "'none' must not appear on any day — got \\(everywhere)")
 
 // The shape the view actually reads off each line.
-if let ev = todayLines.first(where: { $0.id == "e1" }) {
-    check(!ev.isReminder, "an event is not a reminder")
-    check(ev.color != nil, "an event carries its calendar colour")
-    check(ev.time == "10:00", "an event keeps its time")
-}
-if let late = todayLines.first(where: { $0.id == "late" }) {
-    check(late.overdue, "the overdue line is flagged overdue")
-    check(late.color == nil, "a reminder carries no colour")
-}
+// Unconditional. An `if let` that finds nothing does not run, and a check
+// that did not run reads exactly like one that passed — the same trap that
+// let the middle-dot rule go unverified until a second day was added to this
+// fixture. The contains() checks above would catch a missing row, but only
+// while they exist; these no longer depend on that.
+let ev = todayLines.first(where: { $0.id == "e1" })
+check(ev != nil, "the event must be on today for the checks below to mean anything")
+check(ev?.isReminder == false, "an event is not a reminder")
+check(ev?.color != nil, "an event carries its calendar colour")
+check(ev?.time == "10:00", "an event keeps its time")
+check(ev?.calendarId == "c1", "an event names its calendar, so the picker can filter it")
+
+let late = todayLines.first(where: { $0.id == "late" })
+check(late != nil, "the overdue reminder must be on today for the checks below to mean anything")
+check(late?.overdue == true, "the overdue line is flagged overdue")
+check(late?.color == nil, "a reminder carries no colour")
+check(late?.calendarId == nil, "a reminder names no calendar — its visibility is the tri-state's")
 // The folder filter resolves through items, so every drawn reminder must be
 // findable there — otherwise selecting a folder silently empties the widget.
 let itemIds = Set(feed.items.map { $0.id })
