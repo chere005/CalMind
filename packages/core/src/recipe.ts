@@ -741,9 +741,16 @@ function asStrings(v: unknown): string[] {
 function instructionStrings(v: unknown): string[] {
   if (typeof v === 'string') {
     // Some sites hand over one blob with markup or newlines in it.
-    return decodeEntities(v.replace(/<[^>]+>/g, '\n'))
+    //
+    // SPLIT BEFORE DECODING. decodeEntities collapses runs of whitespace —
+    // including the newlines this puts in for each tag — so decoding first
+    // turned a three-step blob into a single line, silently. The steps were
+    // not lost, they were welded together, which is worse: it looks like a
+    // recipe with one very long instruction.
+    return v
+      .replace(/<[^>]+>/g, '\n')
       .split('\n')
-      .map((l) => l.trim())
+      .map((l) => decodeEntities(l).trim())
       .filter((l) => l.length > 1);
   }
   if (!Array.isArray(v)) return [];

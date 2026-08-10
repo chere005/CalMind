@@ -603,3 +603,53 @@ describe('recipeFromHtml — a page that says what its recipe is', () => {
     expect(recipeFromHtml(page({ '@type': 'WebPage', name: 'Blog' }))).toBeNull();
   });
 });
+
+describe('recipeFromHtml — the shapes real sites actually ship', () => {
+  const page = (body: string) => `<html><head>${body}</head><body>x</body></html>`;
+  const ld = (o: unknown) => `<script type="application/ld+json">${JSON.stringify(o)}</script>`;
+
+  it('takes the Recipe when a page ships SEVERAL blocks', () => {
+    // The captured bbcgoodfood page has four; the Recipe was not the first.
+    const html = page(
+      ld({ '@type': 'Organization', name: 'Big Media' }) +
+      ld({ '@type': 'BreadcrumbList', itemListElement: [] }) +
+      ld({ '@type': 'Recipe', name: 'Scones', recipeIngredient: ['1 tsp salt'], recipeInstructions: ['Bake'] }),
+    );
+    expect(recipeFromHtml(html)!.title).toBe('Scones');
+  });
+
+  it('a Recipe nested in @graph among other nodes', () => {
+    const html = page(ld({
+      '@context': 'https://schema.org',
+      '@graph': [
+        { '@type': 'WebSite', name: 'site' },
+        { '@type': 'ImageObject', url: 'x.jpg' },
+        { '@type': ['Recipe', 'NewsArticle'], name: 'Buried', recipeIngredient: ['2 eggs'], recipeInstructions: ['Whisk'] },
+      ],
+    }));
+    const r = recipeFromHtml(html)!;
+    expect(r.title).toBe('Buried');
+    expect(r.ingredients).toEqual(['2 eggs']);
+  });
+
+  it('a block that is an ARRAY at the top level', () => {
+    const html = page(ld([
+      { '@type': 'Person', name: 'A Cook' },
+      { '@type': 'Recipe', name: 'In an array', recipeIngredient: ['1 cup rice'], recipeInstructions: ['Simmer'] },
+    ]));
+    expect(recipeFromHtml(html)!.title).toBe('In an array');
+  });
+
+  it('instructions given as ONE html blob, which several sites do', () => {
+    const html = page(ld({
+      '@type': 'Recipe', name: 'Blob',
+      recipeIngredient: ['1 egg'],
+      recipeInstructions: '<p>Heat the pan.</p><p>Crack the egg.</p><p>Wait.</p>',
+    }));
+    expect(recipeFromHtml(html)!.steps).toEqual(['Heat the pan.', 'Crack the egg.', 'Wait.']);
+  });
+
+  it('ignores a block that is valid JSON but not a page of ours', () => {
+    expect(recipeFromHtml(page(ld({ '@type': 'VideoObject', name: 'A video' })))).toBeNull();
+  });
+});
