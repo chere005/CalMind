@@ -104,15 +104,17 @@ visual. Deploy to **test only** (`./server/deploy-test.sh`) as changes land.
 OBSERVED, cause NOT established. `app.spec.ts:353` under
 `playwright.webkit.config.ts`, everything actually run:
 
-  - idle: 7 runs, 7 passes
+  - idle: 13 runs, 13 passes
   - once after an emulator + iOS simulator + two xcodebuilds: FAILED
   - once straight after a 4-minute Chromium suite: FAILED
-  - under SYNTHETIC cpu load (four busy cores): 5 runs, 5 passes
+  - under SYNTHETIC cpu load, four busy cores: 5 runs, 5 passes
+  - RE-RUNNING the exact failing condition (full Chromium suite, then WebKit
+    immediately): PASSED
 
-Two failures in about fifteen runs, both after heavy real work, and NOT
-reproducible on demand — deliberate CPU starvation does not do it. So
-'load-sensitive' is a guess that failed its own test, and I am not going to
-offer a third mechanism. What is known: it is intermittent, it has only ever
+Two failures in about twenty-two runs, and every attempt to reproduce them
+deliberately has failed — including replaying the precise sequence that
+produced one of them. Do not spend time on synthetic load or on suite
+ordering; both were tried and neither does it. What is known: it is intermittent, it has only ever
 been seen in WebKit, and the code contains a 50ms deferred focus that is a
 race by construction whether or not it is this one.
 
