@@ -431,7 +431,7 @@ export function Reminders() {
                     <WebHitSlop slop={6} />
                       <Text style={s.rowGripText}>≡</Text>
                     </View>
-                    <Pressable onPress={() => toggleFold(sec.id)} hitSlop={8} style={s.chevWrap}>
+                    <Pressable testID={`secfold-${sec.payload.name}`} onPress={() => toggleFold(sec.id)} hitSlop={8} style={s.chevWrap}>
                       <WebHitSlop />
                       <Chevron open={!isFolded} />
                     </Pressable>
@@ -617,9 +617,11 @@ export function Reminders() {
                 <Pressable style={s.folderHead} onPress={() => toggleFolderFold(`sh:${f.id}`)} hitSlop={8}>
                   <View style={s.chevWrap}><WebHitSlop /><Chevron open={!foldedFolders.has(`sh:${f.id}`)} color={T.text} /></View>
                   <Text style={[s.folderName, { backgroundColor: f.payload.color + '33' }]}>{f.payload.name}</Text>
-                  <View style={s.folderRule} />
-                  <Text style={s.ownerBadge}>{sharedPartnerLabel}</Text>
-                  <View style={s.folderRule} />
+                  {/* Beside the name, LEFT of the divider. It used to sit
+                      between two rule segments, which read as a label on the
+                      line rather than on the folder. */}
+                  <Text testID="shared-owner-badge" style={s.ownerBadge}>{sharedPartnerLabel}</Text>
+                  <View testID="shared-folder-rule" style={s.folderRule} />
                 </Pressable>
                 {!foldedFolders.has(`sh:${f.id}`) && sharedRecs
                   .filter((r): r is Rec<'section'> => r.type === 'section' && r.payload.folderId === f.id)
@@ -633,7 +635,7 @@ export function Reminders() {
                           section id can never collide with one of mine, and
                           the fold is MINE — device-local, never written to
                           their store, never synced. */}
-                      <Pressable testID={`shared-secfold-${sec.payload.name}`} style={s.secHead} onPress={() => toggleFold(`sh:${sec.id}`)} hitSlop={8}>
+                      <Pressable testID={`shared-secfold-${sec.payload.name}`} style={[s.secHead, s.sharedSecHead]} onPress={() => toggleFold(`sh:${sec.id}`)} hitSlop={8}>
                         <View style={s.chevWrap}><WebHitSlop /><Chevron open={!folded.has(`sh:${sec.id}`)} /></View>
                         <Text style={s.secName}>{sec.payload.name}</Text>
                       </Pressable>
@@ -789,6 +791,10 @@ const s = themed(() => StyleSheet.create({
     borderRadius: 999,
     overflow: 'hidden',
   },
+  // The width a section head is pushed in by the drag grip it carries
+  // (16) plus the head's own gap (8). A partner's sections have no grip
+  // to push them, so they get the same distance as padding instead.
+  sharedSecHead: { paddingLeft: 24 },
   ownerBadge: { color: T.accent, fontSize: 12, fontWeight: '700', backgroundColor: T.accentSoft, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3, overflow: 'hidden' },
   folderRule: { flex: 1, height: 1, backgroundColor: T.lineSoft },
   section: { gap: 6 },

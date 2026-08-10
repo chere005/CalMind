@@ -483,6 +483,29 @@ test('edit mode can be LEFT without a keyboard: a Done button and a tap outside'
   await expect(page.getByTestId('rem-dup').first()).toBeVisible();
 });
 
+test('Notes edit mode can be left the same two ways Reminders can', async ({ page }) => {
+  // The gap was in BOTH screens and I fixed only Reminders first — same two
+  // exits, Escape and an invisible strip at the bottom of the scroll content,
+  // neither of which is reachable on a phone. Two screens that behave
+  // differently for the same gesture is its own bug, so this pins them level.
+  await signup(page);
+  await page.getByTestId('tab-notes').click();
+  await page.getByTestId('secadd-General').first().click();
+  await page.getByTestId('note-title').fill('leave me');
+  await page.getByText('← All notes').click();
+
+  await longPress(page, page.getByTestId('note-row').filter({ hasText: 'leave me' }));
+  await expect(page.getByTestId('notes-edit-done')).toBeVisible();
+  await page.getByTestId('notes-edit-done').click();
+  await expect(page.getByTestId('notes-edit-done')).toBeHidden();
+
+  // …and a tap on something that is neither a control nor the blank strip.
+  await longPress(page, page.getByTestId('note-row').filter({ hasText: 'leave me' }));
+  await expect(page.getByTestId('notes-edit-done')).toBeVisible();
+  await page.getByText('General', { exact: true }).first().click();
+  await expect(page.getByTestId('notes-edit-done')).toBeHidden();
+});
+
 test('sharing: mutual handshake, @partner view, a tick lands in their store', async ({ browser }) => {
   const ctxA = await browser.newContext();
   const ctxB = await browser.newContext();
@@ -540,6 +563,26 @@ test('sharing: mutual handshake, @partner view, a tick lands in their store', as
   await pageB.getByTestId('pick-reminders').click();
   await pageB.getByText('All', { exact: true }).click();
   await expect(pageB.getByText('chop onions')).toBeVisible({ timeout: 15_000 });
+
+  // Sean's screenshot: the partner's badge sat between two segments of the
+  // folder's divider, so it read as a label on the LINE rather than on the
+  // folder, and their sections sat flush left while mine were indented.
+  //
+  // Mine are pushed in by the drag grip they carry — invisible outside edit
+  // mode but still 16pt wide, plus the head's 8pt gap. A partner's sections
+  // have no grip to push them, which is why reading one paddingLeft would not
+  // have told anyone what the screen looks like. Measured instead.
+  const badge = (await pageB.getByTestId('shared-owner-badge').first().boundingBox())!;
+  const rule = (await pageB.getByTestId('shared-folder-rule').first().boundingBox())!;
+  expect(badge.x + badge.width, 'the partner badge sits LEFT of the divider').toBeLessThanOrEqual(rule.x + 2);
+
+  // The CHEVRONS, not their containers: my fold control is a chevron inside a
+  // head that also holds the grip, while a partner's head IS the control. The
+  // two boxes start in different places by construction, so comparing them
+  // measures the markup rather than the alignment anyone can see.
+  const theirs = (await pageB.getByTestId('shared-secfold-General').locator('svg').first().boundingBox())!;
+  const mineBox = (await pageB.getByTestId('secfold-General').locator('svg').first().boundingBox())!;
+  expect(Math.abs(theirs.x - mineBox.x), "a partner's sections line up with my own").toBeLessThanOrEqual(2);
 
   // A partner's SECTION folds, not just their folder. Sean asked for this
   // because the folder was the only handle: putting one section away meant

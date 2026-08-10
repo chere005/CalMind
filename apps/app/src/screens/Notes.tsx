@@ -118,7 +118,26 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
     const onKey = (ev: KeyboardEvent) => { if (ev.key === 'Escape') setPageEdit(false); };
     // Capture phase: a focused field can swallow Escape before it bubbles.
     document.addEventListener('keydown', onKey, true);
-    return () => document.removeEventListener('keydown', onKey, true);
+    // The suite's rule, the same one Reminders uses: a tap leaves edit mode
+    // unless it lands on the thing you are editing or an edit control. Notes
+    // had the identical gap and I fixed only Reminders first — same two ways
+    // out, Escape and an invisible strip at the bottom of the scroll content,
+    // neither of which exists on a phone.
+    const KEEP = [
+      '[role="button"]', 'input', 'textarea', 'select',
+      '[data-testid^="note-"]', '[data-testid^="nsec-"]', '[data-testid^="fold"]',
+      '[data-testid^="pick-"]', '[data-testid^="tab-"]', '[data-testid^="sec"]',
+    ].join(',');
+    const onClick = (ev: Event) => {
+      const t = ev.target as Element | null;
+      if (t && typeof t.closest === 'function' && t.closest(KEEP)) return;
+      setPageEdit(false);
+    };
+    document.addEventListener('click', onClick);
+    return () => {
+      document.removeEventListener('keydown', onKey, true);
+      document.removeEventListener('click', onClick);
+    };
   }, [pageEdit]);
   const [dateField, setDateField] = useNoteScoped(openId, '');
   const [goesOpen, setGoesOpen] = useState(false);
@@ -545,6 +564,11 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
       <ScrollView contentContainerStyle={s.scroll} scrollEnabled={drag.dragIdx === null && secDrag.dragging === null}>
         <View style={s.toolbarRow}>
           <Pressable onPress={collapseAllNotes} hitSlop={8} accessibilityRole="button" accessibilityLabel={allCollapsed ? 'Expand all' : 'Collapse all'} style={s.collapseAllBtn}><WebHitSlop /><Chevron open={!allCollapsed} double /></Pressable>
+          {pageEdit && (
+            <View style={s.editDone}>
+              <Pill testID="notes-edit-done" label="Done" primary onPress={() => setPageEdit(false)} />
+            </View>
+          )}
         </View>
         {folders.map((f) => (
           <View key={f.id} style={s.folderBlock}>
@@ -578,7 +602,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
                     <WebHitSlop slop={6} />
                     <Text style={s.rowGripText}>≡</Text>
                   </View>
-                  <Pressable onPress={() => toggleNFold(sec.id)} hitSlop={8} style={s.chevWrap}>
+                  <Pressable testID={`secfold-${sec.payload.name}`} onPress={() => toggleNFold(sec.id)} hitSlop={8} style={s.chevWrap}>
                     <WebHitSlop />
                     <Chevron open={!nfolded.has(sec.id)} />
                   </Pressable>
@@ -687,9 +711,11 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
                 <Pressable style={s.folderHead} onPress={() => toggleFolderFold(`sh:${f.id}`)} hitSlop={8}>
                   <View style={s.chevWrap}><WebHitSlop /><Chevron open={!foldedFolders.has(`sh:${f.id}`)} color={T.text} /></View>
                   <Text style={[s.folderName, { backgroundColor: f.payload.color + '33' }]}>{f.payload.name}</Text>
-                  <View style={s.folderRule} />
-                  <Text style={s.ownerBadge}>{sharedPartnerLabel}</Text>
-                  <View style={s.folderRule} />
+                  {/* Beside the name, LEFT of the divider. It used to sit
+                      between two rule segments, which read as a label on the
+                      line rather than on the folder. */}
+                  <Text testID="shared-owner-badge" style={s.ownerBadge}>{sharedPartnerLabel}</Text>
+                  <View testID="shared-folder-rule" style={s.folderRule} />
                 </Pressable>
                 {!foldedFolders.has(`sh:${f.id}`) && sharedRecs
                   .filter((r): r is Rec<'section'> => r.type === 'section' && r.payload.folderId === f.id)
@@ -703,7 +729,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
                           section id can never collide with one of mine, and
                           the fold is MINE — device-local, never written to
                           their store, never synced. */}
-                      <Pressable testID={`shared-secfold-${sec.payload.name}`} style={s.secHead} onPress={() => toggleNFold(`sh:${sec.id}`)} hitSlop={8}>
+                      <Pressable testID={`shared-secfold-${sec.payload.name}`} style={[s.secHead, s.sharedSecHead]} onPress={() => toggleNFold(`sh:${sec.id}`)} hitSlop={8}>
                         <View style={s.chevWrap}><WebHitSlop /><Chevron open={!nfolded.has(`sh:${sec.id}`)} /></View>
                         <Text style={s.secName}>{sec.payload.name}</Text>
                       </Pressable>
@@ -883,7 +909,8 @@ const s = themed(() => StyleSheet.create({
   topbar: { height: 32, marginTop: 16, marginHorizontal: 16, marginBottom: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   toolRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   appname: { color: T.text, fontSize: 18, fontWeight: '700' },
-  scroll: { padding: 16, paddingBottom: 48, gap: 18 },
+  // flexGrow so the edit backdrop below the list has leftover height to take.
+  scroll: { padding: 16, paddingBottom: 48, gap: 18, flexGrow: 1 },
   folderBlock: { gap: 8 },
   folderHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   folderName: {
@@ -896,6 +923,10 @@ const s = themed(() => StyleSheet.create({
     borderRadius: 999,
     overflow: 'hidden',
   },
+  // The width a section head is pushed in by the drag grip it carries
+  // (16) plus the head's own gap (8). A partner's sections have no grip
+  // to push them, so they get the same distance as padding instead.
+  sharedSecHead: { paddingLeft: 24 },
   ownerBadge: { color: T.accent, fontSize: 12, fontWeight: '700', backgroundColor: T.accentSoft, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3, overflow: 'hidden' },
   folderRule: { flex: 1, height: 1, backgroundColor: T.lineSoft },
   section: { gap: 6 },
@@ -921,7 +952,8 @@ const s = themed(() => StyleSheet.create({
   sharedDate: { color: T.dim, fontSize: 13, marginTop: 2 },
   sharedFolderChip: { color: T.text, fontSize: 15, fontWeight: '800', paddingHorizontal: 10, paddingVertical: 2, borderRadius: 999, overflow: 'hidden' },
   gripHidden: { opacity: 0 },
-  editBackdropFill: { minHeight: 160 },
+  editBackdropFill: { flexGrow: 1, minHeight: 160 },
+  editDone: { marginLeft: 'auto' },
   rowGrip: { width: 16, alignItems: 'center', justifyContent: 'center' },
   rowGripText: { color: T.lineSoft, fontSize: 13, userSelect: 'none' },
   dropLine: { height: 2, backgroundColor: T.accent, borderRadius: 1, marginVertical: 1 },
