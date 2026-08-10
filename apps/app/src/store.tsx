@@ -257,7 +257,18 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         .then(() => setPersistFailed(false))
         .catch(() => setPersistFailed(true));
       const snap = await AsyncStorage.getItem(snapKey(s.username)).catch(() => null);
-      engineRef.current = SyncEngine.fromSnapshot(snap ? JSON.parse(snap) : null);
+      // The PARSE needs guarding as much as the read did — guarding only the
+      // read was this same bug one layer in. A corrupt snapshot threw here,
+      // signIn threw, and Login showed 'something went wrong' every single
+      // time, forever, because the bad bytes are still on disk. You could
+      // never sign in on that device again. It is a cache; drop it.
+      let restored: unknown = null;
+      try {
+        restored = snap ? JSON.parse(snap) : null;
+      } catch {
+        restored = null;
+      }
+      engineRef.current = SyncEngine.fromSnapshot(restored as never);
       hydratedRef.current = engineRef.current.toSnapshot().cursor > 0;
       setSessionState(s);
       sessionRef.current = s;

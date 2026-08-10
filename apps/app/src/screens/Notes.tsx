@@ -79,7 +79,11 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
   const [nfolded, setNFolded] = useState<Set<string>>(new Set());
   const [foldedFolders, setFoldedFolders] = useState<Set<string>>(new Set());
   useEffect(() => {
-    AsyncStorage.getItem('calmind.foldedFolders.notes').then((raw) => raw && setFoldedFolders(new Set(JSON.parse(raw))));
+    AsyncStorage.getItem('calmind.foldedFolders.notes')
+      .then((raw) => raw && setFoldedFolders(new Set(JSON.parse(raw))))
+      // Corrupt fold state is a cosmetic loss; unguarded it was an unhandled
+      // rejection as well, which is a cosmetic loss that shouts.
+      .catch(() => {});
   }, []);
   const toggleFolderFold = (id: string) => {
     const next = new Set(foldedFolders);
@@ -95,7 +99,9 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
     AsyncStorage.setItem('calmind.foldedFolders.notes', JSON.stringify([...next])).catch(() => {});
   };
   useEffect(() => {
-    AsyncStorage.getItem('calmind.folded.notes').then((raw) => raw && setNFolded(new Set(JSON.parse(raw))));
+    AsyncStorage.getItem('calmind.folded.notes')
+      .then((raw) => raw && setNFolded(new Set(JSON.parse(raw))))
+      .catch(() => {});
   }, []);
   const foldSave = (next: Set<string>) => {
     setNFolded(next);

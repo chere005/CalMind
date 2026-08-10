@@ -49,7 +49,9 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
   const setDay = (d: string) => { calDay = d; setDayState(d); };
   const [folded, setFolded] = useState<Set<string>>(new Set());
   useEffect(() => {
-    AsyncStorage.getItem('calmind.calFold').then((raw) => raw && setFolded(new Set(JSON.parse(raw))));
+    AsyncStorage.getItem('calmind.calFold')
+      .then((raw) => raw && setFolded(new Set(JSON.parse(raw))))
+      .catch(() => {});
   }, []);
   const toggleFold = (kind: string) => {
     const next = new Set(folded);

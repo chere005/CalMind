@@ -94,7 +94,9 @@ export function Habits() {
   const lastTap = React.useRef<{ id: string; at: number }>({ id: '', at: 0 });
 
   useEffect(() => {
-    AsyncStorage.getItem(FOLD_KEY).then((raw) => raw && setFolded(new Set(JSON.parse(raw))));
+    AsyncStorage.getItem(FOLD_KEY)
+      .then((raw) => raw && setFolded(new Set(JSON.parse(raw))))
+      .catch(() => {});
   }, []);
   const saveFold = (next: Set<string>) => {
     setFolded(next);

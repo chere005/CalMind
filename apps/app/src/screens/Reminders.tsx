@@ -56,7 +56,9 @@ export function Reminders() {
   const [folded, setFolded] = useState<Set<string>>(new Set());
   const [foldedFolders, setFoldedFolders] = useState<Set<string>>(new Set());
   useEffect(() => {
-    AsyncStorage.getItem('calmind.foldedFolders.reminders').then((raw) => raw && setFoldedFolders(new Set(JSON.parse(raw))));
+    AsyncStorage.getItem('calmind.foldedFolders.reminders')
+      .then((raw) => raw && setFoldedFolders(new Set(JSON.parse(raw))))
+      .catch(() => {});
   }, []);
   const toggleFolderFold = (id: string) => {
     const next = new Set(foldedFolders);
@@ -76,7 +78,9 @@ export function Reminders() {
 
   // Collapse state survives visits, per the suite's localStorage habit.
   useEffect(() => {
-    AsyncStorage.getItem(FOLD_KEY).then((raw) => raw && setFolded(new Set(JSON.parse(raw))));
+    AsyncStorage.getItem(FOLD_KEY)
+      .then((raw) => raw && setFolded(new Set(JSON.parse(raw))))
+      .catch(() => {});
   }, []);
   const toggleFold = (id: string) => {
     const next = new Set(folded);
