@@ -127,13 +127,16 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
   React.useEffect(() => {
     if (openId && freshEdit.current === openId) {
       freshEdit.current = null;
-      // Body in edit mode, so it is one tap away — but the caret goes to the
-      // TITLE, because a note made by + has no name yet and that is what the
-      // removed inline field was collecting. Without this it would sit blank
-      // in the list. The field does not exist until this has rendered, so the
-      // focus call waits a tick rather than racing the mount.
+      // The caret goes to the BODY. Sean said '+ should go directly to
+      // editing the new note' twice, and the default title exists so the note
+      // is not blank in the list — his words about selection were
+      // conditional ('IF you focus the input field'), describing what a TAP
+      // on the title does, not asking for the caret to start there. Putting
+      // it in the title made you dismiss a keyboard to write anything.
+      // The field does not exist until this has rendered, so the focus call
+      // waits a tick rather than racing the mount.
       setBodyEditing(true);
-      setTimeout(() => titleRef.current?.focus(), 50);
+      setTimeout(() => bodyRef.current?.focus(), 50);
     }
   }, [openId, setBodyEditing]);
   // Another screen (the Add tab) created a note — land in its editor, as prod does.
