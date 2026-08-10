@@ -170,6 +170,30 @@ RUN IT: `npx playwright test --config=playwright.webkit.config.ts`. That
 config had never been run in this session before tonight, which is how a
 real bug in Sean's own engine sat unnoticed.
 
+## BUG · the watch's month grid drops the first days of the month
+
+Seen on a watchOS simulator, 2026-08-10, showing August 2026. The grid's
+first visible row is `6 7 8` sitting in the last three columns; days 1-5 and
+the whole leading-blank row never appear. Scrolling up does not reveal them,
+so it is not a scroll artifact.
+
+The week maths is RIGHT — rows break after 8, 15, 22, 29, all Saturdays, and
+today (10) is green in the correct column. What is missing is the start:
+`MonthView` renders `ForEach(0..<lead) { Text("") }` for the leading blanks
+and then `ForEach(1...days)`, and the first eleven cells (six blanks plus
+1-5) do not come out.
+
+Prime suspect is the blank cell: an empty `Text("")` has no content and
+SwiftUI can decline to lay it out, so a LazyVGrid may not reserve its column.
+That would explain a shifted start, though not by itself the missing 1-5 —
+worth reproducing with a visible placeholder (`Text(" ")` or
+`Color.clear.frame(height: 1)`) before assuming.
+
+NOT a regression: `git log` shows MonthView untouched this session. It has
+been wrong for as long as the page has existed, and nobody saw it because
+nobody had ever rendered the watch app — which is the actual lesson. Three
+hours went into polling an unreachable watch when a simulator would draw it.
+
 ## Watch UI, SEEN at last — 2026-08-10, watchOS simulator
 
 Sean's watch was off-network all night, so the grouping and 12-hour work was
