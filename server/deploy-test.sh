@@ -119,7 +119,20 @@ if [ "$WEB" = 1 ]; then
   # way out if the harness itself is the thing that's broken.
   if [ "$GESTURES" = 1 ]; then
     echo "==> gestures (--no-gestures to skip)"
-    npx playwright test >/dev/null 2>&1 || { echo "gesture suite failed — not deploying (npx playwright test to see it)" >&2; exit 1; }
+    # Kept, not discarded. This gate stopped a deploy once with its output
+    # going to /dev/null, so all anyone had was "gesture suite failed" — and
+    # the suite then passed 117/117 on the very next run, which left no way to
+    # tell a real regression from a flake, a port clash, or the harness's own
+    # 15s server timeout under load. A gate that blocks without evidence costs
+    # more than the minute it saves.
+    GLOG=$(mktemp -t calmind-gestures)
+    if ! npx playwright test >"$GLOG" 2>&1; then
+      echo "gesture suite failed — not deploying. Last lines:" >&2
+      grep -E '✘|Error:|Timeout|[0-9]+ failed|webServer' "$GLOG" | tail -25 >&2
+      echo "full output: $GLOG" >&2
+      exit 1
+    fi
+    rm -f "$GLOG"
   fi
 
   # A native build's bundling step writes over dist, and an xcodebuild that
