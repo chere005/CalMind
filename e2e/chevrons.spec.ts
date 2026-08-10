@@ -49,16 +49,45 @@ test('no screen draws a collapse with a text glyph', () => {
   // The glyphs that mean open/closed. '›' alone is excluded: at the end of a
   // note row it means "open this", not "collapse this", and that one is
   // deliberately still a text arrow.
-  const OPEN_CLOSED = /['"](?:▾|▸|⌄|▼|►)['"]/;
+  //
+  // '⌃' and '⌄' are here because of a miss: this list ran green while Habits
+  // drew its collapse-all as a text '⌃' in a CircleBtn, because the list only
+  // knew the glyphs the FIRST four offenders happened to use. A check is only
+  // as wide as its alphabet, and Sean found the one it did not know before it
+  // did. Anything that points up or down belongs here now.
+  const OPEN_CLOSED = /['"](?:▾|▸|⌄|⌃|▼|►|▲|◄|∨|∧|˅|˄)['"]/;
   const offenders: string[] = [];
   for (const file of screens()) {
     const src = readFileSync(file, 'utf8');
     src.split('\n').forEach((line, i) => {
-      if (OPEN_CLOSED.test(line)) offenders.push(`${rel(file)}:${i + 1} ${line.trim().slice(0, 70)}`);
+      // COMMENTS are prose, not glyphs on a screen. Naming the banned glyph
+      // while explaining why it is banned turned this check red against the
+      // very code that fixed it — a check that cannot tell code from the
+      // comment above it costs more than it catches.
+      const code = line.replace(/^\s*(?:\/\/|\*|\/\*).*$/, '');
+      if (OPEN_CLOSED.test(code)) offenders.push(`${rel(file)}:${i + 1} ${line.trim().slice(0, 70)}`);
     });
   }
   expect(
     offenders,
     'collapse is a drawn chevron everywhere; a text glyph renders cramped and at its own size',
   ).toEqual([]);
+});
+
+test('the collapse-all button is one box, not one per screen', () => {
+  // The chevron INSIDE it was already shared; the box around it was not.
+  // Notes drew 24, Reminders 26 and Habits a 30pt CircleBtn — the same
+  // control at three sizes, which is what Sean reported. Nothing above
+  // compares the boxes, so nothing caught it.
+  const boxes = new Map<string, string[]>();
+  for (const file of screens()) {
+    for (const m of readFileSync(file, 'utf8').matchAll(/^\s*collapseAllBtn:\s*(\{.*\}),?\s*$/gm)) {
+      const shape = m[1]!.replace(/\s+/g, ' ').trim();
+      boxes.set(shape, [...(boxes.get(shape) ?? []), rel(file)]);
+    }
+  }
+  expect(boxes.size, `collapse-all is drawn ${boxes.size} different ways: ${[...boxes.keys()].join(' | ')}`).toBe(1);
+  // And it must be a real target on the web, where hitSlop does nothing.
+  const size = Number(/width:\s*(\d+)/.exec([...boxes.keys()][0] ?? '')?.[1] ?? 0);
+  expect(size, 'the collapse-all circle IS the tap target — the chevron in it is decoration').toBeGreaterThanOrEqual(26);
 });

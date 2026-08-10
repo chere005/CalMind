@@ -535,6 +535,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
           <View key={f.id} style={s.folderBlock}>
             <View style={s.folderHead}>
               <Pressable onPress={() => toggleFolderFold(f.id)} hitSlop={8} style={s.chevWrap}>
+                <WebHitSlop />
                 <Chevron open={!foldedFolders.has(f.id)} color={T.text} />
               </Pressable>
               <Text style={[s.folderName, { backgroundColor: f.payload.color + '33' }]}>{f.payload.name}</Text>
@@ -563,6 +564,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
                     <Text style={s.rowGripText}>≡</Text>
                   </View>
                   <Pressable onPress={() => toggleNFold(sec.id)} hitSlop={8} style={s.chevWrap}>
+                    <WebHitSlop />
                     <Chevron open={!nfolded.has(sec.id)} />
                   </Pressable>
                   {renamingSec === sec.id ? (
@@ -878,8 +880,16 @@ const s = themed(() => StyleSheet.create({
   secRename: { flex: 1, paddingVertical: 4 },
   secName: { color: T.gold, fontSize: 16, lineHeight: 20, fontWeight: '600' },
   chevron: { color: T.dim, fontSize: 16, width: 20, textAlign: 'center' },
-  chevWrap: { width: 20, alignItems: 'center', justifyContent: 'center' },
-  collapseAllBtn: { width: 24, height: 24, borderRadius: 12, borderWidth: 1, borderColor: T.line, alignItems: 'center', justifyContent: 'center' },
+  // An explicit HEIGHT, not the glyph's. This box had width 20 and no
+  // height, so its height WAS the chevron — and on the web, where
+  // hitSlop does nothing, taking the chevron from 11 to 7 would have
+  // taken the tap target with it. 20x20 regardless of what is drawn.
+  chevWrap: { width: 20, height: 20, alignItems: 'center', justifyContent: 'center' },
+  // ONE collapse-all across the app: Notes drew it at 24 and Reminders at
+  // 26, and Habits drew a text '⌃' in a 30pt CircleBtn instead. Same
+  // control, three sizes and two symbols. 26 is the largest of them, and
+  // the circle IS the tap target here — the chevron inside is decoration.
+  collapseAllBtn: { width: 26, height: 26, borderRadius: 13, borderWidth: 1, borderColor: T.line, alignItems: 'center', justifyContent: 'center' },
   toolbarRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingBottom: 2 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 8, height: 44 },
   rowBody: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },

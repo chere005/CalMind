@@ -489,7 +489,6 @@ const s = themed(() => StyleSheet.create({
   legendShared: { color: T.muted },
   legendText: { color: T.text, fontSize: 13 },
   groupHead: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 },
-  chev: { color: T.muted, fontSize: 12, width: 14, textAlign: 'center' },
   groupTitleShared: { color: T.muted },
   groupTitle: { color: T.gold, fontSize: 13, fontWeight: '700' },
   dot: { width: 6, height: 6, borderRadius: 3 },

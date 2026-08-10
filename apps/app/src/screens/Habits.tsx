@@ -118,6 +118,11 @@ export function Habits() {
     const all = sections.map((x) => x.id);
     saveFold(all.every((id) => folded.has(id)) ? new Set() : new Set(all));
   };
+  // Sean's rule for the collapse-all, already true in Reminders and Notes:
+  // it points sideways once everything is folded, exactly like the row
+  // chevrons it commands. An empty list is not "all collapsed" — with no
+  // sections, every() is vacuously true and the arrow would lie.
+  const allCollapsed = sections.length > 0 && sections.every((x) => folded.has(x.id));
 
   const view = prefsOf(recs, 'habits').view ?? 'week';
   const setView = (v: 'week' | 'month') => mutate((e) => e.put(prefsPut(recs, 'habits', { view: v })));
@@ -275,7 +280,16 @@ export function Habits() {
           <>
             <View style={s.headRow}>
               <View style={s.nameCol}>
-                <CircleBtn glyph="⌃" label="Collapse all" size={30} onPress={collapseAll} />
+                <Pressable
+                  onPress={collapseAll}
+                  hitSlop={8}
+                  accessibilityRole="button"
+                  accessibilityLabel={allCollapsed ? 'Expand all' : 'Collapse all'}
+                  style={s.collapseAllBtn}
+                >
+                  <WebHitSlop />
+                  <Chevron open={!allCollapsed} />
+                </Pressable>
               </View>
               {days.map((d) => (
                 <View key={d} testID="habit-daycol" style={s.dayCol}>
@@ -305,7 +319,7 @@ export function Habits() {
                   >
                     <Text style={s.rowGripText}>≡</Text>
                   </View>
-                  <Pressable onPress={() => toggleFold(sec.id)} hitSlop={8}>
+                  <Pressable onPress={() => toggleFold(sec.id)} hitSlop={8} style={s.chevWrap}>
                     <WebHitSlop />
                     <Chevron open={!folded.has(sec.id)} />
                   </Pressable>
@@ -472,6 +486,11 @@ const s = themed(() => StyleSheet.create({
   scroll: { padding: 16, paddingBottom: 48, gap: 16 },
   headRow: { flexDirection: 'row', alignItems: 'flex-end' },
   nameCol: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, paddingRight: 8 },
+  // The same box Reminders and Notes draw. Habits had a text '⌃' in a
+  // 30pt CircleBtn — the one collapse-all in the app that was neither
+  // the drawn chevron nor the right size, and the only one that never
+  // turned sideways when everything was folded.
+  collapseAllBtn: { width: 26, height: 26, borderRadius: 13, borderWidth: 1, borderColor: T.line, alignItems: 'center', justifyContent: 'center' },
   renameField: { flex: 1, paddingVertical: 6 },
   dayCol: { width: 44, alignItems: 'center' },
   dayHead: { alignItems: 'center', borderRadius: 10, paddingHorizontal: 6, paddingVertical: 3, minWidth: 34 },
@@ -481,7 +500,11 @@ const s = themed(() => StyleSheet.create({
   dayHeadTextToday: { color: T.accentInk },
   section: { gap: 8 },
   secHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
-  chev: { color: T.muted, fontSize: 14, width: 16, textAlign: 'center' },
+  // The same 20x20 box Reminders and Notes give their fold chevrons.
+  // This Pressable had NO style, so its box was exactly the glyph and
+  // the slop was the whole target — measured at 7x7 drawn against the
+  // others' 20x20, which is the inconsistency Sean was pointing at.
+  chevWrap: { width: 20, height: 20, alignItems: 'center', justifyContent: 'center' },
   secDot: { width: 11, height: 11, borderRadius: 6 },
   secPill: { borderRadius: 999, paddingHorizontal: 14, paddingVertical: 5 },
   secPillText: { color: T.text, fontSize: 16, fontWeight: '700' },

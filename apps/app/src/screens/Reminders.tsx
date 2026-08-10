@@ -348,6 +348,7 @@ export function Reminders() {
             <View style={s.folderHead}>
               {/* The folder's colour is the wash behind its name, not a dot beside it. */}
               <Pressable onPress={() => toggleFolderFold(f.id)} hitSlop={8} style={s.chevWrap}>
+                <WebHitSlop />
                 <Chevron open={!foldedFolders.has(f.id)} color={T.text} />
               </Pressable>
               <Text style={[s.folderName, { backgroundColor: f.payload.color + '33' }]}>{f.payload.name}</Text>
@@ -380,6 +381,7 @@ export function Reminders() {
                       <Text style={s.rowGripText}>≡</Text>
                     </View>
                     <Pressable onPress={() => toggleFold(sec.id)} hitSlop={8} style={s.chevWrap}>
+                      <WebHitSlop />
                       <Chevron open={!isFolded} />
                     </Pressable>
                     {renamingSec === sec.id ? (
@@ -730,8 +732,16 @@ const s = themed(() => StyleSheet.create({
   section: { gap: 6 },
   secHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 },
   chevron: { color: T.dim, fontSize: 16, width: 20, textAlign: 'center' },
-  chevWrap: { width: 20, alignItems: 'center', justifyContent: 'center' },
+  // An explicit HEIGHT, not the glyph's. This box had width 20 and no
+  // height, so its height WAS the chevron — and on the web, where
+  // hitSlop does nothing, taking the chevron from 11 to 7 would have
+  // taken the tap target with it. 20x20 regardless of what is drawn.
+  chevWrap: { width: 20, height: 20, alignItems: 'center', justifyContent: 'center' },
   copyNote: { color: T.dim, fontSize: 12, alignSelf: 'center' },
+  // ONE collapse-all across the app: Notes drew it at 24 and Reminders at
+  // 26, and Habits drew a text '⌃' in a 30pt CircleBtn instead. Same
+  // control, three sizes and two symbols. 26 is the largest of them, and
+  // the circle IS the tap target here — the chevron inside is decoration.
   collapseAllBtn: { width: 26, height: 26, borderRadius: 13, borderWidth: 1, borderColor: T.line, alignItems: 'center', justifyContent: 'center' },
   secName: { color: T.gold, fontSize: 16, lineHeight: 20, fontWeight: '600' },
   secRename: { flex: 1, paddingVertical: 4 },
