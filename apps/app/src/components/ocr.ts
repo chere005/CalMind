@@ -76,14 +76,29 @@ export async function ocrImages(
   const { createWorker } = await import('tesseract.js');
   const worker = await createWorker('eng');
   const pages: string[] = [];
+  let failed = 0;
   try {
     for (let i = 0; i < uris.length; i++) {
-      const { data } = await worker.recognize(uris[i]!);
-      pages.push(data.text ?? '');
+      // Guarded per photo for the same reason the native path is: one frame
+      // failing used to throw out every page already read. The `finally`
+      // below only ever tidied the worker — it never protected the work.
+      // This is the path Sean actually imports through today.
+      try {
+        const { data } = await worker.recognize(uris[i]!);
+        pages.push(data.text ?? '');
+      } catch {
+        failed++;
+      }
       onProgress(i + 1, uris.length);
     }
   } finally {
     await worker.terminate();
+  }
+  if (pages.length === 0) {
+    throw new Error(uris.length === 1 ? 'That photo could not be read.' : 'None of those photos could be read.');
+  }
+  if (failed > 0) {
+    throw Object.assign(new Error(`${failed} of ${uris.length} photos could not be read.`), { pages });
   }
   return pages;
 }
