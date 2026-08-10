@@ -6,6 +6,7 @@
 import { describe, it, expect } from 'vitest';
 import { watchFeed, watchGroups, watchRows, widgetDays, type WatchFolder, type WatchRow, type WatchSection } from '../src/watch';
 import type { AnyRec, Rec } from '../src/types';
+import { prefsPut } from '../src/manage';
 
 const rem = (
   id: string,
@@ -271,55 +272,102 @@ describe('watchGroups — the rules the wrist draws by', () => {
   });
 });
 
-describe('widgetDays — the home-screen widget, decided here not in SwiftUI', () => {
-  const row = (id: string, due: string | null, time: string | null, folderId = 'f1'): WatchRow =>
-    ({ id, text: id, due, time, done: false, folderId, sectionId: 's1' });
-  const ev = (id: string, date: string, time: string | null): WatchEvent =>
-    ({ id, text: id, date, time, color: '#60a5fa' });
+describe('widgetDays — the widget shows what the CALENDAR shows', () => {
+  // Sean: "the widget should show what the calendar shows, not a list of all
+  // reminders… it follows the display rules from Manage reminders."
+  //
+  // Those rules are the tri-state per folder — 'all' (undated items ride
+  // along on today), 'dated' (only items with a date), 'none' (never shown).
+  // widgetDays used to walk every open reminder and drop it on its due date,
+  // so a folder switched OFF for the calendar still filled the home screen.
+  // It calls dayItems() now, which IS the calendar's rule, so the two cannot
+  // drift; these tests are about that agreement.
   const TODAY = '2026-08-09';
+  const fold = (id: string, name: string, ord: string): AnyRec =>
+    ({ id, type: 'folder', updated: 1, payload: { name, color: '#123456', ord, app: 'reminders' } } as AnyRec);
+  const sec = (id: string, folderId: string): AnyRec =>
+    ({ id, type: 'section', updated: 1, payload: { name: id, folderId, ord: 'a' } } as AnyRec);
+  const rem = (id: string, due: string | null, time: string | null, folderId = 'f1'): AnyRec =>
+    ({ id, type: 'reminder', updated: 1,
+       payload: { text: id, due, time, done: false, repeat: null, folderId, sectionId: 's1', indent: 0, ord: id } } as AnyRec);
+  const cal = (id: string, color: string): AnyRec =>
+    ({ id, type: 'calendar', updated: 1, payload: { name: id, color, ord: 'a' } } as AnyRec);
+  const ev = (id: string, date: string, time: string | null): AnyRec =>
+    ({ id, type: 'event', updated: 1, payload: { text: id, date, time, repeat: null, calendarId: 'c1', ord: id } } as AnyRec);
+  // The real prefs record: type 'pref', and the id prefsId('calendar') makes.
+  // My first guess ('prefs', a payload.app field) was silently ignored by
+  // prefsOf, so the tri-state tests passed nothing to the rule and read as
+  // green-adjacent failures — the fixture, not the code.
+  const modes = (m: Record<string, string>): AnyRec =>
+    (prefsPut([], 'calendar', { folderModes: m as never }) as AnyRec);
+  const base = [fold('f1', 'Home', 'a'), sec('s1', 'f1'), cal('c1', '#60a5fa')];
 
   it('the DAY is the section: a reminder and an event share one heading', () => {
-    const d = widgetDays([row('r', TODAY, '09:00')], [ev('e', TODAY, '10:00')], TODAY);
+    const d = widgetDays([...base, rem('r', TODAY, '09:00'), ev('e', TODAY, '10:00')], TODAY);
     expect(d).toHaveLength(1);
     expect(d[0]!.lines.map((l) => l.id)).toEqual(['r', 'e']);
   });
 
-  it('an undated reminder lands on today, where someone looks for it', () => {
-    const d = widgetDays([row('r', null, null)], [], TODAY);
-    expect(d[0]!.date).toBe(TODAY);
+  it("a folder set to 'none' never reaches the widget — the rule that was ignored", () => {
+    const recs = [...base, rem('r', TODAY, null), modes({ f1: 'none' })];
+    expect(widgetDays(recs, TODAY)).toEqual([]);
   });
 
-  it('an overdue reminder is marked, and keeps its own date', () => {
-    const d = widgetDays([row('r', '2026-08-01', null)], [], TODAY);
-    expect(d[0]!.date).toBe('2026-08-01');
+  it("'dated' keeps the dated ones and drops the undated", () => {
+    const recs = [...base, rem('dated', TODAY, null), rem('undated', null, null), modes({ f1: 'dated' })];
+    const d = widgetDays(recs, TODAY);
+    expect(d[0]!.lines.map((l) => l.id)).toEqual(['dated']);
+  });
+
+  it("'all' rides an undated reminder along on today, as the calendar does", () => {
+    const recs = [...base, rem('undated', null, null), modes({ f1: 'all' })];
+    const d = widgetDays(recs, TODAY);
+    expect(d[0]!.date).toBe(TODAY);
+    expect(d[0]!.lines.map((l) => l.id)).toEqual(['undated']);
+  });
+
+  it('an overdue reminder is marked, and shows on TODAY — the calendar gathers what is late', () => {
+    const d = widgetDays([...base, rem('r', '2026-08-01', null)], TODAY);
+    expect(d[0]!.date).toBe(TODAY);
     expect(d[0]!.lines[0]!.overdue).toBe(true);
   });
 
   it('a widget-ticked reminder is gone at once — the optimistic half', () => {
-    expect(widgetDays([row('r', TODAY, null)], [], TODAY, { ticked: ['r'] })).toEqual([]);
+    expect(widgetDays([...base, rem('r', TODAY, null)], TODAY, { ticked: ['r'] })).toEqual([]);
   });
 
   it('NO folder selection means every folder, not none', () => {
-    const d = widgetDays([row('a', TODAY, null, 'f1'), row('b', TODAY, null, 'f2')], [], TODAY);
-    expect(d[0]!.lines.map((l) => l.id)).toEqual(['a', 'b']);
+    const recs = [...base, fold('f2', 'Work', 'b'), sec('s2', 'f2'),
+      rem('a', TODAY, null, 'f1'), { ...(rem('b', TODAY, null, 'f2') as Record<string, unknown>) } as AnyRec];
+    const d = widgetDays(recs, TODAY);
+    expect(d[0]!.lines.map((l) => l.id).sort()).toEqual(['a', 'b']);
   });
 
   it('a folder selection filters reminders to it', () => {
-    const d = widgetDays([row('a', TODAY, null, 'f1'), row('b', TODAY, null, 'f2')], [], TODAY, { folderIds: ['f2'] });
+    const recs = [...base, fold('f2', 'Work', 'b'), sec('s2', 'f2'), rem('a', TODAY, null, 'f1'), rem('b', TODAY, null, 'f2')];
+    const d = widgetDays(recs, TODAY, { folderIds: ['f2'] });
     expect(d[0]!.lines.map((l) => l.id)).toEqual(['b']);
   });
 
   it('within a day, no time leads and then earliest first', () => {
-    const d = widgetDays([row('late', TODAY, '18:00'), row('none', TODAY, null), row('early', TODAY, '07:00')], [], TODAY);
+    const recs = [...base, rem('late', TODAY, '18:00'), rem('none', TODAY, null), rem('early', TODAY, '07:00')];
+    const d = widgetDays(recs, TODAY);
     expect(d[0]!.lines.map((l) => l.id)).toEqual(['none', 'early', 'late']);
   });
 
-  it('days come out in date order', () => {
-    const d = widgetDays([row('c', '2026-08-20', null), row('a', TODAY, null)], [ev('b', '2026-08-12', null)], TODAY);
-    expect(d.map((x) => x.date)).toEqual([TODAY, '2026-08-12', '2026-08-20']);
+  it('days come out in date order, and empty days are not headings', () => {
+    const recs = [...base, rem('c', '2026-08-20', null), rem('a', TODAY, null), ev('b', '2026-08-12', null)];
+    expect(widgetDays(recs, TODAY, { days: 20 }).map((x) => x.date)).toEqual([TODAY, '2026-08-12', '2026-08-20']);
+  });
+
+  it('an event carries its calendar colour, a reminder carries none', () => {
+    const d = widgetDays([...base, ev('e', TODAY, null), rem('r', TODAY, null)], TODAY);
+    const byId = new Map(d[0]!.lines.map((l) => [l.id, l]));
+    expect(byId.get('e')!.color).toBe('#60a5fa');
+    expect(byId.get('r')!.color).toBeNull();
   });
 
   it('an empty store is an empty widget, not a crash', () => {
-    expect(widgetDays([], [], TODAY)).toEqual([]);
+    expect(widgetDays([], TODAY)).toEqual([]);
   });
 });

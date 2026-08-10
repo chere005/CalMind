@@ -13,6 +13,8 @@
  */
 import { folderApp, type AnyRec, type Rec } from './types';
 import { byOrd } from './order';
+import { addDays, dayItems } from './day';
+import { prefsOf } from './manage';
 import { sortByDate } from './sort';
 
 export type WatchRow = { id: string; text: string; due: string | null; time: string | null; done: boolean; folderId: string; sectionId: string };
@@ -110,7 +112,7 @@ export function watchFeed(recs: AnyRec[], today: string): { items: WatchRow[]; e
     folders,
     sections,
     groups: watchGroups(items, folders, sections),
-    days: widgetDays(items, events, today),
+    days: widgetDays(recs, today),
   };
 }
 
@@ -193,38 +195,64 @@ export type WidgetLine = {
 
 export type WidgetDay = { date: string; lines: WidgetLine[] };
 
+/** How far ahead the widget looks. Two weeks is what the day list is for. */
+export const WIDGET_DAYS = 14;
+
 export function widgetDays(
-  items: WatchRow[],
-  events: WatchEvent[],
+  recs: AnyRec[],
   today: string,
-  opts: { folderIds?: string[]; ticked?: string[] } = {},
+  opts: { folderIds?: string[]; ticked?: string[]; days?: number } = {},
 ): WidgetDay[] {
   const wanted = new Set(opts.folderIds ?? []);
   const ticked = new Set(opts.ticked ?? []);
-  const byDay = new Map<string, WidgetLine[]>();
-  const push = (date: string, line: WidgetLine) => {
-    const at = byDay.get(date);
-    if (at) at.push(line);
-    else byDay.set(date, [line]);
-  };
+  // THE CALENDAR'S OWN RULE, not a second one that resembles it.
+  //
+  // This used to walk every open reminder and drop it on its due date, which
+  // is not what the calendar shows: the calendar obeys the tri-state set in
+  // "Manage reminders" — a folder is 'all' (its undated items ride along on
+  // today), 'dated' (only items with a date), or 'none' (it never appears).
+  // The widget ignored all three, so a folder Sean had switched OFF for the
+  // calendar still filled his home screen. Sean's words: it should show what
+  // the calendar shows.
+  //
+  // dayItems() is that rule, and calling it per day is the only way the two
+  // cannot drift — it also brings the pieces the flat list could not know
+  // about: a repeat that lands on a date, an overdue reminder still showing
+  // on today, and the rider flag.
+  const modes = prefsOf(recs, 'calendar').folderModes;
+  const calColor = new Map(
+    recs.filter((r): r is Rec<'calendar'> => r.type === 'calendar' && !r.deleted).map((c) => [c.id, c.payload.color]),
+  );
 
-  for (const r of items) {
-    if (r.done || ticked.has(r.id)) continue;
-    if (wanted.size > 0 && !wanted.has(r.folderId)) continue;
-    // Undated lands on today — where someone actually looks for it.
-    const day = r.due ?? today;
-    push(day, { id: r.id, text: r.text, time: r.time, isReminder: true, overdue: day < today, color: null });
-  }
-  for (const e of events) {
-    push(e.date, { id: e.id, text: e.text, time: e.time, isReminder: false, overdue: false, color: e.color });
-  }
-
-  return [...byDay.entries()]
-    .sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0))
-    .map(([date, lines]) => ({
+  const out: WidgetDay[] = [];
+  for (let i = 0; i < (opts.days ?? WIDGET_DAYS); i++) {
+    const date = addDays(today, i);
+    const { events, reminders } = dayItems(recs, date, today, modes);
+    const lines: WidgetLine[] = [];
+    for (const e of events) {
+      lines.push({
+        id: e.id,
+        text: e.payload.text,
+        time: e.payload.time,
+        isReminder: false,
+        overdue: false,
+        color: calColor.get(e.payload.calendarId) ?? '#60a5fa',
+      });
+    }
+    for (const { rec: r, overdue } of reminders) {
+      if (r.payload.done || ticked.has(r.id)) continue;
+      if (wanted.size > 0 && !wanted.has(r.payload.folderId)) continue;
+      lines.push({ id: r.id, text: r.payload.text, time: r.payload.time, isReminder: true, overdue, color: null });
+    }
+    // A day with nothing on it is not a heading — the widget has room for a
+    // handful of lines and an empty date spends one of them saying nothing.
+    if (lines.length === 0) continue;
+    out.push({
       date,
       // No time leads: it is the day itself, not a moment in it — day.ts's
       // own tiebreak, kept so the widget and the calendar agree.
-      lines: lines.slice().sort((a, b) => (a.time ?? '') < (b.time ?? '') ? -1 : (a.time ?? '') > (b.time ?? '') ? 1 : 0),
-    }));
+      lines: lines.sort((a, b) => (a.time ?? '') < (b.time ?? '') ? -1 : (a.time ?? '') > (b.time ?? '') ? 1 : 0),
+    });
+  }
+  return out;
 }
