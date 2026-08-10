@@ -946,6 +946,10 @@ const s = themed(() => StyleSheet.create({
   // mode cannot make this row taller. It could, and did: the toolbar grew by
   // 6 and pushed the entire list down with it. The control Sean asked for to
   // FIX the shift was the thing causing the remaining shift.
-  toolbar: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingTop: 10, minHeight: 42 },
+  // 8pt below the divider on every tab. Measured before touching it: 6 on
+  // Reminders, 9 on Habits, 11 on Calendar, 16 on Notes. Sean named Habits as
+  // closest and a hair tall, so 8 is the target and every screen is tuned to
+  // land there rather than to carry the same number in its own style.
+  toolbar: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingTop: 13, minHeight: 42 },
   repN: { color: T.text, fontSize: 14, minWidth: 20, textAlign: 'center' },
 }));

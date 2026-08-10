@@ -416,6 +416,19 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
           >
             <Text style={s.backText}>{'‹  Back'}</Text>
           </Pressable>
+          {/* And a direct way to the list, beside it. Back returns to wherever
+              you came from — which, arriving from the calendar, is the
+              calendar — so the one destination it no longer guarantees is the
+              one this button is for. Sean asked for both. */}
+          <Pressable
+            testID="note-all"
+            accessibilityRole="button"
+            accessibilityLabel="All notes"
+            style={s.ddPill}
+            onPress={() => { cameFromTab.current = false; setOpenId(null); }}
+          >
+            <Text style={s.backText}>All notes</Text>
+          </Pressable>
           <Dropdown
             value={open.payload.folderId}
             options={noteFolderOptions}
@@ -1053,7 +1066,11 @@ const s = themed(() => StyleSheet.create({
   toolRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   appname: { color: T.text, fontSize: 18, fontWeight: '700' },
   // flexGrow so the edit backdrop below the list has leftover height to take.
-  scroll: { padding: 16, paddingBottom: 48, gap: 18, flexGrow: 1 },
+  // 8pt below the divider on every tab. Measured before touching it: 6 on
+  // Reminders, 9 on Habits, 11 on Calendar, 16 on Notes. Sean named Habits as
+  // closest and a hair tall, so 8 is the target and every screen is tuned to
+  // land there rather than to carry the same number in its own style.
+  scroll: { padding: 16, paddingTop: 8, paddingBottom: 48, gap: 18, flexGrow: 1 },
   folderBlock: { gap: 8 },
   folderHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   folderName: {

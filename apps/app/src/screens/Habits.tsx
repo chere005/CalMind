@@ -514,7 +514,11 @@ const s = themed(() => StyleSheet.create({
   segTextOn: { color: T.accent },
   pager: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   pagerLabel: { color: T.text, fontSize: 16, fontWeight: '600', minWidth: 96, textAlign: 'center' },
-  scroll: { padding: 16, paddingBottom: 48, gap: 16 },
+  // 8pt below the divider on every tab. Measured before touching it: 6 on
+  // Reminders, 9 on Habits, 11 on Calendar, 16 on Notes. Sean named Habits as
+  // closest and a hair tall, so 8 is the target and every screen is tuned to
+  // land there rather than to carry the same number in its own style.
+  scroll: { padding: 16, paddingTop: 13, paddingBottom: 48, gap: 16 },
   headRow: { flexDirection: 'row', alignItems: 'flex-end' },
   nameCol: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, paddingRight: 8 },
   // The same box Reminders and Notes draw. Habits had a text '⌃' in a

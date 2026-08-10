@@ -574,7 +574,11 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
 
 const s = themed(() => StyleSheet.create({
   page: { flex: 1, backgroundColor: T.bg },
-  pagerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, paddingVertical: 4 },
+  // 8pt below the divider on every tab. Measured before touching it: 6 on
+  // Reminders, 9 on Habits, 11 on Calendar, 16 on Notes. Sean named Habits as
+  // closest and a hair tall, so 8 is the target and every screen is tuned to
+  // land there rather than to carry the same number in its own style.
+  pagerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, paddingTop: 1, paddingBottom: 4 },
   ymLabel: { color: T.text, fontSize: 15, fontWeight: '600', minWidth: 150, textAlign: 'center' },
   // userSelect none: a swipe across the cell numbers must never start a
   // text selection — on web a selection TERMINATES the pan mid-gesture.

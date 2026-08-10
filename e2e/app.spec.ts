@@ -620,6 +620,48 @@ test('a note takes a date from the LIST, and the calendar opens it for editing',
   // from — the whole reason it stopped saying "All notes".
   await page.getByTestId('note-back').click();
   await expect(page.getByTestId('cal-grid')).toBeVisible({ timeout: 10_000 });
+
+  // …and the button beside it still goes straight to the list, which is the
+  // destination back no longer guarantees. Both, as Sean asked.
+  await page.getByTestId('dp-note-row').filter({ hasText: 'dated note' }).click();
+  await expect(page.getByTestId('note-title')).toHaveValue('dated note');
+  await page.getByTestId('note-all').click();
+  await expect(page.getByTestId('note-row').filter({ hasText: 'dated note' })).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByTestId('cal-grid')).toHaveCount(0);
+});
+
+test('collapse-all folds and unfolds, on the list AND on the calendar', async ({ page }) => {
+  // The control exists on all four tabs and nothing drove it: chevrons.spec
+  // checks it is the right GLYPH and the right box, which says nothing about
+  // whether pressing it folds anything. Calendar's is new — it was the one
+  // tab without one, which is the only thing the top-bar measurement found
+  // to be inconsistent.
+  await signup(page);
+
+  // Reminders: folding the sections takes the rows with them.
+  await page.getByTestId('tab-reminders').click();
+  await page.getByTestId('secadd-General').first().click();
+  await page.getByTestId('rem-add-field').fill('fold me');
+  await page.getByTestId('rem-add-field').press('Enter');
+  await page.keyboard.press('Escape');
+  await expect(page.getByText('fold me')).toBeVisible();
+  await page.getByLabel('Collapse all').click();
+  await expect(page.getByText('fold me')).toBeHidden();
+  // The arrow turns around, so the control says which way it will go next.
+  await page.getByLabel('Expand all').click();
+  await expect(page.getByText('fold me')).toBeVisible();
+
+  // Calendar: the same control folds the day panel's groups.
+  await page.getByTestId('tab-calendar').click();
+  await page.getByText('+ Add', { exact: true }).click();
+  await page.getByTestId('kind-event').click();
+  await page.getByPlaceholder(/What\?/).fill('fold this event');
+  await page.getByText('Save', { exact: true }).click();
+  await expect(page.getByText('fold this event')).toBeVisible();
+  await page.getByLabel('Collapse all').click();
+  await expect(page.getByText('fold this event')).toBeHidden();
+  await page.getByLabel('Expand all').click();
+  await expect(page.getByText('fold this event')).toBeVisible();
 });
 
 test('sharing: mutual handshake, @partner view, a tick lands in their store', async ({ browser }) => {
