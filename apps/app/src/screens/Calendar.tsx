@@ -227,7 +227,7 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
       <TopBar title="Calendar" picker={<CalendarPick />} />
       {/* The date centred over the grid; ◉ jumps home to today. */}
       <View style={s.pagerRow}>
-        <CircleBtn glyph="‹" label="Previous" size={32} onPress={() => page(-1)} />
+        <CircleBtn testID="cal-prev" glyph="‹" label="Previous" size={32} onPress={() => page(-1)} />
         <Pressable onPress={() => { setYm(today.slice(0, 7)); setDay(today); setWkAnchor(today); }} hitSlop={6}>
           <Text testID="cal-ym" style={s.ymLabel}>{new Date(`${ym}-15T12:00:00`).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</Text>
         </Pressable>

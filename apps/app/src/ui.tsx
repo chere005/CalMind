@@ -5,7 +5,52 @@
  */
 import React, { useRef, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, TextInput, type TextInputProps, View } from 'react-native';
+import Svg, { Polyline } from 'react-native-svg';
 import { themed, T } from './theme';
+
+/**
+ * The icons that are GEOMETRY rather than typography, drawn instead of typed.
+ *
+ * Measured on the rendered page: every text glyph in a CircleBtn sits LOW in
+ * its circle, because the line box reserves descender space that '+' and '‹'
+ * never use. '+' on the 44pt tab button was 2.56px below centre, the nav '‹'
+ * 1.74px, the pager arrows 1.6–1.9px. Flexbox was centring the line box
+ * perfectly the whole time — measuring THAT reported 0.01px and proved
+ * nothing, which is why this went unnoticed.
+ *
+ * A stroked path has no bearings and no baseline: its ink is centred because
+ * the coordinates say so. These four are the ones that were off by more than
+ * a pixel plus '−', which is '+' minus a stroke and would look wrong beside a
+ * drawn one. Everything else (✎ ⧉ ☑ ✓ ×) measured under a pixel and stays
+ * text — drawing a pencil would be worse than the 0.75px it is off by.
+ */
+const DRAWN: Record<string, (c: number) => string[]> = {
+  '+': (c) => [`${c * 0.18},${c / 2} ${c * 0.82},${c / 2}`, `${c / 2},${c * 0.18} ${c / 2},${c * 0.82}`],
+  '−': (c) => [`${c * 0.18},${c / 2} ${c * 0.82},${c / 2}`],
+  '‹': (c) => [`${c * 0.71},${c * 0.15} ${c * 0.29},${c / 2} ${c * 0.71},${c * 0.85}`],
+  '›': (c) => [`${c * 0.29},${c * 0.15} ${c * 0.71},${c / 2} ${c * 0.29},${c * 0.85}`],
+};
+
+/** `size` is the CANVAS, not the button: a caller that is not a CircleBtn
+ *  (the tab bar's big '+') has its own idea of how large the mark should be. */
+export function DrawnGlyph({ glyph, size, color }: { glyph: string; size: number; color: string }) {
+  const c = size;
+  return (
+    <Svg width={c} height={c} viewBox={`0 0 ${c} ${c}`}>
+      {DRAWN[glyph]!(c).map((points) => (
+        <Polyline
+          key={points}
+          points={points}
+          fill="none"
+          stroke={color}
+          strokeWidth={c * 0.16}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      ))}
+    </Svg>
+  );
+}
 
 /**
  * A glyph button never steals focus: preventing mousedown's default keeps a
@@ -111,7 +156,12 @@ export function CircleBtn({
       ]}
     >
       <WebHitSlop />
-      <Text style={{ color: active ? T.accent : color, fontSize: size * 0.55, lineHeight: size * 0.62, fontWeight: '700' }}>{glyph}</Text>
+      {DRAWN[glyph] ? (
+        // The canvas the Text used: fontSize was size * 0.55 at weight 700.
+        <DrawnGlyph glyph={glyph} size={size * 0.55} color={active ? T.accent : color} />
+      ) : (
+        <Text style={{ color: active ? T.accent : color, fontSize: size * 0.55, lineHeight: size * 0.62, fontWeight: '700' }}>{glyph}</Text>
+      )}
     </Pressable>
   );
 }

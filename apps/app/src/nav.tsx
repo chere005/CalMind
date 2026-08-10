@@ -9,6 +9,7 @@ import React from 'react';
 import { Pressable, StyleSheet, Text, View , Platform } from 'react-native';
 import { themed, T, PAGE_MAX_WIDTH } from './theme';
 import { CalendarIcon, FlameIcon, PageIcon, TickCircleIcon } from './components/KindIcons';
+import { DrawnGlyph } from './ui';
 
 export type Tab = 'reminders' | 'calendar' | 'add' | 'notes' | 'habits';
 
@@ -35,7 +36,12 @@ export function TabBar({ tab, onTab }: { tab: Tab; onTab: (t: Tab) => void }) {
         {TABS.map(({ key, icon }) =>
           key === 'add' ? (
             <Pressable key={key} testID={`tab-${key}`} accessibilityRole="button" accessibilityLabel={TAB_LABEL[key]} onPress={() => onTab(key)} style={s.addBtn} hitSlop={6}>
-              <Text style={s.addGlyph}>+</Text>
+              {/* Drawn, not typed. As a Text this '+' sat 2.56px BELOW the
+                  circle's centre — the line box reserves descender space a
+                  '+' never uses — which on a 44pt accent button is the most
+                  visible instance of it in the app. A stroked cross has no
+                  baseline to be low against. */}
+              <DrawnGlyph glyph="+" size={26} color={T.accentInk} />
             </Pressable>
           ) : (
             <Pressable key={key} testID={`tab-${key}`} accessibilityRole="button" accessibilityLabel={TAB_LABEL[key]} onPress={() => onTab(key)} style={s.tab} hitSlop={6}>
@@ -74,7 +80,6 @@ const s = themed(() => StyleSheet.create({
   tab: { alignItems: 'center', justifyContent: 'center' },
   halo: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
   haloOn: { backgroundColor: T.surface2 },
-  icon: { fontSize: 20, lineHeight: 24 },
   addBtn: {
     width: 44,
     height: 44,
@@ -83,7 +88,6 @@ const s = themed(() => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  addGlyph: { color: T.accentInk, fontSize: 26, fontWeight: '700', lineHeight: 30 },
 }));
 
 /**

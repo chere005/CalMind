@@ -783,7 +783,7 @@ test('habits shows five day columns on a phone and seven with room, paging witho
   // Sean's rule, made a real breakpoint rather than a permanent narrowing.
   await signup(page);
   await page.getByTestId('tab-habits').click();
-  await page.getByText('+', { exact: true }).first().click();
+  await page.getByTestId('habit-add-Habits').first().click();
   await page.getByPlaceholder('New habit').fill('stretch');
   await page.getByPlaceholder('New habit').press('Enter');
 
@@ -912,7 +912,7 @@ test('a habit drags to a new spot, and the order survives a reload', async ({ pa
   await signup(page);
   await page.getByTestId('tab-habits').click();
   for (const name of ['stretch', 'water', 'walk']) {
-    await page.getByText('+', { exact: true }).first().click();
+    await page.getByTestId('habit-add-Habits').first().click();
     await page.getByPlaceholder('New habit').fill(name);
     await page.getByPlaceholder('New habit').press('Enter');
   }
@@ -938,7 +938,7 @@ test('a habit renames on ONE tap once the Edit pencil is on', async ({ page }) =
   // is a toll for nothing.
   await signup(page);
   await page.getByTestId('tab-habits').click();
-  await page.getByText('+', { exact: true }).first().click();
+  await page.getByTestId('habit-add-Habits').first().click();
   await page.getByPlaceholder('New habit').fill('stretch');
   await page.getByPlaceholder('New habit').press('Enter');
   await expect(page.getByTestId('habit-name')).toHaveText('stretch');

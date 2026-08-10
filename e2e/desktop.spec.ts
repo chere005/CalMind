@@ -60,7 +60,7 @@ test('the app at the width the desktop shell actually ships', async ({ page }) =
   // Habits earns the whole week at this width — the breakpoint Sean asked for
   // cuts to five on a phone and must not cut here.
   await page.getByTestId('tab-habits').click();
-  await page.getByText('+', { exact: true }).first().click();
+  await page.getByTestId('habit-add-Habits').first().click();
   await page.getByPlaceholder('New habit').fill('stretch');
   await page.getByPlaceholder('New habit').press('Enter');
   await expect.poll(() => page.getByTestId('habit-daycol').count()).toBe(7);

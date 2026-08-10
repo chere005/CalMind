@@ -52,7 +52,7 @@ test("New Year's Eve: the calendar pages December into January", async ({ page, 
   // a whole year if a month index is added without wrapping.
   await page.getByTestId('cal-next').click();
   await expect(page.getByTestId('cal-ym')).toHaveText(/January 2027/);
-  await page.getByText('‹', { exact: true }).last().click();
+  await page.getByTestId('cal-prev').click();
   await expect(page.getByTestId('cal-ym')).toHaveText(/December 2026/);
 
   // A reminder filed "today" lands on the 31st and reads back as today.
@@ -82,6 +82,6 @@ test('a leap day is a day like any other', async ({ page, context }) => {
   // March, and back again — the step that lands on a date February hasn't got.
   await page.getByTestId('cal-next').click();
   await expect(page.getByTestId('cal-ym')).toHaveText(/March 2028/);
-  await page.getByText('‹', { exact: true }).last().click();
+  await page.getByTestId('cal-prev').click();
   await expect(page.getByTestId('cal-ym')).toHaveText(/February 2028/);
 });

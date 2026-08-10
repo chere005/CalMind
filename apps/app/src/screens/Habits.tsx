@@ -288,7 +288,7 @@ export function Habits() {
                   style={s.collapseAllBtn}
                 >
                   <WebHitSlop />
-                  <Chevron open={!allCollapsed} />
+                  <Chevron open={!allCollapsed} double />
                 </Pressable>
               </View>
               {days.map((d) => (
@@ -340,7 +340,7 @@ export function Habits() {
                   <View style={[s.secPill, { backgroundColor: tint(sec.payload.color, '2e') }]}>
                     <Text style={s.secPillText}>{sec.payload.name}</Text>
                   </View>
-                  <CircleBtn glyph="+" label="Add" color={sec.payload.color} size={26} onPress={() => { setAddingIn(sec.id); setAddText(''); }} />
+                  <CircleBtn testID={`habit-add-${sec.payload.name}`} glyph="+" label="Add" color={sec.payload.color} size={26} onPress={() => { setAddingIn(sec.id); setAddText(''); }} />
                   <View style={s.secRule} />
                 </View>
                 {addingIn === sec.id && (

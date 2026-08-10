@@ -74,6 +74,26 @@ test('no screen draws a collapse with a text glyph', () => {
   ).toEqual([]);
 });
 
+test('collapse-ALL is the double chevron, and row folds are not', () => {
+  // Folded, a single chevron in a 26pt bordered circle read as the nav Back
+  // button in its 28pt bordered circle — Sean's report. The double form is
+  // what tells "all of them" from "this one", so it has to be exactly on the
+  // collapse-alls and nowhere else.
+  const wrongAll: string[] = [];
+  const wrongRow: string[] = [];
+  for (const file of screens()) {
+    if (rel(file) === 'components/Chevron.tsx') continue;
+    for (const m of readFileSync(file, 'utf8').matchAll(/<Chevron\b[^/>]*\/>/g)) {
+      const isAll = /allCollapsed/.test(m[0]);
+      const isDouble = /\bdouble\b/.test(m[0]);
+      if (isAll && !isDouble) wrongAll.push(`${rel(file)}: ${m[0].trim()}`);
+      if (!isAll && isDouble) wrongRow.push(`${rel(file)}: ${m[0].trim()}`);
+    }
+  }
+  expect(wrongAll, 'a collapse-all drawn as a single chevron is the Back button again').toEqual([]);
+  expect(wrongRow, 'a row fold is one section, not all of them').toEqual([]);
+});
+
 test('the collapse-all button is one box, not one per screen', () => {
   // The chevron INSIDE it was already shared; the box around it was not.
   // Notes drew 24, Reminders 26 and Habits a 30pt CircleBtn — the same

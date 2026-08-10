@@ -33,13 +33,42 @@ export const CHEVRON = 7;
 /** The weight the chevron has always been drawn at, as a ratio of its size. */
 const CHEVRON_STROKE = 2 / 11;
 
-export function Chevron({ open, size = CHEVRON, color }: { open: boolean; size?: number; color?: string }) {
+export function Chevron({
+  open,
+  size = CHEVRON,
+  color,
+  double = false,
+}: {
+  open: boolean;
+  size?: number;
+  color?: string;
+  /**
+   * Two stacked chevrons instead of one — the collapse-ALL control.
+   *
+   * Sean's: folded, a single chevron points right inside a 26pt bordered
+   * circle, and the nav Back button is a '‹' inside a 28pt bordered circle.
+   * Same shape, same circle, a few pixels apart in size, and only the
+   * direction telling them apart. Doubling the glyph says "all of them" and
+   * stops the two reading as the same button.
+   */
+  double?: boolean;
+}) {
   const w = size;
-  const h = size / 2;
   const stroke = w * CHEVRON_STROKE;
   // Keep the round caps inside the canvas at any size — at 11 a hard-coded
   // inset of 1 did that; below about 8 it stops being enough on its own.
   const pad = stroke / 2;
+  const arm = (top: number, h: number) =>
+    `${pad},${top} ${w / 2},${top + h} ${w - pad},${top}`;
+
+  // Single: one chevron centred, dropping half the box.
+  // Double: two shallower ones, stacked, the pair centred as a whole — so
+  // both forms sit on the same optical centre and can share a box.
+  const h = double ? w * 0.3 : w / 2;
+  const span = double ? w * 0.34 + h : h;
+  const top = (w - span) / 2;
+  const tops = double ? [top, top + w * 0.34] : [top];
+
   return (
     <Svg
       width={w}
@@ -47,14 +76,17 @@ export function Chevron({ open, size = CHEVRON, color }: { open: boolean; size?:
       viewBox={`0 0 ${w} ${w}`}
       style={{ transform: [{ rotate: open ? '0deg' : '-90deg' }] }}
     >
-      <Polyline
-        points={`${pad},${(w - h) / 2 + pad} ${w / 2},${(w + h) / 2} ${w - pad},${(w - h) / 2 + pad}`}
-        fill="none"
-        stroke={color ?? T.dim}
-        strokeWidth={stroke}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+      {tops.map((t) => (
+        <Polyline
+          key={t}
+          points={arm(t, h)}
+          fill="none"
+          stroke={color ?? T.dim}
+          strokeWidth={stroke}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      ))}
     </Svg>
   );
 }
