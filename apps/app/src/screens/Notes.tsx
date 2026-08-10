@@ -95,10 +95,6 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
     setNFolded(next);
     AsyncStorage.setItem('calmind.folded.notes', JSON.stringify([...next])).catch(() => {});
   };
-  const collapseAllNotes = () => {
-    const all = folders.flatMap((f) => sectionsOf(f.id).map((x) => x.id));
-    foldSave(all.every((id) => nfolded.has(id)) ? new Set<string>() : new Set(all));
-  };
   const toggleNFold = (id: string) => {
     const next = new Set(nfolded);
     if (next.has(id)) next.delete(id);
@@ -163,6 +159,13 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
       notesOf: (sid: string) => notes.filter((x) => x.payload.sectionId === sid),
     };
   }, [recs, visibleFolders]);
+
+  /** Every section, so the button can both act and show which way it points. */
+  const allSectionIds = folders.flatMap((f) => sectionsOf(f.id).map((x) => x.id));
+  const allCollapsed = allSectionIds.length > 0 && allSectionIds.every((id) => nfolded.has(id));
+  const collapseAllNotes = () => {
+    foldSave(allCollapsed ? new Set<string>() : new Set(allSectionIds));
+  };
 
   // Every visible row in render order, plus a placeholder per empty section
   // so an empty section is a drop target (row-height only while dragging).
@@ -483,7 +486,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
       {/* A live drag holds the scroll still — see Habits for the why. */}
       <ScrollView contentContainerStyle={s.scroll} scrollEnabled={drag.dragIdx === null && secDrag.dragging === null}>
         <View style={s.toolbarRow}>
-          <Pressable onPress={collapseAllNotes} hitSlop={8} accessibilityRole="button" accessibilityLabel="Collapse all" style={s.collapseAllBtn}><Chevron open /></Pressable>
+          <Pressable onPress={collapseAllNotes} hitSlop={8} accessibilityRole="button" accessibilityLabel={allCollapsed ? 'Expand all' : 'Collapse all'} style={s.collapseAllBtn}><Chevron open={!allCollapsed} /></Pressable>
         </View>
         {folders.map((f) => (
           <View key={f.id} style={s.folderBlock}>
@@ -589,7 +592,11 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
                         style={s.rowBody}
                       >
                         <Text style={s.rowTitle} numberOfLines={1}>{n.payload.title}</Text>
-                        <Text style={s.chev}>›</Text>
+                        {/* The chevron means "tap to open". While a delete is
+                            armed — swiped, or the whole page in edit mode —
+                            that is not what a tap does, so it goes away
+                            rather than sitting next to the X contradicting it. */}
+                        {!(pageEdit || swipe.swiped === n.id) && <Text style={s.chev}>›</Text>}
                       </Pressable>
                       {pageEdit && (
                         <>
