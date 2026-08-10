@@ -202,11 +202,22 @@ row hidden above and nothing is merely scrolled off: the grid's first eleven
 cells (six leading blanks, then the 1st through the 5th) are simply not
 drawn, and everything from the 6th onward is perfect.
 
-A clean missing PREFIX of exactly one row plus four cells is the thing to
-explain. Suspect LazyVGrid materialisation next, not the cell contents —
-and note that a swipe does not scroll a watchOS ScrollView (the crown does,
-and the simulator harness cannot turn it), so 'scroll up to check' is not
-available by that route.
+ALSO DISPROVED: lazy materialisation. The page was reached through several
+quick swipes, so the obvious theory was that a LazyVGrid inside a paged
+TabView had not built its top rows yet. Re-measured after it had sat idle:
+byte-identical — first content still at y=170, same spans at columns 5, 6, 7.
+It is stable, not a timing artifact.
+
+So three theories are dead: the blank cell (`Color.clear` with a real frame
+changed nothing), a hidden row above (the brightness scan leaves no space for
+one), and lazy materialisation (stable after settling). A clean missing
+PREFIX of exactly one row plus four cells, reproducible, with correct
+placement for everything that does draw.
+
+Note for whoever continues: a swipe does not scroll a watchOS ScrollView (the
+crown does, and this harness cannot turn it), so 'scroll up and look' is not
+available by that route. Rendering the grid outside the TabView, or with a
+fixed month and lead, would isolate whether the paging is involved at all.
 
 NOT a regression: `git log` shows MonthView untouched this session. It has
 been wrong for as long as the page has existed, and nobody saw it because
