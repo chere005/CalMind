@@ -1117,3 +1117,50 @@ passes forever otherwise.
 
 **The one real hole**: no harness drives the native app, so both native-only
 bugs were found and re-verified by hand.
+
+## The wrist, and the silences — 2026-08-09 night
+
+**watchOS** — four pages (Summary, Reminders, Events, Calendar), horizontal
+paging with the dot indicator, check-off back to the phone through the same
+`reminderToggle` a phone tap uses, and a Modular complication showing the
+next two CALENDAR events. Reminders group folder → section, matching the
+phone; on a ~25-character screen a folder header appears only when there is
+more than one folder and a section header only when its folder has more than
+one section, every name one line, nothing wrapping. Times are 12-hour
+everywhere on the wrist — "Today 3pm Chase", "8/15 5pm Chase" — with an
+all-day event showing no time rather than a midnight.
+
+**iPhone home-screen widget** — written, tested by inspection only, NOT
+shipped. It draws like `tools/scriptable-widget.js`, takes a folder
+selection through `AppIntentConfiguration`, and checks items off via
+AppIntents into the shared App Group. It cannot sign until
+`com.seancheren.calmind.appwidget` is registered as an App ID, which needs
+an interactive Xcode pass; because an extension embeds in its host, an
+unsignable widget blocks EVERY iOS build, and `ios/` is currently rolled
+back to before `expo prebuild` so the phone and watch can still ship.
+
+**Recipe import from a URL** — server fetches through `fetchurl.php` (SSRF
+checks on every redirect hop; its first caller after months unused), core
+parses the page's own schema.org JSON-LD, ingredients and steps only.
+
+**What this night was actually about: silent failures.** Five, each of which
+rendered as something normal.
+
+- `updateApplicationContext` behind `try?` swallowed WCSession error 7006
+  ("Watch app is not installed") for a day. The watch app had been sideloaded
+  wrist-first, so iOS never treated it as the companion.
+- The watch's Summary said "Nothing due today" both when the list was present
+  and empty AND when nothing had ever arrived — the same words for a working
+  screen and a broken one. It now publishes `.waiting` / `.loaded` /
+  `.failed(reason)`, and every empty state reads it.
+- Both widgets decoded behind `try?`, drawing "Nothing due" on a failed read.
+- `apiPost('recipe_fetch', { url })` TYPECHECKED — its signature is
+  `(serverUrl, body, token)` — so the URL import posted to a relative path
+  with no action and quietly did nothing. Only an e2e test could see it.
+- A deploy shipped a bundle its gate never tested, because a native build
+  deleted `dist` between the two. The gate now refuses that.
+
+The through-line: nothing here failed loudly. Each looked like an ordinary
+empty state, and each made the next diagnosis harder. When something is
+"not working" and every log is clean, look for the place that cannot report
+its own failure.
