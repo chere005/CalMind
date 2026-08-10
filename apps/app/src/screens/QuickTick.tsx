@@ -10,11 +10,16 @@ import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { reminderToggle, repeatLabel, timeLabel, todayStr, type Rec } from '@calmind/core';
 import { useStore } from '../store';
+import { useClock24 } from '../useClock24';
 import { themed, T } from '../theme';
 import { Pill } from '../ui';
 
 export function QuickTick({ id, onDone }: { id: string; onDone: () => void }) {
   const { recs, mutate, syncState } = useStore();
+  // The ?tick= page is a SURFACE like any other: it was the one place still
+  // printing a 12-hour time whatever the setting said, which is exactly the
+  // kind of straggler that makes a per-account preference feel unreliable.
+  const clock24 = useClock24();
   const r = recs.find((x): x is Rec<'reminder'> => x.type === 'reminder' && x.id === id && !x.deleted);
 
   return (
@@ -25,7 +30,7 @@ export function QuickTick({ id, onDone }: { id: string; onDone: () => void }) {
             <Text style={s.text}>{r.payload.text}</Text>
             {(r.payload.due || r.payload.time || r.payload.repeat) && (
               <Text style={s.chip}>
-                {[r.payload.due, timeLabel(r.payload.time), repeatLabel(r.payload.repeat)].filter(Boolean).join(' · ')}
+                {[r.payload.due, timeLabel(r.payload.time, clock24), repeatLabel(r.payload.repeat)].filter(Boolean).join(' · ')}
               </Text>
             )}
             <Pill

@@ -1145,7 +1145,7 @@ much as the finds — they say where not to look next time.
 - [ ] `git pull --autostash` first — two sessions share this repo; stage
       explicit paths only, never `git add -A`, hold commits on files the other
       session has half-refactored.
-- [ ] Keep the suites green: 354 core + 38 server + 118 gesture (+1 skipped) + 16 WebKit,
+- [ ] Keep the suites green: 359 core + 38 server + 120 gesture (+1 skipped) + 16 WebKit,
       plus 9 live checks (16 with the API) and 6 desktop. And the native ones,
       which no browser can reach: `npm run test:watch` (both Swift time
       formatters against core's cases; core's JSON through the wrist's real
