@@ -122,10 +122,18 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
   // and wins. The ref names the one note this applies to: opening an existing
   // note stays read-first.
   const freshEdit = React.useRef<string | null>(null);
+  // autoFocus on a TextInput that mounts mid-transition is unreliable on iOS
+  // — the field appears, the caret does not, and the keyboard never rises.
+  // Focusing through a ref on the next tick is the version that actually
+  // fires on a device; on web it is a harmless no-op over autoFocus.
+  const bodyRef = React.useRef<TextInput | null>(null);
   React.useEffect(() => {
     if (openId && freshEdit.current === openId) {
       freshEdit.current = null;
       setBodyEditing(true);
+      // The field does not exist until bodyEditing has rendered, so the
+      // focus call waits a tick rather than racing the mount.
+      setTimeout(() => bodyRef.current?.focus(), 50);
     }
   }, [openId, setBodyEditing]);
   // Another screen (the Add tab) created a note — land in its editor, as prod does.
@@ -392,6 +400,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
           )}
           {bodyEditing ? (
             <TextInput
+              ref={bodyRef}
               testID="note-body-edit"
               style={s.body}
               value={draft ?? open.payload.body}
