@@ -27,6 +27,18 @@ struct WatchSection: Codable, Identifiable {
     let folderId: String
 }
 
+/// The list ALREADY GROUPED, decided in core. A nil name means the header
+/// is not drawn — the watch draws what it is told rather than deciding, so
+/// the three header rules live somewhere a test can reach them.
+struct WatchGroup: Codable {
+    struct Part: Codable {
+        let sectionName: String?
+        let items: [WatchItem]
+    }
+    let folderName: String?
+    let sections: [Part]
+}
+
 struct WatchEvent: Codable, Identifiable {
     let id: String
     let text: String
@@ -43,6 +55,7 @@ final class WatchStore: NSObject, ObservableObject, WCSessionDelegate {
     @Published var events: [WatchEvent] = []
     @Published var folders: [WatchFolder] = []
     @Published var sections: [WatchSection] = []
+    @Published var groups: [WatchGroup] = []
 
     /// What this watch actually knows, so a screen can never again show the
     /// same words for 'nothing is due' and 'nothing ever arrived'. That
@@ -79,6 +92,7 @@ final class WatchStore: NSObject, ObservableObject, WCSessionDelegate {
             let events: [WatchEvent]?
             let folders: [WatchFolder]?
             let sections: [WatchSection]?
+            let groups: [WatchGroup]?
         }
         // try? here was the same silence that hid WCSession 7006 for a day.
         let list: List
@@ -100,6 +114,7 @@ final class WatchStore: NSObject, ObservableObject, WCSessionDelegate {
             self.events = list.events ?? []
             self.folders = list.folders ?? []
             self.sections = list.sections ?? []
+            self.groups = list.groups ?? []
             self.feed = .loaded(from: source)
         }
     }

@@ -21,34 +21,9 @@ import SwiftUI
 struct ReminderListView: View {
     @EnvironmentObject var store: WatchStore
 
-    /// Sections that actually hold something, under folders that do — an
-    /// empty section is a header with nothing beneath it, which on this
-    /// screen is pure cost.
-    private var groups: [(folder: WatchFolder?, sections: [(section: WatchSection?, items: [WatchItem])])] {
-        let byFolder = Dictionary(grouping: store.items, by: { $0.folderId ?? "" })
-        var out: [(WatchFolder?, [(WatchSection?, [WatchItem])])] = []
-        for f in store.folders where byFolder[f.id]?.isEmpty == false {
-            let mine = byFolder[f.id] ?? []
-            let secs = store.sections.filter { $0.folderId == f.id }
-            var rows: [(WatchSection?, [WatchItem])] = []
-            for s in secs {
-                let inSec = mine.filter { $0.sectionId == s.id }
-                if !inSec.isEmpty { rows.append((secs.count > 1 ? s : nil, inSec)) }
-            }
-            // A reminder whose section the feed does not carry still has to
-            // appear — losing a row to a missing header would be the worst
-            // trade on this screen.
-            let orphans = mine.filter { r in !secs.contains { $0.id == r.sectionId } }
-            if !orphans.isEmpty { rows.append((nil, orphans)) }
-            out.append((store.folders.count > 1 ? f : nil, rows))
-        }
-        // Same again for anything whose folder never arrived.
-        let known = Set(store.folders.map(\.id))
-        let strays = store.items.filter { !known.contains($0.folderId ?? "") }
-        if !strays.isEmpty { out.append((nil, [(nil, strays)])) }
-        return out
-    }
-
+    /// Nothing is decided here. core's watchGroups made every call — which
+    /// folder gets a header, which section does, what happens to a row whose
+    /// folder never arrived — and those rules are tested there. This draws.
     var body: some View {
         Group {
             if store.items.isEmpty {
@@ -58,11 +33,11 @@ struct ReminderListView: View {
                     .foregroundStyle(.secondary)
             } else {
                 List {
-                    ForEach(Array(groups.enumerated()), id: \.offset) { _, group in
+                    ForEach(Array(store.groups.enumerated()), id: \.offset) { _, group in
                         Section {
                             ForEach(Array(group.sections.enumerated()), id: \.offset) { _, part in
-                                if let s = part.section {
-                                    Text(s.name)
+                                if let s = part.sectionName {
+                                    Text(s)
                                         .font(.caption2.weight(.semibold))
                                         .foregroundStyle(.secondary)
                                         .lineLimit(1)
@@ -71,8 +46,8 @@ struct ReminderListView: View {
                                 ForEach(part.items) { item in row(item) }
                             }
                         } header: {
-                            if let f = group.folder {
-                                Text(f.name).lineLimit(1).truncationMode(.tail)
+                            if let f = group.folderName {
+                                Text(f).lineLimit(1).truncationMode(.tail)
                             }
                         }
                     }

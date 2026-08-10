@@ -54,7 +54,7 @@ export type WatchEvent = { id: string; text: string; date: string; time: string 
  * fails. 30 events covers every face and tab while staying far from the
  * cliff.
  */
-export function watchFeed(recs: AnyRec[], today: string): { items: WatchRow[]; events: WatchEvent[]; folders: WatchFolder[]; sections: WatchSection[] } {
+export function watchFeed(recs: AnyRec[], today: string): { items: WatchRow[]; events: WatchEvent[]; folders: WatchFolder[]; sections: WatchSection[]; groups: WatchGroup[] } {
   const calColor = new Map(
     recs.filter((r): r is Rec<'calendar'> => r.type === 'calendar' && !r.deleted).map((c) => [c.id, c.payload.color]),
   );
@@ -88,5 +88,60 @@ export function watchFeed(recs: AnyRec[], today: string): { items: WatchRow[]; e
     .filter((r): r is Rec<'section'> => r.type === 'section' && !r.deleted)
     .sort((a, b) => byOrd(a.payload, b.payload))
     .map((x) => ({ id: x.id, name: x.payload.name, folderId: x.payload.folderId }));
-  return { items: watchRows(recs), events, folders, sections };
+  // The grouped shape travels too, so the wrist DRAWS rather than decides —
+  // the standing rule, and the reason those three header rules are now
+  // testable at all. items/folders/sections stay for older builds and for
+  // the widget, which groups by day rather than by folder.
+  const items = watchRows(recs);
+  return { items, events, folders, sections, groups: watchGroups(items, folders, sections) };
+}
+
+/**
+ * The wrist's reminder list, already grouped — folder, then section, then
+ * rows, with the headers already decided.
+ *
+ * This lives here rather than in SwiftUI because it is BEHAVIOUR, and the
+ * standing rule is that a rule you can say in a sentence belongs in core
+ * with a test. Three sentences, and nothing in the repo could test them
+ * while they sat on the watch:
+ *
+ *   - A folder header is shown only when there is more than one folder.
+ *   - A section header is shown only when its folder has more than one
+ *     section. A folder with a single section has already been named.
+ *   - A row whose folder or section never arrived is still shown. Losing a
+ *     reminder to a missing header is the worst trade on a 41mm screen.
+ *
+ * Order is the feed's order throughout; nothing here sorts.
+ */
+export type WatchGroup = {
+  /** null when the header should not be drawn — the watch draws what it is told. */
+  folderName: string | null;
+  sections: { sectionName: string | null; items: WatchRow[] }[];
+};
+
+export function watchGroups(
+  items: WatchRow[],
+  folders: WatchFolder[],
+  sections: WatchSection[],
+): WatchGroup[] {
+  const out: WatchGroup[] = [];
+  const manyFolders = folders.length > 1;
+  for (const f of folders) {
+    const mine = items.filter((r) => r.folderId === f.id);
+    if (mine.length === 0) continue; // a header with nothing under it is pure cost
+    const secs = sections.filter((s) => s.folderId === f.id);
+    const parts: WatchGroup['sections'] = [];
+    for (const s of secs) {
+      const inSec = mine.filter((r) => r.sectionId === s.id);
+      if (inSec.length > 0) parts.push({ sectionName: secs.length > 1 ? s.name : null, items: inSec });
+    }
+    const orphans = mine.filter((r) => !secs.some((s) => s.id === r.sectionId));
+    if (orphans.length > 0) parts.push({ sectionName: null, items: orphans });
+    out.push({ folderName: manyFolders ? f.name : null, sections: parts });
+  }
+  // Anything whose folder never arrived still has to be reachable.
+  const known = new Set(folders.map((f) => f.id));
+  const strays = items.filter((r) => !known.has(r.folderId));
+  if (strays.length > 0) out.push({ folderName: null, sections: [{ sectionName: null, items: strays }] });
+  return out;
 }

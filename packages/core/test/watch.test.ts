@@ -4,7 +4,7 @@
  * paired to it — the one place nobody is watching a test run.
  */
 import { describe, it, expect } from 'vitest';
-import { watchFeed, watchRows } from '../src/watch';
+import { watchFeed, watchGroups, watchRows, type WatchFolder, type WatchRow, type WatchSection } from '../src/watch';
 import type { AnyRec, Rec } from '../src/types';
 
 const rem = (
@@ -185,5 +185,60 @@ describe('the watch clock — the rules the Swift copies implement', () => {
 
   it('an all-day event has no time at all — never a midnight', () => {
     expect(clock(null)).toBeNull();
+  });
+});
+
+describe('watchGroups — the rules the wrist draws by', () => {
+  const row = (id: string, folderId: string, sectionId: string): WatchRow =>
+    ({ id, text: id, due: null, time: null, done: false, folderId, sectionId });
+  const fold = (id: string, name: string): WatchFolder => ({ id, name, color: '#fff' });
+  const sect = (id: string, name: string, folderId: string): WatchSection => ({ id, name, folderId });
+
+  it('ONE folder means no folder header — its name is the whole page', () => {
+    const g = watchGroups([row('a', 'f1', 's1')], [fold('f1', 'Home')], [sect('s1', 'General', 'f1')]);
+    expect(g).toHaveLength(1);
+    expect(g[0]!.folderName).toBeNull();
+  });
+
+  it('two folders means both get named', () => {
+    const g = watchGroups(
+      [row('a', 'f1', 's1'), row('b', 'f2', 's2')],
+      [fold('f1', 'Home'), fold('f2', 'Work')],
+      [sect('s1', 'General', 'f1'), sect('s2', 'General', 'f2')],
+    );
+    expect(g.map((x) => x.folderName)).toEqual(['Home', 'Work']);
+  });
+
+  it('one section in a folder means no section header — the folder said it', () => {
+    const g = watchGroups([row('a', 'f1', 's1')], [fold('f1', 'Home')], [sect('s1', 'Errands', 'f1')]);
+    expect(g[0]!.sections[0]!.sectionName).toBeNull();
+  });
+
+  it('two sections means both get named, in the feed\'s order', () => {
+    const g = watchGroups(
+      [row('a', 'f1', 's1'), row('b', 'f1', 's2')],
+      [fold('f1', 'Home')],
+      [sect('s1', 'Now', 'f1'), sect('s2', 'Later', 'f1')],
+    );
+    expect(g[0]!.sections.map((s) => s.sectionName)).toEqual(['Now', 'Later']);
+  });
+
+  it('an empty folder is dropped — a header with nothing under it is pure cost', () => {
+    const g = watchGroups([row('a', 'f1', 's1')], [fold('f1', 'Home'), fold('f2', 'Empty')], [sect('s1', 'G', 'f1')]);
+    expect(g).toHaveLength(1);
+  });
+
+  it('a row whose SECTION never arrived is still shown', () => {
+    const g = watchGroups([row('a', 'f1', 'missing')], [fold('f1', 'Home')], [sect('s1', 'G', 'f1')]);
+    expect(g[0]!.sections.flatMap((s) => s.items).map((r) => r.id)).toEqual(['a']);
+  });
+
+  it('a row whose FOLDER never arrived is still shown', () => {
+    const g = watchGroups([row('a', 'gone', 's1')], [fold('f1', 'Home')], [sect('s1', 'G', 'f1')]);
+    expect(g.flatMap((x) => x.sections).flatMap((s) => s.items).map((r) => r.id)).toEqual(['a']);
+  });
+
+  it('an empty list is an empty list, not a crash', () => {
+    expect(watchGroups([], [], [])).toEqual([]);
   });
 });
