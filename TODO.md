@@ -241,10 +241,22 @@ Confirmed on screen, not inferred:
   `.verticalPage`. That is the fix for 'I can't see any events': the dots say
   more pages exist and which one you are on.
 
-Caveat kept honest: the data on screen came from a cache already on that
-simulator, not from the feed this seeded, so the RENDERING is verified and
-the seeding path is not. watchOS simulators take no input injection, so the
-other three pages were not swiped to.
+Then all four pages, with a SEEDED grouped feed — every rule confirmed:
+
+- Reminders: folder header **Home** (two folders exist, so both are named),
+  section headers **Now** and **Later** under it (Home has two sections), and
+  **Work with NO section header** because Work has only one. That is exactly
+  the rule watchGroups encodes, seen rather than trusted.
+- Chips in 12-hour throughout: `Today 3pm`, `Today 9:30am`, `Today 5pm` —
+  minutes only when there are any.
+- Events: `3:30pm` and `2pm` under day headings.
+- Month: every day present after the LazyVGrid fix.
+
+How to seed one: the phone's WCSession context WINS at activation, so a
+seeded cache is overwritten while the sims are paired. `simctl unpair`
+first — that reboots the watch sim, so reinstall after — then
+`simctl spawn <udid> defaults write com.seancheren.calmind.watchkitapp
+"watchlist.json" -data <hex>`. Re-pair afterwards.
 
 ## 0.45 · The watch actually syncs — 2026-08-09, later the same night
 
