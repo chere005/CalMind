@@ -102,6 +102,8 @@ npm run test:e2e                             # exports the web app, then drives 
 npm run test:webkit                          # the spine + the header rules, in Sean's engine
 npm run test:watch                           # the two Swift copies agree, and the wrist
                                              #   decodes what core actually sends
+npm run test:widget                          # the phone widget decodes what core sends,
+                                             #   and no App Group key is read with no writer
 npm run test:deploy                          # the deploy guards, proven by breaking copies
 ./desktop/smoke.sh                           # macOS: builds, carries THIS export, runs, quits
 php -S 127.0.0.1:8788 -t server/public       # the API

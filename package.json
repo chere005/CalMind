@@ -16,6 +16,7 @@
     "test:e2e:fast": "playwright test",
     "test:webkit": "playwright test -c playwright.webkit.config.ts",
     "test:watch": "sh tools/check-watch-format.sh && sh tools/check-watch-feed.sh",
+    "test:widget": "sh tools/check-widget-feed.sh && sh tools/check-appgroup.sh",
     "test:deploy": "sh tools/check-deploy-guards.sh"
   },
   "devDependencies": {

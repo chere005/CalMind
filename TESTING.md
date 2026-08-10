@@ -135,6 +135,31 @@ than a red run, because it looks like an answer.
   four rows into zero, which is the blank page a watchOS simulator caught
   before Sean's wrist did.
 
+  `tools/check-widget-feed.sh` is the same seam one device over, and that
+  one seam has already produced two bugs by itself. First nothing wrote the
+  cache at all: the PHONE widget read "watchlist.json" from the App Group
+  and the only writer was the watch app, filling the watch's own container
+  on another device — so the widget sat on its waiting state forever and
+  opening the app could not help. Then the day list ignored the calendar's
+  per-folder tri-state, so a folder switched off in "Manage reminders"
+  still filled the home screen.
+
+  Both were invisible to every test on either side, because each side was
+  correct about its own idea of the shape. So the check feeds core's real
+  watchFeed output — from a store with real 'dated' / 'none' / 'all'
+  modes — into the real Codable structs lifted out of HomeWidget.swift, and
+  asserts what a person would see: the dated one shows, the undated one
+  rides on today, the overdue one is gathered onto today, the event sits
+  beside them, and the 'none' folder appears on no day at all.
+
+  `tools/check-appgroup.sh` states the rule the first of those bugs broke:
+  every App Group key that is READ has a WRITER on the same device, with
+  the phone and the watch treated as the separate devices they are.
+
+  Proven by restoring each bug: ignoring the tri-state gives 3 mismatches
+  naming the rows that should not be there, sending no days gives 5, and
+  deleting the cache writer makes check-appgroup name the reading file.
+
   It also caught a test of its own making: a hardcoded date passed until
   midnight and then failed for reasons unrelated to the code. The harness
   derives its dates now.
