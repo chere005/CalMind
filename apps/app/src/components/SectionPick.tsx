@@ -9,7 +9,7 @@ import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { byOrd, prefsOf, prefsPut, type Rec } from '@calmind/core';
 import { useStore } from '../store';
 import { themed, T } from '../theme';
-import { pickHit } from '../ui';
+import { pickHit, WebHitSlop } from '../ui';
 import { HabitSectionManager } from './HabitSectionManager';
 import { PieDot } from './PieDot';
 
@@ -57,6 +57,7 @@ export function SectionPick() {
                         hitSlop={8}
                         onPress={() => setPrefs({ hidden: off ? hidden.filter((id) => id !== sec.id) : [...hidden, sec.id] })}
                       >
+                        <WebHitSlop />
                         <Text style={[s.box, !off && s.boxOn]}>{off ? '☐' : '☑'}</Text>
                       </Pressable>
                     </View>

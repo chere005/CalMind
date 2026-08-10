@@ -11,7 +11,7 @@ import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { byOrd, prefsOf, prefsPut, type Rec } from '@calmind/core';
 import { useStore } from '../store';
 import { themed, T } from '../theme';
-import { pickHit } from '../ui';
+import { pickHit, WebHitSlop } from '../ui';
 import { FolderManager } from './FolderManager';
 import { PieDot } from './PieDot';
 
@@ -83,6 +83,7 @@ export function FolderPick({ app }: { app: 'reminders' | 'notes' }) {
                           ? { hidden: folders.map((f) => f.id), hiddenShared: sharedFolders.map((f) => f.id) }
                           : { lastView: 'all', hidden: [], hiddenShared: [] })}
                       >
+                        <WebHitSlop />
                         <Text style={[s.box, allOn && s.boxOn]}>{allOn ? '☑' : '☐'}</Text>
                       </Pressable>
                       <Pressable style={s.rowMain} onPress={() => { setPrefs({ lastView: 'all', hidden: [], hiddenShared: [] }); setOpen(false); }}>
@@ -103,6 +104,7 @@ export function FolderPick({ app }: { app: 'reminders' | 'notes' }) {
                           setPrefs({ hidden: off ? hidden.filter((id) => id !== f.id) : [...hidden, f.id], lastView: 'all' })
                         }
                       >
+                        <WebHitSlop />
                         <Text style={[s.box, !off && s.boxOn]}>{off ? '☐' : '☑'}</Text>
                       </Pressable>
                       <Pressable style={s.rowMain} onPress={() => { setPrefs({ lastView: f.id, hidden: folders.filter((x) => x.id !== f.id).map((x) => x.id), hiddenShared: sharedFolders.map((x) => x.id) }); setOpen(false); }}>
@@ -122,6 +124,7 @@ export function FolderPick({ app }: { app: 'reminders' | 'notes' }) {
                         hitSlop={8}
                         onPress={() => setPrefs({ hiddenShared: off ? hiddenShared.filter((id) => id !== f.id) : [...hiddenShared, f.id], lastView: 'all' })}
                       >
+                        <WebHitSlop />
                         <Text style={[s.box, !off && s.boxOn]}>{off ? '☐' : '☑'}</Text>
                       </Pressable>
                       <Pressable testID={`pick-shared-${f.payload.name}`} style={s.rowMain} onPress={() => { setPrefs({ lastView: key, hidden: folders.map((x) => x.id), hiddenShared: sharedFolders.filter((x) => x.id !== f.id).map((x) => x.id) }); setOpen(false); }}>
