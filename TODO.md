@@ -608,9 +608,15 @@ the sync contract, the most safety-critical part of the app.
 
 Open, and both need Sean:
 
-- [ ] **Nobody has SEEN the widget render** beyond Sean's word that it "looks
-      nice". Entitlements, the cache writer, core's shape, the decoder and
-      drawnDays are all covered; the pixels are not, and cannot be from here.
+- [~] **The widget's pixels.** Now partly seen: installed on an iOS simulator
+      and added from the widget gallery, it draws the reference layout — the
+      header row, a green day heading over a green rule, a green tick box.
+      What the simulator CANNOT show is real data: an unsigned simulator build
+      carries no entitlements at all, so App Groups do not exist there and the
+      widget's process cannot read the cache even when the suite is seeded at
+      the simulator's user level. Everything upstream of the pixels is covered
+      (entitlements in the signed build, the cache writer, core's shape, the
+      decoder, drawnDays); the last mile is a real device, i.e. Sean's.
 - [ ] **iOS never propagated the watch app** from the phone across four
       installs — the wrist sat on build 1 while the phone carried 6. A direct
       `devicectl` install to the watch fixed it, and only worked while the
@@ -1139,7 +1145,7 @@ much as the finds — they say where not to look next time.
 - [ ] `git pull --autostash` first — two sessions share this repo; stage
       explicit paths only, never `git add -A`, hold commits on files the other
       session has half-refactored.
-- [ ] Keep the suites green: 351 core + 38 server + 117 gesture (+1 skipped) + 16 WebKit,
+- [ ] Keep the suites green: 354 core + 38 server + 118 gesture (+1 skipped) + 16 WebKit,
       plus 9 live checks (16 with the API) and 6 desktop. And the native ones,
       which no browser can reach: `npm run test:watch` (both Swift time
       formatters against core's cases; core's JSON through the wrist's real
