@@ -1,4 +1,13 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page, type Locator } from '@playwright/test';
+
+/** Hold a control: the way into edit mode now the pencil is gone. */
+async function longPress(page: Page, locator: Locator) {
+  const box = (await locator.boundingBox())!;
+  await page.mouse.move(box.x + 20, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.waitForTimeout(500);
+  await page.mouse.up();
+}
 
 /**
  * Habit sections reorder by drag — the half nothing was watching.
@@ -33,7 +42,8 @@ test('a habit section drags below its neighbour, and stays there', async ({ page
     await page.getByPlaceholder('New section').press('Enter');
   }
   await page.getByText('Done', { exact: true }).click();
-  await page.getByTestId('habits-edit').click();
+  // Hold a SECTION to enter edit mode — where the grips live.
+  await longPress(page, page.locator('[data-testid^="hsec-name-"]').first());
   await page.waitForTimeout(400);
 
   const order = async () =>

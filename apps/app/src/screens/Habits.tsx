@@ -159,7 +159,31 @@ export function Habits() {
     if (!edit || typeof document === 'undefined') return;
     const onKey = (ev: KeyboardEvent) => { if (ev.key === 'Escape') setEdit(false); };
     document.addEventListener('keydown', onKey, true);
-    return () => document.removeEventListener('keydown', onKey, true);
+    // The suite's rule, as on the other three screens: a tap leaves edit mode
+    // unless it lands on the thing you are editing or an edit control. And
+    // the same exact guard — this listener is attached MID-PRESS, so the
+    // opening gesture's trailing click is the one click with no pointerdown
+    // of its own, and it must not close what it just opened.
+    const KEEP = [
+      '[role="button"]', 'input', 'textarea', 'select',
+      '[data-testid^="habit-"]', '[data-testid^="hsec-"]',
+      '[data-testid^="pick-"]', '[data-testid^="tab-"]',
+    ].join(',');
+    let ownClick = true;
+    const onDown = () => { ownClick = false; };
+    document.addEventListener('pointerdown', onDown, true);
+    const onClick = (ev: Event) => {
+      if (ownClick) { ownClick = false; return; }
+      const t = ev.target as Element | null;
+      if (t && typeof t.closest === 'function' && t.closest(KEEP)) return;
+      setEdit(false);
+    };
+    document.addEventListener('click', onClick);
+    return () => {
+      document.removeEventListener('keydown', onKey, true);
+      document.removeEventListener('click', onClick);
+      document.removeEventListener('pointerdown', onDown, true);
+    };
   }, [edit]);
 
   // One flat list of every draggable entry, in drawn order — an empty section
@@ -252,10 +276,11 @@ export function Habits() {
       <TopBar
         title="Habits"
         controls={
-          <>
-            <Pressable onPress={collapseAll} hitSlop={8} accessibilityRole="button" accessibilityLabel={allCollapsed ? 'Expand all' : 'Collapse all'} style={s.collapseAllBtn}><WebHitSlop /><Chevron open={!allCollapsed} double /></Pressable>
-            <CircleBtn testID="habits-edit" glyph="✎" label="Edit" size={30} active={edit} onPress={() => setEdit(!edit)} />
-          </>
+          /* No edit pencil. Sean: holding a habit or a section enters edit
+             mode, and a tap outside leaves — the same gesture the other three
+             screens use, so Habits stops being the one that needs a button
+             nobody else needs. */
+          <Pressable onPress={collapseAll} hitSlop={8} accessibilityRole="button" accessibilityLabel={allCollapsed ? 'Expand all' : 'Collapse all'} style={s.collapseAllBtn}><WebHitSlop /><Chevron open={!allCollapsed} double /></Pressable>
         }
         picker={<SectionPick />}
       />
@@ -337,9 +362,14 @@ export function Habits() {
                         that small. The slop is what makes it tappable. */}
                     <WebHitSlop slop={10} />
                   </Pressable>
-                  <View style={[s.secPill, { backgroundColor: tint(sec.payload.color, '2e') }]}>
+                  <Pressable
+                    testID={`hsec-name-${sec.payload.name}`}
+                    onLongPress={() => setEdit(true)}
+                    delayLongPress={350}
+                    style={[s.secPill, { backgroundColor: tint(sec.payload.color, '2e') }]}
+                  >
                     <Text style={s.secPillText}>{sec.payload.name}</Text>
-                  </View>
+                  </Pressable>
                   <CircleBtn testID={`habit-add-${sec.payload.name}`} glyph="+" label="Add" color={sec.payload.color} size={26} onPress={() => { setAddingIn(sec.id); setAddText(''); }} />
                   <View style={s.secRule} />
                 </View>
@@ -403,7 +433,7 @@ export function Habits() {
                               }
                               lastTap.current = { id: h.id, at: now };
                             }}
-                            onLongPress={() => { setRenaming(h.id); setRenameText(h.payload.name); }}
+                            onLongPress={() => { setEdit(true); setRenaming(h.id); setRenameText(h.payload.name); }}
                             delayLongPress={350}
                           >
                             <Text testID="habit-name" style={[s.habitName, { color: tint(sec.payload.color, 'ee') }]} numberOfLines={1}>{h.payload.name}</Text>

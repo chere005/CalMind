@@ -67,6 +67,18 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   // store is hydrated: a snapshot with a cursor, or one completed sync.
   const hydratedRef = useRef(false);
 
+  /**
+   * The partner's records as the watch feed wants them, in a REF.
+   *
+   * refresh() is a useCallback with no deps — deliberately, so every caller
+   * gets the same stable function — which means it cannot read sharedRecs
+   * from state without capturing a stale one. The ref is written by the
+   * effect below and read here, and that effect also re-pushes, so the
+   * widget's calendar picker updates when a partner's list changes rather
+   * than only when one of MY records does.
+   */
+  const sharedForWatch = useRef<{ recs: AnyRec[]; partner: string } | null>(null);
+
   /** Re-render from the engine, keep the shape guarantees, feed the watch. */
   const refresh = useCallback(() => {
     const engine = engineRef.current;
@@ -76,7 +88,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     }
     const all = engine.all();
     setRecs(all);
-    pushWatchList(all);
+    pushWatchList(all, sharedForWatch.current);
   }, []);
 
   // Persist IMMEDIATELY on every change — a debounce here meant an edit made
@@ -406,6 +418,18 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     if (new URLSearchParams(location.search).get('autoupdate') !== '1') return;
     return watchForUpdate(() => engineRef.current.toSnapshot().dirty.length);
   }, []);
+
+  // Keep the watch feed's view of the partner current, and push again when it
+  // changes: their calendars are what the widget's picker offers, so a
+  // partner sharing a new calendar has to reach the phone's widget without
+  // waiting for one of my own records to change.
+  useEffect(() => {
+    sharedForWatch.current =
+      sharedPartner && sharedRecs.length > 0
+        ? { recs: sharedRecs, partner: sharedPartnerLabel ?? sharedPartner }
+        : null;
+    pushWatchList(engineRef.current.all(), sharedForWatch.current);
+  }, [sharedRecs, sharedPartner, sharedPartnerLabel]);
 
   return (
     <Ctx.Provider value={{ ready, session, recs, syncState, persistFailed, signIn, signOut, setSession, mutate, syncNow, partners, sharedPartner, sharedPartnerLabel, sharedRecs, sharedPut }}>

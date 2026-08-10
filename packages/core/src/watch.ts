@@ -22,6 +22,22 @@ export type WatchRow = { id: string; text: string; due: string | null; time: str
 /** A folder as the iOS widget's picker lists it, and the watch groups by. */
 export type WatchFolder = { id: string; name: string; color: string };
 
+/**
+ * A calendar as the iOS widget's picker lists it.
+ *
+ * The picker used to offer reminder FOLDERS, which is the wrong axis: in this
+ * app a folder decides which reminders exist, and "which of those reach the
+ * calendar" is already answered by the tri-state in Manage reminders. What a
+ * widget instance still gets to choose is which CALENDARS' events it shows —
+ * exactly what the app's own calendar picker chooses. Sean's ask.
+ *
+ * `sharedFrom` names the partner when the calendar is theirs, so the picker
+ * can badge it the way the app does. Shared calendars were missing from the
+ * widget's list entirely: the feed is built from MY records, and a partner's
+ * live in a separate store.
+ */
+export type WatchCalendar = { id: string; name: string; color: string; sharedFrom?: string };
+
 /** A section, so the wrist can show the same structure the phone does. */
 export type WatchSection = { id: string; name: string; folderId: string };
 
@@ -56,7 +72,14 @@ export type WatchEvent = { id: string; text: string; date: string; time: string 
  * fails. 30 events covers every face and tab while staying far from the
  * cliff.
  */
-export function watchFeed(recs: AnyRec[], today: string): { items: WatchRow[]; events: WatchEvent[]; folders: WatchFolder[]; sections: WatchSection[]; groups: WatchGroup[]; days: WidgetDay[]; clock24: boolean } {
+export function watchFeed(
+  recs: AnyRec[],
+  today: string,
+  /** A partner's records and their name, so their shared CALENDARS can reach
+   *  the widget's picker. They were missing entirely: the feed is built from
+   *  my store, and a partner's records live in another one. */
+  shared: { recs: AnyRec[]; partner: string } | null = null,
+): { items: WatchRow[]; events: WatchEvent[]; folders: WatchFolder[]; calendars: WatchCalendar[]; sections: WatchSection[]; groups: WatchGroup[]; days: WidgetDay[]; clock24: boolean } {
   const calColor = new Map(
     recs.filter((r): r is Rec<'calendar'> => r.type === 'calendar' && !r.deleted).map((c) => [c.id, c.payload.color]),
   );
@@ -86,6 +109,20 @@ export function watchFeed(recs: AnyRec[], today: string): { items: WatchRow[]; e
   // predate the field an EMPTY folder list, and the watch drew one flat
   // ungrouped page — with no error anywhere, because an empty list is what
   // a genuinely folder-less account looks like too.
+  // The calendars the widget's picker offers: mine, then the partner's with
+  // their name attached so the picker can badge them.
+  const calendars: WatchCalendar[] = [
+    ...recs
+      .filter((r): r is Rec<'calendar'> => r.type === 'calendar' && !r.deleted)
+      .sort((a, b) => byOrd(a.payload, b.payload))
+      .map((c) => ({ id: c.id, name: c.payload.name, color: c.payload.color })),
+    ...(shared
+      ? shared.recs
+          .filter((r): r is Rec<'calendar'> => r.type === 'calendar' && !r.deleted)
+          .sort((a, b) => byOrd(a.payload, b.payload))
+          .map((c) => ({ id: c.id, name: c.payload.name, color: c.payload.color, sharedFrom: shared.partner }))
+      : []),
+  ];
   const folders = recs
     .filter((r): r is Rec<'folder'> => r.type === 'folder' && !r.deleted && folderApp(r.payload) === 'reminders')
     .sort((a, b) => byOrd(a.payload, b.payload))
@@ -110,6 +147,7 @@ export function watchFeed(recs: AnyRec[], today: string): { items: WatchRow[]; e
     items,
     events,
     folders,
+    calendars,
     sections,
     groups: watchGroups(items, folders, sections),
     days: widgetDays(recs, today),
@@ -195,6 +233,10 @@ export type WidgetLine = {
   overdue: boolean;
   /** The calendar's colour for an event; null for a reminder. */
   color: string | null;
+  /** Which calendar an event belongs to, so the widget's picker can filter
+   *  it. Null for a reminder — a reminder has no calendar, and its own
+   *  visibility is the tri-state's business. */
+  calendarId: string | null;
 };
 
 export type WidgetDay = { date: string; lines: WidgetLine[] };
@@ -241,12 +283,13 @@ export function widgetDays(
         isReminder: false,
         overdue: false,
         color: calColor.get(e.payload.calendarId) ?? '#60a5fa',
+        calendarId: e.payload.calendarId,
       });
     }
     for (const { rec: r, overdue } of reminders) {
       if (r.payload.done || ticked.has(r.id)) continue;
       if (wanted.size > 0 && !wanted.has(r.payload.folderId)) continue;
-      lines.push({ id: r.id, text: r.payload.text, time: r.payload.time, isReminder: true, overdue, color: null });
+      lines.push({ id: r.id, text: r.payload.text, time: r.payload.time, isReminder: true, overdue, color: null, calendarId: null });
     }
     // A day with nothing on it is not a heading — the widget has room for a
     // handful of lines and an empty date spends one of them saying nothing.

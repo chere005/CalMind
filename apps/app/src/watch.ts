@@ -49,12 +49,16 @@ export function drainWidgetTicks(): string[] {
   }
 }
 
-export function pushWatchList(recs: AnyRec[]): void {
+export function pushWatchList(recs: AnyRec[], shared: { recs: AnyRec[]; partner: string } | null = null): void {
   if (!bridge) return;
   try {
     // items + events in one context: an old watch build decodes {items} and
     // ignores the rest, so the payload widens without a lockstep upgrade.
-    bridge.push(JSON.stringify(watchFeed(recs, todayStr())));
+    //
+    // The partner's records travel too, for their shared CALENDARS: the
+    // widget's picker was offering none, because the feed is built from my
+    // store and theirs is a separate one.
+    bridge.push(JSON.stringify(watchFeed(recs, todayStr(), shared)));
   } catch {
     // The watch being unreachable must never cost the phone anything.
   }

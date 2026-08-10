@@ -571,6 +571,38 @@ test('the 12/24-hour setting reaches the screens, and survives a reload', async 
   await expect(page.getByText('2pm', { exact: true })).toBeVisible({ timeout: 10_000 });
 });
 
+test('Habits enters edit mode by HOLDING, and leaves by tapping outside', async ({ page }) => {
+  // Sean: Habits does not need an edit button — hold a habit or a section to
+  // enter, tap outside to leave, like the other three screens. It was the one
+  // screen with a pencil, which is the sort of difference nobody remembers.
+  await signup(page);
+  await page.getByTestId('tab-habits').click();
+  await page.getByTestId('habit-add-Habits').first().click();
+  await page.getByPlaceholder('New habit').fill('stretch');
+  await page.getByPlaceholder('New habit').press('Enter');
+  await page.keyboard.press('Escape');
+
+  // The edit-only controls are away until something is held. There is
+  // deliberately no assertion that the PENCIL is absent: testids.spec catches
+  // an absence assertion on a testID nothing renders, because such a check
+  // passes whether the control was removed or merely renamed. What the pencil
+  // did is what matters, and that is what the rest of this test drives.
+  await expect(page.getByTestId('habit-grip').first()).toBeHidden();
+
+  // Holding a SECTION enters edit mode without renaming anything.
+  await longPress(page, page.locator('[data-testid^="hsec-name-"]').first());
+  await expect(page.getByTestId('habit-grip').first()).toBeVisible();
+
+  // A tap on something inert leaves it.
+  const vp = page.viewportSize()!;
+  await page.mouse.click(vp.width / 2, vp.height - 140);
+  await expect(page.getByTestId('habit-grip').first()).toBeHidden();
+
+  // Holding a HABIT enters it too — Sean named both.
+  await longPress(page, page.getByTestId('habit-name').first());
+  await expect(page.getByTestId('habit-grip').first()).toBeVisible();
+});
+
 test('sharing: mutual handshake, @partner view, a tick lands in their store', async ({ browser }) => {
   const ctxA = await browser.newContext();
   const ctxB = await browser.newContext();
@@ -1099,7 +1131,8 @@ test('a habit drags to a new spot, and the order survives a reload', async ({ pa
   const names = page.getByTestId('habit-grip');
   await expect(names).toHaveCount(3);
 
-  await page.getByTestId('habits-edit').click();
+  // Edit mode is entered by HOLDING a habit — the pencil is gone.
+  await longPress(page, page.getByTestId('habit-name').first());
   const g0 = (await names.nth(0).boundingBox())!;
   const g2 = (await names.nth(2).boundingBox())!;
   // Drag the first habit down past the third.
@@ -1112,7 +1145,7 @@ test('a habit drags to a new spot, and the order survives a reload', async ({ pa
   expect(await order()).toEqual(['water', 'walk', 'stretch']);
 });
 
-test('a habit renames on ONE tap once the Edit pencil is on', async ({ page }) => {
+test('a habit renames on ONE tap once edit mode is on', async ({ page }) => {
   // The suite offers three ways in — double-click, long-press, or a single
   // tap while editing. Asking for a double-tap when the pencil is already on
   // is a toll for nothing.
@@ -1127,8 +1160,15 @@ test('a habit renames on ONE tap once the Edit pencil is on', async ({ page }) =
   await page.getByTestId('habit-name').click();
   await expect(page.getByTestId('habit-rename')).toHaveCount(0);
 
-  await page.getByTestId('habits-edit').click();
-  await page.getByTestId('habit-name').click();
+  // Holding enters edit mode AND opens the held row's rename field. Enter
+  // commits that field unchanged and leaves edit mode ON, which is what lets
+  // the single-tap rule be checked on the same row. (Escape was tried first
+  // and leaves the FIELD open while turning edit mode off, so the name is not
+  // there to tap — the spec said so immediately.)
+  await longPress(page, page.getByTestId('habit-name').first());
+  await page.keyboard.press('Enter');
+  await expect(page.getByTestId('habit-name').first()).toBeVisible();
+  await page.getByTestId('habit-name').first().click();
   const field = page.getByTestId('habit-rename');
   await expect(field).toBeVisible();
   await field.fill('stretch daily');

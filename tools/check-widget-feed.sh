@@ -44,7 +44,10 @@ const recs = [
   r('later', '2026-08-12', '14:00', 'f1'),
   prefsPut([], 'calendar', { folderModes: { f1: 'dated', f2: 'none', f3: 'all' } }),
 ];
-process.stdout.write(JSON.stringify(watchFeed(recs, TODAY)));
+const shared = [
+  { id: 'p1', type: 'calendar', updated: 1, payload: { name: 'Personal', color: '#60a5fa', ord: 'a' } },
+];
+process.stdout.write(JSON.stringify(watchFeed(recs, TODAY, { recs: shared, partner: 'aki' })));
 JS
 sed -i '' -e "s#__CORE__#$PWD/packages/core/src/watch.ts#" -e "s#__MANAGE__#$PWD/packages/core/src/manage.ts#" "$TMP/feed.mjs"
 npx tsx "$TMP/feed.mjs" > "$TMP/feed.json"
@@ -65,7 +68,7 @@ def grab(name):
         k += 1
     return src[i:k+1]
 
-types = '\n'.join(grab(n) for n in ['WRow', 'WEvent', 'WFolder', 'WDay', 'WLine', 'Feed'])
+types = '\n'.join(grab(n) for n in ['WRow', 'WEvent', 'WFolder', 'WCalendar', 'WDay', 'WLine', 'Feed'])
 # Identifiable needs SwiftUI/Foundation's protocol; the structs only use it
 # for ForEach, so it is dropped for this compile.
 types = types.replace(', Identifiable, Hashable', '').replace(', Identifiable', '')
@@ -180,14 +183,27 @@ let afterTick = drawnDays(feed: feed, ticked: ["shown"], wanted: [], today: toda
 let afterIds = afterTick.flatMap { $0.lines.map { $0.id } }
 check(!afterIds.contains("shown"), "a widget-ticked row goes immediately — got \(afterIds)")
 
-// A folder selection filters REMINDERS and leaves events alone: an event has
-// no folder, and dropping every event when a folder is picked would be a
-// silent second rule nobody asked for.
-let picked = drawnDays(feed: feed, ticked: [], wanted: ["f1"], today: today)
+// The picker chooses CALENDARS, so it filters EVENTS. A reminder is never
+// filtered here — whether it appears was already decided by the tri-state in
+// Manage reminders, and filtering it twice on an axis nobody chose is how the
+// widget came to disagree with the calendar it is named after.
+let picked = drawnDays(feed: feed, ticked: [], wanted: ["c1"], today: today)
 let pickedIds = picked.flatMap { $0.lines.map { $0.id } }
-check(pickedIds.contains("shown"), "the picked folder's reminder stays — got \(pickedIds)")
-check(pickedIds.contains("e1"), "an event survives a folder selection — got \(pickedIds)")
-check(!pickedIds.contains("rider"), "another folder's reminder goes — got \(pickedIds)")
+check(pickedIds.contains("e1"), "the picked calendar's event stays — got \(pickedIds)")
+check(pickedIds.contains("shown"), "a REMINDER survives a calendar selection — got \(pickedIds)")
+check(pickedIds.contains("rider"), "…every reminder does, not just some — got \(pickedIds)")
+
+let other = drawnDays(feed: feed, ticked: [], wanted: ["nosuchcalendar"], today: today)
+let otherIds = other.flatMap { $0.lines.map { $0.id } }
+check(!otherIds.contains("e1"), "an event on an UNPICKED calendar goes — got \(otherIds)")
+check(otherIds.contains("shown"), "…and the reminders still stay — got \(otherIds)")
+
+// The picker's own list: mine first, then the partner's, theirs naming who
+// shared it so the configuration sheet can say so.
+let cals = feed.calendars ?? []
+check(cals.count == 2, "the picker is offered my calendar AND the partner's — got \(cals.map { $0.name })")
+check(cals.first?.sharedFrom == nil, "my own calendar names no sharer")
+check(cals.last?.sharedFrom == "aki", "a partner's names them — got \(String(describing: cals.last?.sharedFrom))")
 
 print(bad == 0
       ? "widget feed: the phone's JSON and the widget's decoder agree"

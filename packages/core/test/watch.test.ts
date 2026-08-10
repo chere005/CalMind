@@ -370,4 +370,52 @@ describe('widgetDays — the widget shows what the CALENDAR shows', () => {
   it('an empty store is an empty widget, not a crash', () => {
     expect(widgetDays([], TODAY)).toEqual([]);
   });
+
+  it('an event line carries its calendarId, a reminder carries none', () => {
+    // The widget's picker chooses CALENDARS, so it filters events — and it
+    // can only do that if the line says which calendar it belongs to. A
+    // reminder is null on purpose: its visibility is the tri-state's, decided
+    // before the line ever exists.
+    const d = widgetDays([...base, ev('e', TODAY, null), rem('r', TODAY, null)], TODAY);
+    const byId = new Map(d[0]!.lines.map((l) => [l.id, l]));
+    expect(byId.get('e')!.calendarId).toBe('c1');
+    expect(byId.get('r')!.calendarId).toBeNull();
+  });
+});
+
+describe("watchFeed — the calendars the widget's picker offers", () => {
+  // Sean: the widget's dropdown should show the calendars from Manage
+  // calendars, and a shared one must be identifiable. It offered reminder
+  // FOLDERS before, and no shared entries at all — the feed is built from my
+  // store and a partner's records live in another one.
+  const TODAY = '2026-08-09';
+  const cal = (id: string, name: string, color: string, ord: string): AnyRec =>
+    ({ id, type: 'calendar', updated: 1, payload: { name, color, ord } } as AnyRec);
+
+  it('carries my calendars in list order, with their colours', () => {
+    const { calendars } = watchFeed([cal('c2', 'Work', '#ff0000', 'b'), cal('c1', 'Sean', '#34d399', 'a')], TODAY);
+    expect(calendars.map((c) => c.name)).toEqual(['Sean', 'Work']);
+    expect(calendars[0]).toEqual({ id: 'c1', name: 'Sean', color: '#34d399' });
+  });
+
+  it("a partner's calendars travel too, named so the picker can badge them", () => {
+    const { calendars } = watchFeed(
+      [cal('c1', 'Sean', '#34d399', 'a')],
+      TODAY,
+      { recs: [cal('p1', 'Personal', '#60a5fa', 'a')], partner: 'aki' },
+    );
+    expect(calendars.map((c) => c.name)).toEqual(['Sean', 'Personal']);
+    // Mine says nothing; theirs names the partner.
+    expect(calendars[0]!.sharedFrom).toBeUndefined();
+    expect(calendars[1]!.sharedFrom).toBe('aki');
+  });
+
+  it('no partner means just mine, not a crash', () => {
+    expect(watchFeed([cal('c1', 'Sean', '#34d399', 'a')], TODAY, null).calendars).toHaveLength(1);
+  });
+
+  it('a deleted calendar does not reach the picker', () => {
+    const gone = { ...(cal('c9', 'Old', '#fff', 'a') as Record<string, unknown>), deleted: true } as AnyRec;
+    expect(watchFeed([gone], TODAY).calendars).toEqual([]);
+  });
 });

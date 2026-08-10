@@ -56,6 +56,15 @@ struct WFolder: Codable, Identifiable, Hashable {
     let color: String
 }
 
+/// A calendar the picker offers. `sharedFrom` is the partner's name when the
+/// calendar is theirs — the app badges it, the picker says it in words.
+struct WCalendar: Codable, Identifiable, Hashable {
+    let id: String
+    let name: String
+    let color: String
+    let sharedFrom: String?
+}
+
 /// The day-grouped shape, decided in core (widgetDays) so the rules — the
 /// day is the section, an undated reminder lands on today, no time leads —
 /// live somewhere a test can reach. The widget still applies the FOLDER
@@ -73,12 +82,19 @@ struct WLine: Codable, Identifiable {
     let isReminder: Bool
     let overdue: Bool
     let color: String?
+    /// Which calendar an EVENT belongs to, so the picker can filter it. Null
+    /// for a reminder — a reminder has no calendar, and whether it appears at
+    /// all is the tri-state's business, decided in the app.
+    let calendarId: String?
 }
 
 struct Feed: Codable {
     let items: [WRow]
     let events: [WEvent]?
     let folders: [WFolder]?
+    /// Optional: a cache written before the picker offered calendars still
+    /// decodes, it just has none to offer.
+    let calendars: [WCalendar]?
     let days: [WDay]?
     /// Sean's Settings choice. Optional, so a cache written before the
     /// setting existed still decodes as the 12-hour it always was.
@@ -146,36 +162,55 @@ private func hexColor(_ hex: String) -> Color {
     return Color(red: Double((v >> 16) & 0xff) / 255, green: Double((v >> 8) & 0xff) / 255, blue: Double(v & 0xff) / 255)
 }
 
-// MARK: - Folder selection
+// MARK: - Calendar selection
 
-/// The folders the picker offers, read from the same cache. A widget cannot
+/// The CALENDARS the picker offers, read from the same cache. A widget cannot
 /// ask the app at configuration time, so the feed carries them.
-struct FolderOption: AppEntity, Identifiable, Hashable {
+///
+/// This offered reminder FOLDERS before, which is the wrong axis. In this app
+/// a folder decides which reminders exist, and "which of those reach the
+/// calendar" is already answered by the tri-state in Manage reminders — the
+/// widget honours that through core's dayItems. What a widget instance still
+/// gets to choose is which calendars' EVENTS it shows, which is exactly what
+/// the app's own calendar picker chooses. Sean's ask.
+struct CalendarOption: AppEntity, Identifiable, Hashable {
     let id: String
     let name: String
+    /// The partner's name when this calendar is theirs, nil when it is mine.
+    let sharedFrom: String?
 
-    static var typeDisplayRepresentation: TypeDisplayRepresentation = "Folder"
-    var displayRepresentation: DisplayRepresentation { DisplayRepresentation(title: "\(name)") }
-    static var defaultQuery = FolderQuery()
+    static var typeDisplayRepresentation: TypeDisplayRepresentation = "Calendar"
+    var displayRepresentation: DisplayRepresentation {
+        // A configuration list is a plain iOS list: no colour swatches, and no
+        // badge view of our own. Where the app draws an "aki" chip, the label
+        // says it — Sean's "a badge if possible otherwise text is fine".
+        // subtitle rather than the title so the calendar's own name still
+        // reads first when two partners have a "Personal".
+        sharedFrom.map { DisplayRepresentation(title: "\(name)", subtitle: "Shared by \($0)") }
+            ?? DisplayRepresentation(title: "\(name)")
+    }
+    static var defaultQuery = CalendarQuery()
 }
 
-struct FolderQuery: EntityQuery {
-    func entities(for identifiers: [String]) async throws -> [FolderOption] {
+struct CalendarQuery: EntityQuery {
+    func entities(for identifiers: [String]) async throws -> [CalendarOption] {
         all().filter { identifiers.contains($0.id) }
     }
-    func suggestedEntities() async throws -> [FolderOption] { all() }
-    private func all() -> [FolderOption] {
+    func suggestedEntities() async throws -> [CalendarOption] { all() }
+    private func all() -> [CalendarOption] {
         guard case let .ok(feed) = loadFeed() else { return [] }
-        return (feed.folders ?? []).map { FolderOption(id: $0.id, name: $0.name) }
+        // Mine first, then the partner's — the feed's own order, which is the
+        // app's: my calendars, then SHARED WITH ME.
+        return (feed.calendars ?? []).map { CalendarOption(id: $0.id, name: $0.name, sharedFrom: $0.sharedFrom) }
     }
 }
 
 struct SelectFolders: WidgetConfigurationIntent {
-    static var title: LocalizedStringResource = "Choose folders"
-    static var description = IntentDescription("Show only the folders you pick. Leave empty for everything.")
+    static var title: LocalizedStringResource = "Choose calendars"
+    static var description = IntentDescription("Show only the calendars you pick. Leave empty for all of them. Which REMINDERS appear is set in the app, under Manage reminders.")
 
-    @Parameter(title: "Folders")
-    var folders: [FolderOption]?
+    @Parameter(title: "Calendars")
+    var folders: [CalendarOption]?
 
     init() {}
 }
@@ -277,12 +312,17 @@ struct Provider: AppIntentTimelineProvider {
     /// core cannot know: which folders THIS INSTANCE of the widget was
     /// configured for, and which ticks are queued but not yet applied.
     static func drawnDays(feed: Feed, ticked: Set<String>, wanted: Set<String>, today: String) -> [DaySection] {
-        let folderOf = Dictionary(uniqueKeysWithValues: feed.items.map { ($0.id, $0.folderId) })
         let days: [DaySection] = (feed.days ?? []).compactMap { day in
             let lines = day.lines.compactMap { l -> Line? in
                 if ticked.contains(l.id) { return nil }
-                if l.isReminder, !wanted.isEmpty {
-                    guard let f = folderOf[l.id] ?? nil, wanted.contains(f) else { return nil }
+                // The picker chooses CALENDARS, so it filters EVENTS. A
+                // reminder is never filtered here: whether it appears at all
+                // was already decided by the tri-state in Manage reminders,
+                // which core applied when it built these days. Filtering it
+                // twice, on an axis the user did not choose, is how the widget
+                // came to disagree with the calendar it is named after.
+                if !l.isReminder, !wanted.isEmpty {
+                    guard let c = l.calendarId, wanted.contains(c) else { return nil }
                 }
                 return Line(id: l.id, text: l.text, time: l.time, isReminder: l.isReminder,
                             overdue: l.overdue, color: l.color.map(hexColor) ?? LABEL)
