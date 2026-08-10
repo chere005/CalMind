@@ -108,7 +108,16 @@ function fetch_url(string $url, int $hops = 0): array
     ]);
     $raw = curl_exec($ch);
     if ($raw === false) {
-        $err = curl_error($ch) ?: 'the request failed';
+        // CURLE_ABORTED_BY_CALLBACK is OUR size cap firing, and curl reports
+        // it as 'Callback aborted' — true, and meaningless to whoever pasted
+        // the link. Name the actual limit. Same for a timeout, which is the
+        // other cap this sets and the other thing a person can act on.
+        $errno = curl_errno($ch);
+        $err = match ($errno) {
+            42 => 'that page is too large to read (over ' . (FETCH_MAX_BYTES / 1024 / 1024) . 'MB)',
+            28 => 'that page took too long to answer (over ' . FETCH_TIMEOUT . 's)',
+            default => curl_error($ch) ?: 'the request failed',
+        };
         curl_close($ch);
         return $no($err);
     }
