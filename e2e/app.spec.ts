@@ -1255,6 +1255,10 @@ test("the tri-state silences a folder's riders on the calendar", async ({ page }
   await page.getByTestId('rem-add-field').press('Enter');
   await page.getByTestId('tab-calendar').click();
   await expect(page.getByText('ride me', { exact: true })).toBeVisible();
+  // The chip says what the row IS, not the rule that produced it. It read
+  // "every day" — true of the rule, and the wrong thing to tell someone
+  // looking at one particular day. Sean's wording.
+  await expect(page.getByTestId('rider-chip')).toHaveText('today');
   // Manage reminders → Calendar folder → None.
   await page.getByTestId('pick-calendar').click();
   await page.getByTestId('manage-reminders-row').click();

@@ -369,7 +369,7 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
                 until they are ticked. The chip used to say "every day", which
                 describes the rule rather than the row: the row is here, on
                 this day, and "today" is what it is doing. Sean's wording. */}
-            {rider && <Text style={s.chip}>today</Text>}
+            {rider && <Text testID="rider-chip" style={s.chip}>today</Text>}
             {r.payload.time && <Text style={s.chip}>{timeLabel(r.payload.time)}</Text>}
             {panelEdit && (
               <>
