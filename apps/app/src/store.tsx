@@ -144,7 +144,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       // Offline is normal for a local-first app; a dead token is not.
       setSyncState('offline');
       if (e instanceof ApiError && e.status === 401) {
-        await AsyncStorage.removeItem(SESSION_KEY);
+        // The removal is allowed to fail — persistNow already documents that
+        // storage refuses for ordinary reasons — but it must not take the
+        // sign-out with it. Unguarded, a throw here escaped this catch
+        // entirely (an unhandled rejection, since every caller does `void
+        // syncNow()`) AND left the dead session on disk to be restored on the
+        // next launch. Clearing memory is what actually signs you out; the
+        // disk copy is a cache.
+        await AsyncStorage.removeItem(SESSION_KEY).catch(() => {});
         clearSession();
         return;
       }
