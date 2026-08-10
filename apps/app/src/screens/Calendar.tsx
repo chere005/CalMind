@@ -56,6 +56,12 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
     if (next.has(kind)) next.delete(kind);
     else next.add(kind);
     setFolded(next);
+    // Swallowed deliberately, and this is the triage: what is lost when a
+    // fold write fails is which sections were collapsed, next launch. No
+    // user content, nothing unrecoverable, and an alert about a collapsed
+    // folder would be worse than the loss. The failures worth surfacing in
+    // this app are the ones that lose DATA or lie about state — see
+    // store.tsx's persistFailed and the shared-write reconcile.
     AsyncStorage.setItem('calmind.calFold', JSON.stringify([...next])).catch(() => {});
   };
   const [showDone, setShowDone] = useState(false);

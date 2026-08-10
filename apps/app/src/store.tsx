@@ -102,8 +102,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       setPartners(r.partners);
       setSharedPartner(r.partner);
       setSharedRaw(r.records);
+      return true;
     } catch {
       // Offline: the last pulled copy stands, like any local-first read.
+      // Reporting it matters only to a caller that NEEDED the reconcile —
+      // see sharedPut, where a failed write plus a failed re-read means the
+      // screen is knowingly showing something that is not true.
+      return false;
     }
   }, []);
 
@@ -160,12 +165,22 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const sharedPut = useCallback(async (rec: AnyRec) => {
     const s = sessionRef.current;
     if (!s || !sharedPartner) return;
+    let wrote = true;
     try {
       await apiPost(s.serverUrl, { action: 'shared_put', partner: sharedPartner, record: { ...rec, updated: Date.now() } }, s.token);
     } catch {
       // fall through to the reconcile — the screen is what's wrong now
+      wrote = false;
     }
-    await pullShared().catch(() => {});
+    const reconciled = await pullShared();
+    // The outer .catch(() => {}) that used to sit here caught nothing —
+    // pullShared handles its own failure — so it only hid where the real
+    // swallow was. The case that actually matters is BOTH failing: the edit
+    // did not land AND the screen was not corrected, so a partner's row sits
+    // there showing a change that does not exist anywhere but this device.
+    // 'offline' is already the word this app uses for that, and the top bar
+    // already shows it.
+    if (!wrote && !reconciled) setSyncState('offline');
   }, [sharedPartner, pullShared]);
 
   const syncSoon = useCallback(() => {
