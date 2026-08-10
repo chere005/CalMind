@@ -183,11 +183,18 @@ today (10) is green in the correct column. What is missing is the start:
 and then `ForEach(1...days)`, and the first eleven cells (six blanks plus
 1-5) do not come out.
 
-Prime suspect is the blank cell: an empty `Text("")` has no content and
-SwiftUI can decline to lay it out, so a LazyVGrid may not reserve its column.
-That would explain a shifted start, though not by itself the missing 1-5 —
-worth reproducing with a visible placeholder (`Text(" ")` or
-`Color.clear.frame(height: 1)`) before assuming.
+TRIED AND DISPROVED: the blank cell. `Text("")` has no content and SwiftUI
+can decline to lay it out, so the theory was that the LazyVGrid never
+reserved those columns. Replacing it with `Color.clear.frame(height: 1)` —
+which does have a frame — changed NOTHING on screen. Do not spend time there
+again.
+
+What the pixels actually say: reading the grid by column, `6` sits in column
+5 of its row, which is exactly where the 6th of August belongs in the week
+beginning Sunday the 2nd. So the row is correct and cells 2, 3, 4, 5 of it
+are absent, as is the entire preceding row (six blanks and the 1st). Eleven
+consecutive cells from the start of the grid, and the twelfth onward draw
+perfectly. That pattern — a clean prefix missing — is what to explain next.
 
 NOT a regression: `git log` shows MonthView untouched this session. It has
 been wrong for as long as the page has existed, and nobody saw it because
