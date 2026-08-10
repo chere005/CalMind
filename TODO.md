@@ -99,20 +99,24 @@ visual. Deploy to **test only** (`./server/deploy-test.sh`) as changes land.
       play) plus CBOR/COSE verification in framework-less PHP. Recommended
       later, web-first, passwords staying as the fallback. Awaiting his word.
 
-## LATENT · the new-note focus is a 50ms race (does NOT reproduce)
+## FLAKY UNDER LOAD · the new-note focus is a 50ms race
 
-Recorded as a known WebKit failure and then measured properly: the WebKit
-suite passes 16/16, four consecutive runs. `app.spec.ts:353` went red ONCE,
-while an Android emulator, an iOS simulator and two xcodebuilds were
-competing for CPU — starve a 50ms timer and it lands after the blur it was
-meant to precede. That is the whole failure.
+Measured, after describing it wrongly twice. `app.spec.ts:353` under
+`playwright.webkit.config.ts`:
 
-So: the race below is real in principle and does not manifest on a machine
-that is not being hammered. Left here because the DESIGN note at the end is
-worth having, not because anything is broken today. I overstated this twice
-before measuring it — first as user-facing, then as deterministic — and the
-same CPU contention made a healthy test suite look like a hang the same
-night.
+  - idle: 7 runs, 7 passes
+  - immediately after a 4-minute Chromium suite: FAILS
+  - under an Android emulator + iOS simulator + two xcodebuilds: FAILS
+
+So it is neither a standing failure (my first claim) nor unreproducible (my
+correction to it). It is a real race that needs the machine busy: starve the
+50ms timer and it lands after the blur it was meant to precede. The honest
+summary is 'flaky under load', which is also why a WebKit run that goes red
+should first be repeated on a quiet machine.
+
+Not user-facing at the 50ms window — a person cannot press + and reach the
+title inside a twentieth of a second — but the deferral itself is the defect,
+and CI on a loaded runner would see this.
 
 WHAT HAPPENS. Opening a note from `+` sets bodyEditing and then focuses the
 body through `setTimeout(bodyRef.current?.focus(), 50)` (Notes.tsx). The
