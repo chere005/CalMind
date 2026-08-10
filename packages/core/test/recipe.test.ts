@@ -1,6 +1,6 @@
 /** The OCR-to-note heuristics: humble, but pinned. */
 import { describe, it, expect } from 'vitest';
-import { formatRecipe, ingredientParts, looksLikeChrome, parseIngredient, precleanOcrLine, recipeBody, recipeFromPages, scaleIngredient, scaleRecipeBody, scrubLine } from '../src/recipe';
+import { formatRecipe, ingredientParts, recipeFromHtml, looksLikeChrome, parseIngredient, precleanOcrLine, recipeBody, recipeFromPages, scaleIngredient, scaleRecipeBody, scrubLine } from '../src/recipe';
 
 describe('formatRecipe', () => {
   it('finds the obvious title, bullets the ingredients, keeps the steps', () => {
@@ -551,5 +551,55 @@ describe('ingredientParts — the measure as data, for the row badge', () => {
   });
   it('a quantity with no unit badges the quantity alone', () => {
     expect(ingredientParts('2 canned tomatoes')).toEqual({ qty: '2', unit: null, name: 'canned tomatoes' });
+  });
+});
+
+describe('recipeFromHtml — a page that says what its recipe is', () => {
+  const page = (ld: unknown) =>
+    `<html><head><script type="application/ld+json">${JSON.stringify(ld)}</script></head><body>chatter</body></html>`;
+
+  it('takes ingredients and steps, and NOTHING else', () => {
+    const r = recipeFromHtml(page({
+      '@type': 'Recipe',
+      name: 'Pancakes',
+      description: 'A story about my grandmother that is not a step.',
+      recipeIngredient: ['2 cups flour', '1/2 cup milk'],
+      recipeInstructions: [{ '@type': 'HowToStep', text: 'Mix it' }, { '@type': 'HowToStep', text: 'Fry it' }],
+      nutrition: { calories: '400' },
+    }))!;
+    expect(r.title).toBe('Pancakes');
+    expect(r.ingredients).toEqual(['2 cups flour', '½ cup milk']); // parsed on the way in
+    expect(r.steps).toEqual(['Mix it', 'Fry it']);
+    expect(r.extra).toEqual([]);
+  });
+
+  it('finds the Recipe inside @graph, and through an array', () => {
+    const inner = { '@type': 'Recipe', name: 'X', recipeIngredient: ['1 egg'], recipeInstructions: ['Beat it'] };
+    expect(recipeFromHtml(page({ '@graph': [{ '@type': 'WebPage' }, inner] }))!.ingredients).toEqual(['1 egg']);
+    expect(recipeFromHtml(page([{ '@type': 'Organization' }, inner]))!.ingredients).toEqual(['1 egg']);
+  });
+
+  it('unwraps HowToSection but drops its heading — a heading is not a step', () => {
+    const r = recipeFromHtml(page({
+      '@type': 'Recipe',
+      recipeIngredient: ['1 tsp salt'],
+      recipeInstructions: [{ '@type': 'HowToSection', name: 'For the sauce', itemListElement: [{ '@type': 'HowToStep', text: 'Simmer' }] }],
+    }))!;
+    expect(r.steps).toEqual(['Simmer']);
+  });
+
+  it('entities and fractions survive', () => {
+    const r = recipeFromHtml(page({ '@type': 'Recipe', recipeIngredient: ['&frac12; cup sugar &amp; spice'], recipeInstructions: ['Stir'] }))!;
+    expect(r.ingredients).toEqual(['½ cup sugar & spice']);
+  });
+
+  it('a malformed block does not lose a good one', () => {
+    const html = `<script type="application/ld+json">{oops</script>` + page({ '@type': 'Recipe', recipeIngredient: ['1 egg'], recipeInstructions: ['Beat'] });
+    expect(recipeFromHtml(html)!.ingredients).toEqual(['1 egg']);
+  });
+
+  it('a page with no recipe says so rather than inventing one', () => {
+    expect(recipeFromHtml('<html><body>no recipe here</body></html>')).toBeNull();
+    expect(recipeFromHtml(page({ '@type': 'WebPage', name: 'Blog' }))).toBeNull();
   });
 });

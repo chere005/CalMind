@@ -662,3 +662,108 @@ export function scaleRecipeBody(body: string, factor: number): string {
     })
     .join('\n');
 }
+
+/**
+ * A recipe from a web page's own structured data.
+ *
+ * Nearly every recipe site publishes schema.org/Recipe as JSON-LD, which
+ * names the ingredients and the steps EXACTLY — no heuristics, no chatter,
+ * no "this reminds me of my grandmother" preamble. That is why this path
+ * exists beside the OCR one: when a site says what its recipe is, believe
+ * it rather than guessing from pixels.
+ *
+ * Sean's rule for both paths, verbatim: ingredients and steps ONLY. The
+ * description, the notes, the nutrition block and the author's story are
+ * deliberately dropped.
+ *
+ * Takes HTML rather than a URL: fetching belongs to the app (it has the
+ * network and the CORS story), parsing belongs here where it can be tested.
+ */
+export function recipeFromHtml(html: string): RecipeParts | null {
+  for (const raw of jsonLdBlocks(html)) {
+    let data: unknown;
+    try {
+      data = JSON.parse(raw);
+    } catch {
+      continue; // one malformed block must not lose the page
+    }
+    const node = findRecipeNode(data);
+    if (!node) continue;
+    const ingredients = asStrings(node.recipeIngredient ?? node.ingredients).map(parseIngredient).filter(Boolean);
+    const steps = instructionStrings(node.recipeInstructions);
+    if (ingredients.length === 0 && steps.length === 0) continue;
+    const title = typeof node.name === 'string' ? decodeEntities(node.name).trim() : null;
+    return { title: title || null, ingredients, steps, extra: [] };
+  }
+  return null;
+}
+
+/** Every <script type="application/ld+json"> body on the page. */
+function jsonLdBlocks(html: string): string[] {
+  const out: string[] = [];
+  const re = /<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html)) !== null) out.push(m[1]!.trim());
+  return out;
+}
+
+type LdNode = Record<string, unknown> & { recipeIngredient?: unknown; ingredients?: unknown; recipeInstructions?: unknown; name?: unknown };
+
+/** The Recipe node, wherever it hides: bare, in @graph, or in an array. */
+function findRecipeNode(data: unknown): LdNode | null {
+  if (Array.isArray(data)) {
+    for (const d of data) {
+      const found = findRecipeNode(d);
+      if (found) return found;
+    }
+    return null;
+  }
+  if (!data || typeof data !== 'object') return null;
+  const o = data as LdNode;
+  const type = o['@type'];
+  const isRecipe = type === 'Recipe' || (Array.isArray(type) && type.includes('Recipe'));
+  if (isRecipe) return o;
+  return findRecipeNode(o['@graph']);
+}
+
+function asStrings(v: unknown): string[] {
+  if (typeof v === 'string') return [decodeEntities(v).trim()].filter(Boolean);
+  if (!Array.isArray(v)) return [];
+  return v.flatMap((x) => (typeof x === 'string' ? [decodeEntities(x).trim()] : [])).filter(Boolean);
+}
+
+/**
+ * Instructions come three ways in the wild: plain strings, HowToStep objects
+ * with a `text`, and HowToSection objects wrapping their own itemListElement.
+ * A section's own name ("For the sauce") is dropped — Sean asked for steps,
+ * and a heading is not a step.
+ */
+function instructionStrings(v: unknown): string[] {
+  if (typeof v === 'string') {
+    // Some sites hand over one blob with markup or newlines in it.
+    return decodeEntities(v.replace(/<[^>]+>/g, '\n'))
+      .split('\n')
+      .map((l) => l.trim())
+      .filter((l) => l.length > 1);
+  }
+  if (!Array.isArray(v)) return [];
+  return v.flatMap((x) => {
+    if (typeof x === 'string') return [decodeEntities(x).trim()];
+    if (!x || typeof x !== 'object') return [];
+    const o = x as Record<string, unknown>;
+    if (o.itemListElement) return instructionStrings(o.itemListElement);
+    const t = o.text ?? o.name;
+    return typeof t === 'string' ? [decodeEntities(t).trim()] : [];
+  }).filter((s) => s.length > 1);
+}
+
+/** JSON-LD carries HTML entities through; a fraction must survive them. */
+function decodeEntities(s: string): string {
+  return s
+    .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"').replace(/&#0?39;|&apos;|&rsquo;/g, "'")
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&frac12;/g, '½').replace(/&frac14;/g, '¼').replace(/&frac34;/g, '¾')
+    .replace(/&#x?([0-9a-f]+);/gi, (_m, code) => String.fromCodePoint(parseInt(code, /^x/i.test(_m.slice(2, 3)) ? 16 : 10)))
+    .replace(/\s+/g, ' ');
+}
