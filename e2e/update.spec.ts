@@ -16,15 +16,22 @@ import { expect, test } from '@playwright/test';
  */
 const NEW_BUNDLE = 'index-00000000000000000000000000000000.js';
 
-// SKIPPED with the feature. Installing the build that carried this as a
-// home-screen web app gave a blank screen, reproducibly, while the same
-// bundle rendered correctly in Chromium, in headless WebKit and in Safari on
-// the same simulator. The wiring in store.tsx is commented out until that is
-// understood, and these go quiet with it rather than being deleted — the
-// logic they cover is still in core and still tested there, and this file is
-// what proves the reload happens once and never loops when it comes back.
+// The updater is GATED, not gone. Installing the build that carried it
+// unconditionally gave a blank screen on a home-screen web app,
+// reproducibly, while the same bundle rendered correctly in Chromium, in
+// headless WebKit and in Safari on the same simulator — so store.tsx now
+// runs it only for `?autoupdate=1`.
+//
+// These used to be skipped outright, and the comment here said the wiring was
+// 'commented out', which stopped being true when it became a flag. That left
+// SHIPPING code with no browser-side coverage at all: anyone on that URL runs
+// the updater, and the failure mode is an app that reloads for ever and can
+// never be used. So they run against the flag instead — the same code path,
+// asked for explicitly, which is exactly what the flag is for.
 test.describe.configure({ mode: 'serial' });
-test.skip(true, 'auto-update disabled: blank standalone render, see store.tsx');
+
+/** The app with the updater switched on — what these tests are about. */
+const WITH_UPDATER = '.?autoupdate=1';
 
 test('a build the server no longer serves is replaced, once', async ({ page }) => {
   test.setTimeout(60_000);
@@ -45,7 +52,7 @@ test('a build the server no longer serves is replaced, once', async ({ page }) =
   const navigations: string[] = [];
   page.on('framenavigated', (f) => { if (f === page.mainFrame()) navigations.push(f.url()); });
 
-  await page.goto('.');
+  await page.goto(WITH_UPDATER);
   await expect(page.getByText('Sign in', { exact: true })).toBeVisible({ timeout: 20_000 });
 
   // It noticed and moved to a fresh URL, which is what forces a real fetch
@@ -67,7 +74,7 @@ test('the ordinary case is no reload at all', async ({ page }) => {
   const navigations: string[] = [];
   page.on('framenavigated', (f) => { if (f === page.mainFrame()) navigations.push(f.url()); });
 
-  await page.goto('.');
+  await page.goto(WITH_UPDATER);
   await expect(page.getByText('Sign in', { exact: true })).toBeVisible({ timeout: 20_000 });
   await page.waitForTimeout(3_000);
 
@@ -94,7 +101,7 @@ test('a half-typed field stops the update, however stale the page is', async ({ 
   const navigations: string[] = [];
   page.on('framenavigated', (f) => { if (f === page.mainFrame()) navigations.push(f.url()); });
 
-  await page.goto('.');
+  await page.goto(WITH_UPDATER);
   await expect(page.getByText('Sign in', { exact: true })).toBeVisible({ timeout: 20_000 });
   // The open-time check has run by now and, with every field empty, has taken
   // the new build. Get back to a settled page before the real assertion.
