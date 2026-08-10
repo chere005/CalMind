@@ -121,18 +121,45 @@ back it up first if a device build matters that day; a target whose bundle
 id has never been registered will fail to sign and, because extensions embed
 in the host app, will block every build until it is.
 
-## Deploying to the NFSN test instance
+## The three environments
+
+Only one of them is a deploy.
+
+| | where | how |
+|---|---|---|
+| **dev** | a local `php -S` on 8788, data in `server/data/` (gitignored, or `$CALMIND_DATA_DIR`) | nothing — it's a process on your Mac |
+| **test** | `https://seancheren.com/test/calmind/` — the only deployed instance of this app | `./server/deploy-test.sh` |
+| **prod** | `https://seancheren.com/` is the **old PHP suite**, not this app | `./server/deploy-prod.sh`, which ships the `.well-known` passkey pair and nothing else |
+
+There is no production instance of this app. `/calmind/` and `/dev/calmind/`
+on that domain are the old suite's areas, still live; `deploy-test.sh` names
+them explicitly and refuses. The one thing CalMind legitimately puts at the
+production root is `apple-app-site-association` plus the `.htaccess` that
+gives it `application/json` — iOS will only fetch that from the apex, and a
+wrong first serve is cached for hours.
 
 ```sh
 ./server/deploy-test.sh --dry-run   # preview
 ./server/deploy-test.sh             # lint + tests, expo export, rsync
 ./server/tools/smoke-live.sh        # …then prove the DEPLOY, over real HTTPS
+
+./server/deploy-prod.sh --verify    # what is prod serving right now?
+./server/deploy-prod.sh --yes       # only when Sean has said prod, in that message
+
+sh tools/check-deploy-guards.sh     # prove the guards by breaking copies
 ```
 
-Needs `server/deploy.conf` (gitignored) with `SSH_DEST`. Ships the API to
+Both need `server/deploy.conf` (gitignored) with `SSH_DEST` — copy
+`server/deploy.conf.sample`. The test deploy ships the API to
 `/test/calmind/api/`, the static web client beside it, and the lib to
-`/home/protected/calmind/lib` — config and data dirs are never touched,
+`/home/protected/calmind/lib`; config and data dirs are never touched,
 nothing is ever `--delete`d, and no hostname lives in this repo.
+
+The gates are gates, not decoration: a PHP syntax error, a red core or server
+suite, a red gesture run, or a `dist` that some other build rewrote between
+the tests and the upload each stop the deploy. Two of those used to pass
+unconditionally — see `tools/check-deploy-guards.sh`, which re-proves them by
+breaking a copy and requiring the copy to fail.
 
 ## Rules of the road
 

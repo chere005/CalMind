@@ -15,6 +15,14 @@ shipped, `TODO.md` is the live list.
   not a thing to pick a side on.
 - **Deploy to test only** — `./server/deploy-test.sh`, which refuses anything
   else. Prod is never touched without Sean saying so, in that message.
+  `./server/deploy-prod.sh` exists for the one prod-legitimate payload (the
+  `.well-known` passkey pair) and requires `--yes`; `--verify` is read-only
+  and always safe. There is no prod instance of the app — `/calmind/` and
+  `/dev/calmind/` on that domain are the old PHP suite, still live.
+  Anything that *tests* a deploy script must neuter `ssh`/`rsync` in its
+  copy first: a run that proved the consent gate works, by removing the
+  consent gate, went on to write production. See
+  `tools/check-deploy-guards.sh`.
 - **Two sessions share this repo.** `git pull --autostash` first, stage
   explicit paths, never `git add -A`.
 - **Sean's data is his.** Reading his notes through the app to find bugs is

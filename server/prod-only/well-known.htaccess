@@ -1,0 +1,8 @@
+# apple-app-site-association has no extension, so Apache sends it with no
+# Content-Type at all. Apple requires application/json, and iOS caches a bad
+# first serve for hours. IfModule so a missing module degrades instead of 500.
+<IfModule mod_headers.c>
+  <Files "apple-app-site-association">
+    Header set Content-Type "application/json"
+  </Files>
+</IfModule>
