@@ -18,6 +18,7 @@ import { FolderPick, useFolderView } from '../components/FolderPick';
 import { useRowDrag } from '../components/rowdrag';
 import { useSwipeLeft } from '../components/swiperow';
 import { Chevron } from '../components/Chevron';
+import { EditExit } from '../components/EditExit';
 import { useSectionDrag, type SectionSlot } from '../components/sectiondrag';
 import { ItemModal } from '../components/ItemModal';
 import { CircleBtn, ConfirmDelete, Field, Pill, WebHitSlop } from '../ui';
@@ -399,6 +400,11 @@ export function Reminders() {
 
       {/* A live drag holds the scroll still — see Habits for the why. */}
       <ScrollView contentContainerStyle={s.scroll} scrollEnabled={drag.dragIdx === null && secDrag.dragging === null}>
+        {/* On a PHONE this wrapper is what makes a tap outside leave edit
+            mode: the web's document listener needs a document, so until now
+            the only way out on iOS was the Done button. See EditExit for why
+            native needs the opposite mechanism to the web's. */}
+        <EditExit active={pageEdit} onExit={exitEdit}>
         {folders.map((f) => (
           <View key={f.id} style={s.folderBlock}>
             <View style={s.folderHead}>
@@ -678,6 +684,7 @@ export function Reminders() {
               </View>
             ))}
         {pageEdit && <Pressable style={s.editBackdropFill} onPress={exitEdit} />}
+        </EditExit>
       </ScrollView>
 
       {modalRec && <ItemModal mode="edit" kind="reminder" rec={modalRec} onClose={() => setModalRec(null)} />}
