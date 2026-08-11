@@ -14,7 +14,7 @@ Standing rules live in `CLAUDE.md`, not here.
 
 ## Suite counts, as of this commit
 
-core **388** · gesture **144** (+1 skipped) · WebKit **16** · server **41** ·
+core **392** · gesture **145** (+1 skipped) · WebKit **16** · server **41** ·
 live **16** with the API · desktop **7** (+3 in `npm run test:desktop`) · deploy guards **9** · plus the four
 native seam checkers no browser can reach: `npm run test:watch`,
 `npm run test:widget`, `npm run test:deploy`.
@@ -64,13 +64,25 @@ overwriting it would be silent and pointless — the id stays dirty, so the next
 push would send back the copy just adopted, which the server sees as identical
 and ignores. Keeping it means it gets pushed and the OTHER device converges.
 
-Still true, and now the bigger of the two: **`put()` clamps to
-`max(now, prev + 1)`, so a device that edits rapidly or carries a fast clock
-pushes `updated` ahead of wall-clock time — and the skew is STICKY, because
-every later edit anywhere takes the max against it.** A stale edit from the
-skewed device then beats a genuinely newer edit from a correct one. Same root
-cause as the tie (a local clock used as a version), not fixed by the tiebreak,
-and more likely to bite than an exact tie ever was.
+~~Still true, and now the bigger of the two…~~ — **MEASURED, and the alarming
+half was wrong.** `packages/core/test/clockdrift.test.ts` pins the numbers:
+
+- a burst of edits runs ahead of the clock by ONE MILLISECOND PER EDIT (200
+  edits in one millisecond = 200ms of drift, not hours), and
+- the drift SELF-HEALS exactly when wall clock passes it, and
+- a device whose clock is an HOUR fast does **not** beat a later edit made
+  elsewhere: anyone editing a record they have SEEN stamps it above what they
+  saw, so the later editor wins whatever their clock reads.
+
+That last point is the one this entry got backwards, and it is the property
+the clamp exists to provide — removing it would break the case it protects.
+
+What IS exposed is narrower and is not stickiness: two devices editing from
+the same starting point, neither having seen the other, resolve by whoever's
+clock is higher rather than by who was actually later. That is inherent to
+wall-clock last-write-wins and no client-side scheme fixes it; only a
+server-assigned receipt time would, which is a protocol change of the same
+size as the tie-break. Sean's call if it ever shows up in practice.
 
 ### ~~The widget key rotates on every visit~~ — ALREADY FIXED, entry was stale
 Checked against the source 2026-08-11 when Sean asked what was needed: option
@@ -137,6 +149,18 @@ holding a tunnel. Why the companion path does not update it is unknown; until
 then the watch needs the direct install and the build number is the proof.
 
 ## 3 · Work, not decisions
+
+- **`Pill` announces itself as nothing.** It is a button and has no
+  `accessibilityRole`, so react-native-web renders a bare div: invisible to a
+  screen reader, and invisible to every "did the tap land on a control" rule in
+  this app. That is how Save inside the habit editor came to switch edit mode
+  off behind the sheet. Adding the role is one line and was tried — it made
+  `copymd.spec` hang, because the role brings `tabIndex` with it and the login
+  screen's Sign in button then takes focus, moves, and never settles for
+  Playwright. So the role is right and the fallout needs its own look; the
+  habit bug was fixed by guarding on the modal instead, which is sturdier
+  anyway. Same gap almost certainly exists on other bare Pressables.
+
 
 - **Larger notes, with images** (Sean asked, 2026-08-11). Not a bigger cap:
   the shape cannot carry it. The client persists the WHOLE snapshot as one

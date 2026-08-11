@@ -66,3 +66,33 @@ test('a tap on the habit itself opens its editor rather than leaving', async ({ 
   await page.getByTestId('habit-name').first().click();
   await expect(page.getByText('Edit habit'), 'the row opens its editor').toBeVisible();
 });
+
+test('editing a habit from the pencil does not turn edit mode off behind the sheet', async ({ page }) => {
+  test.setTimeout(90_000);
+  await page.setViewportSize({ width: 1160, height: 800 });
+  await habitsScreen(page);
+
+  await page.getByTestId('habit-name').first().dblclick();
+  await expect(page.getByTestId('habit-edit').first()).toBeVisible();
+
+  // Open the editor from the pencil, change something, save.
+  await page.getByTestId('habit-edit').first().click();
+  await expect(page.getByText('Edit habit')).toBeVisible();
+  await page.getByTestId('habit-freq-weekdays').click();
+  await page.getByTestId('habit-save').click();
+  await expect(page.getByText('Edit habit')).toHaveCount(0);
+
+  // Sean, 2026-08-11: "clicking on the menu editing a habit shouldn't exit
+  // edit mode". The sheet is its own layer; a click in it is not a tap
+  // elsewhere on the page.
+  await expect(
+    page.getByTestId('habit-edit').first(),
+    'still editing after coming back from the sheet',
+  ).toBeVisible();
+
+  // And Cancel behaves the same way.
+  await page.getByTestId('habit-edit').first().click();
+  await expect(page.getByText('Edit habit')).toBeVisible();
+  await page.getByText('Cancel', { exact: true }).click();
+  await expect(page.getByTestId('habit-edit').first(), 'Cancel too').toBeVisible();
+});

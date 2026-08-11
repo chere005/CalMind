@@ -7,7 +7,7 @@
  * counted set — with the key underneath. The section dropdown (the pie by
  * the username) filters sections and opens Manage sections.
  */
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Svg, { Circle, Path } from 'react-native-svg';
@@ -187,6 +187,15 @@ export function Habits() {
     document.addEventListener('pointerdown', onDown, true);
     const onClick = (ev: Event) => {
       if (ownClick) { ownClick = false; return; }
+      // The habit editor is a MODAL — its own layer, on top of everything.
+      // A click in it is not "tapping elsewhere on the screen", and treating
+      // it as one turned edit mode off underneath the sheet: you opened a
+      // habit from the pencil, pressed Save, and came back to a page that had
+      // quietly stopped editing. Sean, 2026-08-11. Guarding on the state is
+      // sturdier than listing the sheet's controls in KEEP, which is what let
+      // this through — Pill had no accessibilityRole, so Save was a bare div
+      // that no selector could match.
+      if (editorOpenRef.current) return;
       const t = ev.target as Element | null;
       if (t && typeof t.closest === 'function' && t.closest(KEEP)) return;
       setEdit(false);
@@ -264,6 +273,8 @@ export function Habits() {
    * screen, so they share one piece of state and one component.
    */
   const [editor, setEditor] = useState<{ sectionId: string; habit: Rec<'habit'> | null } | null>(null);
+  const editorOpenRef = useRef(false);
+  editorOpenRef.current = editor !== null;
 
   const saveHabit = (name: string, frequency: Frequency) => {
     if (!editor) return;
