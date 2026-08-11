@@ -12,7 +12,7 @@ import { useNav } from '../nav';
 import { themed, T } from '../theme';
 import { TopBar } from '../chrome';
 import { FolderPick, useFolderView } from '../components/FolderPick';
-import { CircleBtn, ConfirmDelete, Field, Pill, Rule, WebHitSlop } from '../ui';
+import { CircleBtn, CollapseAllBtn, ConfirmDelete, Field, Pill, Rule, WebHitSlop } from '../ui';
 import { Dropdown } from '../components/Dropdown';
 import { useRowDrag } from '../components/rowdrag';
 import { useSectionDrag, type SectionSlot } from '../components/sectiondrag';
@@ -640,16 +640,13 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
       {/* Right of the name, as in Reminders and as Sean asked. */}
       <TopBar
         title="Notes"
-        controls={<Pressable onPress={collapseAllNotes} hitSlop={8} accessibilityRole="button" accessibilityLabel={allCollapsed ? 'Expand all' : 'Collapse all'} style={s.collapseAllBtn}><WebHitSlop /><Chevron open={!allCollapsed} double /></Pressable>}
+        controls={<CollapseAllBtn open={!allCollapsed} onPress={collapseAllNotes} />}
         picker={<FolderPick app="notes" />}
       />
       {/* A live drag holds the scroll still — see Habits for the why. */}
       <ScrollView contentContainerStyle={s.scroll} scrollEnabled={drag.dragIdx === null && secDrag.dragging === null}>
         {/* The phone's tap-to-exit; the web keeps its document listener. */}
         <EditExit active={pageEdit} onExit={() => setPageEdit(false)}>
-        <View style={s.toolbarRow}>
-
-        </View>
         {folders.map((f) => (
           <View key={f.id} style={s.folderBlock}>
             {/* The header ROW is the reliable way out: always on screen, full
@@ -1091,7 +1088,10 @@ const s = themed(() => StyleSheet.create({
   // Reminders, 9 on Habits, 11 on Calendar, 16 on Notes. Sean named Habits as
   // closest and a hair tall, so 8 is the target and every screen is tuned to
   // land there rather than to carry the same number in its own style.
-  scroll: { padding: 16, paddingTop: 8, paddingBottom: 48, gap: 18, flexGrow: 1 },
+  // paddingTop 0 — the gap below the divider is TopBar's now (chrome.tsx).
+  // This screen's 8 was the value that MATCHED the suite; it moved rather
+  // than changed, and the other four came to it.
+  scroll: { padding: 16, paddingTop: 0, paddingBottom: 48, gap: 18, flexGrow: 1 },
   folderBlock: { gap: 8 },
   folderHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   folderName: {
@@ -1129,8 +1129,12 @@ const s = themed(() => StyleSheet.create({
   // 26, and Habits drew a text '⌃' in a 30pt CircleBtn instead. Same
   // control, three sizes and two symbols. 26 is the largest of them, and
   // the circle IS the tap target here — the chevron inside is decoration.
-  collapseAllBtn: { width: 26, height: 26, borderRadius: 13, borderWidth: 1, borderColor: T.line, alignItems: 'center', justifyContent: 'center' },
-  toolbarRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingBottom: 2 },
+  // toolbarRow is GONE. It had been emptied of its controls and left behind as
+  // a bare <View> holding nothing, which is not free: it was the scroll's
+  // first child, so it contributed its own paddingBottom of 2 AND a full
+  // `gap: 18` between itself and the first folder. That is the 28px Sean saw
+  // as "the notes gap is huge" — the divider spacing was 8 here, the smallest
+  // of the five screens, and this row was hiding above everything.
   row: { flexDirection: 'row', alignItems: 'center', gap: 8, height: 44 },
   rowBody: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
   rowNoSelect: { userSelect: 'none' } as import('react-native').ViewStyle,

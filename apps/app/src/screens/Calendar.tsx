@@ -34,7 +34,7 @@ import { useSwipeLeft } from '../components/swiperow';
 import { BalancedRow } from '../components/BalancedRow';
 import { Chevron } from '../components/Chevron';
 import { EditExit } from '../components/EditExit';
-import { CircleBtn, ConfirmDelete, Pill, Rule, WebHitSlop } from '../ui';
+import { CircleBtn, CollapseAllBtn, ConfirmDelete, Pill, Rule, WebHitSlop } from '../ui';
 
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
@@ -314,18 +314,7 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
           same place rather than the bar having a hole on one tab. */}
       <TopBar
         title="Calendar"
-        controls={
-          <Pressable
-            onPress={collapseAllGroups}
-            hitSlop={8}
-            accessibilityRole="button"
-            accessibilityLabel={allCollapsed ? 'Expand all' : 'Collapse all'}
-            style={s.collapseAllBtn}
-          >
-            <WebHitSlop />
-            <Chevron open={!allCollapsed} double />
-          </Pressable>
-        }
+        controls={<CollapseAllBtn open={!allCollapsed} onPress={collapseAllGroups} />}
         picker={<CalendarPick />}
       />
       {/* The date centred over the grid; ◉ jumps home to today. */}
@@ -578,7 +567,9 @@ const s = themed(() => StyleSheet.create({
   // Reminders, 9 on Habits, 11 on Calendar, 16 on Notes. Sean named Habits as
   // closest and a hair tall, so 8 is the target and every screen is tuned to
   // land there rather than to carry the same number in its own style.
-  pagerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, paddingTop: 1, paddingBottom: 4 },
+  // paddingTop 0 — the gap below the divider is TopBar's now (chrome.tsx).
+  // This screen was the tightest of the five, at 1px.
+  pagerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, paddingTop: 0, paddingBottom: 4 },
   ymLabel: { color: T.text, fontSize: 15, fontWeight: '600', minWidth: 150, textAlign: 'center' },
   // userSelect none: a swipe across the cell numbers must never start a
   // text selection — on web a selection TERMINATES the pan mid-gesture.
@@ -625,7 +616,6 @@ const s = themed(() => StyleSheet.create({
   panelInner: { padding: 16, gap: 8 },
   // The same box the other three tabs use for collapse-all — the bar has to
   // look identical, not merely similar.
-  collapseAllBtn: { width: 26, height: 26, borderRadius: 13, borderWidth: 1, borderColor: T.line, alignItems: 'center', justifyContent: 'center' },
   panelHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   panelTitle: { color: T.gold, fontSize: 15, fontWeight: '700' },
   row: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 4 },

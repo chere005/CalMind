@@ -79,35 +79,59 @@ test('collapse-ALL is the double chevron, and row folds are not', () => {
   // button in its 28pt bordered circle — Sean's report. The double form is
   // what tells "all of them" from "this one", so it has to be exactly on the
   // collapse-alls and nowhere else.
+  //
+  // The collapse-all now lives in ui.tsx's CollapseAllBtn rather than being
+  // rebuilt on each screen, so the double chevron belongs THERE and a screen
+  // drawing one is a screen hand-rolling the control again.
   const wrongAll: string[] = [];
   const wrongRow: string[] = [];
   for (const file of screens()) {
     if (rel(file) === 'components/Chevron.tsx') continue;
     for (const m of readFileSync(file, 'utf8').matchAll(/<Chevron\b[^/>]*\/>/g)) {
-      const isAll = /allCollapsed/.test(m[0]);
       const isDouble = /\bdouble\b/.test(m[0]);
-      if (isAll && !isDouble) wrongAll.push(`${rel(file)}: ${m[0].trim()}`);
-      if (!isAll && isDouble) wrongRow.push(`${rel(file)}: ${m[0].trim()}`);
+      // Only the shared button may draw the double form.
+      if (isDouble && rel(file) !== 'ui.tsx') wrongAll.push(`${rel(file)}: ${m[0].trim()}`);
+      // A screen still deciding "all of them" for itself is the old shape.
+      if (/allCollapsed/.test(m[0])) wrongRow.push(`${rel(file)}: ${m[0].trim()}`);
     }
   }
-  expect(wrongAll, 'a collapse-all drawn as a single chevron is the Back button again').toEqual([]);
+  expect(wrongAll, 'the collapse-all is CollapseAllBtn in ui.tsx; a screen drawing its own is how the four copies started').toEqual([]);
   expect(wrongRow, 'a row fold is one section, not all of them').toEqual([]);
+
+  // The shared button really is the double one — without this, deleting
+  // `double` from ui.tsx would satisfy every "nobody else draws it" rule
+  // above and quietly turn the collapse-all back into the Back button.
+  const ui = readFileSync(join(SRC, 'ui.tsx'), 'utf8');
+  const shared = /<Chevron\b[^/>]*\/>/.exec(ui)?.[0] ?? '';
+  expect(shared, 'CollapseAllBtn draws a chevron').not.toBe('');
+  expect(/\bdouble\b/.test(shared), `the shared collapse-all is the double chevron, got ${shared}`).toBe(true);
 });
 
 test('the collapse-all button is one box, not one per screen', () => {
   // The chevron INSIDE it was already shared; the box around it was not.
   // Notes drew 24, Reminders 26 and Habits a 30pt CircleBtn — the same
   // control at three sizes, which is what Sean reported. Nothing above
-  // compares the boxes, so nothing caught it.
-  const boxes = new Map<string, string[]>();
+  // compared the boxes, so nothing caught it; then the box and the rest of
+  // the top bar drifted apart too (back 28, collapse-all 26, ring 32, pill
+  // 28) and Sean saw a ragged row.
+  //
+  // Both are now one thing: the button is a component and its box is
+  // TOPBAR_CTRL, the height every control in the bar shares. So the check is
+  // that no screen has grown a private one back.
+  const strays: string[] = [];
   for (const file of screens()) {
-    for (const m of readFileSync(file, 'utf8').matchAll(/^\s*collapseAllBtn:\s*(\{.*\}),?\s*$/gm)) {
-      const shape = m[1]!.replace(/\s+/g, ' ').trim();
-      boxes.set(shape, [...(boxes.get(shape) ?? []), rel(file)]);
+    for (const m of readFileSync(file, 'utf8').matchAll(/^\s*collapseAllBtn:\s*\{.*$/gm)) {
+      strays.push(`${rel(file)}: ${m[0].trim().slice(0, 60)}`);
     }
   }
-  expect(boxes.size, `collapse-all is drawn ${boxes.size} different ways: ${[...boxes.keys()].join(' | ')}`).toBe(1);
+  expect(strays, 'the collapse-all box lives in ui.tsx as topbarCircle; a screen with its own is the drift starting again').toEqual([]);
+
   // And it must be a real target on the web, where hitSlop does nothing.
-  const size = Number(/width:\s*(\d+)/.exec([...boxes.keys()][0] ?? '')?.[1] ?? 0);
-  expect(size, 'the collapse-all circle IS the tap target — the chevron in it is decoration').toBeGreaterThanOrEqual(26);
+  const ui = readFileSync(join(SRC, 'ui.tsx'), 'utf8');
+  const ctrl = Number(/export const TOPBAR_CTRL = (\d+)/.exec(ui)?.[1] ?? 0);
+  expect(ctrl, 'the collapse-all circle IS the tap target — the chevron in it is decoration').toBeGreaterThanOrEqual(26);
+  const box = /topbarCircle:\s*\{[^}]*\}/.exec(ui)?.[0] ?? '';
+  expect(box, 'the shared top-bar circle exists').not.toBe('');
+  expect(/width:\s*TOPBAR_CTRL/.test(box) && /height:\s*TOPBAR_CTRL/.test(box),
+    `the shared circle is sized by TOPBAR_CTRL, not a literal: ${box}`).toBe(true);
 });

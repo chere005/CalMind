@@ -19,7 +19,7 @@ import { Chevron } from '../components/Chevron';
 import { SectionPick, useHabitSections } from '../components/SectionPick';
 import { useRowDrag } from '../components/rowdrag';
 import { useSectionDrag } from '../components/sectiondrag';
-import { CircleBtn, ConfirmDelete, Field, WebHitSlop } from '../ui';
+import { CircleBtn, CollapseAllBtn, ConfirmDelete, Field, WebHitSlop } from '../ui';
 
 // Habit sections sit in one flat list with no folder above them, so the
 // section drag — which is built around folders — is handed a single
@@ -280,7 +280,7 @@ export function Habits() {
              mode, and a tap outside leaves — the same gesture the other three
              screens use, so Habits stops being the one that needs a button
              nobody else needs. */
-          <Pressable onPress={collapseAll} hitSlop={8} accessibilityRole="button" accessibilityLabel={allCollapsed ? 'Expand all' : 'Collapse all'} style={s.collapseAllBtn}><WebHitSlop /><Chevron open={!allCollapsed} double /></Pressable>
+          <CollapseAllBtn open={!allCollapsed} onPress={collapseAll} />
         }
         picker={<SectionPick />}
       />
@@ -506,7 +506,8 @@ export function Habits() {
 
 const s = themed(() => StyleSheet.create({
   page: { flex: 1, backgroundColor: T.bg },
-  controlRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 12 },
+  // paddingTop 0 — the gap below the divider is TopBar's now (chrome.tsx).
+  controlRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 0 },
   segmented: { flexDirection: 'row', backgroundColor: T.surface, borderRadius: 999, padding: 3, borderWidth: 1, borderColor: T.lineSoft },
   segBtn: { paddingHorizontal: 16, paddingVertical: 6, borderRadius: 999 },
   segOn: { backgroundColor: T.accentInk },
@@ -525,7 +526,6 @@ const s = themed(() => StyleSheet.create({
   // 30pt CircleBtn — the one collapse-all in the app that was neither
   // the drawn chevron nor the right size, and the only one that never
   // turned sideways when everything was folded.
-  collapseAllBtn: { width: 26, height: 26, borderRadius: 13, borderWidth: 1, borderColor: T.line, alignItems: 'center', justifyContent: 'center' },
   renameField: { flex: 1, paddingVertical: 6 },
   dayCol: { width: 44, alignItems: 'center' },
   dayHead: { alignItems: 'center', borderRadius: 10, paddingHorizontal: 6, paddingVertical: 3, minWidth: 34 },

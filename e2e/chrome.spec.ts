@@ -125,3 +125,166 @@ test('a fortnight of marks comes with a legend to read them by', async ({ page }
     'week mode had the names all along and simply did not draw them',
   ).toBeVisible();
 });
+
+test('the gap under the top divider is the same on every tab', async ({ page }) => {
+  test.setTimeout(90_000);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await signup(page);
+
+  // Sean, 2026-08-10: "fix the spacing after the top divider on different tabs
+  // of the app". Measured off the source at the time, it was four values
+  // across five tabs — Calendar 1px (pagerRow), Notes 8 (scroll), Habits 12
+  // (controlRow), Reminders and Add 16 — because each screen set its own
+  // paddingTop under a divider none of them owned.
+  //
+  // Notes was worse than its 8 suggested and is the reason this measures what
+  // it does: an emptied-out toolbarRow sat as the scroll's first child,
+  // contributing its own padding and a whole `gap: 18` before the first
+  // folder — 28px, "the notes gap is huge".
+  //
+  // The number is 10, Sean's, chosen against the built app ("habits looks
+  // almost correct, i'd go with 10px"). The suite's own is 8 — lib/chrome.php
+  // has `header { …; margin-bottom: 0.5rem }` at a 16px root — so the
+  // departure is deliberate and this test, not the suite, is the authority
+  // for this one measurement.
+  const gapOn = async (tab: string): Promise<number> => {
+    await page.getByTestId(`tab-${tab}`).click();
+    await expect(page.getByText(TITLES[tab]!, { exact: true }).first()).toBeVisible({ timeout: 20_000 });
+    return page.getByTestId('top-rule').evaluate((el) => {
+      // To the first thing you can SEE, not to the next sibling. The first
+      // draft measured sibling.top, which is the scroll container — and the
+      // scroll container starts right under the divider on every screen, so
+      // it read 10 on Notes while Notes was in fact drawing 28. The space was
+      // INSIDE the container: an empty toolbarRow child plus the flex gap
+      // after it. A measurement that stops at the box misses everything the
+      // box holds, and it would have passed with the bug Sean reported.
+      const next = el.nextElementSibling;
+      if (!next) throw new Error('nothing follows the divider — the measurement below would be meaningless');
+      const tops = [...next.querySelectorAll('*')]
+        // Absolutely positioned children are the WebHitSlop pads, which reach
+        // deliberately OUTSIDE their parent and would read as negative space.
+        .filter((n) => getComputedStyle(n).position !== 'absolute')
+        .map((n) => n.getBoundingClientRect())
+        .filter((r) => r.height > 0 && r.width > 0)
+        .map((r) => r.top);
+      const first = tops.length > 0 ? Math.min(...tops) : next.getBoundingClientRect().top;
+      return Math.round(first - el.getBoundingClientRect().bottom);
+    });
+  };
+
+  const gaps: Record<string, number> = {};
+  for (const tab of ['reminders', 'calendar', 'notes', 'habits', 'add']) gaps[tab] = await gapOn(tab);
+
+  // Both halves matter. "All equal" alone would pass if every tab drifted to
+  // the same wrong number, and "== 8" tab by tab would not say they AGREE,
+  // which is the thing Sean actually sees when he switches.
+  expect(new Set(Object.values(gaps)).size, `every tab draws the same gap — got ${JSON.stringify(gaps)}`).toBe(1);
+  expect(gaps.reminders, `and it is the 10 Sean picked — got ${JSON.stringify(gaps)}`).toBe(10);
+});
+
+test('the Reminders toolbar sits in even air, 10 above and 10 below', async ({ page }) => {
+  test.setTimeout(90_000);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await signup(page);
+
+  // Sean, once the divider gap landed: "there should also be 10px under the
+  // buttons in reminders". Zeroing the toolbar's old paddingTop of 13 had
+  // left it welded to the first folder below.
+  //
+  // Measured bottom-of-buttons to top-of-content, which is the space he is
+  // looking at — not a padding value read back out of the stylesheet, which
+  // would pass whatever the box actually drew.
+  await page.getByTestId('tab-reminders').click();
+  await expect(page.getByText('Reminders', { exact: true }).first()).toBeVisible({ timeout: 20_000 });
+
+  const gap = await page.getByTestId('top-rule').evaluate((el) => {
+    const bar = el.nextElementSibling!;           // the toolbar row
+    const scroll = bar.nextElementSibling!;       // the list below it
+    const btns = [...bar.querySelectorAll('*')]
+      .filter((n) => getComputedStyle(n).position !== 'absolute')
+      .map((n) => n.getBoundingClientRect())
+      .filter((r) => r.height > 0 && r.width > 0);
+    if (btns.length === 0) throw new Error('no visible control in the toolbar — nothing to measure from');
+    const below = [...scroll.querySelectorAll('*')]
+      .filter((n) => getComputedStyle(n).position !== 'absolute')
+      .map((n) => n.getBoundingClientRect())
+      .filter((r) => r.height > 0 && r.width > 0)
+      .map((r) => r.top);
+    if (below.length === 0) throw new Error('nothing under the toolbar — the measurement would be meaningless');
+    return Math.round(Math.min(...below) - Math.max(...btns.map((r) => r.bottom)));
+  });
+
+  expect(gap, 'ten pixels under the buttons, the same as above them').toBe(10);
+});
+
+/**
+ * One row, one scale — every control in the top bar is the same height.
+ *
+ * The suite states it in a single rule over three selectors:
+ *   `.backbtn, .titlebtn, .usermenu .who { height: 32px }`
+ * with `width: 32px` on the two round ones. Ours had drifted to three heights
+ * — back 28, collapse-all 26, the picker ring 32, the username pill 28 — and
+ * nothing was watching, so Sean saw a ragged row before any test did. The
+ * ring's own comment claimed "ring and pill both 32 high" while the pill next
+ * to it was 28: the comment was right and the code was not.
+ *
+ * Measured off the rendered boxes rather than read back out of a stylesheet,
+ * and asserted against the suite's number rather than against each other —
+ * "all equal" would go green if every control drifted to 26 together.
+ */
+test('every control in the top bar is one height', async ({ page }) => {
+  test.setTimeout(90_000);
+  await page.setViewportSize({ width: 390, height: 844 });
+  const user = await signup(page);
+
+  for (const [tab, title] of Object.entries(TITLES)) {
+    await page.getByTestId(`tab-${tab}`).click();
+    await expect(page.getByText(title, { exact: true }).first()).toBeVisible({ timeout: 20_000 });
+    await page.waitForTimeout(250);
+
+    // Every control in the bar, found by walking the row itself — a control
+    // added later is caught without anyone remembering to list it here. The
+    // title is the one child that is text rather than a control, and the
+    // absolutely-positioned web hit-slop skirts take no layout space.
+    const controls = await page.getByTestId('nav-back').evaluate((back) => {
+      const bar = back.parentElement!.parentElement!; // hleft -> topbar
+      const out: { name: string; h: number; w: number; round: boolean }[] = [];
+      const visit = (el: Element) => {
+        const cs = getComputedStyle(el);
+        if (cs.position === 'absolute') return;              // hit-slop skirt
+        const r = el.getBoundingClientRect();
+        if (r.width === 0 || r.height === 0) return;
+        const isControl =
+          el.getAttribute('role') === 'button' ||
+          el.getAttribute('data-testid')?.startsWith('pick-');
+        if (isControl) {
+          out.push({
+            name: el.getAttribute('aria-label') || el.getAttribute('data-testid') || '?',
+            h: Math.round(r.height),
+            w: Math.round(r.width),
+            // A pill is as wide as its name; the icon buttons are square.
+            round: parseFloat(cs.borderTopLeftRadius) >= r.height / 2 - 1 && r.width < 60,
+          });
+          return;                                            // don't descend into a control
+        }
+        for (const c of Array.from(el.children)) visit(c);
+      };
+      for (const c of Array.from(bar.children)) visit(c);
+      return out;
+    });
+
+    expect(controls.length, `${tab}: the bar has controls to measure`).toBeGreaterThanOrEqual(2);
+    for (const c of controls) {
+      expect(c.h, `${tab}: "${c.name}" is the bar's one height`).toBe(32);
+      // The round ones are circles, not ovals — a 32-high 26-wide "circle"
+      // is what a half-applied fix looks like.
+      if (c.round) expect(c.w, `${tab}: "${c.name}" is a circle, not an oval`).toBe(32);
+    }
+    // The username is a control here, not a bare label — it is the way in to
+    // Settings, and Sean asked for it to match the icons beside it.
+    const who = await page.getByText(user, { exact: true }).first().evaluate(
+      (el) => Math.round(el.closest('[role="button"]')!.getBoundingClientRect().height),
+    );
+    expect(who, `${tab}: the username pill matches the icons beside it`).toBe(32);
+  }
+});

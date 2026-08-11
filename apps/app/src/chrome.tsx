@@ -10,7 +10,7 @@ import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { logout } from './api';
 import { useStore } from './store';
 import { themed, T } from './theme';
-import { CircleBtn, Rule } from './ui';
+import { CircleBtn, Rule, TOPBAR_CTRL } from './ui';
 import { Settings } from './screens/Settings';
 import { useNav } from './nav';
 // A Modal is its own window, so an absolute `top` inside one is measured from
@@ -45,20 +45,43 @@ export function TopBar({
             it with an empty stack pops nothing and does nothing, exactly as
             history.back() does on a fresh page. */}
         <View style={s.hleft}>
-          <CircleBtn testID="nav-back" glyph="‹" size={28} label="Back" onPress={nav.goBack} />
+          <CircleBtn testID="nav-back" glyph="‹" size={TOPBAR_CTRL} label="Back" onPress={nav.goBack} />
           <Text style={s.appname} numberOfLines={1}>{title}</Text>
         </View>
         <View style={s.right}>
           {controls}
           {picker && <View style={s.pickerRing}>{picker}</View>}
-          <Pressable onPress={() => setMenuOpen(true)} hitSlop={8} style={s.whoPill}>
+          {/* The suite's `.who` is a <button>; ours was a bare Pressable, and
+              react-native-web only emits role="button" when it is asked to —
+              so the one way into Settings announced itself as nothing at all.
+              The label names what it opens, since "sean ▾" read aloud does
+              not say that a menu is behind it. */}
+          <Pressable
+            onPress={() => setMenuOpen(true)}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel={`${session?.username ?? ''} — account menu`}
+            style={s.whoPill}
+          >
             <Text style={s.who}>{session?.username}</Text>
             <Text style={s.whoCaret}>▾</Text>
           </Pressable>
 
         </View>
       </View>
-      <Rule />
+      {/* The gap AFTER the divider belongs here, not to each screen.
+          Every tab had invented its own: 1px on Calendar (pagerRow), 8 on
+          Notes, 12 on Habits, 16 on Reminders and Add — four values across
+          five tabs, which is what Sean saw switching between them. Each
+          screen's own paddingTop is 0 now, so this is the only thing that
+          sets it.
+
+          10, because Sean chose it looking at the built app: "habits looks
+          almost correct, i'd go with 10px" (Habits was the 12). The suite's
+          own number is 8 — `header { …; margin-bottom: 0.5rem }` in
+          lib/chrome.php, at its 16px root — so this is a deliberate
+          departure from the spec, not an oversight in reading it. */}
+      <View testID="top-rule" style={s.ruleWrap}><Rule /></View>
       {/* The username's own dropdown — the same two rows in every app. */}
       {menuOpen && (
         <Modal transparent animationType="fade" onRequestClose={() => setMenuOpen(false)}>
@@ -87,6 +110,7 @@ export function TopBar({
 }
 
 const s = themed(() => StyleSheet.create({
+  ruleWrap: { marginBottom: 10 },
   topbar: {
     height: 32,
     marginTop: 16,
@@ -107,10 +131,11 @@ const s = themed(() => StyleSheet.create({
   tipText: { color: T.text, fontSize: 12 },
   // Prod's header controls: the picker sits in a dark ringed circle, the
   // username in a thin outlined pill — header nav .who, carried over.
-  // One row, one scale: ring and pill both 32 high, the suite's bar height.
+  // One row, one scale — every control is TOPBAR_CTRL high, the suite's
+  // `.backbtn, .titlebtn, .usermenu .who { height: 32px }`.
   // Icon-sized, ringed, with air between the pie and its border (Sean).
-  pickerRing: { width: 32, height: 32, borderRadius: 16, borderWidth: 1, borderColor: T.line, backgroundColor: T.surface, alignItems: 'center', justifyContent: 'center', marginHorizontal: 4 },
-  whoPill: { height: 28, flexDirection: 'row', alignItems: 'center', gap: 5, borderWidth: 1, borderColor: T.accentSoft, borderRadius: 999, paddingHorizontal: 13 },
+  pickerRing: { width: TOPBAR_CTRL, height: TOPBAR_CTRL, borderRadius: TOPBAR_CTRL / 2, borderWidth: 1, borderColor: T.line, backgroundColor: T.surface, alignItems: 'center', justifyContent: 'center', marginHorizontal: 4 },
+  whoPill: { height: TOPBAR_CTRL, flexDirection: 'row', alignItems: 'center', gap: 5, borderWidth: 1, borderColor: T.accentSoft, borderRadius: 999, paddingHorizontal: 13 },
   who: { color: T.accent, fontSize: 14, fontWeight: '600' },
   whoCaret: { color: T.accent, fontSize: 10, opacity: 0.8 },
   menuBackdrop: { flex: 1, backgroundColor: '#0007' },

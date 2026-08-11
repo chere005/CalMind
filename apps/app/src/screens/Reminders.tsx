@@ -22,7 +22,7 @@ import { Chevron } from '../components/Chevron';
 import { EditExit } from '../components/EditExit';
 import { useSectionDrag, type SectionSlot } from '../components/sectiondrag';
 import { ItemModal } from '../components/ItemModal';
-import { CircleBtn, ConfirmDelete, Field, Pill, WebHitSlop } from '../ui';
+import { CircleBtn, CollapseAllBtn, ConfirmDelete, Field, Pill, WebHitSlop } from '../ui';
 
 type FolderRec = Rec<'folder'>;
 type SectionRec = Rec<'section'>;
@@ -413,7 +413,7 @@ export function Reminders() {
           is for things that act on the list. */}
       <TopBar
         title="Reminders"
-        controls={<Pressable onPress={collapseAll} hitSlop={8} accessibilityRole="button" accessibilityLabel={allCollapsed ? 'Expand all' : 'Collapse all'} style={s.collapseAllBtn}><WebHitSlop /><Chevron open={!allCollapsed} double /></Pressable>}
+        controls={<CollapseAllBtn open={!allCollapsed} onPress={collapseAll} />}
         picker={<FolderPick app="reminders" />}
       />
       {/* The suite's toolbar row: under the divider, immediately above the folders. */}
@@ -842,7 +842,8 @@ const s = themed(() => StyleSheet.create({
   // flexGrow so the edit backdrop below the list can actually take the
   // leftover height; without it the content container is only as tall as
   // its content and the backdrop's flexGrow has nothing to grow into.
-  scroll: { padding: 16, paddingBottom: 48, gap: 18, flexGrow: 1 },
+  // paddingTop 0 — the gap below the divider is TopBar's now (chrome.tsx).
+  scroll: { padding: 16, paddingTop: 0, paddingBottom: 48, gap: 18, flexGrow: 1 },
   folderBlock: { gap: 8 },
   folderHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   folderName: {
@@ -884,7 +885,6 @@ const s = themed(() => StyleSheet.create({
   // 26, and Habits drew a text '⌃' in a 30pt CircleBtn instead. Same
   // control, three sizes and two symbols. 26 is the largest of them, and
   // the circle IS the tap target here — the chevron inside is decoration.
-  collapseAllBtn: { width: 26, height: 26, borderRadius: 13, borderWidth: 1, borderColor: T.line, alignItems: 'center', justifyContent: 'center' },
   secName: { color: T.gold, fontSize: 16, lineHeight: 20, fontWeight: '600' },
   secRename: { flex: 1, paddingVertical: 4 },
   // …and the same for a ROW, whose text swaps for an inline field two
@@ -950,6 +950,17 @@ const s = themed(() => StyleSheet.create({
   // Reminders, 9 on Habits, 11 on Calendar, 16 on Notes. Sean named Habits as
   // closest and a hair tall, so 8 is the target and every screen is tuned to
   // land there rather than to carry the same number in its own style.
-  toolbar: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingTop: 13, minHeight: 42 },
+  // paddingTop 0 — the gap below the divider is TopBar's now (chrome.tsx).
+  // minHeight is gone with it: at 42 against a 32pt button the row had 10pt
+  // of slack that `alignItems: center` split above and below, so the first
+  // thing you SEE still sat 5pt lower than on the other tabs even with the
+  // padding zeroed. The row's natural height is the button's, and the text
+  // beside it is shorter, so nothing was relying on the floor.
+  // paddingBottom 10 matches the gap above the row, so the toolbar sits in
+  // even air rather than being welded to the first folder — Sean's ask once
+  // the top gap landed. It is the toolbar's own, not the scroll's: the
+  // scroll's paddingTop is 0 by design (see the divider note above), and
+  // putting it back there would space every OTHER screen too.
+  toolbar: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingTop: 0, paddingBottom: 10 },
   repN: { color: T.text, fontSize: 14, minWidth: 20, textAlign: 'center' },
 }));

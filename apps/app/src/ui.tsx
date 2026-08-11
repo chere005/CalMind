@@ -7,6 +7,23 @@ import React, { useRef, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, TextInput, type TextInputProps, View } from 'react-native';
 import Svg, { Polyline } from 'react-native-svg';
 import { themed, T } from './theme';
+import { Chevron } from './components/Chevron';
+
+/**
+ * Every control in the top bar is this tall, and the square ones this wide.
+ *
+ * The suite says so in one rule over three selectors — `.backbtn, .titlebtn,
+ * .usermenu .who { height: 32px }`, with `width: 32px` on the two round ones —
+ * so back, the collapse-all, the picker ring and the username pill are one
+ * scale, not four. Ours had drifted to three heights (back 28, collapse-all
+ * 26, ring 32, pill 28) and Sean saw the row as ragged. The ring's own comment
+ * already claimed "ring and pill both 32 high, the suite's bar height" while
+ * the pill beside it was 28 — the comment was right and the code was not.
+ *
+ * It is exported, and the header's controls are components rather than
+ * per-screen styles, so the next screen cannot quietly pick a fourth number.
+ */
+export const TOPBAR_CTRL = 32;
 
 /**
  * The icons that are GEOMETRY rather than typography, drawn instead of typed.
@@ -166,6 +183,30 @@ export function CircleBtn({
   );
 }
 
+/**
+ * The header's collapse-all toggle — the double chevron, in the top bar's own
+ * circle.
+ *
+ * Reminders, Notes, Habits and Calendar each carried a byte-identical
+ * `collapseAllBtn` style and a byte-identical Pressable around it. Four copies
+ * is how the row came to disagree with itself in the first place, so there is
+ * one here and the screens pass a handler.
+ */
+export function CollapseAllBtn({ open, onPress }: { open: boolean; onPress: () => void }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      hitSlop={8}
+      accessibilityRole="button"
+      accessibilityLabel={open ? 'Collapse all' : 'Expand all'}
+      style={s.topbarCircle}
+    >
+      <WebHitSlop />
+      <Chevron open={open} double />
+    </Pressable>
+  );
+}
+
 /** Two-press delete: first press fills red (label never changes), second fires. */
 export function ConfirmDelete({ onDelete, onPressIn, size = 26, testID, forceArmed = false }: { onDelete: () => void; onPressIn?: () => void; size?: number; testID?: string; forceArmed?: boolean }) {
   // forceArmed: the swipe-to-delete flow — the swipe already counted as the
@@ -243,6 +284,15 @@ const s = themed(() => StyleSheet.create({
   pillText: { color: T.text, fontSize: 14 },
   pillTextPrimary: { color: T.accent, fontWeight: '700' },
   circle: {
+    borderWidth: 1,
+    borderColor: T.line,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  topbarCircle: {
+    width: TOPBAR_CTRL,
+    height: TOPBAR_CTRL,
+    borderRadius: TOPBAR_CTRL / 2,
     borderWidth: 1,
     borderColor: T.line,
     alignItems: 'center',
