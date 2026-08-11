@@ -134,8 +134,23 @@ func when(_ e: Ev) -> String {
 /// and the app agree rather than each having a private idea of "today".
 func isToday(_ e: Ev) -> Bool { e.date == todayStr() }
 
-/// The one colour that means "today" on this wrist.
-let TODAY_TINT = Color.green
+/// The time is drawn in its own calendar's colour — Sean, 2026-08-11.
+///
+/// It was a fixed green meaning "today". Calendar colour says something the
+/// face could not say before: WHICH calendar the next thing is on, at a glance
+/// and without room for a label. What it gives up is that green: today is no
+/// longer marked by colour.
+///
+/// It is not unmarked, though. Today is the one entry that carries NO date —
+/// `when` returns a bare "3" or "now" for today and "8/15 5" for anything
+/// else — so "is this today?" is still answerable at a glance, by the absence
+/// of a date rather than by a colour that could belong to any calendar.
+/// NOT called `tint`: SwiftUI has a `View.tint(_:)` modifier, and inside a
+/// ViewBuilder a bare `tint(e)` resolves to that instead of to this — which
+/// compiles as far as a baffling "'Ev' conform to 'ShapeStyle'" and no
+/// further. Caught by building the target, which is the only thing that
+/// could have caught it.
+func calColor(_ e: Ev) -> Color { Color(hex: e.color) }
 
 struct Entry: TimelineEntry {
     let date: Date
@@ -167,9 +182,7 @@ struct EventLine: View {
     var body: some View {
         HStack(spacing: 4) {
             Circle().fill(Color(hex: e.color)).frame(width: 6, height: 6)
-            // Today's time carries the tint; a later day stays quiet, so the
-            // one thing that is happening NOW is the thing the eye lands on.
-            Text(when(e)).foregroundStyle(isToday(e) ? TODAY_TINT : Color.secondary)
+            Text(when(e)).foregroundStyle(calColor(e))
             Text(e.text).lineLimit(1).truncationMode(.tail)
         }
         .font(.caption2)
@@ -206,7 +219,7 @@ struct ComplicationView: View {
                 if let e = entry.events.first {
                     Text(whenShort(e))
                         .font(.headline)
-                        .foregroundStyle(isToday(e) ? TODAY_TINT : Color.primary)
+                        .foregroundStyle(calColor(e))
                         .widgetLabel("\(e.text)")
                 } else {
                     Image(systemName: "calendar").widgetLabel("No events")
@@ -219,7 +232,7 @@ struct ComplicationView: View {
                         VStack(spacing: 0) {
                             Text(whenShort(e))
                                 .font(.system(size: 13, weight: .bold))
-                                .foregroundStyle(isToday(e) ? TODAY_TINT : Color.primary)
+                                .foregroundStyle(calColor(e))
                             Image(systemName: "calendar").font(.system(size: 8))
                         }
                     } else {

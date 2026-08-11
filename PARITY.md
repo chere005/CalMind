@@ -1537,3 +1537,58 @@ record up by id now.
   decrypts, mutates and rewrites the WHOLE store file on every sync. Both are
   O(total store) per operation, so images inline would be paid for on every
   keystroke's save and every round trip, on every device.
+
+## Iteration — habits get a frequency, ticks get a grace, deletes get an undo
+
+Four asks in a row, all shipped to web and then to every platform for 0.2.0.
+
+**Habits have a Frequency**, set on a small Name + Frequency screen that both
+adding and editing open. The subtlety is that frequency answers two DIFFERENT
+questions — "is this listed today?" and "does this count today?" — and only
+Never tells them apart: Sean asked for it to stop counting, not to disappear,
+so it stays tickable and contributes nothing to the month's circles, numerator
+and denominator alike. Weekdays answers both the same way, because "taken out
+of the list on weekend days entirely" is what he said, so its weekend cell is
+not there rather than an unfilled circle that reads as a habit failed at on a
+Sunday. Holding a habit no longer types over its name; it reveals a pencil.
+
+A real bug came out with it: the pie divided by the flat count of every visible
+habit on every day, so a Monday-to-Friday habit made Sunday impossible to fill
+however much he had done. The denominator is per-day now, and the maths moved
+into core — it had been deciding what a day's circle means from inside a screen
+where nothing could test it.
+
+**A ticked reminder stays for two seconds**, so a mis-tap can be untapped. The
+WRITE is not delayed — only the row leaving the list. A grace that held the
+write back would lose the tick if the app closed inside it, which is a worse
+bargain than the one it fixes. A repeating reminder rolls rather than
+finishing, so it never needed one.
+
+**Undo last delete** sits in the username's dropdown, and remembers nothing new
+to do it: a delete here is a tombstone, so the newest tombstone already IS the
+last delete. That survives a reload, reads the same on every device rather than
+as a per-device stack that disagrees with itself, and cannot drift from what
+was actually deleted. Undo repeatedly and it walks back, newest first.
+
+**The complication's time is its calendar's colour**, replacing the fixed green
+that meant "today". It gives up marking today by colour and gains saying WHICH
+calendar the next thing is on — and today is still answerable at a glance,
+because it is the one entry that carries no date.
+
+Three things the work caught that had been wrong or invisible:
+
+- react-native-web emits `role="radio"` and then DROPS accessibilityState, so
+  the frequency choice announced nothing to a screen reader. Found by reading
+  the rendered element's attributes rather than trusting the prop.
+- `testids.spec` refused an absence assertion on `habit-rename` — correctly: a
+  testID nothing renders can never fail. Written while removing the very thing
+  it named.
+- `foregroundStyle(tint(e))` in the complication compiled to SwiftUI's own
+  `View.tint(_:)` modifier, failing with "'Ev' conform to 'ShapeStyle'".
+  Only building the watch target could have caught that.
+
+### Still open
+
+- Larger notes with images — needs blobs outside the record set; see TODO §3.
+- The uncheck grace on the watch and the widget, which are a different design.
+- The sticky clock skew in `put()`, unchanged.

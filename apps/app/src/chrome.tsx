@@ -5,7 +5,7 @@
  * yellow offline), then the folder picker slot, then the username — whose tap
  * opens Settings. Every screen gets Settings for free.
  */
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { logout } from './api';
 import { useStore } from './store';
@@ -30,9 +30,13 @@ export function TopBar({
 }) {
   const nav = useNav();
   const insets = useSafeAreaInsets();
-  const { session, syncState, signOut } = useStore();
+  const { session, syncState, signOut, undoLastDelete } = useStore();
   const [menuOpen, setMenuOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  /** What the last undo brought back, shown briefly under the bar. */
+  const [undone, setUndone] = useState<string | null>(null);
+  const undoTimer = React.useRef<ReturnType<typeof setTimeout>>(undefined);
+  useEffect(() => () => clearTimeout(undoTimer.current), []);
   return (
     <>
       <View style={s.topbar}>
@@ -82,6 +86,11 @@ export function TopBar({
           lib/chrome.php, at its 16px root — so this is a deliberate
           departure from the spec, not an oversight in reading it. */}
       <View testID="top-rule" style={s.ruleWrap}><Rule /></View>
+      {undone !== null && (
+        <Text testID="undo-note" style={s.undoNote}>
+          {undone === 'Nothing to undo' ? undone : `Restored “${undone}”`}
+        </Text>
+      )}
       {/* The username's own dropdown — the same two rows in every app. */}
       {menuOpen && (
         <Modal transparent animationType="fade" onRequestClose={() => setMenuOpen(false)}>
@@ -89,6 +98,24 @@ export function TopBar({
             <View style={[s.menu, { top: insets.top + 52 }]}>
               <Pressable style={s.menuRow} onPress={() => { setMenuOpen(false); setSettingsOpen(true); }}>
                 <Text style={s.menuText}>Settings</Text>
+              </Pressable>
+              {/* Sean, 2026-08-11. It says what came BACK rather than just
+                  closing: the deleted thing is by definition not on screen,
+                  so a silent restore looks like nothing happened — and if it
+                  restored something older than he expected, being told which
+                  is how he finds that out. */}
+              <Pressable
+                testID="undo-delete"
+                style={s.menuRow}
+                onPress={() => {
+                  const back = undoLastDelete();
+                  setMenuOpen(false);
+                  setUndone(back ?? 'Nothing to undo');
+                  clearTimeout(undoTimer.current);
+                  undoTimer.current = setTimeout(() => setUndone(null), 2600);
+                }}
+              >
+                <Text style={s.menuText}>Undo last delete</Text>
               </Pressable>
               <Pressable
                 style={s.menuRow}
@@ -151,6 +178,7 @@ const s = themed(() => StyleSheet.create({
     borderRadius: 12,
     paddingVertical: 4,
   },
+  undoNote: { color: T.muted, fontSize: 12, marginHorizontal: 16, marginTop: -4, marginBottom: 6 },
   menuRow: { paddingHorizontal: 16, paddingVertical: 11 },
   menuText: { color: T.text, fontSize: 15 },
 }));

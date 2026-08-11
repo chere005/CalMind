@@ -14,7 +14,7 @@ Standing rules live in `CLAUDE.md`, not here.
 
 ## Suite counts, as of this commit
 
-core **382** · gesture **132** (+1 skipped) · WebKit **16** · server **38** ·
+core **388** · gesture **137** (+1 skipped) · WebKit **16** · server **38** ·
 live **16** with the API · desktop **8** · deploy guards **9** · plus the four
 native seam checkers no browser can reach: `npm run test:watch`,
 `npm run test:widget`, `npm run test:deploy`.
@@ -30,15 +30,24 @@ precisely because its own "145 tests" went stale unnoticed.
 Each is blocked on a call, not on work. Options are given because the choice
 is between real tradeoffs, not because the answer is unclear.
 
-### The oversized record — the one with teeth
-A payload over 64KB (~10,000 words) is skipped by the server, which still
-answers 200 with a fresh cursor; the client then clears its dirty flag. The
-note saves locally, says "synced", and dies with that device. `toolong.spec.ts`
-now makes the app SAY so, which stops the silence — but the protocol is
-unchanged. (a) server returns `refused: [ids]` and the client keeps them
-dirty and says so; (b) client refuses to save past the cap; (c) raise the cap
-and move the problem. (a) is the honest one and needs a little UI. Not doing
-it unasked: this is the sync contract.
+### The oversized record — option (a) SHIPPED; what is left is smaller
+This entry claimed "the protocol is unchanged". It was already wrong when
+read against the source on 2026-08-11: the server refuses payloads over 64KB
+and returns `rejected: [ids]` (app.php), the engine keeps those ids dirty and
+never clears them (sync.ts), the store raises `syncState: 'refused'`, Settings
+shows it, and `toolong.spec.ts` asserts the app never claims to be synced in
+that state. It no longer lies.
+
+What IS left:
+- **The warning is buried.** The top bar's status dot is gone — chrome.tsx
+  destructures `syncState` and never renders it, while that file's own header
+  comment still describes the dot. You only find out by opening Settings.
+- **It does not name the record.** "Something is too long" in an app with
+  hundreds of them.
+- **It offers no way out** — no jump to the note, no split.
+
+And Sean's own question, still open: he wants larger notes WITH IMAGES. That
+is not a bigger cap; see §3.
 
 ### ~~Two devices can disagree forever~~ — DECIDED and shipped 2026-08-11
 Sean chose: the server arbitrates. It now accepts an equal-stamped write whose
@@ -117,6 +126,32 @@ holding a tunnel. Why the companion path does not update it is unknown; until
 then the watch needs the direct install and the build number is the proof.
 
 ## 3 · Work, not decisions
+
+- **Larger notes, with images** (Sean asked, 2026-08-11). Not a bigger cap:
+  the shape cannot carry it. The client persists the WHOLE snapshot as one
+  JSON string through AsyncStorage — localStorage on the web, ~5MB for the
+  entire origin — and the server decrypts, mutates and rewrites the WHOLE
+  store file on every sync. Both are O(total store) per operation, so an
+  inlined image is paid for on every save and every round trip, on every
+  device, for ever. What it needs instead: blobs stored OUTSIDE the record
+  set, content-addressed, with records holding only a reference; upload and
+  download off the sync path; the client fetching bytes lazily and caching
+  them; a rule for when an unreferenced blob is collected; and the same ENC1
+  treatment the store gets. The web client's ~5MB localStorage ceiling is the
+  binding constraint and probably forces IndexedDB there. Worth its own
+  design pass before any of it is written.
+
+- **The two-second uncheck grace does not reach the watch or the widget.**
+  It is done in the shared React app, so web and iOS both have it. The watch
+  ticks by queueing the id to the phone through `transferUserInfo` and
+  removing the row locally, and its own comment warns that a second toggle
+  rolls a repeating reminder TWICE — so a grace there means deferring the
+  send by two seconds and cancelling it, not sending an undo. That is a
+  different design from the app's (which never delays the write), and it is
+  Swift that cannot be verified from a web-only run. The widget queues ticks
+  into the App Group and redraws on its own schedule; what a grace even means
+  there is an open question.
+
 
 - **The watch's copy of the widget's calendar selection lags by one push.**
   The widget filters with its LIVE configuration; every other surface reads a

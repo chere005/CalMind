@@ -33,6 +33,7 @@ import { ItemModal, type ItemKind } from '../components/ItemModal';
 import { useSwipeLeft } from '../components/swiperow';
 import { BalancedRow } from '../components/BalancedRow';
 import { Chevron } from '../components/Chevron';
+import { useTickGrace } from '../components/tickgrace';
 import { EditExit } from '../components/EditExit';
 import { CircleBtn, CollapseAllBtn, ConfirmDelete, Pill, Rule, WebHitSlop } from '../ui';
 
@@ -118,7 +119,13 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
   const items = useMemo(() => dayItems(drawn, day, today, folderModes), [drawn, day, today, folderModes]);
   // The suite drops a group whose every item is filtered out, so a day of
   // finished reminders wears no stray heading until Completed is switched on.
-  const myReminders = useMemo(() => items.reminders.filter(({ rec: r }) => showDone || !r.payload.done), [items, showDone]);
+  // …|| grace.held: Sean's two seconds. A row that has just gone done stays
+  // on the day panel long enough to untick a mis-tap.
+  const grace = useTickGrace();
+  const myReminders = useMemo(
+    () => items.reminders.filter(({ rec: r }) => showDone || !r.payload.done || grace.held(r.id)),
+    [items, showDone, grace.version],
+  );
   const theirReminders = useMemo(() => sharedItems.reminders.filter(({ rec: r }) => !r.payload.done), [sharedItems]);
   /**
    * The groups the day panel can draw, so collapse-all knows what "all" is.
@@ -263,7 +270,10 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
   const [rolledId, setRolledId] = useState<string | null>(null);
   const rollTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const tick = (r: Rec<'reminder'>) => {
-    mutate((e) => e.put({ ...r, payload: reminderToggle(r.payload, todayStr()) }));
+    const next = reminderToggle(r.payload, todayStr());
+    mutate((e) => e.put({ ...r, payload: next }));
+    if (next.done) grace.hold(r.id);
+    else grace.release(r.id);
     if (r.payload.repeat && !r.payload.done) {
       setRolledId(r.id);
       clearTimeout(rollTimer.current);

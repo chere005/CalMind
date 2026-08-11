@@ -9,7 +9,7 @@ import React, { createContext, useCallback, useContext, useEffect, useRef, useSt
 import { AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { watchForUpdate } from './update';
-import { SyncEngine, normalize, prefsOf, folderApp, reminderToggle, shareOf, todayStr, type AnyRec, type Rec } from '@calmind/core';
+import { SyncEngine, lastDeleted, normalize, prefsOf, folderApp, recLabel, reminderToggle, shareOf, todayStr, undeleted, type AnyRec, type Rec } from '@calmind/core';
 import { apiPost, type Session, syncTransport, ApiError } from './api';
 import { drainWidgetTicks, onWatchTick, pushWatchList } from './watch';
 import { applyTheme, type ThemeName } from './theme';
@@ -36,6 +36,9 @@ type Store = {
   setSession: (s: Session) => Promise<void>; // token refresh (password change)
   mutate: (fn: (engine: SyncEngine) => void) => void;
   syncNow: () => Promise<void>;
+  /** Restore the most recently deleted reminder/event/note/habit, and say
+   *  what came back. null when there is nothing to undo. */
+  undoLastDelete: () => string | null;
   /** Sharing: the first mutual partner's shared records, read-only copies
    *  refreshed with every sync; writes go through sharedPut, never the
    *  engine — a partner's store is not ours to hold a cursor into. */
@@ -211,6 +214,23 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const sessionRef = useRef<Session | null>(null);
   sessionRef.current = session;
 
+  /**
+   * The newest tombstone, restored.
+   *
+   * Read from the SNAPSHOT rather than `recs`: the engine's all() filters
+   * deleted records out, so the live list this app renders from cannot see a
+   * tombstone at all. Passing that list here would find nothing, for ever,
+   * and the menu would look like a feature nobody had asked for.
+   */
+  const mutateRef = useRef<((fn: (engine: SyncEngine) => void) => void) | null>(null);
+  const undoLastDelete = useCallback((): string | null => {
+    const gone = lastDeleted(engineRef.current.toSnapshot().recs);
+    if (!gone) return null;
+    const label = recLabel(gone);
+    mutateRef.current?.((e) => e.put(undeleted(gone)));
+    return label;
+  }, []);
+
   const mutate = useCallback(
     (fn: (engine: SyncEngine) => void) => {
       fn(engineRef.current);
@@ -222,6 +242,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     },
     [refresh, persistNow, syncSoon],
   );
+  mutateRef.current = mutate;
+
 
   // A tick from the watch is a tap by other means: the same toggle, the same
   // mutate, so repeats roll and the next push refreshes the watch. A tick for
@@ -432,7 +454,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, [sharedRecs, sharedPartner, sharedPartnerLabel]);
 
   return (
-    <Ctx.Provider value={{ ready, session, recs, syncState, persistFailed, signIn, signOut, setSession, mutate, syncNow, partners, sharedPartner, sharedPartnerLabel, sharedRecs, sharedPut }}>
+    <Ctx.Provider value={{ ready, session, recs, syncState, persistFailed, signIn, signOut, setSession, mutate, syncNow, undoLastDelete, partners, sharedPartner, sharedPartnerLabel, sharedRecs, sharedPut }}>
       {children}
     </Ctx.Provider>
   );

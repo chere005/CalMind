@@ -18,6 +18,7 @@ import { TopBar } from '../chrome';
 import { FolderPick, useFolderView } from '../components/FolderPick';
 import { useRowDrag } from '../components/rowdrag';
 import { useSwipeLeft } from '../components/swiperow';
+import { useTickGrace } from '../components/tickgrace';
 import { Chevron } from '../components/Chevron';
 import { EditExit } from '../components/EditExit';
 import { useSectionDrag, type SectionSlot } from '../components/sectiondrag';
@@ -40,6 +41,7 @@ export function Reminders() {
   const [editText, setEditText] = useState('');
   const holdCluster = React.useRef(false);
   const swipe = useSwipeLeft();
+  const grace = useTickGrace();
   const clock24 = useClock24();
   const [pageEdit, setPageEdit] = useState(false);
   const exitEdit = () => { setPageEdit(false); setEditing(null); };
@@ -175,13 +177,13 @@ export function Reminders() {
     for (const f of folders) {
       for (const sec of sectionsOf(f.id)) {
         if (folded.has(sec.id)) continue;
-        const rows = remindersOf(sec.id).filter((r) => showDone || !r.payload.done);
+        const rows = remindersOf(sec.id).filter((r) => showDone || !r.payload.done || grace.held(r.id));
         if (rows.length === 0) out.push({ kind: 'empty', sectionId: sec.id });
         for (const r of rows) out.push({ kind: 'row', rec: r, sectionId: sec.id });
       }
     }
     return out;
-  }, [folders, sectionsOf, remindersOf, folded, showDone]);
+  }, [folders, sectionsOf, remindersOf, folded, showDone, grace.version]);
 
   const drag = useRowDrag(flatRows.length, (from, to) => {
     const src = flatRows[from];
@@ -248,7 +250,14 @@ export function Reminders() {
   const [rolledId, setRolledId] = useState<string | null>(null);
   const rollTimer = React.useRef<ReturnType<typeof setTimeout>>(undefined);
   const tick = (r: ReminderRec) => {
-    mutate((e) => e.put({ ...r, payload: reminderToggle(r.payload, todayStr()) }));
+    const next = reminderToggle(r.payload, todayStr());
+    mutate((e) => e.put({ ...r, payload: next }));
+    // Sean's two seconds: a row that has just gone done stays put, ticked, so
+    // a mis-tap can be undone by tapping it again. Untick lets go at once —
+    // there is nothing left to hold. A repeat rolls instead of finishing, so
+    // `next.done` is false and it never leaves the list anyway.
+    if (next.done) grace.hold(r.id);
+    else grace.release(r.id);
     if (r.payload.repeat && !r.payload.done) {
       setRolledId(r.id);
       clearTimeout(rollTimer.current);
@@ -465,7 +474,7 @@ export function Reminders() {
             )}
             {/* level-0 landing at this folder's end */}
             {!foldedFolders.has(f.id) && sectionsOf(f.id).map((sec) => {
-              const rows = remindersOf(sec.id).filter((r) => showDone || !r.payload.done);
+              const rows = remindersOf(sec.id).filter((r) => showDone || !r.payload.done || grace.held(r.id));
               const isFolded = folded.has(sec.id);
               return (
                 <View key={sec.id} style={s.section}>
