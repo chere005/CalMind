@@ -42,6 +42,11 @@ const recs = [
   // about a non-today heading was skipped — it passed with the comma put
   // back, which is the bug it exists to catch.
   r('later', '2026-08-12', '14:00', 'f1'),
+  // A day whose ONLY line is an event, so the calendar picker can empty it.
+  // Every other day here carries a reminder, and a reminder survives every
+  // selection — so without this day the "an emptied day disappears" rule
+  // below could not fail, whatever the code did.
+  { id: 'e2', type: 'event', updated: 1, payload: { text: 'solo', date: '2026-08-11', time: '11:00', repeat: null, calendarId: 'c1', ord: 'a' } },
   prefsPut([], 'calendar', { folderModes: { f1: 'dated', f2: 'none', f3: 'all' } }),
 ];
 const shared = [
@@ -205,6 +210,16 @@ let other = drawnDays(feed: feed, ticked: [], wanted: ["nosuchcalendar"], today:
 let otherIds = other.flatMap { $0.lines.map { $0.id } }
 check(!otherIds.contains("e1"), "an event on an UNPICKED calendar goes — got \(otherIds)")
 check(otherIds.contains("shown"), "…and the reminders still stay — got \(otherIds)")
+
+// A day the filter empties must DISAPPEAR, not draw a bare heading with no
+// rows under it. 'e2' is the only line on its day, and it is an event, so a
+// calendar selection can strip that day to nothing — which is what makes the
+// two checks after the precondition able to fail at all.
+let soloDay = all.first(where: { $0.lines.contains(where: { $0.id == "e2" }) })
+check(soloDay != nil, "the fixture must have a day whose only line is an event, or the rule below is untestable")
+check(soloDay?.lines.count == 1, "…and only that one line — got \(soloDay?.lines.map { $0.id } ?? [])")
+check(other.count == all.count - 1, "the emptied day is dropped, not drawn headless — \(all.count) days became \(other.count)")
+check(other.allSatisfy { !$0.lines.isEmpty }, "no day is ever drawn with an empty line list")
 
 // The picker's own list: mine first, then the partner's, theirs naming who
 // shared it so the configuration sheet can say so.
