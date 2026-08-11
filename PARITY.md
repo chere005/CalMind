@@ -1592,3 +1592,64 @@ Three things the work caught that had been wrong or invisible:
 - Larger notes with images — needs blobs outside the record set; see TODO §3.
 - The uncheck grace on the watch and the widget, which are a different design.
 - The sticky clock skew in `put()`, unchanged.
+
+## Iteration — three gestures that were broken in ways reading could not find
+
+0.3.0 and 0.4.0. Everything here was reported by Sean using the app, and every
+one of them was found by probing rather than by inspection — in each case the
+first, plausible reading of the code was wrong.
+
+**Tap-to-leave on habits did nothing across the whole grid.** The listener was
+on the BUBBLE phase and react-native-web stops a click at any Pressable; every
+tick cell is one, so those clicks never reached document and the KEEP list that
+decides could not be consulted. The first diagnosis — that KEEP's
+`[data-testid^="habit-"]` was too broad and matching the day-column headings —
+was true, and irrelevant: narrowing it changed nothing, because the click was
+not arriving. Both were fixed; only the phase was the bug.
+
+**The calendar's swipe would not start on the legend**, and needed two
+unrelated fixes. The legend is a sibling of the grid, so it got its own
+responder built from the grid's config. But the behaviour was position-
+dependent — the legend's empty margins worked, its middle did not,
+reproducibly — and that was not the responder at all: dragging from a chip
+started a browser TEXT SELECTION which killed the gesture. Three different
+responder arrangements produced byte-identical results before that was found;
+the arrangement was never the variable. The DOWN swipe is what proved both
+halves are load-bearing, because the up one passes on a half-fix: it travels
+over the grid, which claims it.
+
+**Double-click stopped entering edit mode on habits** — a regression from this
+repo's own previous iteration, which took the double-tap handler away with the
+inline rename it replaced. Long-press is no way in with a mouse, so the macOS
+app had no way in at all.
+
+**The complication's colour was never the code's to give.** A complication is
+rendered `.accented` or `.vibrant` by the watch FACE and never `.fullColor`.
+Sean's Modular face overrode the colours; Infograph Modular renders them. This
+cost most of a day across two sessions, for want of checking whether the
+platform would draw a thing before building it — the rendering-mode API was in
+the watchOS SDK on this machine throughout. Written into the source header and
+TODO so the next report starts at the face.
+
+Also: the note editor carries the sync status in its top right, pinned to the
+corner rather than right-aligned in a header row that wraps on a phone (it sat
+44pt below the back button at 390pt). It is the one screen where it earns its
+place — a note is the only record the server can refuse for being too long.
+
+### The ledger's own reliability
+
+Four §1 entries have now been found stale — the oversized record, the widget
+key, the wrist's clock and the complication tint — and every one was caught by
+a question of Sean's rather than by re-reading. Each is corrected in place, but
+§1 as a whole has not been re-verified against source end to end, and until it
+is, it should be read with suspicion. That is a job worth doing on its own.
+
+### Still open
+
+- Larger notes with images: needs blobs outside the record set. The client
+  keeps the whole store in one localStorage string and the server rewrites the
+  whole file per sync, so both are O(total store) per operation.
+- The uncheck grace does not reach the watch or the widget; the watch needs a
+  different design (defer the SEND, since a second toggle rolls a repeat twice).
+- put()'s clock clamp is still sticky, and is the likelier of the two sync
+  problems to bite now that ties resolve.

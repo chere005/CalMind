@@ -14,7 +14,7 @@ Standing rules live in `CLAUDE.md`, not here.
 
 ## Suite counts, as of this commit
 
-core **388** · gesture **144** (+1 skipped) · WebKit **16** · server **38** ·
+core **388** · gesture **144** (+1 skipped) · WebKit **16** · server **41** ·
 live **16** with the API · desktop **7** (+3 in `npm run test:desktop`) · deploy guards **9** · plus the four
 native seam checkers no browser can reach: `npm run test:watch`,
 `npm run test:widget`, `npm run test:deploy`.
