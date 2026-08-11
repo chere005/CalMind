@@ -489,6 +489,52 @@ January, and a typed "tomorrow" crossing into the next year — and February
 is the other half, the screens on those days, which no vector reaches. Both
 passed first try, which is the answer you want and the reason to keep them.
 
+### Edit mode, and the gestures that end it (2026-08-10)
+
+Sean removed the Done button, so tapping out is the ONLY way to leave edit
+mode — which makes "can he get stuck?" the question these specs exist to
+answer. Each of Reminders, Notes and Habits is driven the same way: hold to
+enter, then leave by the FOLDER header, the SECTION header, and blank space
+below the list. The headers matter because a full screen has no blank space,
+and they are the only always-visible surface that is not a control.
+
+Two rules underneath, both learned by getting them wrong first:
+
+  - The header is a plain View, never a Pressable. As a Pressable it fired
+    its own onPress on the release of the long-press that had just opened
+    edit mode, so edit mode opened and shut in one gesture; both Habits specs
+    caught it. As a View the tap reaches the rules that already exist — the
+    document listener on web, the EditExit wrapper on native — and those
+    already guard that opening click.
+  - Its testID is `head-sec-` / `head-fold-`, not `sechead-` / `foldhead-`.
+    The allow-lists keep `[data-testid^="sec"]` and `[data-testid^="fold"]`,
+    so the obvious names make the header EXEMPT from the rule it exists to
+    trigger. Proven: rename Habits' to `hsec-head-` and its spec goes red.
+
+Zero shift on entering edit mode is measured rather than asserted — see the
+scratch measurement in the commit for 2026-08-10: rows identical in height,
+y, tick x, tick y and body width, on both ways in.
+
+### Collapse-all, the date sheet, and the two routes into the note editor
+
+`collapse-all` had NO behavioural test on any screen until today. chevrons.spec
+checks it is the right glyph in the right box, which says nothing about
+whether pressing it folds anything. It now folds and unfolds on the list AND
+the calendar's day panel — the latter being a control one day old.
+
+The note date sheet is driven through all three of its controls, including
+CLEAR, which is the one that fails silently: a note keeps a date nobody can
+see it still has. Its absence is proven the way a date matters — the note is
+gone from the calendar afterwards. A typed `12/25` is asserted to store a
+real `YYYY-12-25`, because it did not: the field wrote the characters
+straight into payload.date while every comparison in the app is against
+YYYY-MM-DD.
+
+Both routes into the note editor are pinned — from the calendar's day panel
+and from the Add sheet — because Back now returns to whichever tab you came
+from, and the Add route is where "stuck" would look most like working
+software: the editor closing to the notes list with the tab unchanged.
+
 ## What only an eye can check
 
 - **Icon-button centring** — the suite's pre-deploy rule verbatim: every
