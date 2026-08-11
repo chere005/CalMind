@@ -225,6 +225,21 @@ struct SelectFolders: WidgetConfigurationIntent {
 /// through the SAME reminderToggle a phone tap uses — repeats roll, sync runs
 /// — next time it is foregrounded. The watch's tick pattern, one transport
 /// over. If the app never comes back, the tick is queued, not lost.
+/// The queue after a tap on `id` — pure, so check-widget-feed.sh can run it.
+///
+/// Split out of TickIntent because an AppIntent reaches into UserDefaults and
+/// nothing in this repo can execute one: the toggle was written, and breaking
+/// it deliberately produced a green suite. This is the rule, and it is now
+/// checked.
+func toggledTicks(_ ticks: [String], _ id: String) -> [String] {
+    if let at = ticks.firstIndex(of: id) {
+        var out = ticks
+        out.remove(at: at)
+        return out
+    }
+    return ticks + [id]
+}
+
 struct TickIntent: AppIntent {
     static var title: LocalizedStringResource = "Complete reminder"
     static var isDiscoverable = false
@@ -236,7 +251,10 @@ struct TickIntent: AppIntent {
     func perform() async throws -> some IntentResult {
         let d = UserDefaults(suiteName: GROUP)
         var ticks = d?.stringArray(forKey: TICKS) ?? []
-        if !ticks.contains(id) { ticks.append(id) }
+        // TOGGLE, not append. Tapping a queued row again removes it from the
+        // queue, which is the undo — the app never hears about it, so nothing
+        // has to be reversed and a repeating reminder cannot roll twice.
+        ticks = toggledTicks(ticks, id)
         d?.set(ticks, forKey: TICKS)
         WidgetCenter.shared.reloadAllTimelines()
         return .result()
@@ -254,6 +272,9 @@ struct Line: Identifiable {
     let isReminder: Bool
     let overdue: Bool
     let color: Color
+    /// Ticked here and queued for the app, which has not drained it yet. The
+    /// row stays on the card, drawn done, so the tap can be taken back.
+    var pending: Bool = false
 }
 
 /// A day as the view draws it. `isToday` travels because the heading STRING
@@ -331,7 +352,16 @@ struct Provider: AppIntentTimelineProvider {
     static func drawnDays(feed: Feed, ticked: Set<String>, wanted: Set<String>, today: String) -> [DaySection] {
         let days: [DaySection] = (feed.days ?? []).compactMap { day in
             let lines = day.lines.compactMap { l -> Line? in
-                if ticked.contains(l.id) { return nil }
+                // A queued tick used to remove the row outright, which left
+                // nothing to undo — Sean asked for the ability to uncheck a
+                // mis-tap "in all apps", and this was the surface with no way
+                // back at all. It stays, drawn done, until the app drains the
+                // queue; tapping it again takes it out of the queue.
+                //
+                // No timer, because a widget has none: the window is "until
+                // the app next comes forward" rather than two seconds. That is
+                // longer than the phone's grace and shorter than nothing.
+                let pending = ticked.contains(l.id)
                 // The picker chooses CALENDARS, so it filters EVENTS. A
                 // reminder is never filtered here: whether it appears at all
                 // was already decided by the tri-state in Manage reminders,
@@ -342,7 +372,8 @@ struct Provider: AppIntentTimelineProvider {
                     guard let c = l.calendarId, wanted.contains(c) else { return nil }
                 }
                 return Line(id: l.id, text: l.text, time: l.time, isReminder: l.isReminder,
-                            overdue: l.overdue, color: l.color.map(hexColor) ?? LABEL)
+                            overdue: l.overdue, color: l.color.map(hexColor) ?? LABEL,
+                            pending: pending)
             }
             return lines.isEmpty ? nil
                 : DaySection(heading: dayHeading(day.date, today: today), isToday: day.date == today, lines: lines)
@@ -548,7 +579,7 @@ struct HomeWidgetView: View {
                 // The box is the control. Everything else falls through to
                 // the widget's own tap, which opens the app.
                 Button(intent: TickIntent(id: line.id)) {
-                    Image(systemName: "square")
+                    Image(systemName: line.pending ? "checkmark.square.fill" : "square")
                         .font(.system(size: 11, weight: .medium))
                         .foregroundStyle(line.overdue ? OVERDUE : REMINDER)
                 }

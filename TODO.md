@@ -248,9 +248,17 @@ then the watch needs the direct install and the build number is the proof.
   than a screenshot round trip, so the observation was made with the grace
   temporarily raised — the committed value is 2.
 
-  The WIDGET still has no grace, and it is a different question again: it
-  queues ticks into the App Group and redraws on WidgetKit's schedule, so
-  there is no moment at which it could offer an undo.
+  THE WIDGET HAS ONE NOW TOO, and the shape is different again because a
+  widget has no timer. A queued tick used to remove the row outright, which
+  left nothing to tap; it stays, drawn done, and a second tap takes the id back
+  OUT of the queue so the app never hears about it. The window is therefore
+  "until the app next comes forward" rather than two seconds — longer than the
+  phone's grace and, unlike before, not nothing.
+
+  The queue rule was pulled out of TickIntent into a free `toggledTicks` for
+  the usual reason: an AppIntent reaches into UserDefaults and nothing here can
+  run one, so the toggle was written, broken deliberately, and the whole suite
+  stayed green. It is checked now.
 
 ## 4 · Steady state, every iteration
 

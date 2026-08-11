@@ -108,6 +108,19 @@ def grab_func(name):
         k += 1
     return src[i:k+1].replace('static func', 'func')
 
+def grab_top(name):
+    """A free function at file scope — TickIntent's queue rule lives there so
+    something can run it, and grab_func/grab_priv both assume a member."""
+    i = src.index('\nfunc %s(' % name) + 1
+    depth, k = 0, src.index('{', i)
+    while True:
+        if src[k] == '{': depth += 1
+        elif src[k] == '}':
+            depth -= 1
+            if depth == 0: break
+        k += 1
+    return src[i:k+1]
+
 def grab_priv(name):
     i = src.index('private func %s(' % name)
     depth, k = 0, src.index('{', i)
@@ -121,7 +134,7 @@ def grab_priv(name):
 
 # Colour is SwiftUI; the check is about grouping and filtering, so Line's
 # colour becomes a plain string and hexColor is stubbed to pass it through.
-widget_logic = (grab_func('drawnDays') + '\n' + grab_func('packed') + '\n' + grab_func('drawnHeight') + '\n' + grab_priv('dayHeading') + '\n' + grab_priv('clock12'))
+widget_logic = (grab_func('drawnDays') + '\n' + grab_func('packed') + '\n' + grab_top('toggledTicks') + '\n' + grab_func('drawnHeight') + '\n' + grab_priv('dayHeading') + '\n' + grab_priv('clock12'))
 # The header is not part of packed() — it is subtracted in the view — so the
 # only way to keep it charged is to read the view. Sean's card sliced its own
 # "Calendar" title through the middle because the day list was handed the FULL
@@ -186,7 +199,7 @@ TRAILING = _const('ROW_TRAILING')
 
 widget_logic = widget_logic.replace('Provider.drawnDays', 'drawnDays')
 types += '''
-struct Line { let id: String; let text: String; let time: String?; let isReminder: Bool; let overdue: Bool; let color: String? }
+struct Line { let id: String; let text: String; let time: String?; let isReminder: Bool; let overdue: Bool; let color: String?; var pending: Bool = false }
 struct DaySection { let heading: String; let isToday: Bool; let lines: [Line] }
 func hexColor(_ hex: String) -> String { hex }
 let LABEL: String? = nil
@@ -267,10 +280,17 @@ check(clock12("09:05") == "9:05am", "9:05am — got \(clock12("09:05"))")
 check(clock12("00:00") == "12am", "midnight is 12am — got \(clock12("00:00"))")
 check(clock12("12:00") == "12pm", "noon is 12pm — got \(clock12("12:00"))")
 
-// A queued tick disappears at once, before the app has woken to apply it.
+// A queued tick STAYS, drawn done, until the app drains it. This asserted the
+// opposite until 2026-08-11 — the row vanished the instant it was tapped, and
+// with it any way to take the tap back. Sean asked for a mis-tap to be
+// undoable "in all apps", and the widget was the only surface with no route at
+// all; a widget cannot run a timer, so the window here is "until the app next
+// comes forward" rather than the phone's two seconds.
 let afterTick = drawnDays(feed: feed, ticked: ["shown"], wanted: [], today: today)
 let afterIds = afterTick.flatMap { $0.lines.map { $0.id } }
-check(!afterIds.contains("shown"), "a widget-ticked row goes immediately — got \(afterIds)")
+check(afterIds.contains("shown"), "a queued row stays, so the tap can be taken back — got \(afterIds)")
+check(afterTick.flatMap { $0.lines }.first { $0.id == "shown" }?.pending == true,
+      "…and is drawn as done while it waits")
 
 // The picker chooses CALENDARS, so it filters EVENTS. A reminder is never
 // filtered here — whether it appears was already decided by the tri-state in
@@ -333,6 +353,33 @@ check(cals.last?.sharedFrom == "aki", "a partner's names them — got \(String(d
 let big  = [DaySection(heading: "TODAY", isToday: true,  lines: (1...3).map { Line(id: "t\($0)", text: "t", time: nil, isReminder: true, overdue: false, color: nil) }),
             DaySection(heading: "TUE",   isToday: false, lines: (1...6).map { Line(id: "u\($0)", text: "u", time: nil, isReminder: true, overdue: false, color: nil) }),
             DaySection(heading: "WED",   isToday: false, lines: [Line(id: "w1", text: "w", time: nil, isReminder: true, overdue: false, color: nil)])]
+
+// A QUEUED TICK KEEPS ITS ROW. Sean asked for the ability to uncheck a
+// mis-tap in every app, and the widget was the one surface with no way back:
+// drawnDays dropped the row the moment its id was queued, so there was
+// nothing left to tap. It stays now, flagged pending, and the intent toggles
+// the queue rather than only appending — see HomeWidget's TickIntent.
+let tickedDay = [WDay(date: today, lines: [
+    WLine(id: "keepme", text: "queued", time: nil, isReminder: true, overdue: false, color: nil, calendarId: nil),
+    WLine(id: "other",  text: "not queued", time: nil, isReminder: true, overdue: false, color: nil, calendarId: nil),
+])]
+let withTick = drawnDays(feed: Feed(items: [], events: nil, folders: nil, calendars: nil, days: tickedDay, clock24: nil),
+                         ticked: ["keepme"], wanted: [], today: today)
+let keptIds = withTick.flatMap { $0.lines.map { $0.id } }
+check(keptIds.contains("keepme"), "a queued tick keeps its row, or there is nothing left to untick — got \(keptIds)")
+check(withTick.flatMap { $0.lines }.first { $0.id == "keepme" }?.pending == true,
+      "…and it is marked pending, so it draws as done")
+check(withTick.flatMap { $0.lines }.first { $0.id == "other" }?.pending == false,
+      "…while an untouched row is not")
+
+// The undo itself: a second tap takes the id back OUT of the queue, so the
+// app never hears about it. Appending only — which is what this did until
+// 2026-08-11 — makes the first tap final, and a widget has no timer with which
+// to offer anything else.
+check(toggledTicks([], "a") == ["a"], "a first tap queues it")
+check(toggledTicks(["a"], "a") == [], "a second tap takes it back")
+check(toggledTicks(["a", "b"], "a") == ["b"], "…and leaves the other queued ticks alone")
+check(toggledTicks(["b"], "a") == ["b", "a"], "queuing a second row keeps the first")
 
 // The card's real costs, in points, as HomeWidget.swift measures them:
 // a row is 20 (12pt text = 15pt line + 5 padding), a heading 20 (10pt bold =
