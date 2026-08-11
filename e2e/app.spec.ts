@@ -1687,3 +1687,37 @@ test("the tri-state silences a folder's riders on the calendar", async ({ page }
   await page.getByTestId('remfolders-done').click();
   await expect(page.getByText('ride me', { exact: true })).toBeHidden();
 });
+
+test('every repeat editor draws core’s unit list — Add and the inline row, not just the modal', async ({ page }) => {
+  // There are THREE repeat editors and only ItemModal's had a test, reached
+  // through rem-pencil. The other two read the same REPEAT_UNITS now, and a
+  // source sweep in testids.spec stops a literal copy coming back — but that
+  // guards the source, not the screen. Nothing until now had opened these two
+  // and looked.
+  await signup(page);
+  const bgOf = (t: string) =>
+    page.getByText(t, { exact: true }).first()
+      .evaluate((el) => getComputedStyle(el.parentElement!).backgroundColor);
+
+  // 1 — the Add screen's editor.
+  await page.getByTestId('tab-add').click();
+  await page.getByText('+ Repeat', { exact: true }).click();
+  for (const u of ['day', 'week', 'month', 'year']) {
+    await expect(page.getByText(u, { exact: true }).first()).toBeVisible();
+  }
+  await page.getByText('month', { exact: true }).first().click();
+  expect(await bgOf('month'), 'Add: the picked unit is the selected one').not.toBe(await bgOf('day'));
+
+  // 2 — the inline editor on a Reminders row, which opens with the row itself.
+  await page.getByTestId('tab-reminders').click();
+  await page.getByTestId('secadd-General').first().click();
+  await page.getByTestId('rem-add-field').fill('repeat me');
+  await page.getByTestId('rem-add-field').press('Enter');
+  await page.keyboard.press('Escape');
+  await longPress(page, page.getByTestId('rem-body').filter({ hasText: 'repeat me' }));
+  for (const u of ['day', 'week', 'month', 'year']) {
+    await expect(page.getByText(u, { exact: true }).first()).toBeVisible();
+  }
+  await page.getByText('month', { exact: true }).first().click();
+  expect(await bgOf('month'), 'inline row: the picked unit is the selected one').not.toBe(await bgOf('day'));
+});
