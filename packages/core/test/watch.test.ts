@@ -11,7 +11,7 @@ import { prefsPut } from '../src/manage';
 const rem = (
   id: string,
   text: string,
-  opts: { due?: string | null; time?: string | null; done?: boolean; indent?: number; ord?: string; deleted?: boolean } = {},
+  opts: { due?: string | null; time?: string | null; done?: boolean; indent?: 0 | 1; ord?: string; deleted?: boolean } = {},
 ): Rec<'reminder'> => ({
   id,
   type: 'reminder',

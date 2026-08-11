@@ -94,6 +94,23 @@ if [ -n "$LINT" ]; then
   exit 1
 fi
 
+echo "==> typecheck"
+# The core suite runs through vitest, which strips types without checking
+# them, so tsc was the only thing that could see a fixture the app cannot
+# produce — and nothing ran tsc. It had drifted to six errors, one of them an
+# Event literal with no `ord`, a record no client ever writes.
+#
+# Output is captured and printed rather than sent to /dev/null: a gate whose
+# reason is hidden gets deleted by whoever it blocks first.
+TSLOG=$(mktemp)
+if ! npx tsc --noEmit -p packages/core >"$TSLOG" 2>&1; then
+  cat "$TSLOG" >&2
+  rm -f "$TSLOG"
+  echo "core typecheck failed — not deploying" >&2
+  exit 1
+fi
+rm -f "$TSLOG"
+
 echo "==> tests"
 # The server suite was the only gate here, so a red CORE suite could still ship.
 # Core is the behaviour every client runs and it takes about a second.

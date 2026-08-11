@@ -184,14 +184,14 @@ describe('the filled grid and the two-week fold', () => {
     expect(g.length % 7).toBe(0);
     expect(g[0]).toBe('2026-07-26'); // the leading Sunday, July
     expect(g).toContain('2026-08-01');
-    expect(g[g.length - 1] >= '2026-08-31').toBe(true);
+    expect(g[g.length - 1]! >= '2026-08-31').toBe(true);
   });
   it('two weeks run from the selected day\u2019s Sunday, crossing months freely', () => {
     const w = twoWeeksFrom('2026-08-08');
     expect(w).toHaveLength(14);
     expect(w[0]).toBe('2026-08-02');
     expect(w[13]).toBe('2026-08-15');
-    expect(twoWeeksFrom('2026-08-31')[13].startsWith('2026-09')).toBe(true);
+    expect(twoWeeksFrom('2026-08-31')[13]!.startsWith('2026-09')).toBe(true);
   });
 });
 

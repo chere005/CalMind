@@ -418,7 +418,12 @@ describe('duplicateItem — a copy directly under the original, fresh ids', () =
   });
 
   it('copies an event as one fresh-id row and refuses a missing id', () => {
-    const ev: Rec<'event'> = { id: 'e1', type: 'event', updated: 0, payload: { text: 'party', date: '2026-08-08', time: null, repeat: null, calendarId: 'c1' } };
+    // `ord` is required on an Event and the app never writes one without it;
+    // the literal was missing it and only the typecheck knew, because
+    // duplicateItem copies an event's payload wholesale rather than reading
+    // the field. A fixture the app cannot produce is the one thing this
+    // repo's own notes say not to trust.
+    const ev: Rec<'event'> = { id: 'e1', type: 'event', updated: 0, payload: { text: 'party', date: '2026-08-08', time: null, repeat: null, calendarId: 'c1', ord: 'a' } };
     const res = duplicateItem([...base(), ev], 'e1', mk());
     if ('error' in res) throw new Error(res.error);
     expect(res.put[0]!.id).toBe('dup1');

@@ -41,7 +41,8 @@ describe('the sync engine', () => {
     a.put(reminder('r1', 'from a'), 1000);
     await a.sync(server);
     await b.sync(server); // b learns of r1
-    b.put({ ...b.get('r1')!, payload: { ...(b.get('r1') as Rec<'reminder'>).payload, text: 'from b, later' } }, 2000);
+    const r1 = b.get('r1') as Rec<'reminder'>;
+    b.put({ ...r1, payload: { ...r1.payload, text: 'from b, later' } }, 2000);
     await b.sync(server);
     await a.sync(server);
     expect((a.get('r1') as Rec<'reminder'>).payload.text).toBe('from b, later');
@@ -76,7 +77,8 @@ describe('the sync engine', () => {
     // Race: the transport is in flight while the user keeps typing.
     const slow = async (req: SyncRequest) => {
       const res = await server(req);
-      a.put({ ...a.get('r1')!, payload: { ...(a.get('r1') as Rec<'reminder'>).payload, text: 'v2' } }, 2000);
+      const cur = a.get('r1') as Rec<'reminder'>;
+      a.put({ ...cur, payload: { ...cur.payload, text: 'v2' } }, 2000);
       return res;
     };
     await a.sync(slow);

@@ -75,6 +75,22 @@ else
 fi
 cp "$TMP/store.php" server/lib/store.php
 
+echo "deploy-test.sh — the core typecheck gate"
+# vitest strips types without checking them, so the suite is green against a
+# fixture whose shape no client could ever write. tsc is the only thing that
+# sees that, and until this gate existed nothing ran tsc — it had drifted to
+# six errors unnoticed. Same method as the lint above: break the real tree,
+# require the deploy to stop, put it back.
+cp packages/core/src/order.ts "$TMP/order.ts"
+printf '\nconst _guardcheckProbe: number = "not a number";\n' >> packages/core/src/order.ts
+if ./server/deploy-test.sh --dry-run --no-web >"$TMP/tsc" 2>&1; then
+  bad "a core TYPE error still deploys"
+else
+  grep -q 'typecheck failed' "$TMP/tsc" && ok "a core type error stops the deploy" \
+    || bad "it stopped, but not at the typecheck gate — check $TMP/tsc"
+fi
+cp "$TMP/order.ts" packages/core/src/order.ts
+
 echo
 echo "────────────────────────────────"
 echo "$PASS passed, $FAIL failed"
