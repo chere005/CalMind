@@ -580,6 +580,15 @@ test('Habits enters edit mode by HOLDING, and leaves by tapping outside', async 
   await page.mouse.click(vp.width / 2, vp.height - 140);
   await expect(page.getByTestId('habit-grip').first()).toBeHidden();
 
+  // …and the section HEADER leaves it too, which is the exit that has to work
+  // when the grid fills the screen and there is no inert space to tap. Sean
+  // asked for the three screens to behave identically; Reminders and Notes
+  // are pinned on their headers, so Habits is pinned on its.
+  await longPress(page, page.locator('[data-testid^="hsec-name-"]').first());
+  await expect(page.getByTestId('habit-grip').first()).toBeVisible();
+  await page.getByTestId('head-sec-Habits').click();
+  await expect(page.getByTestId('habit-grip').first()).toBeHidden();
+
   // Holding a HABIT enters it too — Sean named both.
   await longPress(page, page.getByTestId('habit-name').first());
   await expect(page.getByTestId('habit-grip').first()).toBeVisible();
