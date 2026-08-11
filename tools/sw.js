@@ -53,13 +53,31 @@ const CACHE = 'calmind-__BUILD__';
  */
 const SHELL = __SHELL__;
 
+/**
+ * The entries without which offline is a lie, generated alongside SHELL: the
+ * document and the entry bundle. Everything else — icons, the async chunks —
+ * is worth having and not worth failing over.
+ */
+const CRITICAL = __CRITICAL__;
+
 self.addEventListener('install', (event) => {
-  // waitUntil so the worker is not considered installed until the shell is in.
-  // Individually, and tolerating failures: one 404 must not leave the whole
-  // install rejected and the app with no offline story at all.
   event.waitUntil(
     caches.open(CACHE).then((cache) =>
-      Promise.all(SHELL.map((url) => cache.add(url).catch(() => {})))
+      // CRITICAL with addAll, which REJECTS if any of them fails, so the
+      // install fails with it and the browser tries again on the next visit.
+      //
+      // Everything used to be cached individually with the failure swallowed,
+      // and that is the silent-failure shape this project keeps being bitten
+      // by: if the bundle had not cached, the worker still installed, still
+      // took control, and still reported itself healthy while being unable to
+      // do the one thing it exists for. The user would find out on a train.
+      cache.addAll(CRITICAL).then(() =>
+        // The rest individually and forgivingly: one missing icon must not
+        // cost the whole offline story.
+        Promise.all(
+          SHELL.filter((u) => CRITICAL.indexOf(u) === -1).map((u) => cache.add(u).catch(() => {})),
+        ),
+      ),
     ).then(() => self.skipWaiting()),
   );
 });

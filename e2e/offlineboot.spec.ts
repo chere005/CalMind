@@ -103,4 +103,14 @@ test('the API is never served from cache', async ({ page }) => {
   const shipped = await page.evaluate(async () => (await fetch('sw.js')).text());
   expect(shipped, 'the shipped worker skips the API').toContain("url.pathname.includes('/api/')");
   expect(shipped, 'and it is cache-busted per build').toMatch(/calmind-index-[a-f0-9]+\.js/);
+
+  // The shell the worker CANNOT open the app without has to be cached with
+  // addAll, which rejects — so a failure fails the install and the browser
+  // retries next visit. Caching every entry individually and swallowing the
+  // error, which is how this was first written, leaves a worker that installs,
+  // takes control, reports itself healthy and cannot open the app: the user
+  // finds out on a train. The document and the entry bundle are the two.
+  expect(shipped, 'the critical shell is named').toMatch(/const CRITICAL = \[[^\]]*index\.html/);
+  expect(shipped, 'and the entry bundle is in it').toMatch(/const CRITICAL = \[[^\]]*_expo\/static\/js\/web\/index-[a-f0-9]+\.js/);
+  expect(shipped, 'cached with addAll, which fails loudly').toContain('cache.addAll(CRITICAL)');
 });

@@ -170,9 +170,13 @@ const walk = (dir, base = '') => {
   }
 };
 walk(distDir);
+// The document and the entry bundle: without these two, cached, the worker
+// cannot open the app at all, so its install must fail rather than pretend.
+const critical = ['./index.html', ...shell.filter((u) => u.endsWith(`/${bundle}`))];
 const worker = readFileSync(join(TOOLS, WORKER), 'utf8')
   .replace('__BUILD__', bundle)
-  .replace('__SHELL__', JSON.stringify(shell));
+  .replace('__SHELL__', JSON.stringify(shell))
+  .replace('__CRITICAL__', JSON.stringify(critical));
 writeFileSync(join(dirname(file), 'sw.js'), worker);
 
 // Registered after load so it never competes with the first paint, and
