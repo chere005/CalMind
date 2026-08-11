@@ -178,23 +178,16 @@ then the watch needs the direct install and the build number is the proof.
   second time only if it changed. Not done unasked — it is a sync-timing
   change and the symptom is transient.
 
-- **The complication's today tint, on a real wrist.** The WORDS are gated —
-  `check-watch-format.sh` runs both Swift copies and pins "now" for an all-day
-  event today, plus a later all-day event still naming its date; both halves
-  were broken deliberately and went red. The GREEN is not gated: it is a view
-  concern the string checker cannot see, and an unsigned simulator build has
-  no App Group, so the complication there reads an empty feed whatever the
-  code says. Confirm it on the wrist next install. The green is the same
-  `Color.green` the watch app already uses for today, so it should match the
-  page beside it rather than introduce a second idea of "today".
+- ~~**The complication's tint, on a real wrist**~~ — CONFIRMED WORKING
+  2026-08-11, and the answer was the watch FACE, not the code. A complication
+  is rendered `.accented` or `.vibrant` by the face, never `.fullColor`, so
+  arbitrary colours are the face's to discard: on Sean's MODULAR face
+  everything came out monochrome, and moving to a face that renders colour
+  (Infograph Modular, same three-row layout) brought it back. Worth knowing
+  before anyone "fixes" the complication again — the words are gated by
+  check-watch-format.sh, the colours never can be from here, and the next
+  report of "no colour on the complication" is a face question first.
 
-- **The macOS .app is ad-hoc linker-signed, and Gatekeeper rejects it**
-  (`code has no resources but signature indicates they must be present`;
-  `Info.plist=not bound`). It launches locally and survives being copied to
-  another directory, so nothing is blocked today — but it is not distributable,
-  and a quarantined copy (anything downloaded) would be refused. Fixing it
-  means a real signing identity in `tauri.conf.json` and, for anyone else's
-  Mac, notarisation. Not started; nobody has asked to hand this app to anyone.
 - **The widget's pixels with REAL data** — everything upstream is covered
   (entitlements, the cache writer, core's shape, the decoder, `drawnDays`),
   but an unsigned simulator build has no App Group at all, so the last mile

@@ -171,6 +171,12 @@ func calColor(_ e: Ev) -> Color { Color(hex: e.color) }
  `.fullColor` — where `Color(hex:)` means what it says — is what the previews,
  the gallery and the iPhone's Smart Stack use, not the wrist.
 
+ WHICH FACE MATTERS, and it is the answer to "why is my complication grey".
+ Confirmed on Sean's own watch, 2026-08-11: the MODULAR face overrides the
+ colours, and moving the complication to a face that renders them — Infograph
+ Modular has the same three-row layout — brought them back. So if the times
+ are monochrome, the face is the thing to change, not this file.
+
  So the colour is kept for the case where it can be honoured, and where it
  cannot, the TIME is put in the accent group instead: on an `.accented` face
  it then takes the face's accent colour while the event's name stays in the
