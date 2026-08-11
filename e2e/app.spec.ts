@@ -629,6 +629,19 @@ test('a note takes a date from the LIST, and the calendar opens it for editing',
   await expect(page.getByTestId('note-row').filter({ hasText: 'dated note' })).toBeVisible({ timeout: 10_000 });
   await expect(page.getByTestId('cal-grid')).toHaveCount(0);
 
+  // A TYPED date has to parse. It was written into payload.date verbatim, so
+  // "8/12" stayed "8/12" while every comparison in the app is against
+  // YYYY-MM-DD — the note simply never appeared on the day it claimed. It
+  // goes through the same parseDateField the note editor's own field uses.
+  await page.getByTestId('tab-notes').click();
+  await longPress(page, page.getByTestId('note-row').filter({ hasText: 'dated note' }));
+  await page.getByTestId('note-datechip-dated note').click();
+  await page.getByTestId('note-date-field').fill('12/25');
+  await page.getByTestId('note-date-field').press('Enter');
+  await page.getByTestId('note-date-done').click();
+  // Stored as a real date, not as the characters typed.
+  await expect(page.getByTestId('note-datechip-dated note')).toHaveText(/^\d{4}-12-25$/);
+
   // The DATE CHIP is the other way into the editor — Sean asked for tapping
   // an existing date to open it, not only the icon.
   await longPress(page, page.getByTestId('note-row').filter({ hasText: 'dated note' }));

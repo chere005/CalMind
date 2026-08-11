@@ -81,6 +81,8 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
   const [pageEdit, setPageEdit] = useState(false);
   /** Which note the mini date editor is open for, or null. */
   const [dateFor, setDateFor] = useState<string | null>(null);
+  /** What is being TYPED in that sheet, before it parses into a real date. */
+  const [dateDraft, setDateDraft] = useState('');
   /**
    * Was this editor reached from another TAB (the calendar's day panel, the
    * Add sheet) rather than from the notes list?
@@ -766,7 +768,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
                       {/* The date itself is the other way in: Sean asked that
                           tapping a date in edit mode open the same editor. */}
                       {pageEdit && n.payload.date && (
-                        <Pressable testID={`note-datechip-${n.payload.title}`} onPress={() => setDateFor(n.id)} hitSlop={6}>
+                        <Pressable testID={`note-datechip-${n.payload.title}`} onPress={() => { setDateDraft(n.payload.date ?? ''); setDateFor(n.id); }} hitSlop={6}>
                           <WebHitSlop slop={6} />
                           <Text style={s.dateChip}>{n.payload.date}</Text>
                         </Pressable>
@@ -782,7 +784,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
                             label={n.payload.date ? 'Change date' : 'Add a date'}
                             size={22}
                             color={n.payload.date ? T.accent : T.dim}
-                            onPress={() => setDateFor(n.id)}
+                            onPress={() => { setDateDraft(n.payload.date ?? ''); setDateFor(n.id); }}
                           />
                           <CircleBtn testID="note-dup" glyph="⧉" label="Duplicate" size={22} onPress={() => {
                             const res = duplicateItem(recs, n.id, newId);
@@ -872,12 +874,31 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
             <Pressable style={s.dateBackdrop} onPress={() => setDateFor(null)}>
               <Pressable style={s.dateCard} onPress={() => {}}>
                 <Text style={s.dateTitle} numberOfLines={1}>{note.payload.title}</Text>
+                {/* PARSED, not stored raw. This wrote whatever was typed
+                    straight into payload.date, so "8/12" was stored as
+                    "8/12" — and every date comparison in the app is against
+                    YYYY-MM-DD, so the note simply never appeared on the day
+                    it said. The note editor's own field has always gone
+                    through parseDateField; this is the same function, so the
+                    two cannot disagree about what "8/12" means.
+
+                    Committed on SUBMIT rather than on every keystroke: parsing
+                    a half-typed "8/" and writing the result back into the
+                    field fights the person typing it. */}
                 <Field
                   testID="note-date-field"
-                  value={note.payload.date ?? ''}
-                  onChangeText={(t) => setDate(t.trim() === '' ? null : t)}
+                  value={dateDraft}
+                  onChangeText={setDateDraft}
                   placeholder="m/d or 2026-08-12"
                   style={s.dateMiniField}
+                  onSubmitEditing={() => {
+                    const d = parseDateField(dateDraft, todayStr());
+                    if (d) setDate(d);
+                  }}
+                  onBlur={() => {
+                    const d = parseDateField(dateDraft, todayStr());
+                    if (d) setDate(d);
+                  }}
                 />
                 <View style={s.dateRow}>
                   <CircleBtn
@@ -885,7 +906,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
                     glyph="×"
                     label="Remove the date"
                     size={36}
-                    onPress={() => { setDate(null); setDateFor(null); }}
+                    onPress={() => { setDate(null); setDateDraft(''); setDateFor(null); }}
                   />
                   <CircleBtn
                     testID="note-date-today"
@@ -893,7 +914,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
                     label="Today"
                     size={36}
                     color={T.gold}
-                    onPress={() => { setDate(todayStr()); }}
+                    onPress={() => { setDate(todayStr()); setDateDraft(todayStr()); }}
                   />
                   <CircleBtn
                     testID="note-date-done"
