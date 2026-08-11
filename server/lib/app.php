@@ -21,6 +21,39 @@ const REC_ID_RE     = '/^[A-Za-z0-9_-]{1,64}$/';
 const REC_TYPE_RE   = '/^[a-z]{1,20}$/';   // folder|section|reminder today; events, notes, habits later without a server change
 const MAX_BATCH     = 500;
 const MAX_PAYLOAD   = 65536;               // bytes of JSON per record
+
+/**
+ * Do a stored record and an incoming change say the same thing?
+ *
+ * Only `deleted` and `payload` count — `updated` is the stamp being compared
+ * around this. Keys are sorted recursively first, so a client that builds the
+ * same object in a different order does not read as a difference: that would
+ * make every echo of an already-stored record look like a tie worth accepting,
+ * bump the sequence, and re-broadcast it to every device on every sync.
+ *
+ * The TypeScript twin is `sameContent` in packages/core/src/sync.ts; they
+ * decide the same question on the two sides of the same tie.
+ */
+function canon_value($v)
+{
+    if (is_array($v)) {
+        // ksort in place on associative arrays; lists keep their order,
+        // because order IS content in a list.
+        $isList = array_keys($v) === range(0, count($v) - 1);
+        if (!$isList) { ksort($v); }
+        foreach ($v as $k => $vv) { $v[$k] = canon_value($vv); }
+    }
+    return $v;
+}
+
+function rec_same(array $cur, array $incoming): bool
+{
+    if ((bool) ($cur['deleted'] ?? false) !== !empty($incoming['deleted'])) {
+        return false;
+    }
+    return json_encode(canon_value($cur['payload'] ?? null))
+        === json_encode(canon_value($incoming['payload'] ?? null));
+}
 const RECOVER_TTL   = 900;                 // a code lives fifteen minutes
 const RECOVER_TRIES = 5;
 
@@ -308,7 +341,24 @@ function handle_sync(array $cfg, array $in): never
                 continue;
             }
             $cur = $recs[$id] ?? null;
-            if ($cur === null || $updated > (int) $cur['updated']) {
+            // THE TIE-BREAK, and the reason this is not just `>`.
+            //
+            // Strictly-newer on both sides meant an equal stamp left every
+            // party holding its own copy: two devices that stamped the same
+            // record identically stayed different from each other, silently
+            // and permanently, and neither would ever push again because
+            // neither was dirty. Sean's call, 2026-08-11: the server
+            // arbitrates, because it is the one thing both devices agree on.
+            //
+            // So an equal stamp is accepted when the CONTENT differs — the
+            // winner is whichever edit reached here last — and refused when
+            // it does not, which is what stops an echo of a record we already
+            // hold from bumping the sequence and re-broadcasting itself to
+            // every device on every sync.
+            $tie = $cur !== null
+                && $updated === (int) $cur['updated']
+                && !rec_same($cur, $c);
+            if ($cur === null || $updated > (int) $cur['updated'] || $tie) {
                 $recs[$id] = ['id' => $id, 'type' => $type, 'updated' => $updated,
                               'deleted' => !empty($c['deleted']), 'payload' => $c['payload'] ?? null,
                               'seq' => ++$seq];

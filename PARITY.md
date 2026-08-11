@@ -1483,3 +1483,57 @@ sections intact, signed in and synced against the test API.
   runs locally and survives being copied, so this is not urgent, but it is not
   distributable and it is not what "signed" normally means.
 - Everything in TODO.md §1, unchanged.
+
+## Iteration — two devices no longer disagree forever
+
+Sean asked what could be done about the two oldest §1 entries. Reading them
+against the source changed both.
+
+**The oversized record was already fixed.** TODO said "the protocol is
+unchanged"; it is not. The server refuses payloads over 64KB and returns
+`rejected: [ids]`, the engine keeps those ids dirty and never clears them, the
+store raises `syncState: 'refused'`, Settings shows it, and `toolong.spec.ts`
+asserts the app never claims to be synced in that state. What is actually left
+is smaller and different: the warning is buried, because the top bar's status
+dot is GONE — `chrome.tsx` destructures `syncState` and never renders it, while
+the file's own header comment still describes the dot. The app tells the truth
+in a place you have to go looking for.
+
+**The tie is now resolved, by Sean's call: the server arbitrates.** Both sides
+took a remote record only when strictly newer, so equal stamps left every party
+holding its own copy — permanently, and silently, because neither was dirty so
+neither ever pushed again. The server now accepts an equal-stamped write whose
+content differs and bumps its sequence; the client takes the server's copy on
+such a tie. The winner is whichever edit reached the server last, which is what
+last-write-wins claimed to mean all along.
+
+Three things had to be right for that not to make things worse. Identical
+content is still ignored on both sides, or every echo would bump the sequence
+and re-broadcast itself for ever. Payload keys are canonicalised before
+comparison, so a client that serialises the same object in a different order is
+not a conflict — checked on both sides rather than assumed. And a client does
+not adopt the server's copy while its own is still dirty: an unsent edit has
+never been offered to anyone, and overwriting it would be silent AND pointless,
+since the id stays dirty and the next push would just hand back the copy it had
+adopted. Six guards, each broken deliberately and watched go red.
+
+One test changed along the way: `a tombstone syncs like any edit` asserted
+`changes[0]`, a POSITION, so it depended on that record happening to hold the
+lowest sequence in the whole file. Adding any test above it moved the tail and
+failed it for a reason that had nothing to do with tombstones. It looks the
+record up by id now.
+
+### Still open, and now the larger half of the same problem
+
+- **`put()` clamps to `max(now, prev + 1)`**, so a device that edits rapidly or
+  carries a fast clock pushes `updated` ahead of wall clock — and the skew is
+  sticky, because every later edit anywhere takes the max against it. A stale
+  edit from the skewed device then beats a genuinely newer edit from a correct
+  one. The tiebreak does not touch this; it is the same root cause, a local
+  clock used as a version number.
+- Sean's question, unanswered here: larger notes with images. The current shape
+  cannot carry them — the client persists the WHOLE snapshot as one JSON string
+  in AsyncStorage (localStorage on web, ~5MB per origin), and the server
+  decrypts, mutates and rewrites the WHOLE store file on every sync. Both are
+  O(total store) per operation, so images inline would be paid for on every
+  keystroke's save and every round trip, on every device.

@@ -134,10 +134,51 @@ t('LWW: the later write wins, the earlier is refused', function () use ($tokenA,
     $texts = array_column(array_column($r['body']['changes'], 'payload'), 'text');
     eq(['newer'], $texts, 'stale write lost');
 });
+t('an EQUAL stamp with different content is accepted — the server breaks the tie', function () use ($tokenA, $rec) {
+    // "Two devices can disagree forever": strictly-newer on both sides meant a
+    // tie left every party holding its own copy, silently and permanently,
+    // and neither would push again because neither was dirty. Sean's call,
+    // 2026-08-11 — the server arbitrates, because it is the one thing both
+    // devices agree on. The winner is whichever edit reached here last.
+    api(['action' => 'sync', 'cursor' => 0, 'changes' => [$rec('tie1', 7000, 'from A')]], $tokenA);
+    $r = api(['action' => 'sync', 'cursor' => 0, 'changes' => [$rec('tie1', 7000, 'from B')]], $tokenA);
+    $byId = [];
+    foreach ($r['body']['changes'] as $c) { $byId[$c['id']] = $c; }
+    eq('from B', $byId['tie1']['payload']['text'] ?? null, 'the equal-stamped write that arrived second wins');
+});
+t('an EQUAL stamp with the SAME content is ignored, so echoes do not churn the sequence', function () use ($tokenA, $rec) {
+    // Without this, every re-push of a record the server already holds would
+    // bump seq and re-broadcast it to every device on every sync — a tie that
+    // is not one, forever.
+    api(['action' => 'sync', 'cursor' => 0, 'changes' => [$rec('echo1', 7100, 'same')]], $tokenA);
+    $c1 = api(['action' => 'sync', 'cursor' => 0, 'changes' => []], $tokenA)['body']['cursor'];
+    $c2 = api(['action' => 'sync', 'cursor' => 0, 'changes' => [$rec('echo1', 7100, 'same')]], $tokenA)['body']['cursor'];
+    eq($c1, $c2, 'an identical re-push does not advance the sequence');
+});
+t('key ORDER is not content — a reordered payload is still an echo', function () use ($tokenA) {
+    // The canonicalisation, checked rather than assumed: a client that
+    // serialises the same object in a different order must not read as a
+    // conflict on every sync.
+    $a = ['id' => 'ord1', 'type' => 'note', 'updated' => 7200,
+          'payload' => ['title' => 't', 'body' => 'b', 'folderId' => 'f']];
+    $b = ['id' => 'ord1', 'type' => 'note', 'updated' => 7200,
+          'payload' => ['folderId' => 'f', 'body' => 'b', 'title' => 't']];
+    api(['action' => 'sync', 'cursor' => 0, 'changes' => [$a]], $tokenA);
+    $c1 = api(['action' => 'sync', 'cursor' => 0, 'changes' => []], $tokenA)['body']['cursor'];
+    $c2 = api(['action' => 'sync', 'cursor' => 0, 'changes' => [$b]], $tokenA)['body']['cursor'];
+    eq($c1, $c2, 'the same payload with its keys shuffled is not a difference');
+});
 t('a tombstone syncs like any edit', function () use ($tokenA, $rec) {
     api(['action' => 'sync', 'cursor' => 0, 'changes' => [$rec('r1', 4000, 'newer', true)]], $tokenA);
     $r = api(['action' => 'sync', 'cursor' => 0, 'changes' => []], $tokenA);
-    eq(true, $r['body']['changes'][0]['deleted'], 'delete arrived');
+    // Found by id, not by position. This read changes[0] and so depended on
+    // r1 happening to be the lowest sequence in the whole file — adding any
+    // test above it moved the tail and failed this one for a reason that had
+    // nothing to do with tombstones.
+    $byId = [];
+    foreach ($r['body']['changes'] as $c) { $byId[$c['id']] = $c; }
+    ok(isset($byId['r1']), 'r1 is in the tail at all');
+    eq(true, $byId['r1']['deleted'] ?? null, 'delete arrived');
 });
 t('malformed rows drop; the rest of the batch still lands', function () use ($tokenA, $rec) {
     $bad = ['id' => '../evil', 'type' => 'reminder', 'updated' => 1, 'payload' => null];

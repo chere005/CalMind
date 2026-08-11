@@ -40,12 +40,28 @@ dirty and says so; (b) client refuses to save past the cap; (c) raise the cap
 and move the problem. (a) is the honest one and needs a little UI. Not doing
 it unasked: this is the sync contract.
 
-### Two devices can disagree forever
-The merge takes a remote record only when it is strictly newer, and `put()`
-clamps timestamps — so a tie is more reachable than it sounds, and a tie
-never resolves. Any fix picks a winner by something other than time (device
-id, a lexical tiebreak on content), which means picking whose edit loses.
-That is a product decision.
+### ~~Two devices can disagree forever~~ — DECIDED and shipped 2026-08-11
+Sean chose: the server arbitrates. It now accepts an equal-stamped write whose
+CONTENT differs and bumps its sequence, so its copy means "whichever edit
+reached the server last"; the client takes the server's copy on such a tie and
+the two converge. An equal stamp with identical content is still ignored on
+both sides, or every echo would bump the sequence and re-broadcast itself for
+ever. Payload keys are canonicalised before comparison, so a client that
+serialises the same object in a different order is not a conflict.
+
+One exception, and it matters: a client does NOT adopt the server's copy while
+its own is still dirty. An unsent edit has never been offered to anyone, so
+overwriting it would be silent and pointless — the id stays dirty, so the next
+push would send back the copy just adopted, which the server sees as identical
+and ignores. Keeping it means it gets pushed and the OTHER device converges.
+
+Still true, and now the bigger of the two: **`put()` clamps to
+`max(now, prev + 1)`, so a device that edits rapidly or carries a fast clock
+pushes `updated` ahead of wall-clock time — and the skew is STICKY, because
+every later edit anywhere takes the max against it.** A stale edit from the
+skewed device then beats a genuinely newer edit from a correct one. Same root
+cause as the tie (a local clock used as a version), not fixed by the tiebreak,
+and more likely to bite than an exact tie ever was.
 
 ### The widget key rotates on every visit
 Opening Settings → Widget mints a new key and retires the one already on the

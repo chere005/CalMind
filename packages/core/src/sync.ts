@@ -11,6 +11,26 @@
  */
 import type { AnyRec } from './types';
 
+/**
+ * Do two versions of a record say the same thing?
+ *
+ * Only `deleted` and `payload` count — `updated` is the stamp being compared
+ * around this, and anything else is identity. Keys are sorted so that two
+ * objects built in a different order still compare equal; without that, an
+ * echo of our own record would read as a difference and the two devices would
+ * hand it back and forth for ever.
+ */
+function canon(v: unknown): string {
+  if (v === null || typeof v !== 'object') return JSON.stringify(v) ?? 'null';
+  if (Array.isArray(v)) return '[' + v.map(canon).join(',') + ']';
+  const o = v as Record<string, unknown>;
+  return '{' + Object.keys(o).sort().map((k) => JSON.stringify(k) + ':' + canon(o[k])).join(',') + '}';
+}
+
+function sameContent(a: AnyRec, b: AnyRec): boolean {
+  return !!a.deleted === !!b.deleted && canon(a.payload) === canon(b.payload);
+}
+
 export type SyncRequest = { cursor: number; changes: AnyRec[] };
 export type SyncResponse = { cursor: number; changes: AnyRec[]; rejected?: string[] };
 export type Transport = (req: SyncRequest) => Promise<SyncResponse>;
@@ -71,7 +91,31 @@ export class SyncEngine {
     const res = await transport(req);
     for (const theirs of res.changes) {
       const mine = this.recs.get(theirs.id);
-      if (!mine || theirs.updated > mine.updated) this.recs.set(theirs.id, theirs);
+      if (!mine || theirs.updated > mine.updated) {
+        this.recs.set(theirs.id, theirs);
+        continue;
+      }
+      // THE TIE. Equal stamps used to leave every party holding its own copy,
+      // so two devices that stamped the same record identically stayed
+      // different from each other, silently and for ever (TODO §1, and the
+      // test above this one used to pin that as known-broken).
+      //
+      // The server is the arbiter, because it is the one thing both devices
+      // agree on: it now accepts an equal-stamped write whose content differs
+      // and bumps its sequence, so its copy is "whichever edit reached the
+      // server last". Taking it here is what makes the two converge.
+      //
+      // EXCEPT when our copy is still dirty. An unsent local edit is not a
+      // stale loser — it has never been offered to anyone. Overwriting it
+      // here would destroy it silently AND pointlessly: the id stays in
+      // `dirty`, so the very next push would send back the copy we just
+      // adopted, which the server would recognise as identical and ignore.
+      // Keeping it means it gets pushed, the server takes it, and the other
+      // device converges on this one instead. Either way they agree; only
+      // this way does nobody lose writing they never got to send.
+      if (theirs.updated === mine.updated && !this.dirty.has(theirs.id) && !sameContent(mine, theirs)) {
+        this.recs.set(theirs.id, theirs);
+      }
     }
     this.cursor = res.cursor;
     this.rejectedIds = new Set(res.rejected ?? []);
