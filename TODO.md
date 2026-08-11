@@ -177,6 +177,12 @@ other. This entry described a state that is not the case.
 ## 2 · Open bugs
 
 ### The new-note focus is a 50ms race (WebKit only)
+STILL LIVE, and the count is now 3 in ~24 full runs: it recurred on
+2026-08-11 at `app.spec.ts:359` ("note body renders its markers as styled text
+when you tap away"), then passed 3/3 in isolation and passed the very next
+full run clean. Consistent with everything below — and worth knowing that the
+line number moved, so anyone searching for :353 will not find it.
+
 2 failures in ~22 runs; every deliberate reproduction has failed, including
 replaying the exact sequence. Do not spend time on synthetic load or suite
 ordering — both were tried. What is real and reachable: for the first 50ms
