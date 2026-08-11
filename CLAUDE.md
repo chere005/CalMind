@@ -51,6 +51,13 @@ shipped, `TODO.md` is the live list.
   chunk. `find … | head -1` picks between them arbitrarily. Read the name out
   of `dist/index.html`, and compare index.html to index.html when asking
   whether a deploy landed.
+- **`npm run test:deploy` leaves the web export looking stale.** The guard
+  proves "a core type error stops the deploy" by appending a bad line to
+  `packages/core/src/order.ts`, running the typecheck, and restoring the file
+  with `cp` — same bytes, new mtime. So the very next gesture or WebKit run
+  dies in `e2e/freshness.ts` naming `order.ts`, and it reads like something
+  edited core behind your back. `git diff` is the tell: clean means it was
+  only the mtime. Re-export and carry on; run `test:deploy` last.
 - **The shell's working directory persists between Bash calls.** A `cd` into
   the suite or into `desktop/` will silently break the next command's relative
   paths. Use absolute paths.
