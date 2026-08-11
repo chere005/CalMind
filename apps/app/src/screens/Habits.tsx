@@ -11,7 +11,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Svg, { Circle, Path } from 'react-native-svg';
-import { byOrd, monthGrid, moveHabit, moveHabitSection, newId, ordBetween, prefsOf, prefsPut, tickId, todayStr, type Rec } from '@calmind/core';
+import { byOrd, dayShares, habitListedOn, monthGrid, moveHabit, moveHabitSection, newId, ordBetween, prefsOf, prefsPut, tickId, todayStr, type Frequency, type Rec } from '@calmind/core';
 import { useStore } from '../store';
 import { APP_PALETTES, themed, T } from '../theme';
 import { TopBar } from '../chrome';
@@ -19,7 +19,8 @@ import { Chevron } from '../components/Chevron';
 import { SectionPick, useHabitSections } from '../components/SectionPick';
 import { useRowDrag } from '../components/rowdrag';
 import { useSectionDrag } from '../components/sectiondrag';
-import { CircleBtn, CollapseAllBtn, ConfirmDelete, Field, WebHitSlop } from '../ui';
+import { CircleBtn, CollapseAllBtn, ConfirmDelete, WebHitSlop } from '../ui';
+import { HabitEditor } from '../components/HabitEditor';
 
 // Habit sections sit in one flat list with no folder above them, so the
 // section drag — which is built around folders — is handed a single
@@ -86,12 +87,7 @@ export function Habits() {
   const { width: winWidth } = useWindowDimensions();
   const [w, setW] = useState(0);
   const [ym, setYm] = useState(today.slice(0, 7));
-  const [addingIn, setAddingIn] = useState<string | null>(null);
-  const [addText, setAddText] = useState('');
-  const [renaming, setRenaming] = useState<string | null>(null);
-  const [renameText, setRenameText] = useState('');
   const [folded, setFolded] = useState<Set<string>>(new Set());
-  const lastTap = React.useRef<{ id: string; at: number }>({ id: '', at: 0 });
 
   useEffect(() => {
     AsyncStorage.getItem(FOLD_KEY)
@@ -216,14 +212,16 @@ export function Habits() {
     if (!('error' in res)) mutate((e) => res.put.forEach((r) => e.put(r)));
   });
 
-  /** The day's contiguous shares: per section, ticked count over all counted. */
-  const sharesFor = (date: string) => {
-    const total = Math.max(1, allHabits.length);
-    return sections.map((sec) => ({
-      color: sec.payload.color,
-      frac: habitsOf(sec.id).filter((h) => ticked(h.id, date)).length / total,
-    }));
-  };
+  /**
+   * The day's contiguous shares — core's rule now, not this screen's.
+   *
+   * It used to divide by the flat count of every visible habit on every day,
+   * which is wrong the moment a habit is not an every-day habit: a
+   * Monday-to-Friday one made Sunday's circle impossible to fill however much
+   * Sean had actually done, and a 'never' one diluted every day it was in.
+   * dayShares counts what counts THAT DAY, and is tested.
+   */
+  const sharesFor = (date: string) => dayShares(sections, allHabits, ticked, date);
 
   const toggle = (habitId: string, date: string) => {
     const id = tickId(habitId, date);
@@ -233,22 +231,29 @@ export function Habits() {
     });
   };
 
-  const addHabit = (section: Rec<'habitsection'>) => {
-    const name = addText.trim();
-    setAddingIn(null);
-    setAddText('');
-    if (!name) return;
-    mutate((e) => {
-      const last = habitsOf(section.id).slice(-1)[0];
-      e.put({ id: newId(), type: 'habit', updated: 0, payload: { name, sectionId: section.id, ord: ordBetween(last?.payload.ord ?? null, null) } });
-    });
-  };
+  /**
+   * Whichever habit the editor is open for: a section id when adding into it,
+   * a record when editing one. Sean asked for both to be the same small
+   * screen, so they share one piece of state and one component.
+   */
+  const [editor, setEditor] = useState<{ sectionId: string; habit: Rec<'habit'> | null } | null>(null);
 
-  const commitRename = (h: Rec<'habit'>) => {
-    setRenaming(null);
-    const name = renameText.trim();
-    if (name === '' || name === h.payload.name) return;
-    mutate((e) => e.put({ ...h, payload: { ...h.payload, name } }));
+  const saveHabit = (name: string, frequency: Frequency) => {
+    if (!editor) return;
+    const { sectionId, habit } = editor;
+    mutate((e) => {
+      if (habit) {
+        e.put({ ...habit, payload: { ...habit.payload, name, frequency } });
+        return;
+      }
+      const last = habitsOf(sectionId).slice(-1)[0];
+      e.put({
+        id: newId(),
+        type: 'habit',
+        updated: 0,
+        payload: { name, sectionId, ord: ordBetween(last?.payload.ord ?? null, null), frequency },
+      });
+    });
   };
 
   const page = (dir: -1 | 1) => {
@@ -371,12 +376,9 @@ export function Habits() {
                   >
                     <Text style={s.secPillText}>{sec.payload.name}</Text>
                   </Pressable>
-                  <CircleBtn testID={`habit-add-${sec.payload.name}`} glyph="+" label="Add" color={sec.payload.color} size={26} onPress={() => { setAddingIn(sec.id); setAddText(''); }} />
+                  <CircleBtn testID={`habit-add-${sec.payload.name}`} glyph="+" label="Add" color={sec.payload.color} size={26} onPress={() => setEditor({ sectionId: sec.id, habit: null })} />
                   <View style={s.secRule} />
                 </View>
-                {addingIn === sec.id && (
-                  <Field value={addText} onChangeText={setAddText} placeholder="New habit" autoFocus onBlur={() => addHabit(sec)} onSubmitEditing={() => addHabit(sec)} />
-                )}
                 {!folded.has(sec.id) && habitsOf(sec.id).length === 0 && (
                   <View>
                     {drag.slot !== null && emptyIdxOf(sec.id) === drag.slot && <View style={s.dropLine} />}
@@ -404,45 +406,42 @@ export function Habits() {
                         >
                           <Text style={s.rowGripText}>≡</Text>
                         </View>
-                        {renaming === h.id ? (
-                          <Field
-                            testID="habit-rename"
-                            value={renameText}
-                            onChangeText={setRenameText}
-                            autoFocus
-                            style={s.renameField}
-                            onBlur={() => commitRename(h)}
-                            onSubmitEditing={() => commitRename(h)}
+                        {/* Holding a habit no longer starts typing over its
+                            name. Sean, 2026-08-11: it "displays pencil edit
+                            icons next to the delete icons which goes to this
+                            new edit habit screen" — because a habit now has a
+                            Frequency too, and an inline field has nowhere to
+                            put a second thing. A tap while editing opens the
+                            same screen, so the edit pencil and the row agree. */}
+                        <Pressable
+                          style={[s.nameBox, { borderColor: tint(sec.payload.color, '55'), backgroundColor: tint(sec.payload.color, '14') }]}
+                          onPress={() => { if (edit) setEditor({ sectionId: sec.id, habit: h }); }}
+                          onLongPress={() => setEdit(true)}
+                          delayLongPress={350}
+                        >
+                          <Text testID="habit-name" style={[s.habitName, { color: tint(sec.payload.color, 'ee') }]} numberOfLines={1}>{h.payload.name}</Text>
+                        </Pressable>
+                        {edit && (
+                          <CircleBtn
+                            testID="habit-edit"
+                            glyph="✎"
+                            label="Edit habit"
+                            size={24}
+                            onPress={() => setEditor({ sectionId: sec.id, habit: h })}
                           />
-                        ) : (
-                          <Pressable
-                            style={[s.nameBox, { borderColor: tint(sec.payload.color, '55'), backgroundColor: tint(sec.payload.color, '14') }]}
-                            onPress={() => {
-                              // The suite's three ways in: a double-click, a
-                              // long-press, or a SINGLE tap while the Edit
-                              // pencil is on — once you're editing, asking for
-                              // a double-tap as well is a toll for no reason.
-                              if (edit) {
-                                setRenaming(h.id);
-                                setRenameText(h.payload.name);
-                                return;
-                              }
-                              const now = Date.now();
-                              if (lastTap.current.id === h.id && now - lastTap.current.at < 300) {
-                                setRenaming(h.id);
-                                setRenameText(h.payload.name);
-                              }
-                              lastTap.current = { id: h.id, at: now };
-                            }}
-                            onLongPress={() => { setEdit(true); setRenaming(h.id); setRenameText(h.payload.name); }}
-                            delayLongPress={350}
-                          >
-                            <Text testID="habit-name" style={[s.habitName, { color: tint(sec.payload.color, 'ee') }]} numberOfLines={1}>{h.payload.name}</Text>
-                          </Pressable>
                         )}
-                        {(renaming === h.id || edit) && <ConfirmDelete size={24} onDelete={() => mutate((e) => e.del(h.id))} />}
+                        {edit && <ConfirmDelete size={24} onDelete={() => mutate((e) => e.del(h.id))} />}
                       </View>
                       {days.map((d) => {
+                        // "Weekdays … it's taken out of the list on weekend
+                        // days entirely" (Sean). A row spans every column, so
+                        // "out of the list" for one day means the CELL is not
+                        // there — no circle to tick, and nothing that reads as
+                        // a habit you failed at on a Sunday. The column keeps
+                        // its width so the grid stays square.
+                        if (!habitListedOn(h, d)) {
+                          return <View key={d} style={s.dayCol} testID="habit-cell-off" />;
+                        }
                         const on = ticked(h.id, d);
                         const future = d > today;
                         return (
@@ -500,6 +499,14 @@ export function Habits() {
           </>
         )}
       </ScrollView>
+      {editor && (
+        <HabitEditor
+          habit={editor.habit}
+          sectionName={sections.find((x) => x.id === editor.sectionId)?.payload.name ?? ''}
+          onSave={saveHabit}
+          onClose={() => setEditor(null)}
+        />
+      )}
     </View>
   );
 }

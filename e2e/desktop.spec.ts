@@ -61,8 +61,8 @@ test('the app at the width the desktop shell actually ships', async ({ page }) =
   // cuts to five on a phone and must not cut here.
   await page.getByTestId('tab-habits').click();
   await page.getByTestId('habit-add-Habits').first().click();
-  await page.getByPlaceholder('New habit').fill('stretch');
-  await page.getByPlaceholder('New habit').press('Enter');
+  await page.getByTestId('habit-name-field').fill('stretch');
+  await page.getByTestId('habit-save').click();
   await expect.poll(() => page.getByTestId('habit-daycol').count()).toBe(7);
 
   // And every screen opens wide without throwing.

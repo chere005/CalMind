@@ -54,7 +54,13 @@ export type Event = {
 export type Note = { title: string; body: string; date: string | null; folderId: string; sectionId: string; ord: string };
 
 export type HabitSection = { name: string; color: string; ord: string };
-export type Habit = { name: string; sectionId: string; ord: string };
+/**
+ * `frequency` is optional because every habit written before it existed has
+ * none, and reads as 'always' — which is exactly what they already were. See
+ * habit.ts for what each value means; the two questions it answers ("is it
+ * listed today" and "does it count today") are deliberately not the same.
+ */
+export type Habit = { name: string; sectionId: string; ord: string; frequency?: 'always' | 'weekdays' | 'never' };
 /** One tick of one habit on one day. Deterministic id (tickId) makes the same
  *  tick from two devices the same record, so LWW converges instead of doubling. */
 export type Tick = { habitId: string; date: string };

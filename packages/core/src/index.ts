@@ -17,3 +17,4 @@ export * from './sync';
 export * from './update';
 export * from './layout';
 export * from './watch';
+export * from './habit';
