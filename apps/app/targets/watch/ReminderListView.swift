@@ -82,12 +82,17 @@ struct ReminderListView: View {
     @ViewBuilder
     private func row(_ item: WatchItem) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 6) {
+            // Filled while the tick is pending, so the two-second window has
+            // something to undo: the row stays put, visibly done, and tapping
+            // it again cancels the message before it is ever sent. Without
+            // this the grace would be invisible and read as a tap that did
+            // nothing at all.
             Button {
                 store.tick(item.id)
             } label: {
-                Image(systemName: "circle")
+                Image(systemName: store.pendingTicks.contains(item.id) ? "checkmark.circle.fill" : "circle")
                     .font(.body)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(store.pendingTicks.contains(item.id) ? Color.green : Color.secondary)
             }
             .buttonStyle(.plain)
             VStack(alignment: .leading, spacing: 2) {

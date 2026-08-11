@@ -206,59 +206,25 @@ then the watch needs the direct install and the build number is the proof.
   binding constraint and probably forces IndexedDB there. Worth its own
   design pass before any of it is written.
 
-- **The two-second uncheck grace does not reach the watch or the widget.**
-  It is done in the shared React app, so web and iOS both have it. The watch
-  ticks by queueing the id to the phone through `transferUserInfo` and
-  removing the row locally, and its own comment warns that a second toggle
-  rolls a repeating reminder TWICE — so a grace there means deferring the
-  send by two seconds and cancelling it, not sending an undo. That is a
-  different design from the app's (which never delays the write), and it is
-  Swift that cannot be verified from a web-only run. The widget queues ticks
-  into the App Group and redraws on its own schedule; what a grace even means
-  there is an open question.
+- **The two-second uncheck grace reaches the WATCH now; the widget still has
+  none.** On the wrist what is deferred is the SEND, which is the opposite of
+  the phone's grace and deliberately so: in the app the write happens at once
+  and only the row lingers, because a delayed write could be lost if the app
+  closed inside the window. On the watch the "write" is a message to the phone,
+  and the phone applies reminderToggle to whatever arrives — so sending twice
+  does not undo, it rolls a repeating reminder TWICE. An undo therefore has to
+  stop the message, not send another. A tick that is never confirmed is not
+  lost either: the row stays until the phone's next push says otherwise.
 
+  Verified on a watchOS simulator by tapping it, not by reading it: the row
+  stays with a filled green check, and a second tap inside the window returns
+  it to an empty circle and leaves it there. The two-second window is shorter
+  than a screenshot round trip, so the observation was made with the grace
+  temporarily raised — the committed value is 2.
 
-- **The watch's copy of the widget's calendar selection lags by one push.**
-  The widget filters with its LIVE configuration; every other surface reads a
-  snapshot it writes to the App Group during `getTimeline` (`WIDGET_CALS`).
-  The phone reads that snapshot when it builds the feed, so the wrist is
-  always one generation behind: change the widget's calendars and the watch
-  keeps filtering by the old set until some unrelated store change causes
-  another push. Seen 2026-08-11 — Sean's shared events were on the widget and
-  missing from the first watch tab, then appeared on their own once the app
-  pushed again. It self-heals, which is exactly why it will be reported as
-  intermittent. Fixes worth weighing: push again on app foreground; or have
-  the phone re-read `WIDGET_CALS` after `reloadAllTimelines()` and push a
-  second time only if it changed. Not done unasked — it is a sync-timing
-  change and the symptom is transient.
-
-- ~~**The complication's tint, on a real wrist**~~ — CONFIRMED WORKING
-  2026-08-11, and the answer was the watch FACE, not the code. A complication
-  is rendered `.accented` or `.vibrant` by the face, never `.fullColor`, so
-  arbitrary colours are the face's to discard: on Sean's MODULAR face
-  everything came out monochrome, and moving to a face that renders colour
-  (Infograph Modular, same three-row layout) brought it back. Worth knowing
-  before anyone "fixes" the complication again — the words are gated by
-  check-watch-format.sh, the colours never can be from here, and the next
-  report of "no colour on the complication" is a face question first.
-
-- **The widget's pixels with REAL data** — everything upstream is covered
-  (entitlements, the cache writer, core's shape, the decoder, `drawnDays`),
-  but an unsigned simulator build has no App Group at all, so the last mile
-  is Sean's phone.
-- **The watch tick round-trip** — code-complete and installed, never verified
-  end to end. Gated on the test account above, or on his thumb.
-- **Passkeys from the native app** — two asks, both his: re-add his Apple ID
-  in Xcode → Settings → Accounts (also needed before the profiles expire), and
-  the AASA file needs the PROD domain root (prepared in `server/prod-only/`,
-  ships only on his word). Then the probe is one build away.
-  NOTE: signing worked on 2026-08-10, so the "No Accounts" wall that stopped
-  the last probe may already be gone. Worth retrying before asking him.
-- **Calendar integrations** (Sean: "Extracted data and via oauth") — reading
-  Gmail needs a Google Cloud project and consent screen, which is his. Also
-  unanswered: subscribe-by-link vs full CalDAV first.
-- **Android** cannot be verified on this machine — no `adb`, no emulator.
-- **Windows** stays dispatch-only by his instruction.
+  The WIDGET still has no grace, and it is a different question again: it
+  queues ticks into the App Group and redraws on WidgetKit's schedule, so
+  there is no moment at which it could offer an undo.
 
 ## 4 · Steady state, every iteration
 

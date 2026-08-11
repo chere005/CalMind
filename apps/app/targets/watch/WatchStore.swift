@@ -89,6 +89,12 @@ final class WatchStore: NSObject, ObservableObject, WCSessionDelegate {
     /// The calendars the phone's home-screen widget is configured for, mirrored
     /// so this watch shows the same events. Empty means all of them.
     @Published var widgetCalendars: [String] = []
+    /// Ticked, but not yet told to the phone — drawn as done, still undoable.
+    @Published var pendingTicks: Set<String> = []
+    /// The scheduled sends, so tapping again can cancel one.
+    private var tickWork: [String: DispatchWorkItem] = [:]
+    /// Sean's two seconds, named once.
+    static let tickGrace: TimeInterval = 2
 
     /// What this watch actually knows, so a screen can never again show the
     /// same words for 'nothing is due' and 'nothing ever arrived'. That
@@ -212,25 +218,65 @@ final class WatchStore: NSObject, ObservableObject, WCSessionDelegate {
     /// Sean's reversal of the read-only rule: a tap here queues the id for the
     /// phone, which applies the SAME toggle a phone tap uses (repeats roll
     /// there, not here). transferUserInfo queues while the phone is away.
-    /// Locally the row just leaves the list — the next push is the truth.
+    ///
+    /// TWO SECONDS TO CHANGE YOUR MIND. Sean, 2026-08-11: "when checking off a
+    /// reminder in all apps, make sure to show the checked reminder for 2
+    /// seconds, giving the user the ability to uncheck it if checking it was a
+    /// mistake". On a 41mm screen a mis-tap is likelier than anywhere else,
+    /// and the row used to vanish under the finger with nothing left to undo.
+    ///
+    /// WHAT IS DEFERRED HERE IS THE SEND, and that is the opposite of the
+    /// phone's grace, deliberately. In the app the write happens at once and
+    /// only the row lingers, because a delayed write could be lost if the app
+    /// closed inside the window. Here the "write" is a message to the phone,
+    /// and the phone applies reminderToggle to whatever it receives — so
+    /// sending twice does not undo anything, it rolls a repeating reminder
+    /// TWICE. The comment below has warned about that since the grouping moved
+    /// to core. An undo therefore has to stop the message, not send another.
+    ///
+    /// A tick that is never confirmed cannot be lost either: the row stays on
+    /// the wrist until the phone's next push says otherwise, exactly as before.
     func tick(_ id: String) {
         DispatchQueue.main.async {
-            self.items.removeAll { $0.id == id }
-            // GROUPS too, and this is why: the reminders page draws groups
-            // now, not items. Removing only from items left the row sitting
-            // there after a tap — so you tap again, and the phone applies a
-            // SECOND toggle, which rolls a repeating reminder twice. A
-            // regression I introduced when the grouping moved to core, and
-            // invisible without actually tapping the thing on a watch.
-            self.groups = self.groups.map { g in
-                WatchGroup(
-                    folderName: g.folderName,
-                    sections: g.sections
-                        .map { WatchGroup.Part(sectionName: $0.sectionName, items: $0.items.filter { $0.id != id }) }
-                        .filter { !$0.items.isEmpty })
-            }.filter { !$0.sections.isEmpty }
+            if self.pendingTicks.contains(id) {
+                // Tapped again inside the window: the mistake is undone by
+                // never telling the phone at all.
+                self.pendingTicks.remove(id)
+                self.tickWork[id]?.cancel()
+                self.tickWork[id] = nil
+                return
+            }
+            self.pendingTicks.insert(id)
+            let work = DispatchWorkItem { [weak self] in
+                guard let self else { return }
+                guard self.pendingTicks.contains(id) else { return }
+                self.pendingTicks.remove(id)
+                self.tickWork[id] = nil
+                self.drop(id)
+                guard WCSession.isSupported() else { return }
+                WCSession.default.transferUserInfo(["tick": id])
+            }
+            self.tickWork[id] = work
+            DispatchQueue.main.asyncAfter(deadline: .now() + WatchStore.tickGrace, execute: work)
         }
-        guard WCSession.isSupported() else { return }
-        WCSession.default.transferUserInfo(["tick": id])
+    }
+
+    /// Take the row off this wrist. Split out of tick() so the grace above has
+    /// something to call when it finally commits.
+    private func drop(_ id: String) {
+        self.items.removeAll { $0.id == id }
+        // GROUPS too, and this is why: the reminders page draws groups
+        // now, not items. Removing only from items left the row sitting
+        // there after a tap — so you tap again, and the phone applies a
+        // SECOND toggle, which rolls a repeating reminder twice. A
+        // regression I introduced when the grouping moved to core, and
+        // invisible without actually tapping the thing on a watch.
+        self.groups = self.groups.map { g in
+            WatchGroup(
+                folderName: g.folderName,
+                sections: g.sections
+                    .map { WatchGroup.Part(sectionName: $0.sectionName, items: $0.items.filter { $0.id != id }) }
+                    .filter { !$0.items.isEmpty })
+        }.filter { !$0.sections.isEmpty }
     }
 }
