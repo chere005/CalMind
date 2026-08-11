@@ -361,28 +361,48 @@ struct HomeWidgetView: View {
     var entry: Entry
     @Environment(\.widgetFamily) var family
 
-    /// How much VERTICAL ROOM there is, in units of one row.
+    /// What each piece of the card actually costs, in POINTS.
     ///
-    /// The old budget counted rows only, so every day heading — a line of
-    /// text, a hairline rule and two gaps — was drawn for free. Four day
-    /// groups cost four headings the budget never knew about, which is how
-    /// the widget could stop after a couple of items and still leave half the
-    /// card empty: it had "spent" its rows without having filled the space.
+    /// This replaces a budget denominated in "rows" with a heading charged at
+    /// "about 1.4 rows". That model overflowed the card — Sean, twice — for
+    /// three separate reasons, and the row unit hid all of them:
     ///
-    /// A heading is about 1.4 rows tall (10pt bold + 1pt rule + 8pt of
-    /// spacing against a ~17pt row), so it is charged as such. Sean asked for
-    /// it to keep adding until the space runs out and to adapt to the size,
-    /// which is what a space budget does and a fixed count cannot.
-    private var spaceBudget: Double {
-        switch family {
-        case .systemSmall:  return 5
-        case .systemLarge:  return 21
-        default:            return 9.5
-        }
-    }
-    private let headingCost = 1.4
+    ///   · the HEADER ("Calendar" + the date) was never charged at all, so
+    ///     every card started 26pt over budget and sliced its own title;
+    ///   · the 2pt divider between days, with 5pt of air each side, was also
+    ///     free — six of them on a seven-day card is 72pt nobody paid for;
+    ///   · a heading was charged 1.4 rows (28pt) for a 20pt block, which
+    ///     masked some of the above and made the error hard to reason about.
+    ///
+    /// Every number below is the sum of the literals the view draws with, and
+    /// the line heights are MEASURED (ascent + descent + leading of the exact
+    /// system font and size), not estimated:
+    ///
+    ///   row       12pt text = 15pt line, + 5 bottom padding      = 20
+    ///   heading   10pt bold = 12pt line, + 1 rule + 2 + 5        = 20
+    ///   separator 2pt rule + 5 above + 5 below                   = 12
+    ///   header    15pt bold = 18pt line, + 8 bottom padding      = 26
+    ///
+    /// Change a font or a padding in this file and the matching number here
+    /// has to move with it; check-widget-feed.sh asserts the packing never
+    /// exceeds the space it was given, which is what keeps that honest.
+    static let ROW_H: Double = 20
+    static let HEADING_H: Double = 20
+    static let SEPARATOR_H: Double = 12
+    static let HEADER_H: Double = 26
 
     var body: some View {
+        // The card measures ITSELF. WidgetKit hands the view its real content
+        // size — after the system's own margins, and different on every device
+        // and family — so there is nothing left to guess and no table of
+        // family sizes to keep right. `family` is still read, but only by the
+        // small card's own row cap below.
+        GeometryReader { geo in
+            layout(available: max(0, geo.size.height - Self.HEADER_H))
+        }
+    }
+
+    private func layout(available: Double) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             // firstTextBaseline, not the default centring: two different type
             // sizes centred against each other is exactly what makes a header
@@ -407,7 +427,7 @@ struct HomeWidgetView: View {
                     Text("Nothing due.").font(.system(size: 12)).foregroundStyle(META)
                 }
             } else {
-                content
+                content(available: available)
             }
             Spacer(minLength: 0)
         }
@@ -435,22 +455,54 @@ struct HomeWidgetView: View {
     /// `entry` and `@Environment(\.widgetFamily)` it could only ever run
     /// inside a rendered widget on a phone, which is the one place nothing in
     /// this repo can look. tools/check-widget-feed.sh calls it directly.
-    static func packed(days: [DaySection], budget: Double, headingCost: Double) -> [DaySection] {
-        var left = budget
+    /// `available` is the room left for the day list AFTER the header, in
+    /// points — measured from the real card at render time rather than looked
+    /// up in a table of family sizes. The old code guessed a budget per
+    /// family; a guess cannot be right on every device, and it was the guess
+    /// that overflowed.
+    static func packed(days: [DaySection], available: Double,
+                       rowH: Double, headingH: Double, sepH: Double) -> [DaySection] {
+        var used = 0.0
         var out: [DaySection] = []
         for (i, day) in days.enumerated() {
-            let room = left - headingCost
-            if room < 1 { break }
-            if i > 0 && Double(day.lines.count) > room { break }
-            let take = i == 0 ? Array(day.lines.prefix(Int(room))) : day.lines
-            left -= headingCost + Double(take.count)
+            let sep = i == 0 ? 0 : sepH
+            // A day is only worth starting if its heading AND at least one of
+            // its rows will fit; a heading alone is a promise with nothing
+            // under it.
+            if used + sep + headingH + rowH > available { break }
+            let room = available - used - sep - headingH
+            let canTake = Int((room / rowH).rounded(.down))
+            let take: [Line]
+            if i == 0 {
+                // The first day fills what there is — see above for why it is
+                // the exception.
+                take = Array(day.lines.prefix(canTake))
+            } else {
+                // Every later day is all-or-nothing.
+                if day.lines.count > canTake { break }
+                take = day.lines
+            }
+            if take.isEmpty { break }
+            used += sep + headingH + Double(take.count) * rowH
             out.append(DaySection(heading: day.heading, isToday: day.isToday, lines: take))
         }
         return out
     }
 
-    private var content: some View {
-        let out = Self.packed(days: entry.days, budget: spaceBudget, headingCost: headingCost)
+    /// What `packed`'s result will actually occupy. Pure, so the checker can
+    /// assert the thing that matters — that it never exceeds what it was
+    /// given — instead of re-deriving the arithmetic and agreeing with itself.
+    static func drawnHeight(_ days: [DaySection], rowH: Double, headingH: Double, sepH: Double) -> Double {
+        var h = 0.0
+        for (i, day) in days.enumerated() {
+            h += (i == 0 ? 0 : sepH) + headingH + Double(day.lines.count) * rowH
+        }
+        return h
+    }
+
+    private func content(available: Double) -> some View {
+        let out = Self.packed(days: entry.days, available: available,
+                              rowH: Self.ROW_H, headingH: Self.HEADING_H, sepH: Self.SEPARATOR_H)
         return VStack(alignment: .leading, spacing: 0) {
             ForEach(Array(out.enumerated()), id: \.offset) { idx, day in
                 if idx > 0 {

@@ -121,14 +121,74 @@ def grab_priv(name):
 
 # Colour is SwiftUI; the check is about grouping and filtering, so Line's
 # colour becomes a plain string and hexColor is stubbed to pass it through.
-widget_logic = (grab_func('drawnDays') + '\n' + grab_func('packed') + '\n' + grab_priv('dayHeading') + '\n' + grab_priv('clock12'))
+widget_logic = (grab_func('drawnDays') + '\n' + grab_func('packed') + '\n' + grab_func('drawnHeight') + '\n' + grab_priv('dayHeading') + '\n' + grab_priv('clock12'))
+# The header is not part of packed() — it is subtracted in the view — so the
+# only way to keep it charged is to read the view. Sean's card sliced its own
+# "Calendar" title through the middle because the day list was handed the FULL
+# card height; if that subtraction ever goes away again, this says so.
+src_view = open('apps/app/targets/appwidget/HomeWidget.swift').read()
+if 'geo.size.height - Self.HEADER_H' not in src_view:
+    print("the day list is not being given the card height MINUS the header — the title will be sliced")
+    raise SystemExit(1)
+if 'GeometryReader' not in src_view:
+    print("the card no longer measures itself; a per-family budget cannot be right on every device")
+    raise SystemExit(1)
+
+# Do the four cost constants still match what the view actually DRAWS?
+#
+# Without this the sweep below is self-referential: it packs with 20/20/12 and
+# proves 20/20/12 never overflows, which stays green while the widget's own
+# SEPARATOR_H drifts to 0 and the real card overflows again. Proven by setting
+# it to 0 and watching this file stay green — so the numbers are re-derived
+# here from the view's literals instead.
+#
+# The line heights are ascent+descent+leading of the exact system font/size,
+# measured once (NSFont, and SF is the same family on iOS): 12pt regular = 15,
+# 10pt bold = 12, 15pt bold = 18.
+import re as _re
+def _const(name):
+    m = _re.search(r'static let %s: Double = ([0-9.]+)' % name, src_view)
+    if not m:
+        print("HomeWidget has no %s — the card's costs are no longer stated" % name); raise SystemExit(1)
+    return float(m.group(1))
+
+def _num(pat, what):
+    m = _re.search(pat, src_view)
+    if not m:
+        print("could not read %s out of HomeWidget — the checker and the view have parted company" % what)
+        raise SystemExit(1)
+    return float(m.group(1))
+
+# the divider drawn between two days
+sep_rule = _num(r'Rectangle\(\)\.fill\(Color\.white\.opacity\(0\.16\)\)\.frame\(height: ([0-9.]+)\)', 'the day divider height')
+sep_pad  = _num(r'opacity\(0\.16\)\)\.frame\(height: [0-9.]+\)\.padding\(\.vertical, ([0-9.]+)\)', 'the day divider padding')
+# the heading's own rule and gaps
+head_top = _num(r'\.frame\(height: 1\)\.padding\(\.top, ([0-9.]+)\)', 'the heading rule top padding')
+head_bot = _num(r'\.frame\(height: 1\)\.padding\(\.top, [0-9.]+\)\.padding\(\.bottom, ([0-9.]+)\)', 'the heading rule bottom padding')
+row_pad  = _num(r'\.padding\(\.bottom, ([0-9.]+)\)\n    \}\n\}', 'the row bottom padding')
+head_pad = _num(r'\.padding\(\.bottom, ([0-9.]+)\)\n\n            if entry\.days\.isEmpty', 'the header bottom padding')
+
+for name, want, how in [
+    ('SEPARATOR_H', sep_rule + 2 * sep_pad,      '%gpt rule + 2 x %gpt' % (sep_rule, sep_pad)),
+    ('HEADING_H',   12 + 1 + head_top + head_bot,'12pt line + 1pt rule + %g + %g' % (head_top, head_bot)),
+    ('ROW_H',       15 + row_pad,                '15pt line + %gpt' % row_pad),
+    ('HEADER_H',    18 + head_pad,               '18pt line + %gpt' % head_pad),
+]:
+    got = _const(name)
+    if abs(got - want) > 0.001:
+        print("%s is %g but the view draws %g (%s) — the card will mis-fit by that much per item" % (name, got, want, how))
+        raise SystemExit(1)
+
+# The sweep uses the view's OWN numbers, so a drifted constant reaches it.
+ROW_H, HEADING_H, SEPARATOR_H = _const('ROW_H'), _const('HEADING_H'), _const('SEPARATOR_H')
+
 widget_logic = widget_logic.replace('Provider.drawnDays', 'drawnDays')
 types += '''
 struct Line { let id: String; let text: String; let time: String?; let isReminder: Bool; let overdue: Bool; let color: String? }
 struct DaySection { let heading: String; let isToday: Bool; let lines: [Line] }
 func hexColor(_ hex: String) -> String { hex }
 let LABEL: String? = nil
-''' + widget_logic
+''' + widget_logic + ('\nlet ROW: Double = %g\nlet HEAD: Double = %g\nlet SEP: Double = %g\n' % (ROW_H, HEADING_H, SEPARATOR_H))
 
 open(sys.argv[1], 'w').write('''
 import Foundation
@@ -272,9 +332,13 @@ let big  = [DaySection(heading: "TODAY", isToday: true,  lines: (1...3).map { Li
             DaySection(heading: "TUE",   isToday: false, lines: (1...6).map { Line(id: "u\($0)", text: "u", time: nil, isReminder: true, overdue: false, color: nil) }),
             DaySection(heading: "WED",   isToday: false, lines: [Line(id: "w1", text: "w", time: nil, isReminder: true, overdue: false, color: nil)])]
 
-// Budget 9.5, heading 1.4: today costs 1.4+3, leaving 5.1 — TUE needs 1.4+6
-// and must be dropped WHOLE rather than showing 3 of its 6.
-let fit = packed(days: big, budget: 9.5, headingCost: 1.4)
+// The card's real costs, in points, as HomeWidget.swift measures them:
+// a row is 20 (12pt text = 15pt line + 5 padding), a heading 20 (10pt bold =
+// 12pt line + 1 rule + 2 + 5), the divider between days 12 (2 + 5 + 5).
+
+// 150pt of room: TODAY costs 20 + 3x20 = 80. TUE would need 12 + 20 + 6x20 =
+// 152 more and must be dropped WHOLE rather than showing 1 of its 6.
+let fit = packed(days: big, available: 150, rowH: ROW, headingH: HEAD, sepH: SEP)
 check(fit.count == 1, "a later day that cannot fit ENTIRELY is not drawn at all — got \(fit.map { $0.heading })")
 check(fit.first?.lines.count == 3, "…and the day that did fit keeps every row — got \(fit.first?.lines.count ?? -1)")
 // Not skipped-and-continued: WED would fit in what TUE left, and drawing it
@@ -283,17 +347,54 @@ check(!fit.contains { $0.heading == "WED" }, "it stops at the first day that doe
 
 // Given room, the same days all draw — otherwise the check above would pass
 // on a packer that simply drew one day forever.
-let roomy = packed(days: big, budget: 40, headingCost: 1.4)
+let roomy = packed(days: big, available: 400, rowH: ROW, headingH: HEAD, sepH: SEP)
 check(roomy.count == 3, "with room, every day is drawn — got \(roomy.count)")
 check(roomy.map { $0.lines.count } == [3, 6, 1], "…each in full — got \(roomy.map { $0.lines.count })")
 
 // The exception, stated as a test: a first day too big for the card still
 // draws what fits. Whole-days-only here would mean a busy today shows nothing.
 let flood = [DaySection(heading: "TODAY", isToday: true, lines: (1...30).map { Line(id: "f\($0)", text: "f", time: nil, isReminder: true, overdue: false, color: nil) })]
-let partial = packed(days: flood, budget: 9.5, headingCost: 1.4)
+let partial = packed(days: flood, available: 150, rowH: ROW, headingH: HEAD, sepH: SEP)
 check(partial.count == 1, "an overflowing FIRST day is still drawn")
 check(partial.first!.lines.count > 0 && partial.first!.lines.count < 30,
       "…filling the card, not emptying it and not overflowing it — got \(partial.first!.lines.count)")
+
+// THE INVARIANT SEAN ACTUALLY REPORTED, twice: it must never draw more than
+// the space it was handed. Swept across every height a real card can be —
+// and every day count — because the overflow only showed up once enough day
+// groups were on screen for their uncharged dividers to add up.
+var worst = 0.0
+for h in stride(from: 40.0, through: 420.0, by: 2.0) {
+    for n in 1...8 {
+        let days = (0..<n).map { d in
+            DaySection(heading: "D\(d)", isToday: d == 0,
+                       lines: (0..<((d & 3) + 1)).map { Line(id: "d\(d)-\($0)", text: "x", time: nil, isReminder: true, overdue: false, color: nil) })
+        }
+        let out = packed(days: days, available: h, rowH: ROW, headingH: HEAD, sepH: SEP)
+        let drawn = drawnHeight(out, rowH: ROW, headingH: HEAD, sepH: SEP)
+        worst = max(worst, drawn - h)
+        if drawn > h {
+            check(false, "overflows a \(h)pt card by \(drawn - h)pt with \(n) days — the bug Sean saw")
+            break
+        }
+        // …and it must not be timid either: whatever was dropped has to be
+        // something that genuinely did not fit. Otherwise "never overflow" is
+        // satisfied by a packer that draws nothing at all. Free space left
+        // over is FINE and expected — a later day is all-or-nothing, so a big
+        // day can be refused while several rows' worth of room remains.
+        if out.count < days.count {
+            let next = days[out.count]
+            let sep = out.isEmpty ? 0.0 : SEP
+            // A first day takes what fits, so it is only absent if even one
+            // row could not; a later day needs room for every row it has.
+            let need = sep + HEAD + (out.isEmpty ? ROW : Double(next.lines.count) * ROW)
+            if drawn + need <= h {
+                check(false, "dropped \(next.heading) though \(h - drawn)pt was free and it needs \(need)pt")
+            }
+        }
+    }
+}
+check(worst <= 0, "worst overflow across the sweep was \(worst)pt")
 
 print(bad == 0
       ? "widget feed: the phone's JSON and the widget's decoder agree"
