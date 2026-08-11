@@ -288,3 +288,46 @@ test('every control in the top bar is one height', async ({ page }) => {
     expect(who, `${tab}: the username pill matches the icons beside it`).toBe(32);
   }
 });
+
+test('the picker glyph is the same size in every tab bar button', async ({ page }) => {
+  test.setTimeout(90_000);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await signup(page);
+
+  // Sean, 2026-08-11: "Habits folder icon is too big, match the icon size in
+  // the button from other apps".
+  //
+  // Not the button — the top bar's placement and ring were already measured
+  // identical across all four. It is the GLYPH inside: three screens pass
+  // PieDot size={16} and Habits passed nothing, taking PieDot's own default
+  // of 22. The same drift the chevrons had, and the same fix: one number,
+  // asserted here so the next picker cannot quietly invent its own.
+  const glyph = async (tab: string, id: string): Promise<number> => {
+    await page.getByTestId(`tab-${tab}`).click();
+    await expect(page.getByTestId(id)).toBeVisible({ timeout: 20_000 });
+    return page.getByTestId(id).evaluate((el) => {
+      // The drawn mark inside the pressable. WebHitSlop is absolutely
+      // positioned and reaches deliberately OUTSIDE its parent, so it would
+      // measure larger than anything real.
+      const boxes = [...el.querySelectorAll('*')]
+        .filter((n) => getComputedStyle(n).position !== 'absolute')
+        .map((n) => n.getBoundingClientRect())
+        .filter((r) => r.width > 0 && r.height > 0);
+      if (boxes.length === 0) throw new Error('no drawn glyph inside the picker — nothing to measure');
+      return Math.round(Math.max(...boxes.map((r) => r.width)));
+    });
+  };
+
+  const sizes: Record<string, number> = {
+    reminders: await glyph('reminders', 'pick-reminders'),
+    calendar: await glyph('calendar', 'pick-calendar'),
+    notes: await glyph('notes', 'pick-notes'),
+    habits: await glyph('habits', 'pick-habits'),
+  };
+
+  // Both halves, for the same reason as the divider gap: "all equal" alone
+  // would pass if every tab drifted together, and a per-tab number would not
+  // say they AGREE, which is the thing Sean sees switching between them.
+  expect(new Set(Object.values(sizes)).size, `every picker draws the same glyph — got ${JSON.stringify(sizes)}`).toBe(1);
+  expect(sizes.habits, `and it is 16, the size the other three already used — got ${JSON.stringify(sizes)}`).toBe(16);
+});

@@ -36,7 +36,12 @@ export function SectionPick() {
   return (
     <>
       <Pressable testID="pick-habits" style={pickHit} onPress={() => setOpen(true)} hitSlop={8}>
-        <PieDot colors={visible.map((s) => s.payload.color)} />
+        {/* size={16} explicitly, like the other three pickers. Passing
+            nothing took PieDot's own default of 22, so the Habits button drew
+            a glyph 6px wider than the identical button on Reminders, Notes
+            and Calendar — the bar's placement and ring were already pinned
+            identical, which is why this was the part left to notice. */}
+        <PieDot colors={visible.map((s) => s.payload.color)} size={16} />
       </Pressable>
       {open && (
         <Modal transparent animationType="fade" onRequestClose={() => setOpen(false)}>
