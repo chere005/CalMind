@@ -149,8 +149,25 @@ other. This entry described a state that is not the case.
 - A FINISHED item greys out rather than keeping its folder colour. That is
   the suite's rule; it can go.
 - "standup at 9am" is titled "standup at" — the preposition is left behind
-  when the time is lifted out. It is the reference behaviour. The fix is one
-  line and was written, then reverted pending his word.
+  when the time is lifted out. VERIFIED against core on 2026-08-11, and the
+  only §1 entry so far that was already accurate: `parseWhenFromText('standup
+  at 9am')` really does return the title `"standup at"`, with due=today and
+  time=09:00. Same for "call mum at 5pm" → "call mum at". It is the reference
+  behaviour. The fix is one line and was written, then reverted pending his
+  word.
+
+- **A weekday name is not read as a date, and quietly becomes today.**
+  Measured beside the above: `"party on saturday at 8pm"` gives due=TODAY and
+  time=20:00, titled "party on saturday at". So a reminder that says Saturday
+  lands on Tuesday with no sign that the day was ignored. `"lunch friday"`
+  parses no date at all, with or without the preposition — weekday names are
+  simply not supported.
+
+  NOT a bug against the spec: the old suite does not parse weekday names
+  either, so this matches it. But the combination — the day silently dropped
+  while the TIME is honoured, dating it today — is the surprising half, and it
+  is Sean's call whether weekdays should parse or whether a dropped day should
+  stop the time being taken too.
 - "Adding a note should go straight to the note editor" — it already does
   (`app.spec.ts:157`), so he either means native-only or means it should land
   in TYPING mode. Awaiting which. Cannot test it myself: it writes to his data.
@@ -180,17 +197,25 @@ then the watch needs the direct install and the build number is the proof.
 
 ## 3 · Work, not decisions
 
-- **`Pill` announces itself as nothing.** It is a button and has no
+- **`Pill` announces itself as nothing.** It is a button with no
   `accessibilityRole`, so react-native-web renders a bare div: invisible to a
   screen reader, and invisible to every "did the tap land on a control" rule in
   this app. That is how Save inside the habit editor came to switch edit mode
-  off behind the sheet. Adding the role is one line and was tried — it made
-  `copymd.spec` hang, because the role brings `tabIndex` with it and the login
-  screen's Sign in button then takes focus, moves, and never settles for
-  Playwright. So the role is right and the fallout needs its own look; the
-  habit bug was fixed by guarding on the modal instead, which is sturdier
-  anyway. Same gap almost certainly exists on other bare Pressables.
+  off behind the sheet.
 
+  Adding the role is one line and has been tried twice, both times reverted
+  because `copymd.spec` then hangs. THE EARLIER NOTE HERE BLAMED tabIndex AND
+  WAS WRONG — measured on 2026-08-11: with the role, Playwright begins
+  honouring the visible/enabled/stable semantics that a bare div hides, and
+  that spec's fallback path (for when the account name is already taken) then
+  waits forever on a control it used to click straight through. Signing up as
+  'sean' also fails inside that spec while the identical steps in a scratch
+  spec succeed, and I did not get to the bottom of why.
+
+  So the role is right, the spec's fallback is the fragile part, and the two
+  need untangling together — not by adding the role and patching whatever goes
+  red. Anyone taking it: start by making copymd reach a signed-in state
+  deterministically, THEN add the role.
 
 - **Larger notes, with images** (Sean asked, 2026-08-11). Not a bigger cap:
   the shape cannot carry it. The client persists the WHOLE snapshot as one
