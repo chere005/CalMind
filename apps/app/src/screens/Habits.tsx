@@ -162,10 +162,25 @@ export function Habits() {
     // the same exact guard — this listener is attached MID-PRESS, so the
     // opening gesture's trailing click is the one click with no pointerdown
     // of its own, and it must not close what it just opened.
+    // CONTROLS, named one by one — not the screen's whole testID prefix.
+    //
+    // This was '[data-testid^="habit-"]', which is every testID on the page:
+    // it kept edit mode alive when you tapped the day-column HEADINGS
+    // (habit-daycol) or a blank weekend cell (habit-cell-off), neither of
+    // which is a control. Sean, 2026-08-11: "tap to exit editing on habits
+    // doesn't work" — and on a wide window the headings are most of the row
+    // you would naturally tap in.
+    //
+    // Reminders' own copy of this list already carries the lesson, learned
+    // the same way: "Named prefixes, not a whole screen's: '[data-testid^=
+    // "cal-"]' was tried and it kept the day's own TITLE, which is a label
+    // and must exit." The prefix here was written the way that one was warned
+    // against.
     const KEEP = [
       '[role="button"]', 'input', 'textarea', 'select',
-      '[data-testid^="habit-"]', '[data-testid^="hsec-"]',
-      '[data-testid^="pick-"]', '[data-testid^="tab-"]',
+      '[data-testid="habit-name"]',      // opens the editor while editing
+      '[data-testid="habit-grip"]',      // the drag handle
+      '[data-testid^="hsec-"]', '[data-testid^="pick-"]', '[data-testid^="tab-"]',
     ].join(',');
     let ownClick = true;
     const onDown = () => { ownClick = false; };
@@ -176,10 +191,20 @@ export function Habits() {
       if (t && typeof t.closest === 'function' && t.closest(KEEP)) return;
       setEdit(false);
     };
-    document.addEventListener('click', onClick);
+    // CAPTURE, not bubble. A tap on anything react-native-web renders as a
+    // Pressable — every tick cell in the grid is one — never reaches a
+    // bubble-phase listener on document, because RNW stops the click at the
+    // target. So "tap elsewhere to leave edit mode" worked on the bare
+    // background and silently did nothing across the whole grid, which is most
+    // of the screen on a desktop window. Sean, on macOS, 2026-08-11.
+    //
+    // Capture runs top-down from document BEFORE the target sees the event, so
+    // nothing downstream can swallow it. The KEEP list above is what decides;
+    // it was already doing that job and could simply never be consulted.
+    document.addEventListener('click', onClick, true);
     return () => {
       document.removeEventListener('keydown', onKey, true);
-      document.removeEventListener('click', onClick);
+      document.removeEventListener('click', onClick, true);
       document.removeEventListener('pointerdown', onDown, true);
     };
   }, [edit]);
