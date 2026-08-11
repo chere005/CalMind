@@ -51,13 +51,23 @@ test('every icon-only button on a screen carries a name', () => {
     return out;
   };
   const bare: string[] = [];
+  let seen = 0;
   for (const file of walk(join(__dirname, '..', 'apps', 'app', 'src'))) {
     const src = readFileSync(file, 'utf8');
     for (const m of src.matchAll(/<CircleBtn\b[\s\S]*?\/>/g)) {
+      seen++;
       if (!m[0].includes('label=')) {
         bare.push(`${file.split('/src/')[1]}: ${/glyph="([^"]*)"/.exec(m[0])?.[1] ?? '?'}`);
       }
     }
   }
+  // THE ALPHABET, checked before the answer. This walks the source for
+  // `<CircleBtn …/>` and collects the ones with no label; if that pattern ever
+  // stops matching — the component renamed, or wrapped in something else —
+  // the loop finds nothing, `bare` is empty, and this passes having examined
+  // no buttons at all. There were 53 usages when this floor was written, so
+  // half of that is a wide margin for ordinary churn and still catches the
+  // pattern going dead.
+  expect(seen, 'the scan actually found icon buttons — without this it can pass on nothing').toBeGreaterThan(25);
   expect(bare, 'an icon button with no name reads as nothing at all').toEqual([]);
 });

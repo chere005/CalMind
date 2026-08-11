@@ -32,13 +32,18 @@ const rel = (f: string) => f.split('/src/')[1]!;
 
 test('every collapse is the same chevron, at the one size', () => {
   const sized: string[] = [];
+  let seen = 0;
   for (const file of screens()) {
     if (rel(file) === 'components/Chevron.tsx') continue; // where the size is decided
     const src = readFileSync(file, 'utf8');
     for (const m of src.matchAll(/<Chevron\b[^/>]*\/>/g)) {
+      seen++;
       if (/\bsize=/.test(m[0])) sized.push(`${rel(file)}: ${m[0].trim()}`);
     }
   }
+  // The alphabet first: if `<Chevron …/>` stops matching, this passes having
+  // looked at nothing. 17 usages when the floor was written.
+  expect(seen, 'the scan found chevrons at all — without this it can pass on nothing').toBeGreaterThan(8);
   expect(
     sized,
     'a screen picking its own chevron size is how the four copies drifted apart',
