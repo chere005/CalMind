@@ -108,8 +108,8 @@ struct ReminderListView: View {
     /// face and another in the list.
     private func chip(_ item: WatchItem) -> String? {
         let today = WatchFormat.todayStr()
-        guard let due = item.due else { return WatchFormat.clock(item.time) }
-        let out = WatchFormat.when(date: due, time: item.time, today: today)
+        guard let due = item.due else { return WatchFormat.clockFull(item.time) }
+        let out = WatchFormat.whenFull(date: due, time: item.time, today: today)
         return out.isEmpty ? nil : out
     }
 

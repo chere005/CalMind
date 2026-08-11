@@ -44,8 +44,16 @@ const recs = [
   r('r4', 'orphan', 'f9', 's9'),     // a folder that never arrived
   { id: 'c1', type: 'calendar', updated: 1, payload: { name: 'Personal', color: '#60a5fa', ord: 'a' } },
   { id: 'e1', type: 'event', updated: 1, payload: { text: 'Chase', date: '2026-08-09', time: '17:00', repeat: null, calendarId: 'c1', ord: 'a' } },
+  // A SECOND calendar, and an event on it on a day of its own. Without both,
+  // a calendar selection has nothing to exclude and nothing to empty, so the
+  // mirror checks below would pass whatever the filter did.
+  { id: 'c2', type: 'calendar', updated: 1, payload: { name: 'Work', color: '#ff00aa', ord: 'b' } },
+  { id: 'e2', type: 'event', updated: 1, payload: { text: 'Standup', date: '2026-08-11', time: '09:00', repeat: null, calendarId: 'c2', ord: 'a' } },
 ];
-process.stdout.write(JSON.stringify(watchFeed(recs, '2026-08-09')));
+// The last argument is the widget's own calendar selection, which the phone
+// reads out of the App Group and the WATCH applies — Sean's "watch should
+// mirror folders selected by widget".
+process.stdout.write(JSON.stringify(watchFeed(recs, '2026-08-09', null, ['c1'])));
 JS
 # The generated script lives in a temp dir, so a relative import would
 # resolve against /tmp. Absolute, from the repo root this script cd-ed to.
@@ -72,7 +80,7 @@ def grab_type(name):
     return src[i:k+1]
 
 types = '\n'.join(grab_type(n) for n in
-                  ['WatchItem', 'WatchFolder', 'WatchSection', 'WatchGroup', 'WatchEvent'])
+                  ['WatchItem', 'WatchFolder', 'WatchSection', 'WatchGroup', 'WatchEvent', 'WatchDay', 'WatchLine'])
 # The List that decode() actually uses, indentation and all.
 inner = grab_type('List')
 
@@ -90,6 +98,21 @@ while True:
         if depth == 0: break
     k += 1
 fallback = view[i:k+1].replace('static func', 'func')
+
+# The wrist's copy of the WIDGET's filter. It is a deliberate second copy of
+# HomeWidget.swift's drawnDays rule — two targets, two binaries, neither able
+# to import the other — so something has to run it against a real core feed.
+# Same arrangement as the two clock formatters.
+tabs = open('apps/app/targets/watch/WatchTabs.swift').read()
+i = tabs.index('static func drawnWidgetDays(')
+depth, k = 0, tabs.index('{', i)
+while True:
+    if tabs[k] == '{': depth += 1
+    elif tabs[k] == '}':
+        depth -= 1
+        if depth == 0: break
+    k += 1
+fallback += '\n' + tabs[i:k+1].replace('static func', 'func')
 
 open(sys.argv[1], 'w').write('''
 import Foundation
@@ -128,7 +151,7 @@ check(strayTexts == ["orphan"], "the orphan is still shown, got \\(strayTexts)")
 check(list.items.count == 4, "4 open reminders, got \\(list.items.count)")
 check(list.items.allSatisfy { $0.folderId != nil }, "every row carries its folderId")
 check((list.sections ?? []).count == 3, "3 sections travel, got \\((list.sections ?? []).count)")
-check((list.events ?? []).count == 1, "1 event travels, got \\((list.events ?? []).count)")
+check((list.events ?? []).count == 2, "2 events travel, got \\((list.events ?? []).count)")
 check((list.events ?? []).first?.color == "#60a5fa", "an event carries its calendar's colour")
 
 // The fallback, both branches. It is what kept Sean's watch usable while the
@@ -143,6 +166,44 @@ check(flat.first?.sections.first?.items.count == list.items.count,
 // …and when there ARE groups it must not second-guess them.
 let kept = drawnGroups(groups: groups, items: list.items)
 check(kept.count == groups.count, "with groups present the fallback passes them through")
+
+// The first page mirrors the home-screen widget: the same `days` core built
+// for it, filtered by the same calendar selection. Sean asked for both, and
+// the two halves fail independently below.
+let days = list.days ?? []
+check(!days.isEmpty, "the wrist is given the widget's days at all — the page draws nothing without them")
+check(list.widgetCalendars == ["c1"], "the widget's selection reaches the wrist, got \(String(describing: list.widgetCalendars))")
+
+// Unfiltered, both events are there. This is the precondition: without it the
+// filter check below could pass by the event never having arrived.
+let allIds = drawnWidgetDays(days: days, wanted: []).flatMap { $0.lines.map { $0.id } }
+check(allIds.contains("e1") && allIds.contains("e2"),
+      "with NO selection every event is drawn — an empty picker is not an empty page, got \(allIds)")
+
+let mine = drawnWidgetDays(days: days, wanted: ["c1"])
+let mineIds = mine.flatMap { $0.lines.map { $0.id } }
+check(mineIds.contains("e1"), "the picked calendar's event stays, got \(mineIds)")
+check(!mineIds.contains("e2"), "an event on an UNPICKED calendar goes, got \(mineIds)")
+// The half that makes this different from the calendar picker: a reminder is
+// never filtered here, because the tri-state already decided it.
+check(mineIds.contains("r1"), "a REMINDER survives a calendar selection, got \(mineIds)")
+// Stated as a SET comparison rather than by naming rows. The first draft
+// asserted r2 was there too and was simply wrong — r2 is undated, and an
+// undated reminder only rides onto today when its folder's tri-state is
+// 'all', which this fixture does not set. Naming rows meant asserting my
+// guess about the tri-state; comparing the sets asserts the actual rule,
+// which is that a CALENDAR selection changes no reminder at all.
+let remsAll = Set(drawnWidgetDays(days: days, wanted: []).flatMap { $0.lines.filter { $0.isReminder }.map { $0.id } })
+let remsPicked = Set(mine.flatMap { $0.lines.filter { $0.isReminder }.map { $0.id } })
+check(!remsAll.isEmpty, "there must be reminders in the mirror at all, or the comparison below is vacuous")
+check(remsAll == remsPicked, "a calendar selection changes NO reminder — \(remsAll) became \(remsPicked)")
+// e2 was alone on its day, so that day must vanish rather than draw a bare heading.
+let soloDay = drawnWidgetDays(days: days, wanted: []).first { $0.lines.contains { $0.id == "e2" } }
+check(soloDay?.lines.count == 1, "the fixture needs a day whose ONLY line is e2, or the next check cannot fail")
+let unfilteredCount = drawnWidgetDays(days: days, wanted: []).count
+check(mine.count == unfilteredCount - 1,
+      "the emptied day disappears, not drawn headless — \(unfilteredCount) days became \(mine.count)")
+check(mine.allSatisfy { !$0.lines.isEmpty }, "no day is ever drawn with an empty line list")
 
 print(bad == 0
       ? "watch feed: the phone's JSON and the wrist's decoder agree"

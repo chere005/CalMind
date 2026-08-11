@@ -16,6 +16,10 @@ import AppIntents
 private let GROUP = "group.com.seancheren.calmind"
 private let CACHE = "watchlist.json"
 private let TICKS = "pendingTicks"
+/// The calendars THIS widget is configured for, written back so the phone can
+/// read a WidgetKit configuration it otherwise has no access to. The watch's
+/// first page mirrors it. See Provider.build for why the last render wins.
+private let WIDGET_CALS = "widgetCalendars"
 
 // The Scriptable widget's palette, carried over rather than re-invented.
 private let BG = Color(red: 0.067, green: 0.067, blue: 0.067)   // #111111
@@ -296,6 +300,19 @@ struct Provider: AppIntentTimelineProvider {
         // empty widget. (Tested in core; the one-line version of that rule
         // shipped a blank widget in an earlier draft.)
         let wanted = Set((configuration.folders ?? []).map(\.id))
+        // Hand the selection back out through the App Group, because nothing
+        // else can see it. A WidgetKit configuration belongs to ONE widget
+        // instance and the containing app has no API to read it, so the
+        // phone — and through it the watch — had no way to know which
+        // calendars this widget was showing. Sean: "watch should mirror
+        // folders selected by widget".
+        //
+        // Written on every render, which is when it can have changed: editing
+        // a widget's configuration reloads its timeline, so this runs. With
+        // more than one widget instance the last render wins, which is a real
+        // limitation and the honest one to have — a single watch page cannot
+        // mirror two differently-configured widgets at once.
+        UserDefaults(suiteName: GROUP)?.set(Array(wanted), forKey: WIDGET_CALS)
         return Entry(date: Date(),
                      days: Provider.drawnDays(feed: feed, ticked: ticked, wanted: wanted, today: todayStr()),
                      clock24: feed.clock24 ?? false,
@@ -396,20 +413,44 @@ struct HomeWidgetView: View {
         }
     }
 
-    private var content: some View {
-        // Spend the budget day by day: a heading costs its own height, then
-        // each row costs one. A day whose heading would fit but which has no
-        // room for even one row is not worth drawing — a heading with nothing
-        // under it is the emptiness it was supposed to fix.
-        var budget = spaceBudget
+    /// Which days actually get drawn, and how much of each.
+    ///
+    /// Sean, 2026-08-10: "only show as many upcoming days as will fully fit on
+    /// the size of the widget". Before this, a day was truncated to whatever
+    /// rows were left — so the last day on the card showed two of its five
+    /// items with nothing saying the rest existed, which is worse than not
+    /// showing that day at all.
+    ///
+    /// THE FIRST DAY IS THE EXCEPTION, and it is a deliberate one. Applying
+    /// "whole days only" to the first day means a today with more items than
+    /// the card can hold draws NOTHING — a busy day would empty the widget,
+    /// which is the opposite of what it is for. So the first day fills what
+    /// space there is; every day after it is all-or-nothing.
+    ///
+    /// Stops at the first day that will not fit rather than skipping ahead to
+    /// a smaller one: a card that silently omits Tuesday and shows Wednesday
+    /// is lying about what is coming up.
+    ///
+    /// Static and pure for the usual reason — as a computed property over
+    /// `entry` and `@Environment(\.widgetFamily)` it could only ever run
+    /// inside a rendered widget on a phone, which is the one place nothing in
+    /// this repo can look. tools/check-widget-feed.sh calls it directly.
+    static func packed(days: [DaySection], budget: Double, headingCost: Double) -> [DaySection] {
+        var left = budget
         var out: [DaySection] = []
-        for day in entry.days {
-            let room = budget - headingCost
+        for (i, day) in days.enumerated() {
+            let room = left - headingCost
             if room < 1 { break }
-            let take = Array(day.lines.prefix(Int(room)))
-            budget -= headingCost + Double(take.count)
+            if i > 0 && Double(day.lines.count) > room { break }
+            let take = i == 0 ? Array(day.lines.prefix(Int(room))) : day.lines
+            left -= headingCost + Double(take.count)
             out.append(DaySection(heading: day.heading, isToday: day.isToday, lines: take))
         }
+        return out
+    }
+
+    private var content: some View {
+        let out = Self.packed(days: entry.days, budget: spaceBudget, headingCost: headingCost)
         return VStack(alignment: .leading, spacing: 0) {
             ForEach(Array(out.enumerated()), id: \.offset) { idx, day in
                 if idx > 0 {

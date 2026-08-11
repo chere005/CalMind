@@ -36,6 +36,15 @@ public class WatchBridgeModule: Module {
     Function("drainWidgetTicks") { () -> [String] in
       WatchSession.drainWidgetTicks()
     }
+
+    /// Which calendars the home-screen widget is set to. The widget writes it
+    /// into the App Group as it renders, because a WidgetKit configuration is
+    /// private to its own instance and there is no API that hands it to the
+    /// containing app. Empty when no widget has ever rendered — which reads
+    /// as "all calendars", the same as an empty selection.
+    Function("widgetCalendars") { () -> [String] in
+      UserDefaults(suiteName: "group.com.seancheren.calmind")?.stringArray(forKey: "widgetCalendars") ?? []
+    }
   }
 }
 

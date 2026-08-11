@@ -13,6 +13,12 @@ shipped, `TODO.md` is the live list.
   is, and it settles arguments that would otherwise cost Sean a message.
   Where its code and its own CLAUDE.md disagree, that is a question for Sean,
   not a thing to pick a side on.
+- **Web first, always.** Deploy to test BEFORE building and installing the
+  phone or watch app — Sean's instruction, 2026-08-10. The web deploy runs
+  the gates (lint, typecheck, suites), so a device build that goes first is a
+  build made against code the gates have not passed; and the app talks to the
+  test API, so shipping the client ahead of the server it expects is the
+  wrong order to find out.
 - **Deploy to test only** — `./server/deploy-test.sh`, which refuses anything
   else. Prod is never touched without Sean saying so, in that message.
   `./server/deploy-prod.sh` exists for the one prod-legitimate payload (the

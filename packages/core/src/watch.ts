@@ -79,11 +79,28 @@ export function watchFeed(
    *  the widget's picker. They were missing entirely: the feed is built from
    *  my store, and a partner's records live in another one. */
   shared: { recs: AnyRec[]; partner: string } | null = null,
-): { items: WatchRow[]; events: WatchEvent[]; folders: WatchFolder[]; calendars: WatchCalendar[]; sections: WatchSection[]; groups: WatchGroup[]; days: WidgetDay[]; clock24: boolean } {
+  /** Which calendars the phone's home-screen widget is currently set to, read
+   *  off the App Group by WatchBridge. Carried, NOT applied: the same JSON is
+   *  the widget's own cache, and two widget instances may be configured
+   *  differently, so `days` has to stay unfiltered for them. The WATCH
+   *  applies it — Sean asked its first page to match the widget exactly. An
+   *  empty list means every calendar, the same rule the widget itself uses. */
+  widgetCalendars: string[] = [],
+): { items: WatchRow[]; events: WatchEvent[]; folders: WatchFolder[]; calendars: WatchCalendar[]; sections: WatchSection[]; groups: WatchGroup[]; days: WidgetDay[]; widgetCalendars: string[]; clock24: boolean } {
+  // Both stores' calendars: a partner's event names one that exists only in
+  // theirs, and without it every shared event drew in the fallback blue.
   const calColor = new Map(
-    recs.filter((r): r is Rec<'calendar'> => r.type === 'calendar' && !r.deleted).map((c) => [c.id, c.payload.color]),
+    [...recs, ...(shared?.recs ?? [])]
+      .filter((r): r is Rec<'calendar'> => r.type === 'calendar' && !r.deleted)
+      .map((c) => [c.id, c.payload.color]),
   );
-  const events = recs
+  // The partner's events travel too. Sean, 2026-08-10: "i don't see shared
+  // calendar on my watch" — this list is the Events page, and it was built
+  // from MY records alone, so a shared calendar could be visible on the phone
+  // and on the widget and still be missing from the wrist. The 30-item cap is
+  // applied AFTER the merge, so the nearest 30 win regardless of whose they
+  // are, rather than a partner's next event losing to my thirty-first.
+  const events = [...recs, ...(shared?.recs ?? [])]
     .filter((r): r is Rec<'event'> => r.type === 'event' && !r.deleted && r.payload.date >= today)
     .sort((a, b) =>
       a.payload.date !== b.payload.date
@@ -150,7 +167,11 @@ export function watchFeed(
     calendars,
     sections,
     groups: watchGroups(items, folders, sections),
-    days: widgetDays(recs, today),
+    // The partner's records go in too — their shared calendars were already
+    // in `calendars` above, so the picker offered them while the feed held
+    // none of their events. See widgetDays for why events and not reminders.
+    days: widgetDays(recs, today, { sharedRecs: shared?.recs }),
+    widgetCalendars,
     // The watch and the widget are other processes in another language and
     // cannot read a pref record. The flag travels with the list so all four
     // surfaces speak the same clock from one setting.
@@ -247,10 +268,24 @@ export const WIDGET_DAYS = 14;
 export function widgetDays(
   recs: AnyRec[],
   today: string,
-  opts: { folderIds?: string[]; ticked?: string[]; days?: number } = {},
+  opts: { folderIds?: string[]; ticked?: string[]; days?: number; sharedRecs?: AnyRec[] } = {},
 ): WidgetDay[] {
   const wanted = new Set(opts.folderIds ?? []);
   const ticked = new Set(opts.ticked ?? []);
+  // A partner's records live in ANOTHER STORE, so nothing built from `recs`
+  // alone can see them. Their shared calendars already reached the widget's
+  // picker (watchFeed's `calendars`), which made the gap worse rather than
+  // better: Sean could tick a shared calendar and get nothing, because the
+  // events behind it were never in the feed. Reported by him, 2026-08-10.
+  //
+  // EVENTS ONLY, deliberately. Their reminders are shown on the Calendar
+  // screen under their own heading and can be ticked there, through
+  // sharedPut() — a write to the OTHER store. The widget's check-off has no
+  // such path: it queues an id in the App Group and the app applies it
+  // through the ordinary put(), which would look in my store, miss, and drop
+  // the tick silently. A tick box that does nothing is worse than an absent
+  // row, so their reminders stay off the widget until that path exists.
+  const sharedRecs = opts.sharedRecs ?? [];
   // THE CALENDAR'S OWN RULE, not a second one that resembles it.
   //
   // This used to walk every open reminder and drop it on its due date, which
@@ -266,16 +301,26 @@ export function widgetDays(
   // about: a repeat that lands on a date, an overdue reminder still showing
   // on today, and the rider flag.
   const modes = prefsOf(recs, 'calendar').folderModes;
+  // Both stores' calendars, because a partner's event names a calendar that
+  // only exists in THEIRS. Without it every shared event drew in the fallback
+  // blue and the picker's colour swatch disagreed with the row it filtered.
   const calColor = new Map(
-    recs.filter((r): r is Rec<'calendar'> => r.type === 'calendar' && !r.deleted).map((c) => [c.id, c.payload.color]),
+    [...recs, ...sharedRecs]
+      .filter((r): r is Rec<'calendar'> => r.type === 'calendar' && !r.deleted)
+      .map((c) => [c.id, c.payload.color]),
   );
 
   const out: WidgetDay[] = [];
   for (let i = 0; i < (opts.days ?? WIDGET_DAYS); i++) {
     const date = addDays(today, i);
     const { events, reminders } = dayItems(recs, date, today, modes);
+    // Through dayItems() again rather than a filter of my own: it is what the
+    // Calendar screen calls on the same records (Calendar.tsx's sharedItems),
+    // so a repeating shared event expands onto this day for the widget exactly
+    // as it does on the phone.
+    const theirs = sharedRecs.length > 0 ? dayItems(sharedRecs, date, today, modes).events : [];
     const lines: WidgetLine[] = [];
-    for (const e of events) {
+    for (const e of [...events, ...theirs]) {
       lines.push({
         id: e.id,
         text: e.payload.text,

@@ -207,7 +207,9 @@ export function Add({ done, onNoteCreated }: { done: () => void; onNoteCreated?:
 
 const s = themed(() => StyleSheet.create({
   page: { flex: 1, backgroundColor: T.bg },
-  scroll: { padding: 16, gap: 14 },
+  // paddingTop 0: the gap below the divider is TopBar's, one value for
+  // every tab (chrome.tsx's ruleWrap). It used to be set here at 16.
+  scroll: { padding: 16, paddingTop: 0, gap: 14 },
   dateLine: { color: T.dim, fontSize: 15 },
   cards: { flexDirection: 'row', gap: 10 },
   card: {

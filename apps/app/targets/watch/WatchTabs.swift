@@ -41,27 +41,75 @@ private func dayLabel(_ date: String) -> String {
     return out.string(from: d)
 }
 
-/// One glance: what's left today, and what's next on the calendar.
+/// The first page: exactly what the home-screen widget is showing.
+///
+/// Sean, 2026-08-10: "the first watch tab should match what is shown in the
+/// widget entirely including reminders" — and "watch should mirror folders
+/// selected by widget". Both are one rule: draw core's `days` (the widget's
+/// own shape, decided in widgetDays) and apply the widget's calendar
+/// selection, which now travels in the feed because the widget writes it into
+/// the App Group where the phone can read it.
+///
+/// This REPLACED a hand-built summary — a "due today" count and the next
+/// event. That page was assembled from `items` and `events` with its own idea
+/// of what mattered, so it could not help but disagree with the widget: it
+/// had no notion of the tri-state, of an overdue item landing on today, or of
+/// a repeat expanding onto a date. Those rules exist once, in core, and this
+/// page now reads their output instead of re-deriving a version of them.
 struct SummaryView: View {
     @EnvironmentObject var store: WatchStore
 
+    /// The widget's filter, in the watch's copy — pure and static so
+    /// tools/check-watch-feed.sh can run it against the same core feed it
+    /// runs HomeWidget's copy against. Keep the two identical; a checker,
+    /// not discipline, is what says they still are.
+    ///
+    /// The rule, and it is the whole rule: a selection filters EVENTS by
+    /// calendar and never touches a reminder, because whether a reminder
+    /// appears was already decided by the tri-state in Manage reminders. An
+    /// empty selection means everything. A day left with no lines disappears
+    /// rather than drawing a bare heading.
+    static func drawnWidgetDays(days: [WatchDay], wanted: Set<String>) -> [WatchDay] {
+        days.compactMap { day in
+            let lines = day.lines.filter { l in
+                if !l.isReminder, !wanted.isEmpty {
+                    guard let c = l.calendarId, wanted.contains(c) else { return false }
+                }
+                return true
+            }
+            return lines.isEmpty ? nil : WatchDay(date: day.date, lines: lines)
+        }
+    }
+
     var body: some View {
-        let today = todayStr()
-        let open = store.items.filter { !$0.done }
-        // Undated is not due — an empty string compares before every date,
-        // which made every undated reminder "due today" until this said no.
-        // And no TOTAL anywhere: "29 to do" was Sean's first complaint with
-        // this screen on his wrist — a tally of everything he has ever owed
-        // says nothing about NOW. The page leads with what is actually due.
-        let dueToday = open.filter { $0.due != nil && $0.due! <= today }
-        let nextEvent = store.events.first
+        let mirrored = Self.drawnWidgetDays(days: store.days, wanted: Set(store.widgetCalendars))
+        // An older phone build sends no `days` at all. Falling back to the old
+        // summary would mean keeping two pages alive forever; saying what is
+        // actually true costs one line and ages out on its own.
+        if store.days.isEmpty, case .loaded = store.feed {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Update your iPhone app").font(.headline)
+                    Text("This page mirrors your home-screen widget, which needs a newer build on the phone.")
+                        .font(.caption2).foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .navigationTitle("Today")
+        } else {
+            WidgetMirrorView(days: mirrored).environmentObject(store)
+        }
+    }
+}
+
+/// The mirror itself, split out so the fallback above stays readable.
+struct WidgetMirrorView: View {
+    @EnvironmentObject var store: WatchStore
+    let days: [WatchDay]
+
+    var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 8) {
-                // 'Nothing due today' used to be shown whether the watch had
-                // the list and nothing was due, or had never received
-                // anything at all. Same words, opposite meanings — and that
-                // ambiguity is exactly what an evening of 'my watch is not
-                // syncing' turned out to be. The state says which.
                 switch store.feed {
                 case .waiting:
                     Text("Waiting for your phone")
@@ -73,41 +121,38 @@ struct SummaryView: View {
                         .font(.headline).foregroundStyle(.orange)
                     Text(why).font(.caption2).foregroundStyle(.secondary)
                 case .loaded:
-                    Text(dueToday.isEmpty ? "Nothing due today" : "Due today")
-                        .font(.headline)
-                        .foregroundStyle(dueToday.isEmpty ? .secondary : .primary)
-                }
-                ForEach(dueToday.prefix(3)) { r in
-                    Label(r.text, systemImage: "circle")
-                        .font(.body)
-                        .lineLimit(2)
-                }
-                if dueToday.count > 3 {
-                    // A continuation, not a statistic: it counts THESE, and
-                    // the Reminders page below holds them.
-                    Text("and \(dueToday.count - 3) more")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
-                if let e = nextEvent {
-                    Divider()
-                    Label {
-                        VStack(alignment: .leading, spacing: 1) {
-                            Text(e.text).lineLimit(2)
-                            // The event's own CALENDAR colour, the one the
-                            // picker shows beside its name — Sean asked for
-                            // the time to carry it rather than the generic
-                            // secondary grey, so a glance says which calendar
-                            // it belongs to without reading a word.
-                            Text(WatchFormat.when(date: e.date, time: e.time, today: todayStr()))
-                                .font(.caption2)
-                                .foregroundStyle(Color(hex: e.color))
-                        }
-                    } icon: {
-                        Image(systemName: "calendar")
-                            .foregroundStyle(Color(hex: e.color))
+                    if days.isEmpty {
+                        // Distinct from 'waiting' on purpose: this one means
+                        // the list arrived and there is genuinely nothing on
+                        // it. The same words for both is what an evening of
+                        // "my watch isn't syncing" turned out to be.
+                        Text("Nothing coming up").font(.headline).foregroundStyle(.secondary)
                     }
-                    .font(.body)
+                }
+                ForEach(days.prefix(4), id: \.date) { day in
+                    Text(dayLabel(day.date))
+                        .font(.caption).bold()
+                        .foregroundStyle(day.date == todayStr() ? Color.green : .secondary)
+                    ForEach(day.lines.prefix(6)) { l in
+                        Label {
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(l.text).lineLimit(2)
+                                if let t = l.time {
+                                    Text(WatchFormat.clockFull(t) ?? t)
+                                        .font(.caption2)
+                                        .foregroundStyle(l.color.map { Color(hex: $0) } ?? .secondary)
+                                }
+                            }
+                        } icon: {
+                            // A reminder gets the tick outline the Reminders
+                            // page uses; an event gets its calendar's dot, the
+                            // same colour the widget draws it in.
+                            Image(systemName: l.isReminder ? "circle" : "calendar")
+                                .foregroundStyle(l.overdue ? Color.orange
+                                                 : l.color.map { Color(hex: $0) } ?? .secondary)
+                        }
+                        .font(.body)
+                    }
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -136,7 +181,7 @@ struct EventListView: View {
                                         .frame(width: 8, height: 8)
                                     VStack(alignment: .leading, spacing: 1) {
                                         Text(e.text).font(.body)
-                                        if let t = WatchFormat.clock(e.time) {
+                                        if let t = WatchFormat.clockFull(e.time) {
                                             Text(t).font(.caption2).foregroundStyle(Color(hex: e.color))
                                         }
                                     }

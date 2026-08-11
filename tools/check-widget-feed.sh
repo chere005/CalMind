@@ -49,8 +49,22 @@ const recs = [
   { id: 'e2', type: 'event', updated: 1, payload: { text: 'solo', date: '2026-08-11', time: '11:00', repeat: null, calendarId: 'c1', ord: 'a' } },
   prefsPut([], 'calendar', { folderModes: { f1: 'dated', f2: 'none', f3: 'all' } }),
 ];
+// The partner's store. Their calendar's colour is deliberately NOT '#60a5fa',
+// which is the fallback an unresolved calendarId gets — with the same colour
+// on both sides a shared event would look right while the colour map was
+// missing it entirely.
 const shared = [
-  { id: 'p1', type: 'calendar', updated: 1, payload: { name: 'Personal', color: '#60a5fa', ord: 'a' } },
+  { id: 'p1', type: 'calendar', updated: 1, payload: { name: 'Personal', color: '#ff00aa', ord: 'a' } },
+  // On TODAY on purpose: today already has reminders that outlive any calendar
+  // selection, so adding this event changes no day's existence and the
+  // emptied-day arithmetic further down still holds.
+  { id: 'pe1', type: 'event', updated: 1, payload: { text: 'their thing', date: TODAY, time: '08:00', repeat: null, calendarId: 'p1', ord: 'a' } },
+  // A partner REMINDER has to exist in the fixture or the assertion that they
+  // stay off the widget cannot fail — an absence check against a store that
+  // never held the thing is the "check that cannot fail" this repo keeps
+  // catching. Proven: folding shared reminders into widgetDays makes it red.
+  { id: 'theirrem', type: 'reminder', updated: 1,
+    payload: { text: 'theirs', due: TODAY, time: null, done: false, repeat: null, folderId: 'pf1', sectionId: 'ps1', indent: 0, ord: 'a' } },
 ];
 process.stdout.write(JSON.stringify(watchFeed(recs, TODAY, { recs: shared, partner: 'aki' })));
 JS
@@ -107,7 +121,7 @@ def grab_priv(name):
 
 # Colour is SwiftUI; the check is about grouping and filtering, so Line's
 # colour becomes a plain string and hexColor is stubbed to pass it through.
-widget_logic = (grab_func('drawnDays') + '\n' + grab_priv('dayHeading') + '\n' + grab_priv('clock12'))
+widget_logic = (grab_func('drawnDays') + '\n' + grab_func('packed') + '\n' + grab_priv('dayHeading') + '\n' + grab_priv('clock12'))
 widget_logic = widget_logic.replace('Provider.drawnDays', 'drawnDays')
 types += '''
 struct Line { let id: String; let text: String; let time: String?; let isReminder: Bool; let overdue: Bool; let color: String? }
@@ -205,6 +219,28 @@ let pickedIds = picked.flatMap { $0.lines.map { $0.id } }
 check(pickedIds.contains("e1"), "the picked calendar's event stays — got \(pickedIds)")
 check(pickedIds.contains("shown"), "a REMINDER survives a calendar selection — got \(pickedIds)")
 check(pickedIds.contains("rider"), "…every reminder does, not just some — got \(pickedIds)")
+check(!pickedIds.contains("pe1"), "a SHARED event on an unpicked calendar goes, like any other — got \(pickedIds)")
+
+// Sean, 2026-08-10: "i don't see shared events in my widget". The picker had
+// been offering his partner's calendars for a while, but the days were built
+// from his records alone — so their events were never in the feed and picking
+// their calendar showed nothing. Both halves are checked: that the event
+// arrives at all, and that picking THEIR calendar is what selects it.
+let theirs = todayLines.first(where: { $0.id == "pe1" })
+check(theirs != nil, "a partner's shared event reaches the widget — got \(ids)")
+check(theirs?.calendarId == "p1", "…naming THEIR calendar, so the picker can filter it")
+check(theirs?.color == "#ff00aa", "…and wearing THEIR calendar's colour, not the fallback — got \(String(describing: theirs?.color))")
+check(theirs?.isReminder == false, "a shared event is an event")
+
+let pickedShared = drawnDays(feed: feed, ticked: [], wanted: ["p1"], today: today)
+let sharedIds = pickedShared.flatMap { $0.lines.map { $0.id } }
+check(sharedIds.contains("pe1"), "picking the SHARED calendar shows their event — got \(sharedIds)")
+check(!sharedIds.contains("e1"), "…and drops mine, which was not picked — got \(sharedIds)")
+
+// Their REMINDERS deliberately do not travel: a widget tick queues an id the
+// app applies to MY store, so a partner's row would draw a box that does
+// nothing. This is the assertion that will fail if that ever changes silently.
+check(!everywhere.contains("theirrem"), "a partner's reminders stay off the widget — got \(everywhere)")
 
 let other = drawnDays(feed: feed, ticked: [], wanted: ["nosuchcalendar"], today: today)
 let otherIds = other.flatMap { $0.lines.map { $0.id } }
@@ -227,6 +263,37 @@ let cals = feed.calendars ?? []
 check(cals.count == 2, "the picker is offered my calendar AND the partner's — got \(cals.map { $0.name })")
 check(cals.first?.sharedFrom == nil, "my own calendar names no sharer")
 check(cals.last?.sharedFrom == "aki", "a partner's names them — got \(String(describing: cals.last?.sharedFrom))")
+
+// How much of the card gets filled. Sean, 2026-08-10: "only show as many
+// upcoming days as will fully fit on the size of the widget" — a later day is
+// all-or-nothing, where it used to be truncated to the rows that were left.
+// The first day is the deliberate exception; see packed() for why.
+let big  = [DaySection(heading: "TODAY", isToday: true,  lines: (1...3).map { Line(id: "t\($0)", text: "t", time: nil, isReminder: true, overdue: false, color: nil) }),
+            DaySection(heading: "TUE",   isToday: false, lines: (1...6).map { Line(id: "u\($0)", text: "u", time: nil, isReminder: true, overdue: false, color: nil) }),
+            DaySection(heading: "WED",   isToday: false, lines: [Line(id: "w1", text: "w", time: nil, isReminder: true, overdue: false, color: nil)])]
+
+// Budget 9.5, heading 1.4: today costs 1.4+3, leaving 5.1 — TUE needs 1.4+6
+// and must be dropped WHOLE rather than showing 3 of its 6.
+let fit = packed(days: big, budget: 9.5, headingCost: 1.4)
+check(fit.count == 1, "a later day that cannot fit ENTIRELY is not drawn at all — got \(fit.map { $0.heading })")
+check(fit.first?.lines.count == 3, "…and the day that did fit keeps every row — got \(fit.first?.lines.count ?? -1)")
+// Not skipped-and-continued: WED would fit in what TUE left, and drawing it
+// would tell Sean nothing is happening on Tuesday.
+check(!fit.contains { $0.heading == "WED" }, "it stops at the first day that does not fit, rather than hopping over it")
+
+// Given room, the same days all draw — otherwise the check above would pass
+// on a packer that simply drew one day forever.
+let roomy = packed(days: big, budget: 40, headingCost: 1.4)
+check(roomy.count == 3, "with room, every day is drawn — got \(roomy.count)")
+check(roomy.map { $0.lines.count } == [3, 6, 1], "…each in full — got \(roomy.map { $0.lines.count })")
+
+// The exception, stated as a test: a first day too big for the card still
+// draws what fits. Whole-days-only here would mean a busy today shows nothing.
+let flood = [DaySection(heading: "TODAY", isToday: true, lines: (1...30).map { Line(id: "f\($0)", text: "f", time: nil, isReminder: true, overdue: false, color: nil) })]
+let partial = packed(days: flood, budget: 9.5, headingCost: 1.4)
+check(partial.count == 1, "an overflowing FIRST day is still drawn")
+check(partial.first!.lines.count > 0 && partial.first!.lines.count < 30,
+      "…filling the card, not emptying it and not overflowing it — got \(partial.first!.lines.count)")
 
 print(bad == 0
       ? "widget feed: the phone's JSON and the widget's decoder agree"

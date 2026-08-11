@@ -19,7 +19,7 @@ which is why they are listed here rather than left to be discovered.
 | `npm run test:server` | the API over real HTTP on a scratch dir | **yes** |
 | `npm run test:e2e` | gestures, real mouse, on the EXPORTED app | **yes** |
 | `npm run test:webkit` | the spine + header rules + scaling, in Sean's engine | no |
-| `npm run test:watch` | both Swift clock copies; core's JSON through the wrist's real decoder and `drawnGroups` | no |
+| `npm run test:watch` | both Swift clock copies; core's JSON through the wrist's real decoder, `drawnGroups` and `drawnWidgetDays` | no |
 | `npm run test:widget` | core's JSON through HomeWidget's real decoder and `drawnDays`; every App Group key read has a writer on its own device | no |
 | `npm run test:deploy` | the deploy guards, each proven by breaking a copy | no |
 | `./desktop/smoke.sh` | the macOS shell carries THIS export | no |
@@ -149,11 +149,36 @@ than a red run, because it looks like an answer.
   the milestone-1 shape Sean's oldest folders still have, which is the exact
   record the feed was dropping.
 
-  It also runs the wrist's one piece of its own logic: `drawnGroups`, the
+  It also runs the wrist's two pieces of its own logic. `drawnGroups` is the
   fallback that draws a flat list when a payload arrives with no groups.
   That was a computed property over `store`, so it could only ever execute
   inside a rendered view on a watch; it is static and pure now for no other
   reason than that something can call it. Both branches are checked.
+
+  `drawnWidgetDays` is the second, added 2026-08-10 when Sean asked the
+  watch's first page to show exactly what the home-screen widget shows. It
+  is a deliberate SECOND COPY of HomeWidget.swift's filter — two targets,
+  two binaries, neither able to import the other — so the only thing keeping
+  them honest is that both are run against one core-generated feed. The
+  fixture carries two calendars and an event alone on its own day, because
+  a selection with nothing to exclude and no day to empty would let the
+  check pass whatever the filter did.
+
+  The reminder half is asserted as a SET comparison rather than by naming
+  rows, and that correction is the interesting part: the first draft named
+  a row that is undated, which the tri-state legitimately keeps off the
+  page — so it was asserting a guess about the tri-state instead of the
+  actual rule, which is that a CALENDAR selection changes no reminder at
+  all. Proven red by making the filter hit reminders too.
+
+  Seen, not only asserted: rendered on a watchOS simulator with a seeded
+  feed, showing the overdue row in orange, the event in its calendar's
+  colour, and the event on the UNPICKED calendar absent — then reseeded with
+  an empty selection and watched that same event come back. Both directions,
+  on screen. (Seeding needs `simctl unpair` first — the phone's context wins
+  at activation — and the unpair reboots the watch sim, so reinstall after.
+  Seed BOTH `com.seancheren.calmind.watchkitapp` and the App Group suite:
+  the store reads the group first and falls back to standard.)
 
   Proven the only way that counts — by restoring each original bug and
   watching it go red: the strict `app === 'reminders'` comparison drops

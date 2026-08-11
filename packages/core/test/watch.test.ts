@@ -419,3 +419,126 @@ describe("watchFeed — the calendars the widget's picker offers", () => {
     expect(watchFeed([gone], TODAY).calendars).toEqual([]);
   });
 });
+
+describe("widgetDays — a partner's shared events reach the widget", () => {
+  // Sean, 2026-08-10: "i don't see shared events in my widget".
+  //
+  // The picker had been offering his partner's calendars since the block
+  // above, but `days` was built from HIS records alone — so ticking a shared
+  // calendar in the widget selected a calendar whose events were not in the
+  // feed at all. Half a feature is worse than none of one: the control said
+  // the events existed.
+  const TODAY = '2026-08-09';
+  const cal = (id: string, color: string): AnyRec =>
+    ({ id, type: 'calendar', updated: 1, payload: { name: id, color, ord: 'a' } } as AnyRec);
+  const ev = (id: string, date: string, time: string | null, calendarId: string): AnyRec =>
+    ({ id, type: 'event', updated: 1, payload: { text: id, date, time, repeat: null, calendarId, ord: id } } as AnyRec);
+  const rem = (id: string, due: string): AnyRec =>
+    ({ id, type: 'reminder', updated: 1,
+       payload: { text: id, due, time: null, done: false, repeat: null, folderId: 'pf1', sectionId: 'ps1', indent: 0, ord: id } } as AnyRec);
+
+  // Mine is the FALLBACK blue on purpose only where a colour is not the point;
+  // theirs is deliberately NOT '#60a5fa', because that is what an unresolved
+  // calendarId falls back to. With the partner's calendars missing from the
+  // colour map the line would still be blue and a laxer assertion would pass.
+  const mine = [cal('c1', '#60a5fa'), ev('mine', TODAY, '09:00', 'c1')];
+  const theirs = [cal('p1', '#ff00aa'), ev('theirs', TODAY, '10:00', 'p1')];
+
+  it("their event is in the feed's days, next to mine", () => {
+    const { days } = watchFeed(mine, TODAY, { recs: theirs, partner: 'aki' });
+    expect(days[0]!.date).toBe(TODAY);
+    expect(days[0]!.lines.map((l) => l.id)).toEqual(['mine', 'theirs']);
+  });
+
+  it("their event carries THEIR calendar's colour and id, so the picker can filter it", () => {
+    const { days } = watchFeed(mine, TODAY, { recs: theirs, partner: 'aki' });
+    const line = days[0]!.lines.find((l) => l.id === 'theirs')!;
+    expect(line.calendarId).toBe('p1');
+    // The picker offers p1 with #ff00aa (the block above); the row it filters
+    // has to agree, or the swatch describes a colour nothing on screen wears.
+    expect(line.color).toBe('#ff00aa');
+    expect(line.isReminder).toBe(false);
+  });
+
+  it('a day of theirs alone is still a day — it is not dropped for having none of mine', () => {
+    const { days } = watchFeed(
+      [cal('c1', '#60a5fa')],
+      TODAY,
+      { recs: [cal('p1', '#ff00aa'), ev('solo', '2026-08-12', '10:00', 'p1')], partner: 'aki' },
+    );
+    expect(days.map((d) => d.date)).toEqual(['2026-08-12']);
+    expect(days[0]!.lines.map((l) => l.id)).toEqual(['solo']);
+  });
+
+  it('a repeating shared event expands onto its later days, as it does on the phone', () => {
+    const weekly = { id: 'wk', type: 'event', updated: 1,
+      payload: { text: 'wk', date: TODAY, time: '08:00', repeat: { unit: 'week', n: 1 }, calendarId: 'p1', ord: 'a' } } as AnyRec;
+    const { days } = watchFeed([], TODAY, { recs: [cal('p1', '#ff00aa'), weekly], partner: 'aki' });
+    expect(days.map((d) => d.date)).toEqual([TODAY, '2026-08-16']);
+  });
+
+  it('their REMINDERS stay off it — the widget has no way to tick another store', () => {
+    // Not an oversight, and the reason is in widgetDays: a widget tick queues
+    // an id the app applies through put(), which writes MY store. A partner's
+    // reminder would draw a tick box that silently does nothing. If that path
+    // is ever built, this is the test that says so.
+    const { days } = watchFeed(mine, TODAY, { recs: [...theirs, rem('theirrem', TODAY)], partner: 'aki' });
+    expect(days[0]!.lines.map((l) => l.id)).not.toContain('theirrem');
+    expect(days[0]!.lines.some((l) => l.isReminder)).toBe(false);
+  });
+
+  it('no partner leaves the widget exactly as it was', () => {
+    expect(watchFeed(mine, TODAY, null).days[0]!.lines.map((l) => l.id)).toEqual(['mine']);
+  });
+});
+
+describe("watchFeed — a partner's events reach the WRIST's event page too", () => {
+  // Sean, 2026-08-10: "i don't see shared calendar on my watch". Same root
+  // cause as the widget's missing shared events one block up — `events` was
+  // built from my records alone — but a separate list with its own cap, so
+  // fixing one did not fix the other and it needs its own test.
+  const TODAY = '2026-08-09';
+  const cal = (id: string, color: string): AnyRec =>
+    ({ id, type: 'calendar', updated: 1, payload: { name: id, color, ord: 'a' } } as AnyRec);
+  const ev = (id: string, date: string, time: string | null, calendarId: string): AnyRec =>
+    ({ id, type: 'event', updated: 1, payload: { text: id, date, time, repeat: null, calendarId, ord: id } } as AnyRec);
+
+  it("their event is on the page, in date order among mine", () => {
+    const { events } = watchFeed(
+      [cal('c1', '#60a5fa'), ev('mine', '2026-08-12', '09:00', 'c1')],
+      TODAY,
+      { recs: [cal('p1', '#ff00aa'), ev('theirs', '2026-08-10', '09:00', 'p1')], partner: 'aki' },
+    );
+    // Theirs is the EARLIER date, so a merge that simply appended would put it
+    // second and this would catch that as well as its absence.
+    expect(events.map((e) => e.id)).toEqual(['theirs', 'mine']);
+  });
+
+  it("…wearing THEIR calendar's colour, not the fallback blue", () => {
+    const { events } = watchFeed(
+      [cal('c1', '#60a5fa')],
+      TODAY,
+      { recs: [cal('p1', '#ff00aa'), ev('theirs', TODAY, '09:00', 'p1')], partner: 'aki' },
+    );
+    expect(events[0]!.color).toBe('#ff00aa');
+  });
+
+  it('the 30 cap counts both stores, so the nearest 30 win', () => {
+    // Mine fill the cap on their own and all fall AFTER theirs. If the cap
+    // were applied to my list before the merge, theirs would be dropped
+    // despite being the soonest thing on the wrist.
+    const mine = Array.from({ length: 30 }, (_, i) => ev(`m${i}`, `2026-09-${String(i + 1).padStart(2, '0')}`, null, 'c1'));
+    const { events } = watchFeed(
+      [cal('c1', '#60a5fa'), ...mine],
+      TODAY,
+      { recs: [cal('p1', '#ff00aa'), ev('theirs', TODAY, '08:00', 'p1')], partner: 'aki' },
+    );
+    expect(events).toHaveLength(30);
+    expect(events[0]!.id, 'the soonest event is first whoever owns it').toBe('theirs');
+  });
+
+  it('no partner leaves the page exactly as it was', () => {
+    const { events } = watchFeed([cal('c1', '#60a5fa'), ev('mine', TODAY, '09:00', 'c1')], TODAY, null);
+    expect(events.map((e) => e.id)).toEqual(['mine']);
+  });
+});

@@ -47,6 +47,32 @@ struct WatchEvent: Codable, Identifiable {
     let color: String   // the calendar's hex
 }
 
+/// The day-grouped shape the home-screen WIDGET draws, decided in core
+/// (widgetDays). It is in the feed already — the watch simply never read it.
+/// Sean: "the first watch tab should match what is shown in the widget
+/// entirely including reminders", so this page and that widget now draw the
+/// same bytes rather than two lists built to resemble each other.
+///
+/// These structs are a deliberate second copy of HomeWidget.swift's WDay and
+/// WLine: the two targets are separate binaries and neither can import the
+/// other. tools/check-watch-feed.sh runs BOTH decoders against one
+/// core-generated feed, which is the only thing that keeps them honest — the
+/// same arrangement the clock formatters live under.
+struct WatchDay: Codable {
+    let date: String
+    let lines: [WatchLine]
+}
+
+struct WatchLine: Codable, Identifiable {
+    let id: String
+    let text: String
+    let time: String?
+    let isReminder: Bool
+    let overdue: Bool
+    let color: String?
+    let calendarId: String?
+}
+
 /// Receives the phone's application context ({"list": json}) and keeps the last
 /// list in UserDefaults, so a cold launch shows yesterday's list instead of a
 /// blank screen while the session warms up.
@@ -56,6 +82,13 @@ final class WatchStore: NSObject, ObservableObject, WCSessionDelegate {
     @Published var folders: [WatchFolder] = []
     @Published var sections: [WatchSection] = []
     @Published var groups: [WatchGroup] = []
+    /// The widget's day list, UNFILTERED as it arrives. `widgetCalendars` is
+    /// applied at draw time by drawnWidgetDays, not here, so the rule sits in
+    /// one testable place instead of in the store and the view both.
+    @Published var days: [WatchDay] = []
+    /// The calendars the phone's home-screen widget is configured for, mirrored
+    /// so this watch shows the same events. Empty means all of them.
+    @Published var widgetCalendars: [String] = []
 
     /// What this watch actually knows, so a screen can never again show the
     /// same words for 'nothing is due' and 'nothing ever arrived'. That
@@ -93,6 +126,12 @@ final class WatchStore: NSObject, ObservableObject, WCSessionDelegate {
             let folders: [WatchFolder]?
             let sections: [WatchSection]?
             let groups: [WatchGroup]?
+            /// Both optional for the same reason as everything else here: a
+            /// cache written by an older phone build has neither, and must
+            /// still decode. The first page then falls back to its own
+            /// summary rather than showing an empty widget mirror.
+            let days: [WatchDay]?
+            let widgetCalendars: [String]?
             /// Optional so a cache written before the setting existed still
             /// decodes — it simply reads as 12-hour, which is what it was.
             let clock24: Bool?
@@ -118,6 +157,8 @@ final class WatchStore: NSObject, ObservableObject, WCSessionDelegate {
             self.folders = list.folders ?? []
             self.sections = list.sections ?? []
             self.groups = list.groups ?? []
+            self.days = list.days ?? []
+            self.widgetCalendars = list.widgetCalendars ?? []
             // Set before the views read it: every formatter on this device
             // asks WatchFormat, so one assignment moves the whole watch.
             WatchFormat.clock24 = list.clock24 ?? false

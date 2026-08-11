@@ -47,6 +47,11 @@ apps/app/targets/  Apple targets GENERATED into the Xcode project by
                    @bacons/apple-targets — the SwiftUI watch app (four pages,
                    and it checks items off; no longer read-only), the
                    watch-face complication, and the iPhone home-screen widget.
+                   The watch's FIRST page is the widget's own day list, drawn
+                   from the same core `days` and filtered by the same calendar
+                   selection — the widget writes its WidgetKit configuration
+                   into the App Group, which is the only way anything outside
+                   that one widget instance can see it.
                    Directory ORDER matters: the plugin embeds in sort order,
                    which is why 'appwidget' and 'watchwidget' are named as
                    they are.
