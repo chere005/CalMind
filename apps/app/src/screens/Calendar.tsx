@@ -171,26 +171,36 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
   // a firm sideways one pages. Taking the responder past 10px of travel is
   // also what keeps a swipe from selecting the cell it ends on — a day is
   // selected by a tap and nothing else.
-  const gridPan = useRef(
-    PanResponder.create({
-      // Capture phase: an ancestor can't reliably wrestle the responder off
-      // a pressed cell on web, so the grid claims the gesture itself once
-      // there's real travel — which is also what keeps a swipe from
-      // selecting the cell it ends on.
-      onMoveShouldSetPanResponderCapture: (_e, g) => Math.abs(g.dx) > 10 || Math.abs(g.dy) > 10,
-      // No onPanResponderTerminationRequest here, deliberately: the three
-      // hooks that need one (rowdrag, sectiondrag, swiperow) live INSIDE a
-      // ScrollView, which asks for the responder the moment a gesture travels
-      // and silently ends the gesture when it gets it. This grid sits straight
-      // on the page with no scrolling ancestor, so nothing is there to ask.
-      // Move it inside a ScrollView one day and it will need the refusal too.
-      onPanResponderRelease: (_e, g) => {
-        const { dx, dy } = g;
-        if (Math.abs(dy) > 40 && Math.abs(dy) > 1.5 * Math.abs(dx)) setWeekRef.current(dy < 0);
-        else if (Math.abs(dx) > 50 && Math.abs(dx) > 1.5 * Math.abs(dy)) pageRef.current(dx < 0 ? 1 : -1);
-      },
-    }),
-  ).current;
+  // ONE config, TWO responders. Sean, 2026-08-11: the up/down swipe should be
+  // draggable from the legend as well as the grid — "just the gesture, don't
+  // change the behavior", so both are built from this same object and cannot
+  // drift into different thresholds.
+  //
+  // Two responders rather than the same handler object on two views, which
+  // was tried first and behaved by POSITION: a drag begun on the legend's
+  // empty right-hand margin worked and one begun over the chips did nothing,
+  // reproducibly. A responder instance belongs to the view it is attached to;
+  // sharing one between siblings leaves them negotiating for it.
+  const swipeConfig = {
+    // Capture phase: an ancestor can't reliably wrestle the responder off
+    // a pressed cell on web, so the view claims the gesture itself once
+    // there's real travel — which is also what keeps a swipe from
+    // selecting the cell it ends on.
+    onMoveShouldSetPanResponderCapture: (_e: unknown, g: { dx: number; dy: number }) =>
+      Math.abs(g.dx) > 10 || Math.abs(g.dy) > 10,
+    // No onPanResponderTerminationRequest here, deliberately: the three
+    // hooks that need one (rowdrag, sectiondrag, swiperow) live INSIDE a
+    // ScrollView, which asks for the responder the moment a gesture travels
+    // and silently ends the gesture when it gets it. These sit straight on
+    // the page with no scrolling ancestor, so nothing is there to ask.
+    onPanResponderRelease: (_e: unknown, g: { dx: number; dy: number }) => {
+      const { dx, dy } = g;
+      if (Math.abs(dy) > 40 && Math.abs(dy) > 1.5 * Math.abs(dx)) setWeekRef.current(dy < 0);
+      else if (Math.abs(dx) > 50 && Math.abs(dx) > 1.5 * Math.abs(dy)) pageRef.current(dx < 0 ? 1 : -1);
+    },
+  };
+  const gridPan = useRef(PanResponder.create(swipeConfig)).current;
+  const legendPan = useRef(PanResponder.create(swipeConfig)).current;
   const setWeekRef = useRef(setWeek);
   setWeekRef.current = setWeek;
   const pageRef = useRef(page);
@@ -357,7 +367,25 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
           off in week mode — `cells` is already the two-week range, so the
           names were right all along and simply not drawn.) */}
       {(legend.length > 0 || sharedLegend.length > 0) && (
-        <View style={[s.legend, s.legendInner]}>
+        // The SAME pan responder as the grid, so an up/down swipe can start on
+        // the legend as well. Sean, 2026-08-11: "just the gesture, don't
+        // change the behavior" — so this is the identical handler object, not
+        // a second one with its own thresholds that could drift. The legend
+        // sits BESIDE the grid rather than inside it, which is the whole
+        // reason a swipe begun down here did nothing.
+        //
+        // Attaching one PanResponder to two views is safe: only one view can
+        // be the responder at a time, and the claim still needs the same 10px
+        // of travel, so tapping a legend chip is unaffected.
+        // pointerEvents none, because the legend is entirely LABELS — no
+        // Pressable, no onPress anywhere in it. Without this a swipe that
+        // began on a chip died there: the chips are views like any other and
+        // took the touch, so the gesture reached the responder from the
+        // legend's empty margins and nowhere else. Measured, not guessed: a
+        // drag from the far right worked and one from the middle, where the
+        // chips are, did nothing. Passing them through costs nothing that was
+        // ever used.
+        <View testID="cal-legend" style={[s.legend, s.legendInner]} {...legendPan.panHandlers}>
           {/* One row per owner, the owner named ONCE in small caps — the
               suite's legend, not a soup of @-prefixed items.
 
@@ -604,7 +632,14 @@ const s = themed(() => StyleSheet.create({
   markWell: { flexDirection: 'row', flexWrap: 'wrap', gap: 1.5, marginTop: 1, alignItems: 'center', alignContent: 'flex-start', justifyContent: 'center', maxWidth: 40, height: 23.5 },
   markMore: { color: T.dim, fontSize: 10, lineHeight: 11 },
   // maxHeight is set inline from the window height — 22vh, as the suite has it.
-  legend: { flexGrow: 0 },
+  // userSelect none: dragging from a legend chip started a browser TEXT
+  // SELECTION instead of the swipe, so the gesture worked from the legend's
+  // empty margins and died over the words — reproducibly, and identically
+  // across three different responder arrangements before the cause was found.
+  // The legend is labels nobody selects; the calendar's own cells already
+  // avoid this by being pressables rather than loose text.
+  legend: {
+    userSelect: 'none', flexGrow: 0 },
   legendInner: { paddingHorizontal: 16, paddingVertical: 6 },
   legendRowLine: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 14, rowGap: 4, paddingVertical: 2 },
   // The label's own line-height is set so it sits on the chips' first line
