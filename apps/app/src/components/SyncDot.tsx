@@ -22,12 +22,24 @@ export type SyncLook = { color: string; text: string };
 export function syncLook(
   syncState: 'idle' | 'syncing' | 'offline' | 'refused',
   persistFailed: boolean,
+  /** Names of the refused records, so the message can point at one. */
+  refused: string[] = [],
 ): SyncLook {
   if (persistFailed) {
     return { color: T.danger, text: 'This device cannot save its copy — a reload may lose recent changes.' };
   }
   if (syncState === 'refused') {
-    return { color: T.danger, text: 'A note is too long to save — it is on this device only. Shorten it to sync.' };
+    // Name it. "A note is too long to save" in an app holding hundreds leaves
+    // Sean to find it himself, and it is by definition not the one on screen.
+    // More than one is listed rather than counted: two names fit, and "3
+    // notes" would send him hunting again.
+    const named = refused.filter((n) => n.trim() !== '').slice(0, 2).join('”, “');
+    return {
+      color: T.danger,
+      text: named
+        ? `“${named}” is too long to save — it is on this device only. Shorten it to sync.`
+        : 'A note is too long to save — it is on this device only. Shorten it to sync.',
+    };
   }
   if (syncState === 'offline') return { color: T.gold, text: 'Offline — changes sync when you are back' };
   if (syncState === 'syncing') return { color: T.accent, text: 'Syncing…' };
@@ -43,8 +55,8 @@ export function syncLook(
  * something wrong: green needs no explanation, red does.
  */
 export function SyncDot({ testID, withText = false }: { testID?: string; withText?: boolean }) {
-  const { syncState, persistFailed } = useStore();
-  const look = syncLook(syncState, persistFailed);
+  const { syncState, persistFailed, refusedLabels } = useStore();
+  const look = syncLook(syncState, persistFailed, refusedLabels);
   const bad = look.color === T.danger || look.color === T.gold;
   return (
     <View style={s.row} testID={testID} accessibilityLabel={look.text}>

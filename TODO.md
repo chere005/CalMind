@@ -14,7 +14,7 @@ Standing rules live in `CLAUDE.md`, not here.
 
 ## Suite counts, as of this commit
 
-core **392** · gesture **153** (+1 skipped) · WebKit **16** · server **41** ·
+core **392** · gesture **155** (+1 skipped) · WebKit **16** · server **41** ·
 live **19** with the API · desktop **7** (+3 in `npm run test:desktop`) · deploy guards **9** · plus the four
 native seam checkers no browser can reach: `npm run test:watch`,
 `npm run test:widget`, `npm run test:deploy`.
@@ -38,13 +38,22 @@ never clears them (sync.ts), the store raises `syncState: 'refused'`, Settings
 shows it, and `toolong.spec.ts` asserts the app never claims to be synced in
 that state. It no longer lies.
 
-What IS left:
-- **The warning is buried.** The top bar's status dot is gone — chrome.tsx
-  destructures `syncState` and never renders it, while that file's own header
-  comment still describes the dot. You only find out by opening Settings.
-- **It does not name the record.** "Something is too long" in an app with
-  hundreds of them.
-- **It offers no way out** — no jump to the note, no split.
+~~What IS left:~~ **DONE 2026-08-11**, both halves:
+
+- The warning is no longer buried. chrome.tsx's own header had described a
+  status dot since the file was written while nothing drew it — `syncState`
+  was destructured and never used — so the app's one honest signal that a note
+  did not save lived only inside Settings. The dot is in the bar on every
+  screen now, carrying the full sentence as its accessibility label because a
+  coloured circle tells a screen reader nothing.
+- It NAMES the record. "A note is too long to save" in an app holding hundreds
+  left you to go and find it, and it is by definition not the one on screen.
+  Settings reads the same sentence from the same rule now; it used to carry
+  its own copy beside a dot that read the shared one, so the two could
+  disagree — and did, the moment the message learned to name anything.
+
+Still open: no way to ACT on it from the warning (no jump to the note, no
+split). Sean has not asked for one.
 
 And Sean's own question, still open: he wants larger notes WITH IMAGES. That
 is not a bigger cap; see §3.

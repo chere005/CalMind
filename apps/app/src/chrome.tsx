@@ -12,6 +12,7 @@ import { useStore } from './store';
 import { themed, T } from './theme';
 import { CircleBtn, Rule, TOPBAR_CTRL } from './ui';
 import { Settings } from './screens/Settings';
+import { SyncDot } from './components/SyncDot';
 import { useNav } from './nav';
 // A Modal is its own window, so an absolute `top` inside one is measured from
 // the top of the SCREEN, not from where the app's content begins. Without the
@@ -30,7 +31,7 @@ export function TopBar({
 }) {
   const nav = useNav();
   const insets = useSafeAreaInsets();
-  const { session, syncState, signOut, undoLastDelete } = useStore();
+  const { session, signOut, undoLastDelete } = useStore();
   const [menuOpen, setMenuOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   /** What the last undo brought back, shown briefly under the bar. */
@@ -83,6 +84,18 @@ export function TopBar({
         </View>
         <View style={s.right}>
           {controls}
+          {/* THE STATUS DOT, which this file's own header has described all
+              along while nothing drew it: `syncState` was destructured here
+              and never used. So the app's one honest signal that a note did
+              not save — the red dot for a refused record — lived only inside
+              Settings, which you have to go and open. A warning you have to
+              go looking for is most of the way to no warning.
+
+              Same component and same rule as Settings and the note editor,
+              so the three cannot drift. It carries the full sentence as its
+              accessibility label; the colour alone tells a screen reader, and
+              a colour-blind reader, nothing. */}
+          <SyncDot testID="topbar-sync" />
           {picker && <View style={s.pickerRing}>{picker}</View>}
           {/* The suite's `.who` is a <button>; ours was a bare Pressable, and
               react-native-web only emits role="button" when it is asked to —

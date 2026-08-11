@@ -16,7 +16,7 @@ import { ShareModal } from '../components/ShareModal';
 import { WidgetSetup } from './WidgetSetup';
 
 export function Settings({ onClose }: { onClose: () => void }) {
-  const { session, setSession, signOut, recs, mutate, syncState, persistFailed } = useStore();
+  const { session, setSession, signOut, recs, mutate, syncState, persistFailed, refusedLabels } = useStore();
   const pickTheme = (name: ThemeName) => {
     applyTheme(name);
     // The choice syncs like any pref, so every device follows.
@@ -28,6 +28,7 @@ export function Settings({ onClose }: { onClose: () => void }) {
   // flag rides along in the watch feed.
   const clock24 = prefsOf(recs, 'suite').clock24 === true;
   const setClock24 = (on: boolean) => mutate((e) => e.put(prefsPut(recs, 'suite', { clock24: on })));
+  const look = syncLook(syncState, persistFailed, refusedLabels);
   const [oldPass, setOldPass] = useState('');
   const [newPass, setNewPass] = useState('');
   const [canPasskey, setCanPasskey] = useState(false);
@@ -77,22 +78,15 @@ export function Settings({ onClose }: { onClose: () => void }) {
       <Pressable style={s.backdrop} onPress={onClose}>
         <Pressable style={s.card} onPress={() => {}}>
           <Text style={s.h2}>Settings</Text>
+          {/* Colour AND words from the one rule now. This screen used to
+              carry its own copy of the sentence beside a dot that read the
+              shared one, so the two could disagree — and did the moment the
+              message learned to name the record it is about. The ordering
+              (a device that cannot write its own copy comes first) lives in
+              syncLook with the rest of it. */}
           <View style={s.statusRow}>
-            {/* The same rule as the note editor's dot, from one place. */}
-            <View style={[s.statusDot, { backgroundColor: syncLook(syncState, persistFailed).color }]} />
-            <Text style={s.statusText}>
-              {/* A device that cannot write its own copy comes first: being
-                  online is no comfort if a reload loses the morning. */}
-              {persistFailed
-                ? 'This device cannot save its copy — a reload may lose recent changes.'
-                : syncState === 'offline'
-                ? 'Offline — changes sync when you are back'
-                : syncState === 'refused'
-                  ? 'A note is too long to save — it is on this device only. Shorten it to sync.'
-                  : syncState === 'syncing'
-                    ? 'Syncing…'
-                    : 'Online — synced'}
-            </Text>
+            <View style={[s.statusDot, { backgroundColor: look.color }]} />
+            <Text style={s.statusText}>{look.text}</Text>
           </View>
           <Text style={s.who}>{session?.username}</Text>
           <Field value={oldPass} onChangeText={setOldPass} placeholder="Current password" secureTextEntry />

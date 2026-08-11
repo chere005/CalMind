@@ -31,6 +31,8 @@ type Store = {
   syncState: SyncState;
   /** This device could not write its local copy — a reload would lose work. */
   persistFailed: boolean;
+  /** Names of records the server refused, so a warning can name them. */
+  refusedLabels: string[];
   signIn: (s: Session) => Promise<void>;
   signOut: () => Promise<void>;
   setSession: (s: Session) => Promise<void>; // token refresh (password change)
@@ -60,6 +62,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [recs, setRecs] = useState<AnyRec[]>([]);
   const [syncState, setSyncState] = useState<SyncState>('idle');
   const [persistFailed, setPersistFailed] = useState(false);
+  /** The names of records the server refused, for a message that can point. */
+  const [refusedLabels, setRefusedLabels] = useState<string[]>([]);
   const [partners, setPartners] = useState<PartnerBadge[]>([]);
   const [sharedPartner, setSharedPartner] = useState<string | null>(null);
   const [sharedRaw, setSharedRaw] = useState<AnyRec[]>([]);
@@ -153,7 +157,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     try {
       await engineRef.current.sync(syncTransport(s));
       hydratedRef.current = true; // the server has spoken — seeding is safe now
-      setSyncState(engineRef.current.rejected().length > 0 ? 'refused' : 'idle');
+      // WHICH record was refused, not merely that one was. "A note is too
+      // long to save" in an app holding hundreds of them leaves you to find
+      // it yourself, and the note is by definition not the one on screen.
+      const refused = engineRef.current.rejected();
+      const snap = engineRef.current.toSnapshot().recs;
+      setRefusedLabels(refused.map((id) => {
+        const rec = snap.find((r) => r.id === id);
+        return rec ? recLabel(rec) : id;
+      }));
+      setSyncState(refused.length > 0 ? 'refused' : 'idle');
       void pullShared();
     } catch (e) {
       // Offline is normal for a local-first app; a dead token is not.
@@ -454,7 +467,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, [sharedRecs, sharedPartner, sharedPartnerLabel]);
 
   return (
-    <Ctx.Provider value={{ ready, session, recs, syncState, persistFailed, signIn, signOut, setSession, mutate, syncNow, undoLastDelete, partners, sharedPartner, sharedPartnerLabel, sharedRecs, sharedPut }}>
+    <Ctx.Provider value={{ ready, session, recs, syncState, persistFailed, refusedLabels, signIn, signOut, setSession, mutate, syncNow, undoLastDelete, partners, sharedPartner, sharedPartnerLabel, sharedRecs, sharedPut }}>
       {children}
     </Ctx.Provider>
   );
