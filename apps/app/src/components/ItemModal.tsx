@@ -10,6 +10,7 @@ import React, { useMemo, useRef, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import {
   byOrd,
+  REPEAT_UNITS,
   showAgain,
   convertEventToReminder,
   convertReminderToEvent,
@@ -26,7 +27,6 @@ import {
   type AnyRec,
   type Rec,
   type Repeat,
-  type RepeatUnit,
 } from '@calmind/core';
 import { useStore } from '../store';
 import { themed, T } from '../theme';
@@ -275,7 +275,11 @@ export function ItemModal({
                   <CircleBtn glyph="−" label="Fewer" size={22} onPress={() => repeat && setRepeat({ ...repeat, n: Math.max(1, repeat.n - 1) })} />
                   <Text style={s.repN}>{repeat?.n ?? 1}</Text>
                   <CircleBtn glyph="+" label="Add" size={22} onPress={() => repeat && setRepeat({ ...repeat, n: Math.min(999, repeat.n + 1) })} />
-                  {(['day', 'week', 'month', 'year'] as RepeatUnit[]).map((u) => (
+                  {/* core's list, not a copy of it. There are TWO repeat
+                      editors — this one and Reminders.tsx's inline row — and
+                      both had their own hand-written literal, so a unit added
+                      to the type reached neither. Both read REPEAT_UNITS now. */}
+                  {REPEAT_UNITS.map((u) => (
                     <Pill key={u} label={u} primary={repeat?.unit === u} onPress={() => setRepeat({ n: repeat?.n ?? 1, unit: u })} />
                   ))}
                   <CircleBtn glyph="×" label="Remove repeat" size={22} onPress={() => { setShowRepeat(false); setRepeat(null); }} />

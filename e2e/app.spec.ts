@@ -1064,6 +1064,24 @@ test('a ticked repeat ROLLS and flashes instead of checking off', async ({ page 
   await longPress(page, page.getByTestId('rem-body').filter({ hasText: 'water ferns' }));
   await page.getByTestId('rem-pencil').click();
   await page.getByText('+ Repeat', { exact: true }).click();
+  // The unit pills render from core's REPEAT_UNITS now, not a literal copy of
+  // it, so this asserts the list REACHES the screen: an empty or missing
+  // constant draws no pills at all. The test used to accept the default
+  // { n: 1, unit: 'week' } and never touch them, so it would not have noticed.
+  // The four are written out here rather than imported — a test that reads its
+  // expectation from the same constant as the code agrees with it by
+  // construction.
+  for (const u of ['day', 'week', 'month', 'year']) {
+    await expect(page.getByText(u, { exact: true }).first()).toBeVisible();
+  }
+  // …and that they are live. 'month' is deliberately not the default, so a
+  // pill that renders but does not respond still fails here.
+  const monthPill = page.getByText('month', { exact: true }).first();
+  await monthPill.click();
+  const bgOf = (t: string) =>
+    page.getByText(t, { exact: true }).first()
+      .evaluate((el) => getComputedStyle(el.parentElement!).backgroundColor);
+  expect(await bgOf('month')).not.toBe(await bgOf('day'));
   await page.getByText('Save', { exact: true }).click();
   await page.keyboard.press('Escape');
   // Tick it: the row STAYS (rolled, not done) and flashes.
