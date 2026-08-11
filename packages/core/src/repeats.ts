@@ -36,6 +36,17 @@ export function repeatStep(start: string, rep: Repeat, i: number): string {
 export function repeatDates(start: string, rep: Repeat | null, from: string, to: string): string[] {
   if (start === '' || to < from) return [];
   if (!rep) return start >= from && start <= to ? [start] : [];
+  // A rule that does not ADVANCE is not a repeat, and the loop below cannot
+  // survive one: every step returns `start`, `d > to` never trips, and the
+  // same date is pushed REPEAT_MAX times — 400 identical rows on one day, in
+  // the panel, the widget and the wrist alike. `{ n: 0 }` and an unrecognised
+  // unit both do it. Neither can come from the app (the stepper clamps to
+  // 1..999 and the units are pills) nor from the old suite, which stored the
+  // same shape — but a record arrives here from sync as well, written by a
+  // client this build has never met, and nothing validates it on the way in.
+  // repeatClean() is the sanitiser for that and is called by nothing; this
+  // guard sits at the READ instead, so it holds however the rule got here.
+  if (repeatStep(start, rep, 1) <= start) return start >= from && start <= to ? [start] : [];
   const out: string[] = [];
   for (let i = 0; i < REPEAT_MAX; i++) {
     const d = repeatStep(start, rep, i);
