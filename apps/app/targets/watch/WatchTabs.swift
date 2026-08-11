@@ -81,8 +81,42 @@ struct SummaryView: View {
         }
     }
 
+    /// How many items this page shows, in TOTAL rather than per day.
+    ///
+    /// Sean, 2026-08-11: "first tab should have up to 10 reminders/events
+    /// from the future total (but from the same sources as the widget)".
+    static let PAGE_LIMIT = 10
+
+    /// The cap, counted across days instead of within them.
+    ///
+    /// It was two nested caps — the first FOUR days, and six lines inside
+    /// each — which multiply into something nobody chose: a wrist showing at
+    /// most four days could not reach an event on the fifth however empty the
+    /// days in front of it were. That is why Sean's shared events were on the
+    /// widget and missing here; they sit further out than four days, and the
+    /// widget packs eight. One total cap has no such blind spot, and a quiet
+    /// day now costs one row rather than a whole slot.
+    ///
+    /// The day grouping survives — the last day drawn may be partial, which
+    /// is the point of counting items rather than days.
+    ///
+    /// Pure and static so check-watch-feed.sh can run it; the divergence this
+    /// replaces was invisible precisely because nothing could.
+    static func capped(_ days: [WatchDay], limit: Int = PAGE_LIMIT) -> [WatchDay] {
+        var left = limit
+        var out: [WatchDay] = []
+        for day in days {
+            if left <= 0 { break }
+            let take = Array(day.lines.prefix(left))
+            if take.isEmpty { continue }
+            left -= take.count
+            out.append(WatchDay(date: day.date, lines: take))
+        }
+        return out
+    }
+
     var body: some View {
-        let mirrored = Self.drawnWidgetDays(days: store.days, wanted: Set(store.widgetCalendars))
+        let mirrored = Self.capped(Self.drawnWidgetDays(days: store.days, wanted: Set(store.widgetCalendars)))
         // An older phone build sends no `days` at all. Falling back to the old
         // summary would mean keeping two pages alive forever; saying what is
         // actually true costs one line and ages out on its own.
@@ -129,11 +163,15 @@ struct WidgetMirrorView: View {
                         Text("Nothing coming up").font(.headline).foregroundStyle(.secondary)
                     }
                 }
-                ForEach(days.prefix(4), id: \.date) { day in
+                // No prefix here — `days` arrives already capped to
+                // SummaryView.PAGE_LIMIT items in total. Two nested caps
+                // here (four days, six lines each) is what hid Sean's shared
+                // events, so the counting lives in one place now.
+                ForEach(days, id: \.date) { day in
                     Text(dayLabel(day.date))
                         .font(.caption).bold()
                         .foregroundStyle(day.date == todayStr() ? Color.green : .secondary)
-                    ForEach(day.lines.prefix(6)) { l in
+                    ForEach(day.lines) { l in
                         Label {
                             VStack(alignment: .leading, spacing: 1) {
                                 Text(l.text).lineLimit(2)

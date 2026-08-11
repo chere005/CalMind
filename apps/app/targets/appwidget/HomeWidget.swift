@@ -391,6 +391,18 @@ struct HomeWidgetView: View {
     static let SEPARATOR_H: Double = 12
     static let HEADER_H: Double = 26
 
+    /// The last row's bottom padding is TRAILING WHITESPACE — there is
+    /// nothing under it, so it does not have to fit on the card.
+    ///
+    /// Sean, 2026-08-11: "widget could maybe take one more event". Charging
+    /// that final 5pt is the one place the fit was conservative rather than
+    /// wrong: a card with 115pt of room was told it could hold five rows
+    /// (100pt) when the sixth's ink ends at 115 and only its empty margin
+    /// spills. Reclaiming it adds a row whenever the shortfall is under 5pt,
+    /// and never lets ink past the edge — which is what the sweep in
+    /// check-widget-feed.sh actually asserts.
+    static let ROW_TRAILING: Double = 5
+
     var body: some View {
         // The card measures ITSELF. WidgetKit hands the view its real content
         // size — after the system's own margins, and different on every device
@@ -461,16 +473,18 @@ struct HomeWidgetView: View {
     /// family; a guess cannot be right on every device, and it was the guess
     /// that overflowed.
     static func packed(days: [DaySection], available: Double,
-                       rowH: Double, headingH: Double, sepH: Double) -> [DaySection] {
+                       rowH: Double, headingH: Double, sepH: Double,
+                       trailing: Double = 0) -> [DaySection] {
         var used = 0.0
         var out: [DaySection] = []
         for (i, day) in days.enumerated() {
             let sep = i == 0 ? 0 : sepH
             // A day is only worth starting if its heading AND at least one of
             // its rows will fit; a heading alone is a promise with nothing
-            // under it.
-            if used + sep + headingH + rowH > available { break }
-            let room = available - used - sep - headingH
+            // under it. `trailing` is forgiven because whatever ends up last
+            // has nothing drawn beneath its bottom margin.
+            if used + sep + headingH + rowH - trailing > available { break }
+            let room = available - used - sep - headingH + trailing
             let canTake = Int((room / rowH).rounded(.down))
             let take: [Line]
             if i == 0 {
@@ -492,17 +506,21 @@ struct HomeWidgetView: View {
     /// What `packed`'s result will actually occupy. Pure, so the checker can
     /// assert the thing that matters — that it never exceeds what it was
     /// given — instead of re-deriving the arithmetic and agreeing with itself.
-    static func drawnHeight(_ days: [DaySection], rowH: Double, headingH: Double, sepH: Double) -> Double {
+    /// How far the INK reaches — the last row's bottom margin is excluded,
+    /// because that is the space being deliberately allowed to spill.
+    static func drawnHeight(_ days: [DaySection], rowH: Double, headingH: Double, sepH: Double,
+                            trailing: Double = 0) -> Double {
         var h = 0.0
         for (i, day) in days.enumerated() {
             h += (i == 0 ? 0 : sepH) + headingH + Double(day.lines.count) * rowH
         }
-        return h
+        return days.isEmpty ? 0 : h - trailing
     }
 
     private func content(available: Double) -> some View {
         let out = Self.packed(days: entry.days, available: available,
-                              rowH: Self.ROW_H, headingH: Self.HEADING_H, sepH: Self.SEPARATOR_H)
+                              rowH: Self.ROW_H, headingH: Self.HEADING_H, sepH: Self.SEPARATOR_H,
+                              trailing: Self.ROW_TRAILING)
         return VStack(alignment: .leading, spacing: 0) {
             ForEach(Array(out.enumerated()), id: \.offset) { idx, day in
                 if idx > 0 {

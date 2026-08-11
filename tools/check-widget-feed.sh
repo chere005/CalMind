@@ -173,6 +173,7 @@ for name, want, how in [
     ('HEADING_H',   12 + 1 + head_top + head_bot,'12pt line + 1pt rule + %g + %g' % (head_top, head_bot)),
     ('ROW_H',       15 + row_pad,                '15pt line + %gpt' % row_pad),
     ('HEADER_H',    18 + head_pad,               '18pt line + %gpt' % head_pad),
+    ('ROW_TRAILING', row_pad,                    'the row bottom padding, %gpt' % row_pad),
 ]:
     got = _const(name)
     if abs(got - want) > 0.001:
@@ -181,6 +182,7 @@ for name, want, how in [
 
 # The sweep uses the view's OWN numbers, so a drifted constant reaches it.
 ROW_H, HEADING_H, SEPARATOR_H = _const('ROW_H'), _const('HEADING_H'), _const('SEPARATOR_H')
+TRAILING = _const('ROW_TRAILING')
 
 widget_logic = widget_logic.replace('Provider.drawnDays', 'drawnDays')
 types += '''
@@ -188,7 +190,7 @@ struct Line { let id: String; let text: String; let time: String?; let isReminde
 struct DaySection { let heading: String; let isToday: Bool; let lines: [Line] }
 func hexColor(_ hex: String) -> String { hex }
 let LABEL: String? = nil
-''' + widget_logic + ('\nlet ROW: Double = %g\nlet HEAD: Double = %g\nlet SEP: Double = %g\n' % (ROW_H, HEADING_H, SEPARATOR_H))
+''' + widget_logic + ('\nlet ROW: Double = %g\nlet HEAD: Double = %g\nlet SEP: Double = %g\nlet TRAIL: Double = %g\n' % (ROW_H, HEADING_H, SEPARATOR_H, TRAILING))
 
 open(sys.argv[1], 'w').write('''
 import Foundation
@@ -338,7 +340,7 @@ let big  = [DaySection(heading: "TODAY", isToday: true,  lines: (1...3).map { Li
 
 // 150pt of room: TODAY costs 20 + 3x20 = 80. TUE would need 12 + 20 + 6x20 =
 // 152 more and must be dropped WHOLE rather than showing 1 of its 6.
-let fit = packed(days: big, available: 150, rowH: ROW, headingH: HEAD, sepH: SEP)
+let fit = packed(days: big, available: 150, rowH: ROW, headingH: HEAD, sepH: SEP, trailing: TRAIL)
 check(fit.count == 1, "a later day that cannot fit ENTIRELY is not drawn at all — got \(fit.map { $0.heading })")
 check(fit.first?.lines.count == 3, "…and the day that did fit keeps every row — got \(fit.first?.lines.count ?? -1)")
 // Not skipped-and-continued: WED would fit in what TUE left, and drawing it
@@ -347,14 +349,14 @@ check(!fit.contains { $0.heading == "WED" }, "it stops at the first day that doe
 
 // Given room, the same days all draw — otherwise the check above would pass
 // on a packer that simply drew one day forever.
-let roomy = packed(days: big, available: 400, rowH: ROW, headingH: HEAD, sepH: SEP)
+let roomy = packed(days: big, available: 400, rowH: ROW, headingH: HEAD, sepH: SEP, trailing: TRAIL)
 check(roomy.count == 3, "with room, every day is drawn — got \(roomy.count)")
 check(roomy.map { $0.lines.count } == [3, 6, 1], "…each in full — got \(roomy.map { $0.lines.count })")
 
 // The exception, stated as a test: a first day too big for the card still
 // draws what fits. Whole-days-only here would mean a busy today shows nothing.
 let flood = [DaySection(heading: "TODAY", isToday: true, lines: (1...30).map { Line(id: "f\($0)", text: "f", time: nil, isReminder: true, overdue: false, color: nil) })]
-let partial = packed(days: flood, available: 150, rowH: ROW, headingH: HEAD, sepH: SEP)
+let partial = packed(days: flood, available: 150, rowH: ROW, headingH: HEAD, sepH: SEP, trailing: TRAIL)
 check(partial.count == 1, "an overflowing FIRST day is still drawn")
 check(partial.first!.lines.count > 0 && partial.first!.lines.count < 30,
       "…filling the card, not emptying it and not overflowing it — got \(partial.first!.lines.count)")
@@ -370,8 +372,12 @@ for h in stride(from: 40.0, through: 420.0, by: 2.0) {
             DaySection(heading: "D\(d)", isToday: d == 0,
                        lines: (0..<((d & 3) + 1)).map { Line(id: "d\(d)-\($0)", text: "x", time: nil, isReminder: true, overdue: false, color: nil) })
         }
-        let out = packed(days: days, available: h, rowH: ROW, headingH: HEAD, sepH: SEP)
-        let drawn = drawnHeight(out, rowH: ROW, headingH: HEAD, sepH: SEP)
+        let out = packed(days: days, available: h, rowH: ROW, headingH: HEAD, sepH: SEP, trailing: TRAIL)
+        // Two different questions, two different heights: how far the INK
+        // reaches (trailing margin forgiven) is what must not overflow, but
+        // what the packer has SPENT includes every row's margin.
+        let drawn = drawnHeight(out, rowH: ROW, headingH: HEAD, sepH: SEP, trailing: TRAIL)
+        let full  = drawnHeight(out, rowH: ROW, headingH: HEAD, sepH: SEP, trailing: 0)
         worst = max(worst, drawn - h)
         if drawn > h {
             check(false, "overflows a \(h)pt card by \(drawn - h)pt with \(n) days — the bug Sean saw")
@@ -387,9 +393,9 @@ for h in stride(from: 40.0, through: 420.0, by: 2.0) {
             let sep = out.isEmpty ? 0.0 : SEP
             // A first day takes what fits, so it is only absent if even one
             // row could not; a later day needs room for every row it has.
-            let need = sep + HEAD + (out.isEmpty ? ROW : Double(next.lines.count) * ROW)
-            if drawn + need <= h {
-                check(false, "dropped \(next.heading) though \(h - drawn)pt was free and it needs \(need)pt")
+            let need = sep + HEAD + (out.isEmpty ? ROW : Double(next.lines.count) * ROW) - TRAIL
+            if full + need <= h {
+                check(false, "dropped \(next.heading) though \(h - full)pt was free and it needs \(need)pt")
             }
         }
     }

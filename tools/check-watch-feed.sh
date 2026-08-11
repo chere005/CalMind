@@ -114,6 +114,24 @@ while True:
     k += 1
 fallback += '\n' + tabs[i:k+1].replace('static func', 'func')
 
+# …and the total-item cap beside it. Two nested caps (four days, six lines
+# each) used to hide anything past the fourth day, which is exactly how Sean's
+# shared events showed on the widget and not on the wrist.
+j = tabs.index('static func capped(')
+depth, k2 = 0, tabs.index('{', j)
+while True:
+    if tabs[k2] == '{': depth += 1
+    elif tabs[k2] == '}':
+        depth -= 1
+        if depth == 0: break
+    k2 += 1
+import re as _re
+_lim = _re.search(r'static let PAGE_LIMIT = (\d+)', tabs)
+if not _lim:
+    print('WatchTabs has no PAGE_LIMIT — the first page has no stated cap'); raise SystemExit(1)
+fallback += '\nlet PAGE_LIMIT = ' + _lim.group(1) + '\n'
+fallback += tabs[j:k2+1].replace('static func', 'func').replace('limit: Int = PAGE_LIMIT', 'limit: Int')
+
 open(sys.argv[1], 'w').write('''
 import Foundation
 %s
@@ -204,6 +222,36 @@ let unfilteredCount = drawnWidgetDays(days: days, wanted: []).count
 check(mine.count == unfilteredCount - 1,
       "the emptied day disappears, not drawn headless — \(unfilteredCount) days became \(mine.count)")
 check(mine.allSatisfy { !$0.lines.isEmpty }, "no day is ever drawn with an empty line list")
+
+// Sean, 2026-08-11: "first tab should have up to 10 reminders/events from the
+// future total (but from the same sources as the widget)". It was the first
+// FOUR days with six lines each, and those two caps multiply: an event on day
+// five was unreachable however empty days one to four were. That is why his
+// shared events were on the widget and missing from the wrist.
+let manyDays = (0..<9).map { d in
+    WatchDay(date: "2026-08-\(11 + d)",
+             lines: (0..<3).map { i in
+                 WatchLine(id: "d\(d)-\(i)", text: "x", time: nil, isReminder: true, overdue: false, color: nil, calendarId: nil)
+             })
+}
+let page = capped(manyDays, limit: PAGE_LIMIT)
+let shown = page.flatMap { $0.lines }
+check(shown.count == PAGE_LIMIT, "the first page shows PAGE_LIMIT items in total — got \(shown.count)")
+// Counted ACROSS days, not within them: 10 items at 3 a day has to reach the
+// fourth day. The old shape stopped at four days and six lines and could not.
+check(page.count == 4, "…drawn from as many days as it takes — got \(page.count)")
+check(page.last?.lines.count == 1, "…with the last day part-drawn, since the cap is items not days — got \(page.last?.lines.count ?? -1)")
+// Order is preserved and nothing is invented.
+check(shown.map { $0.id } == manyDays.flatMap { $0.lines }.prefix(PAGE_LIMIT).map { $0.id },
+      "the page is the first PAGE_LIMIT items in feed order")
+// An event beyond the old four-day window now reaches the wrist. This is the
+// regression itself, stated so it cannot come back.
+let deepId = manyDays[4].lines[0].id
+let reach = capped(manyDays, limit: 15).flatMap { $0.lines }.map { $0.id }
+check(reach.contains(deepId), "an item on the fifth day is reachable — the four-day window is gone")
+// Fewer items than the cap draws them all, so the cap is a ceiling not a quota.
+check(capped(Array(manyDays.prefix(2)), limit: PAGE_LIMIT).flatMap { $0.lines }.count == 6,
+      "a short list draws in full")
 
 print(bad == 0
       ? "watch feed: the phone's JSON and the wrist's decoder agree"
