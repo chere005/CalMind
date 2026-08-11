@@ -99,26 +99,43 @@ func dayLabel12(_ date: String) -> String {
     return "\(mo)/\(da)"
 }
 
-/// The circle has room for one thing: the time if there is one, else the day.
+/// The circle has room for one thing: the time if there is one, else the day
+/// — and for an all-day event today that is "now", the same word the wider
+/// families use. Going through `when` for today keeps the two from drifting.
 func whenShort(_ e: Ev) -> String {
-    clock12(e.time) ?? dayLabel12(e.date)
+    if isToday(e) { return clock12(e.time) ?? "now" }
+    return clock12(e.time) ?? dayLabel12(e.date)
 }
 
 /// The when, as Sean writes it: "3" for something today, "8/15 5" for a
-/// later day, "8pm" for tonight, and just "Today" or "8/15" when the event
-/// is all-day and has no time to show.
+/// later day, "8pm" for tonight, and "now" for an all-day event today.
 ///
 /// TODAY IS NOT NAMED. On the face, "Today" is the one word that cannot be
 /// news — the complication is only ever showing what is next, and the room
 /// it takes is room the event's name does not get. A date appears exactly
 /// when it is not today, which is when it carries information.
+///
+/// An all-day event today reads "now", not "Today" — Sean, 2026-08-10. It is
+/// shorter, and on a face that only ever shows what is next, "Today" was
+/// answering a question nobody asked while "now" says the thing is live.
 func when(_ e: Ev) -> String {
     if e.date == todayStr() {
-        // An all-day event today has no time, so it still needs the word.
-        return clock12(e.time) ?? "Today"
+        // No time to show, so the word carries it: this one is happening.
+        return clock12(e.time) ?? "now"
     }
     return [dayLabel12(e.date), clock12(e.time)].compactMap { $0 }.joined(separator: " ")
 }
+
+/// Is this the thing happening today? The face colours it differently if so.
+///
+/// Sean asked for today's time in "a distinct color". Green is not a new
+/// invention — it is already what today means on this wrist, in the watch
+/// app's own day list and month grid (WatchTabs). Reusing it means the face
+/// and the app agree rather than each having a private idea of "today".
+func isToday(_ e: Ev) -> Bool { e.date == todayStr() }
+
+/// The one colour that means "today" on this wrist.
+let TODAY_TINT = Color.green
 
 struct Entry: TimelineEntry {
     let date: Date
@@ -150,7 +167,9 @@ struct EventLine: View {
     var body: some View {
         HStack(spacing: 4) {
             Circle().fill(Color(hex: e.color)).frame(width: 6, height: 6)
-            Text(when(e)).foregroundStyle(.secondary)
+            // Today's time carries the tint; a later day stays quiet, so the
+            // one thing that is happening NOW is the thing the eye lands on.
+            Text(when(e)).foregroundStyle(isToday(e) ? TODAY_TINT : Color.secondary)
             Text(e.text).lineLimit(1).truncationMode(.tail)
         }
         .font(.caption2)
@@ -187,6 +206,7 @@ struct ComplicationView: View {
                 if let e = entry.events.first {
                     Text(whenShort(e))
                         .font(.headline)
+                        .foregroundStyle(isToday(e) ? TODAY_TINT : Color.primary)
                         .widgetLabel("\(e.text)")
                 } else {
                     Image(systemName: "calendar").widgetLabel("No events")
@@ -197,7 +217,9 @@ struct ComplicationView: View {
                     Circle().stroke(.tertiary, lineWidth: 2)
                     if let e = entry.events.first {
                         VStack(spacing: 0) {
-                            Text(whenShort(e)).font(.system(size: 13, weight: .bold))
+                            Text(whenShort(e))
+                                .font(.system(size: 13, weight: .bold))
+                                .foregroundStyle(isToday(e) ? TODAY_TINT : Color.primary)
                             Image(systemName: "calendar").font(.system(size: 8))
                         }
                     } else {

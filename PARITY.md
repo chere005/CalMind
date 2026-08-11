@@ -1326,3 +1326,60 @@ no evidence either way.
 - **Why the companion path does not update the watch app.** Until that is
   known, the wrist needs the direct install.
 - **E2EE and store builds** — neither started; see README's milestones.
+
+## Iteration — the top bar's one scale, and the complication says "now"
+
+**The top bar was three heights and Sean saw it.** back 28, collapse-all 26,
+the picker ring 32, the username pill 28 — four controls, three sizes, in the
+row that sits above every screen. The suite settles it in a single rule over
+three selectors, `.backbtn, .titlebtn, .usermenu .who { height: 32px }` with
+`width: 32px` on the round two, so 32 is not a taste call. The ring's own
+comment already claimed "ring and pill both 32 high, the suite's bar height"
+while the pill next to it was 28: the comment was right and the code had
+drifted out from under it, which is the trap CLAUDE.md already names.
+
+There is one `TOPBAR_CTRL` now and every control reads it. The collapse-all
+became a component (`CollapseAllBtn`) because four screens each carried a
+byte-identical `collapseAllBtn` style and a byte-identical Pressable around
+it — the same four-copy shape that `repeatClean` and the repeat-unit list
+were just cured of. `chevrons.spec.ts` policed the old duplication, so it was
+rewritten to police the new invariant instead: nobody but `ui.tsx` draws the
+double chevron, no screen owns a collapse-all box, and the shared circle is
+sized by the constant rather than a literal. All three were broken on purpose
+and went red.
+
+**"the back button is wrong right now"** was the same drift, not a centring
+bug. Measured rather than argued: on the web the glyph's ink sat 0.31px off
+centre, and on the phone — real screenshot pixels, `xcrun simctl io`, divided
+by the scale — the circle is 32.00 x 32.00pt and the ink is centred to
++0.167pt in both axes. What read as "wrong" was a 28pt circle sitting between
+a 26 and a 32. The whole row now measures 32.00pt tall at centre-y 93.83pt on
+the device, all four controls, username pill included.
+
+Along the way the username pill turned out to be a bare `Pressable`:
+react-native-web only emits `role="button"` when asked, so the one way into
+Settings announced itself to a screen reader as nothing at all. It has a role
+and a label now.
+
+**The complication.** Sean: if the event is today, tint the time and drop the
+date; with no time, say "now" in that tint. The date was already dropped for
+today; "Today" became "now", and today's when is drawn in `Color.green` —
+which is not a new invention but the green the watch app's own day list and
+month grid already use for today, so the face and the app agree. The words
+are gated by `check-watch-format.sh`, which runs BOTH real Swift copies (the
+widget extension cannot see the app's sources, so there are two) against
+pinned cases; a new case stops "now" leaking onto later all-day events, and
+both directions were proven red before being trusted.
+
+Verified: web deployed to test and the served bundle hash compared to the
+local one, index.html to index.html. iPhone 17 Pro simulator for the top bar
+measurements. watchOS simulator for the watch app, complication extension
+embedded in the right target. The complication's green is NOT yet seen —
+unsigned simulator builds have no App Group, so it reads an empty feed there.
+
+### Still open
+
+- The complication's tint on a real wrist; the words are gated, the colour is
+  read from the source.
+- Everything in TODO.md §1, which is unchanged: the oversized record, the
+  tie that never resolves, the rotating widget key, the offline PWA.

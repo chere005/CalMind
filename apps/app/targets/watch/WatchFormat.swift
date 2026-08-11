@@ -58,6 +58,34 @@ enum WatchFormat {
         return m == 0 ? "\(h12)\(suffix)" : "\(h12):\(String(format: "%02d", m))\(suffix)"
     }
 
+    /// The same clock with the suffix ALWAYS shown: "2pm", "3:30pm", "9am".
+    ///
+    /// Sean, 2026-08-10: "only use the super short time notation on the
+    /// complication, the rest should be a full 2pm, 3:30pm etc". The compact
+    /// rule above — no suffix below 8pm — was written for a face
+    /// complication, where a line of text is a few millimetres and the
+    /// context makes the guess safe. On a full page there is room, and "11"
+    /// on its own is a genuinely ambiguous thing to read off a wrist.
+    ///
+    /// `clock` keeps the compact rule because the complication still wants
+    /// it, and because it is what tools/check-watch-format.sh pins BOTH Swift
+    /// copies to. This is the app's, and the checker pins the difference.
+    static func clockFull(_ hhmm: String?) -> String? {
+        guard let hhmm, hhmm.count >= 4 else { return nil }
+        let parts = hhmm.split(separator: ":")
+        guard parts.count == 2, let h = Int(parts[0]), let m = Int(parts[1]) else { return nil }
+        if clock24 { return "\(String(format: "%02d", h)):\(String(format: "%02d", m))" }
+        let suffix = h >= 12 ? "pm" : "am"
+        let h12 = h % 12 == 0 ? 12 : h % 12
+        return m == 0 ? "\(h12)\(suffix)" : "\(h12):\(String(format: "%02d", m))\(suffix)"
+    }
+
+    /// `when`, in the app's full clock. Same rule about not naming today.
+    static func whenFull(date: String, time: String?, today: String) -> String {
+        if date == today { return clockFull(time) ?? "Today" }
+        return [day(date, today: today), clockFull(time)].compactMap { $0 }.joined(separator: " ")
+    }
+
     /// "Today" when it is, otherwise "8/15" — no leading zeros, matching how
     /// Sean writes a date.
     static func day(_ date: String, today: String) -> String {
@@ -82,9 +110,14 @@ enum WatchFormat {
     /// be news — the complication only ever shows what is next — and the
     /// room it takes is room the event's name does not get. A date appears
     /// exactly when it is not today. An all-day event today has no time to
-    /// fall back on, so that one keeps the word.
+    /// fall back on, and reads "now" (Sean, 2026-08-10) — shorter than
+    /// "Today", and it says the thing is live rather than merely dated.
+    ///
+    /// The complication draws today's when in green, the same green this
+    /// app's own day list and month grid already use for today. That is a
+    /// view concern and lives in ComplicationWidget; this returns the words.
     static func when(date: String, time: String?, today: String) -> String {
-        if date == today { return clock(time) ?? "Today" }
+        if date == today { return clock(time) ?? "now" }
         return [day(date, today: today), clock(time)].compactMap { $0 }.joined(separator: " ")
     }
 

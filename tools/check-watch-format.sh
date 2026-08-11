@@ -58,6 +58,35 @@ for (input, want) in cases {
     if b != want { print("complication: clock12(\\(input ?? "nil")) = \\(b), want \\(want)"); bad += 1 }
 }
 if WatchFormat.clock(nil) != nil || clock12(nil) != nil { print("an all-day event must show NO time"); bad += 1 }
+
+// The APP's clock, which is a DIFFERENT rule from the complication's and has
+// to stay that way. Sean, 2026-08-10: "only use the super short time notation
+// on the complication, the rest should be a full 2pm, 3:30pm etc". A full
+// page has room for the suffix; a face complication does not, and "11" alone
+// on a wrist is genuinely ambiguous.
+let fullCases: [(String?, String)] = [
+    ("14:00", "2pm"), ("15:30", "3:30pm"), ("09:00", "9am"), ("09:05", "9:05am"),
+    ("00:00", "12am"), ("12:00", "12pm"), ("20:00", "8pm"), ("23:59", "11:59pm"),
+]
+for (input, want) in fullCases {
+    let a = WatchFormat.clockFull(input) ?? "nil"
+    if a != want { print("watch app: clockFull(\\(input ?? "nil")) = \\(a), want \\(want)"); bad += 1 }
+}
+if WatchFormat.clockFull(nil) != nil { print("an all-day event still shows NO time"); bad += 1 }
+// The point of having two: below 8pm they must DISAGREE. Without this, one
+// function quietly becoming the other would pass every case above.
+if WatchFormat.clockFull("15:30") == WatchFormat.clock("15:30") {
+    print("clockFull and clock are the same below 8pm — the compact rule has leaked into the app"); bad += 1
+}
+// …and above it they agree, because there was never a suffix to add.
+if WatchFormat.clockFull("20:00") != WatchFormat.clock("20:00") {
+    print("after 8pm the two clocks should agree"); bad += 1
+}
+// whenFull carries it through: this is what a reminder chip on the app's
+// pages actually renders.
+if WatchFormat.whenFull(date: today, time: "15:30", today: today) != "3:30pm" {
+    print("whenFull on today is the bare full time, got \\(WatchFormat.whenFull(date: today, time: "15:30", today: today))"); bad += 1
+}
 // Derived, never hardcoded. A literal date here passed until midnight and
 // then failed for a reason that had nothing to do with the code — which is
 // exactly the kind of test that wastes an hour. The complication computes
@@ -82,10 +111,17 @@ if WatchFormat.line(date: today, time: nil, text: "Chase", today: today) != "Tod
 // pass. Checked on both copies, since the widget target keeps its own.
 if WatchFormat.when(date: today, time: "15:00", today: today) != "3" { print("complication when(today 15:00) should be '3'"); bad += 1 }
 if WatchFormat.when(date: today, time: "20:00", today: today) != "8pm" { print("complication when(today 20:00) should be '8pm'"); bad += 1 }
-if WatchFormat.when(date: today, time: nil, today: today) != "Today" { print("an all-day event today has only the word"); bad += 1 }
+// Sean, 2026-08-10: an all-day event today reads "now", not "Today", and the
+// face draws it in the today tint. Only the words are checkable here.
+if WatchFormat.when(date: today, time: nil, today: today) != "now" { print("an all-day event today reads 'now'"); bad += 1 }
 if WatchFormat.when(date: other, time: "17:00", today: today) != "\(otherLabel) 5" { print("a later day still names itself"); bad += 1 }
 if when(Ev(id: "x", text: "Chase", date: today, time: "15:00")) != "3" { print("complication copy: today should be time only"); bad += 1 }
-if when(Ev(id: "x", text: "Chase", date: today, time: nil)) != "Today" { print("complication copy: all-day today keeps the word"); bad += 1 }
+if when(Ev(id: "x", text: "Chase", date: today, time: nil)) != "now" { print("complication copy: all-day today reads 'now'"); bad += 1 }
+// "now" belongs to TODAY only — a later all-day event still names its date.
+// Without this, `when` returning "now" unconditionally would pass everything
+// above, and every future event on the face would claim to be happening.
+if when(Ev(id: "x", text: "Chase", date: other, time: nil)) != otherLabel { print("complication copy: a later all-day event keeps its date, got \\(when(Ev(id: "x", text: "Chase", date: other, time: nil)))"); bad += 1 }
+if WatchFormat.when(date: other, time: nil, today: today) != otherLabel { print("watch app: a later all-day event keeps its date"); bad += 1 }
 if when(Ev(id: "x", text: "Chase", date: other, time: "17:00")) != "\(otherLabel) 5" { print("complication copy: a later day names itself"); bad += 1 }
 // Sean's Settings choice, which BOTH copies must honour: the wrist and the
 // complication are separate processes and each carries its own flag, so this
