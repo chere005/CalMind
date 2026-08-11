@@ -113,6 +113,17 @@ struct ReminderListView: View {
         return out.isEmpty ? nil : out
     }
 
+    /// Deliberately short of core's rule, which is
+    /// `!!due && !done && due < today` (day.ts). The `!done` half is missing
+    /// here because watchRows() in core already drops every done reminder, so
+    /// `item.done` is false for everything that reaches this list — the two
+    /// rules agree on every input the wrist can be handed.
+    ///
+    /// That equivalence is the whole reason this is safe, and it is load
+    /// bearing across two languages: if core ever carries done reminders to
+    /// the watch, every one with a past due date turns orange here. The
+    /// filter is pinned by 'carries only open reminders' in
+    /// packages/core/test/watch.test.ts; this comment is the other end of it.
     private func overdue(_ item: WatchItem) -> Bool {
         guard let due = item.due else { return false }
         return due < WatchFormat.todayStr()
