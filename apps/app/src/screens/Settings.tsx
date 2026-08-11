@@ -13,7 +13,6 @@ import { CircleBtn, Field, Pill, ErrorLine } from '../ui';
 import { applyTheme, currentTheme, themed, T, THEMES, type ThemeName } from '../theme';
 import { ShareModal } from '../components/ShareModal';
 import { WidgetSetup } from './WidgetSetup';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export function Settings({ onClose }: { onClose: () => void }) {
   const { session, setSession, signOut, recs, mutate, syncState, persistFailed } = useStore();
@@ -173,7 +172,6 @@ export function Settings({ onClose }: { onClose: () => void }) {
             </View>
           </View>
           {note ? <Text style={s.note}>{note}</Text> : null}
-          <ViewportDiag />
           {/* The suite's settings footer: one row of three identical round icon
               buttons — Share, Widget, Done (the accent checkmark). Share and
               Widget say where they are on the roadmap until those land. */}
@@ -198,47 +196,6 @@ export function Settings({ onClose }: { onClose: () => void }) {
 }
 
 
-/**
- * What the page thinks the screen is.
- *
- * Added for a bug that only happens in the installed home-screen app: dead
- * background below the tab bar, as though the layout were sized to a shorter
- * screen than the one it is on. It could not be reproduced on the simulator,
- * so the numbers have to come off the device that shows it. Every one of them
- * is a plain reading, nothing derived, so they can be compared against what
- * the display actually is.
- *
- * `visual` is the visual viewport, which on iOS is the one that shrinks for
- * the keyboard and for browser chrome; `client` is the layout viewport the
- * CSS `height: 100%` chain resolves against. The two disagreeing is the whole
- * question here.
- */
-function ViewportDiag() {
-  const insets = useSafeAreaInsets();
-  if (Platform.OS !== 'web' || typeof window === 'undefined') return null;
-  const vv = (window as unknown as { visualViewport?: { width: number; height: number } }).visualViewport;
-  const standalone =
-    (window.navigator as unknown as { standalone?: boolean }).standalone === true ||
-    (typeof window.matchMedia === 'function' && window.matchMedia('(display-mode: standalone)').matches);
-  const n = (x: number) => Math.round(x);
-  return (
-    <View style={s.diag}>
-      <Text style={s.diagText} selectable>
-        {`inner ${n(window.innerWidth)}x${n(window.innerHeight)}`}
-        {vv ? `  visual ${n(vv.width)}x${n(vv.height)}` : '  visual —'}
-        {`  client ${n(document.documentElement.clientHeight)}`}
-      </Text>
-      <Text style={s.diagText} selectable>
-        {`screen ${n(window.screen.width)}x${n(window.screen.height)}  dpr ${window.devicePixelRatio}`}
-        {`  standalone ${standalone ? 'yes' : 'no'}`}
-      </Text>
-      <Text style={s.diagText} selectable>
-        {`safe area  top ${n(insets.top)}  bottom ${n(insets.bottom)}  left ${n(insets.left)}  right ${n(insets.right)}`}
-      </Text>
-    </View>
-  );
-}
-
 const s = themed(() => StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: '#000a', alignItems: 'center', justifyContent: 'center', padding: 24 },
   card: {
@@ -255,8 +212,6 @@ const s = themed(() => StyleSheet.create({
   statusRow: { flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 2 },
   statusDot: { width: 9, height: 9, borderRadius: 5 },
   statusText: { color: T.dim, fontSize: 13 },
-  diag: { borderTopWidth: 1, borderTopColor: T.line, paddingTop: 8, gap: 2 },
-  diagText: { color: T.muted, fontSize: 11, fontFamily: Platform.OS === 'web' ? 'monospace' : undefined },
   who: { color: T.dim, fontSize: 13 },
   themeRow: { flexDirection: 'row', gap: 12, justifyContent: 'center', marginTop: 4 },
   clockRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 14 },

@@ -102,6 +102,20 @@ then the watch needs the direct install and the build number is the proof.
 
 ## 3 · Work, not decisions
 
+- **The watch's copy of the widget's calendar selection lags by one push.**
+  The widget filters with its LIVE configuration; every other surface reads a
+  snapshot it writes to the App Group during `getTimeline` (`WIDGET_CALS`).
+  The phone reads that snapshot when it builds the feed, so the wrist is
+  always one generation behind: change the widget's calendars and the watch
+  keeps filtering by the old set until some unrelated store change causes
+  another push. Seen 2026-08-11 — Sean's shared events were on the widget and
+  missing from the first watch tab, then appeared on their own once the app
+  pushed again. It self-heals, which is exactly why it will be reported as
+  intermittent. Fixes worth weighing: push again on app foreground; or have
+  the phone re-read `WIDGET_CALS` after `reloadAllTimelines()` and push a
+  second time only if it changed. Not done unasked — it is a sync-timing
+  change and the symptom is transient.
+
 - **The complication's today tint, on a real wrist.** The WORDS are gated —
   `check-watch-format.sh` runs both Swift copies and pins "now" for an all-day
   event today, plus a later all-day event still naming its date; both halves

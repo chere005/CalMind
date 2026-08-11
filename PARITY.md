@@ -1383,3 +1383,52 @@ unsigned simulator builds have no App Group, so it reads an empty feed there.
   read from the source.
 - Everything in TODO.md §1, which is unchanged: the oversized record, the
   tie that never resolves, the rotating widget key, the offline PWA.
+
+## Iteration — the widget fits, the wrist counts in items, and a lag named
+
+**The widget overfilled its card, twice.** Three things went unpaid for, and
+the "rows" unit hid all of them: the header (26pt) was never charged, so every
+card began over budget and sliced its own "Calendar" title; the 2pt divider
+between days with 5pt of air each side was free, which is 72pt on a seven-day
+card; and a heading was charged 1.4 rows (28pt) for a block that draws 20.
+The budget itself was a per-family guess. The card measures ITSELF now —
+GeometryReader hands the view its real content height, the header comes off
+the top, and costs are points summed from the literals the file draws with,
+with line heights measured rather than estimated. Then Sean asked for one
+more event and got it honestly: the last row's bottom margin is trailing
+whitespace with nothing under it, so it no longer has to fit.
+
+**The watch's first page counted days, not items.** Two nested caps — the
+first four days, six lines inside each — multiply into a rule nobody chose:
+an item on the fifth day was unreachable however empty the four ahead of it
+were. Sean asked for ten items total from the same sources as the widget, and
+that is one cap with no blind spot; a quiet day now costs one row rather than
+a whole slot, and the last day drawn may be partial.
+
+**A real bug found by being wrong in public.** The four-day window was my
+explanation for Sean's shared events showing on the widget and not on the
+wrist. It was not the cause: the events reached the watch fine (they were on
+the Events tab all along) and the first tab was filtering them out. The widget
+filters with its live configuration while every other surface reads a snapshot
+it writes to the App Group, so the wrist runs one push behind. It corrected
+itself the moment the app pushed again, which is precisely what will make it
+get reported as intermittent. Written down in TODO rather than fixed on the
+spot: it is a sync-timing change.
+
+**And a diagnostic that outlived its bug** — the viewport readout in Settings,
+added for the installed-PWA bottom gap. Sean saw it and called it spurious;
+the reading it was showing him said `standalone no` and `safe area bottom 0`,
+so it was not even capturing the case it existed for.
+
+Verified: web deployed to test and the served bundle hash compared to the
+local one. iPhone and Watch both installed and confirmed by build number —
+which is the only proof the wrist actually moved, and it needs bumping by
+hand because ios/ is gitignored and app.json had drifted three behind.
+Not verified here: the widget's pixels and the complication's tint, both of
+which need a real device — an unsigned simulator build has no App Group and
+reads an empty feed. Sean confirmed both by eye.
+
+### Still open
+
+- The widget-selection lag above.
+- Everything in TODO.md §1, unchanged.
