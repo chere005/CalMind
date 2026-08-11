@@ -11,6 +11,7 @@ import { showAgain,
   newId,
   ordBetween,
   parseDateField,
+  REPEAT_UNITS,
   parseDateFromText,
   parseTimeFromText,
   nowStr,
@@ -19,7 +20,6 @@ import { showAgain,
   todayStr,
   type Rec,
   type Repeat,
-  type RepeatUnit,
 } from '@calmind/core';
 import { useStore } from '../store';
 import { themed, T } from '../theme';
@@ -171,8 +171,14 @@ export function Add({ done, onNoteCreated }: { done: () => void; onNoteCreated?:
             <Text style={s.panelLabel}>every</Text>
             <CircleBtn glyph="−" label="Fewer" size={22} onPress={() => repeat && setRepeat({ ...repeat, n: Math.max(1, repeat.n - 1) })} />
             <Text style={s.repN}>{repeat?.n ?? 1}</Text>
-            <CircleBtn glyph="+" label="Add" size={22} onPress={() => setRepeat({ n: (repeat?.n ?? 1) + 1, unit: repeat?.unit ?? 'week' })} />
-            {(['day', 'week', 'month', 'year'] as RepeatUnit[]).map((u) => (
+            {/* Math.min matches ItemModal's stepper, which has always had a
+                ceiling this one lacked — the floor was clamped in both. */}
+            <CircleBtn glyph="+" label="Add" size={22} onPress={() => setRepeat({ n: Math.min(999, (repeat?.n ?? 1) + 1), unit: repeat?.unit ?? 'week' })} />
+            {/* The THIRD copy of this list, found by sweeping for the cast
+                rather than for the text: `as RepeatUnit[]` is where the
+                compiler stops checking, so a literal that drifts from the
+                type reads as correct right up until someone edits the type. */}
+            {REPEAT_UNITS.map((u) => (
               <Pill key={u} label={u} primary={repeat?.unit === u} onPress={() => setRepeat({ n: repeat?.n ?? 1, unit: u })} />
             ))}
           </View>

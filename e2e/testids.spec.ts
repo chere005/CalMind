@@ -82,3 +82,30 @@ test('no spec reaches for a testID the app never renders', () => {
     .map(([id, f]) => `${id}  (${f})`);
   expect(orphans, 'a testID no component renders — an absence assertion on it can never fail').toEqual([]);
 });
+
+test('the repeat-unit list is defined once, in core', () => {
+  // Same failure mode as an orphaned testID, one layer down: a hand-written
+  // ['day','week','month','year'] with `as RepeatUnit[]` after it compiles
+  // whatever the type says, because the cast is precisely where the compiler
+  // stops checking. Three such copies existed — ItemModal, Reminders' inline
+  // editor, and Add — so a unit added to RepeatUnit would have reached none of
+  // the three screens that let you pick one.
+  //
+  // The list lives in core as REPEAT_UNITS. This fails if a copy comes back.
+  const root = join(__dirname, '..');
+  const files = walk(join(root, 'apps', 'app', 'src'));
+  const dupes: string[] = [];
+  for (const f of files) {
+    const text = readFileSync(f, 'utf8');
+    if (/\[\s*['"]day['"]\s*,\s*['"]week['"]\s*,\s*['"]month['"]\s*,\s*['"]year['"]\s*\]/.test(text)) {
+      dupes.push(f.slice(root.length + 1));
+    }
+  }
+  expect(dupes, 'a copy of core REPEAT_UNITS — import the constant instead').toEqual([]);
+
+  // …and the scan must actually be looking at the screens in question, or the
+  // assertion above is an absence check over an empty set.
+  expect(files.some((f) => f.endsWith('ItemModal.tsx')), 'the sweep reached ItemModal').toBe(true);
+  expect(files.some((f) => f.endsWith('Add.tsx')), 'the sweep reached Add').toBe(true);
+  expect(files.some((f) => f.endsWith('Reminders.tsx')), 'the sweep reached Reminders').toBe(true);
+});
