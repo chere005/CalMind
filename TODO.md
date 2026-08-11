@@ -203,14 +203,23 @@ then the watch needs the direct install and the build number is the proof.
   this app. That is how Save inside the habit editor came to switch edit mode
   off behind the sheet.
 
-  Adding the role is one line and has been tried twice, both times reverted
-  because `copymd.spec` then hangs. THE EARLIER NOTE HERE BLAMED tabIndex AND
-  WAS WRONG — measured on 2026-08-11: with the role, Playwright begins
-  honouring the visible/enabled/stable semantics that a bare div hides, and
-  that spec's fallback path (for when the account name is already taken) then
-  waits forever on a control it used to click straight through. Signing up as
-  'sean' also fails inside that spec while the identical steps in a scratch
-  spec succeed, and I did not get to the bottom of why.
+  Adding the role is one line and has been tried three times, each time
+  reverted because `copymd.spec` then fails. What is ESTABLISHED, measured on
+  2026-08-11 rather than guessed: with the role, that spec's signup submit
+  click does not activate at all — the screen stays in signup mode with no
+  error shown — while the mode-toggle Pill on the same screen still works.
+
+  Three theories tested and DISPROVED, so nobody retreads them:
+    · tabIndex — the earlier note here blamed it; unproven and probably wrong;
+    · stale scratch data leaving 'sean' already taken — the server was proven
+      to wipe and to accept a fresh signup, and the failure survives a
+      guaranteed-clean run;
+    · `noSteal`'s preventDefault on mousedown blocking focus — removing it
+      from Pill changes nothing.
+
+  Still unexplained: the identical steps in a scratch spec DO succeed with the
+  role on. So something about copymd's own context differs, and that is the
+  thread to pull next.
 
   So the role is right, the spec's fallback is the fragile part, and the two
   need untangling together — not by adding the role and patching whatever goes
