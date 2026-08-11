@@ -594,6 +594,69 @@ test('Habits enters edit mode by HOLDING, and leaves by tapping outside', async 
   await expect(page.getByTestId('habit-grip').first()).toBeVisible();
 });
 
+test('the CALENDAR day panel leaves edit mode by tapping out, like the other three', async ({ page }) => {
+  // The fourth screen with this rule, and the only one that had no test for
+  // it. Calendar.tsx's own comment records why that mattered: setPanelEdit
+  // (false) once appeared exactly ONCE in the file, in the Escape handler, so
+  // on a phone there was no way out of the day panel's edit mode at all. The
+  // fix shipped uncovered, which is the same as untested.
+  //
+  // A dated NOTE is the seeding route because it reaches the panel through
+  // core rather than through this screen's own add modal.
+  await signup(page);
+  await page.getByTestId('tab-notes').click();
+  await page.getByTestId('secadd-General').first().click();
+  await page.getByTestId('note-title').fill('panel exit');
+  await expect(page.getByTestId('note-title')).toHaveValue('panel exit');
+  await page.getByTestId('note-back').click();
+  await longPress(page, page.getByTestId('note-row').filter({ hasText: 'panel exit' }));
+  await page.getByTestId('note-date-panel exit').click();
+  await page.getByTestId('note-date-today').click();
+  await page.getByTestId('note-date-done').click();
+
+  await page.getByTestId('tab-calendar').click();
+  const row = page.getByTestId('dp-note-row').filter({ hasText: 'panel exit' });
+  await expect(row).toBeVisible({ timeout: 10_000 });
+
+  // Edit mode is marked by the row's own controls; Duplicate is edit-only.
+  const dup = page.getByLabel('Duplicate').first();
+  await expect(dup).toBeHidden();
+
+  // The day's TITLE exits. Calendar.tsx names this case specifically: a
+  // '[data-testid^="cal-"]' allow-list was tried and rejected because it kept
+  // the title, which is a label, not a control.
+  await longPress(page, row);
+  await expect(dup).toBeVisible();
+  await page.getByTestId('cal-day-title').click();
+  await expect(dup).toBeHidden();
+
+  // The panel HEAD's dead space — the always-present surface, and the one
+  // that has to work when the day is full and no blank space is left. The
+  // sweep measured this row at 32pt tall with ~145pt of dead space between
+  // the title and the first button, which is a larger target than the header
+  // strips the other three screens exit through.
+  await longPress(page, row);
+  await expect(dup).toBeVisible();
+  const gap = await page.evaluate(() => {
+    const t = document.querySelector('[data-testid="cal-day-title"]')!;
+    const head = t.parentElement!;
+    const btns = [...head.querySelectorAll('[role="button"]')].map((e) => e.getBoundingClientRect().left);
+    const r = head.getBoundingClientRect();
+    const tr = t.getBoundingClientRect();
+    return { x: (tr.right + Math.min(...btns)) / 2, y: r.top + r.height / 2 };
+  });
+  await page.mouse.click(gap.x, gap.y);
+  await expect(dup).toBeHidden();
+
+  // …and the grid does NOT exit, because picking another day while arranging
+  // one is a thing you do. This is the half that proves the rule discriminates
+  // rather than closing on every click.
+  await longPress(page, row);
+  await expect(dup).toBeVisible();
+  await page.getByTestId('cal-grid').click({ position: { x: 5, y: 5 } });
+  await expect(dup).toBeVisible();
+});
+
 test('a note takes a date from the LIST, and the calendar opens it for editing', async ({ page }) => {
   // Sean's three: a calendar icon beside duplicate so a date can be put on a
   // note without opening it; the mini editor with exactly remove / today /
