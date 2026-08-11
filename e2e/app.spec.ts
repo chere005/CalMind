@@ -628,6 +628,19 @@ test('a note takes a date from the LIST, and the calendar opens it for editing',
   await page.getByTestId('note-all').click();
   await expect(page.getByTestId('note-row').filter({ hasText: 'dated note' })).toBeVisible({ timeout: 10_000 });
   await expect(page.getByTestId('cal-grid')).toHaveCount(0);
+
+  // The DATE CHIP is the other way into the editor — Sean asked for tapping
+  // an existing date to open it, not only the icon.
+  await longPress(page, page.getByTestId('note-row').filter({ hasText: 'dated note' }));
+  await page.getByTestId('note-datechip-dated note').click();
+  await expect(page.getByTestId('note-date-clear')).toBeVisible();
+
+  // And CLEAR actually removes the date — the one control of the three that
+  // nothing had driven. Proven by its absence from the calendar afterwards,
+  // which is what a date on a note is FOR.
+  await page.getByTestId('note-date-clear').click();
+  await page.getByTestId('tab-calendar').click();
+  await expect(page.getByText('dated note')).toHaveCount(0);
 });
 
 test('collapse-all folds and unfolds, on the list AND on the calendar', async ({ page }) => {
