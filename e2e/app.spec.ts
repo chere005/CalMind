@@ -699,6 +699,29 @@ test('collapse-all folds and unfolds, on the list AND on the calendar', async ({
   await expect(page.getByText('fold this event')).toBeVisible();
 });
 
+test('a note made from Add opens its editor, and Back returns to Add', async ({ page }) => {
+  // The other route into the note editor from another tab. Back now returns
+  // to where you came from, and "where" is whatever the tab stack popped —
+  // so this pins the Add route as well as the calendar one. If the stack were
+  // empty the editor would close to the notes LIST with the tab unchanged,
+  // which is the stuck-looking case worth having a test for.
+  await signup(page);
+  await page.getByTestId('tab-add').click();
+  // The Add screen's own kind cards, which carry no testids — picked by the
+  // word on them, as a person does.
+  await page.getByText('Note', { exact: true }).click();
+  await page.getByPlaceholder(/Dentist/).fill('from the add sheet');
+  await page.getByText('Done', { exact: true }).click();
+
+  // It lands in the editor, not the list.
+  await expect(page.getByTestId('note-title')).toHaveValue('from the add sheet', { timeout: 10_000 });
+
+  // …and Back goes to Add, the tab it came from — the Add screen's own help
+  // line is the thing only that tab shows.
+  await page.getByTestId('note-back').click();
+  await expect(page.getByText('You can also type the date and time into the line:')).toBeVisible({ timeout: 10_000 });
+});
+
 test('sharing: mutual handshake, @partner view, a tick lands in their store', async ({ browser }) => {
   const ctxA = await browser.newContext();
   const ctxB = await browser.newContext();
