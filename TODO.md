@@ -197,34 +197,20 @@ then the watch needs the direct install and the build number is the proof.
 
 ## 3 · Work, not decisions
 
-- **`Pill` announces itself as nothing.** It is a button with no
-  `accessibilityRole`, so react-native-web renders a bare div: invisible to a
-  screen reader, and invisible to every "did the tap land on a control" rule in
-  this app. That is how Save inside the habit editor came to switch edit mode
-  off behind the sheet.
+- ~~**`Pill` announces itself as nothing**~~ — FIXED 2026-08-11, and it was
+  never this line's fault. The role is one line and had been added and
+  reverted THREE times because `copymd.spec` failed with it. The cause was in
+  the spec: it decided whether signup had worked the instant after clicking,
+  while the request was still in flight, so it took the "name taken" branch on
+  a form that was about to be replaced. That race passed for as long as a bare
+  div let Playwright click a control it should have refused — the role only
+  made an existing bug visible. Waiting for the outcome first fixes it, and
+  the role then lands with the whole suite green. Proven by putting the race
+  back with the role on and watching it fail again.
 
-  Adding the role is one line and has been tried three times, each time
-  reverted because `copymd.spec` then fails. What is ESTABLISHED, measured on
-  2026-08-11 rather than guessed: with the role, that spec's signup submit
-  click does not activate at all — the screen stays in signup mode with no
-  error shown — while the mode-toggle Pill on the same screen still works.
-
-  Three theories tested and DISPROVED, so nobody retreads them:
-    · tabIndex — the earlier note here blamed it; unproven and probably wrong;
-    · stale scratch data leaving 'sean' already taken — the server was proven
-      to wipe and to accept a fresh signup, and the failure survives a
-      guaranteed-clean run;
-    · `noSteal`'s preventDefault on mousedown blocking focus — removing it
-      from Pill changes nothing.
-
-  Still unexplained: the identical steps in a scratch spec DO succeed with the
-  role on. So something about copymd's own context differs, and that is the
-  thread to pull next.
-
-  So the role is right, the spec's fallback is the fragile part, and the two
-  need untangling together — not by adding the role and patching whatever goes
-  red. Anyone taking it: start by making copymd reach a signed-in state
-  deterministically, THEN add the role.
+  The lesson is worth more than the fix: three reverts, and each time the
+  evidence said "the change broke the test" when it was "the change stopped
+  the test getting away with something".
 
 - **Larger notes, with images** (Sean asked, 2026-08-11). Not a bigger cap:
   the shape cannot carry it. The client persists the WHOLE snapshot as one

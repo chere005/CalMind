@@ -120,6 +120,19 @@ export function Pill({
 }) {
   return (
     <Pressable
+      // A Pill IS a button, and react-native-web only says so when asked.
+      // Without this it renders a bare div: invisible to a screen reader, and
+      // invisible to every "did the tap land on a control" rule in this app —
+      // which is how Save inside the habit editor came to switch edit mode off
+      // behind the sheet.
+      //
+      // Adding it was reverted twice because copymd.spec then failed. It was
+      // never this line's fault: that spec decided whether signup had worked
+      // the instant after clicking, while the request was still in flight, and
+      // took the "name taken" branch on a form that was about to be replaced.
+      // The race passed for as long as a bare div let Playwright click a
+      // control it should have refused; the role only made it visible.
+      accessibilityRole="button"
       {...noSteal}
       testID={testID}
       onPress={onPress}

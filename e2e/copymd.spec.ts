@@ -23,7 +23,19 @@ test('the copy button says whether it copied', async ({ page, context }) => {
   await page.getByText('Sign up', { exact: true }).click();
   // The name may already be taken by an earlier run on this scratch server;
   // either way we need to end up signed in as it.
-  if (await page.getByPlaceholder('Username').isVisible().catch(() => false)) {
+  //
+  // WAIT FOR THE OUTCOME before deciding. Signing up is a round trip, and
+  // asking "is the username field still there?" the instant after the click
+  // is a race the login screen always wins — so this took the "name taken"
+  // branch while the account was in the middle of being created, and then
+  // drove a form that was about to be replaced. It passed anyway, by luck,
+  // for as long as clicking a control Playwright considered unclickable was a
+  // silent no-op. Give the request its answer first.
+  const signedIn = await page.getByTestId('tab-reminders')
+    .waitFor({ state: 'visible', timeout: 15_000 })
+    .then(() => true)
+    .catch(() => false);
+  if (!signedIn) {
     await page.getByText('Sign in', { exact: true }).first().click({ timeout: 2_000 }).catch(() => {});
     await page.getByPlaceholder('Username').fill(user);
     await page.getByPlaceholder('Password', { exact: true }).fill('e2epassword');
