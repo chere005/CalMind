@@ -18,6 +18,7 @@ import { useRowDrag } from '../components/rowdrag';
 import { useSectionDrag, type SectionSlot } from '../components/sectiondrag';
 import { useSwipeLeft } from '../components/swiperow';
 import { Chevron } from '../components/Chevron';
+import { SyncDot } from '../components/SyncDot';
 import { EditExit } from '../components/EditExit';
 import { RecipeEditor } from './RecipeEditor';
 
@@ -448,6 +449,19 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
             }}
             gold
           />
+        </View>
+        {/* Sean, 2026-08-11: a status indicator in the editor's top right.
+            This is the one screen where it earns its place — a note is the
+            only record that can be REFUSED for being too long, and until now
+            the editor said nothing about whether what you were typing was
+            reaching the server. Same dot as Settings, from the same rule.
+
+            PINNED rather than placed in the header row: that row wraps on a
+            phone, and a right-aligned child in a wrapping row drops to the
+            second line, which is not the top right of anything. Measured at
+            390pt, where it sat 44pt below the back button. */}
+        <View style={s.edStatus} pointerEvents="none">
+          <SyncDot testID="editor-sync" withText />
         </View>
         <ScrollView contentContainerStyle={s.editor}>
           <View style={s.titleRow}>
@@ -1162,6 +1176,10 @@ const s = themed(() => StyleSheet.create({
   chev: { color: T.muted, fontSize: 16, marginLeft: 'auto' },
   editor: { padding: 16, gap: 10 },
   edHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 16, marginHorizontal: 16, marginBottom: 8, flexWrap: 'wrap' },
+  // marginLeft auto pushes it to the right edge of the row, and it keeps its
+  // corner when the row wraps on a narrow screen rather than following the
+  // dropdowns down.
+  edStatus: { position: 'absolute', right: 16, top: 20 },
   ddPill: { borderWidth: 1, borderColor: T.line, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: T.surface },
   ddPillGold: { borderColor: T.gold },
   backText: { color: T.accent, fontSize: 15, fontWeight: '600' },

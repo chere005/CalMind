@@ -9,6 +9,7 @@ import { prefsOf, prefsPut } from '@calmind/core';
 import { apiPost, changePassword, logout } from '../api';
 import { addPasskey, listPasskeys, passkeyAvailable, removePasskey, type PasskeyRow } from '../passkey';
 import { useStore } from '../store';
+import { syncLook } from '../components/SyncDot';
 import { CircleBtn, Field, Pill, ErrorLine } from '../ui';
 import { applyTheme, currentTheme, themed, T, THEMES, type ThemeName } from '../theme';
 import { ShareModal } from '../components/ShareModal';
@@ -77,7 +78,8 @@ export function Settings({ onClose }: { onClose: () => void }) {
         <Pressable style={s.card} onPress={() => {}}>
           <Text style={s.h2}>Settings</Text>
           <View style={s.statusRow}>
-            <View style={[s.statusDot, { backgroundColor: persistFailed || syncState === 'refused' ? T.danger : syncState === 'offline' ? T.gold : T.accent }]} />
+            {/* The same rule as the note editor's dot, from one place. */}
+            <View style={[s.statusDot, { backgroundColor: syncLook(syncState, persistFailed).color }]} />
             <Text style={s.statusText}>
               {/* A device that cannot write its own copy comes first: being
                   online is no comfort if a reload loses the morning. */}

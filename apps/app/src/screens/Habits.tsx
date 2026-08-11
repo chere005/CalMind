@@ -88,6 +88,8 @@ export function Habits() {
   const [w, setW] = useState(0);
   const [ym, setYm] = useState(today.slice(0, 7));
   const [folded, setFolded] = useState<Set<string>>(new Set());
+  /** Double-click detection — the desktop's way into edit mode. */
+  const lastTap = React.useRef<{ id: string; at: number }>({ id: '', at: 0 });
 
   useEffect(() => {
     AsyncStorage.getItem(FOLD_KEY)
@@ -415,7 +417,26 @@ export function Habits() {
                             same screen, so the edit pencil and the row agree. */}
                         <Pressable
                           style={[s.nameBox, { borderColor: tint(sec.payload.color, '55'), backgroundColor: tint(sec.payload.color, '14') }]}
-                          onPress={() => { if (edit) setEditor({ sectionId: sec.id, habit: h }); }}
+                          onPress={() => {
+                            if (edit) { setEditor({ sectionId: sec.id, habit: h }); return; }
+                            // DOUBLE-CLICK IS THE WAY IN WITH A MOUSE, and I
+                            // deleted it: replacing the inline rename with the
+                            // editor screen took the double-tap handler with
+                            // it, leaving long-press as the only way into edit
+                            // mode. Holding a mouse button down for 350ms is
+                            // not something anyone does on a desktop, so the
+                            // macOS app had no way in at all — Sean, on macOS,
+                            // 2026-08-11. The suite has always offered three:
+                            // double-click, long-press, or a single tap once
+                            // editing.
+                            const now = Date.now();
+                            if (lastTap.current.id === h.id && now - lastTap.current.at < 300) {
+                              setEdit(true);
+                              lastTap.current = { id: '', at: 0 };
+                              return;
+                            }
+                            lastTap.current = { id: h.id, at: now };
+                          }}
                           onLongPress={() => setEdit(true)}
                           delayLongPress={350}
                         >

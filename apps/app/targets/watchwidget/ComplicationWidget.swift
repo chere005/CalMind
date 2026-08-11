@@ -152,6 +152,34 @@ func isToday(_ e: Ev) -> Bool { e.date == todayStr() }
 /// could have caught it.
 func calColor(_ e: Ev) -> Color { Color(hex: e.color) }
 
+/**
+ WHY THE CALENDAR COLOUR OFTEN IS NOT THE COLOUR YOU SEE.
+
+ Sean, 2026-08-11: "i don't see colors for dates/times on the watch
+ complication". Nothing was broken — watchOS was discarding the colour.
+
+ A complication on a watch face is not drawn in full colour. WidgetKit hands
+ the view a `widgetRenderingMode`, and on the face it is one of:
+
+   .accented  the system splits the view into TWO groups and tints each with
+              a colour the FACE chooses — one for anything marked
+              `widgetAccentable(true)`, one for everything else. Your colours
+              are replaced, not blended;
+   .vibrant   everything is flattened to a monochrome, desaturated wash of
+              the face's material. Colour is gone entirely.
+
+ `.fullColor` — where `Color(hex:)` means what it says — is what the previews,
+ the gallery and the iPhone's Smart Stack use, not the wrist.
+
+ So the colour is kept for the case where it can be honoured, and where it
+ cannot, the TIME is put in the accent group instead: on an `.accented` face
+ it then takes the face's accent colour while the event's name stays in the
+ default one, which is the only "different colour for the time" the platform
+ actually offers. Under `.vibrant` nothing can be done with colour, so weight
+ does the work instead.
+ */
+func timeIsAccented(_ mode: WidgetRenderingMode) -> Bool { mode == .accented }
+
 struct Entry: TimelineEntry {
     let date: Date
     let events: [Ev]
@@ -178,11 +206,18 @@ struct Provider: TimelineProvider {
 
 struct EventLine: View {
     let e: Ev
+    @Environment(\.widgetRenderingMode) private var mode
 
     var body: some View {
         HStack(spacing: 4) {
-            Circle().fill(Color(hex: e.color)).frame(width: 6, height: 6)
-            Text(when(e)).foregroundStyle(calColor(e))
+            // The dot joins the accent group too, so on an accented face the
+            // calendar mark and its time read as one thing.
+            Circle().fill(calColor(e)).frame(width: 6, height: 6)
+                .widgetAccentable(timeIsAccented(mode))
+            Text(when(e))
+                .foregroundStyle(mode == .fullColor ? calColor(e) : Color.primary)
+                .fontWeight(mode == .vibrant ? .semibold : .regular)
+                .widgetAccentable(timeIsAccented(mode))
             Text(e.text).lineLimit(1).truncationMode(.tail)
         }
         .font(.caption2)
@@ -191,6 +226,7 @@ struct EventLine: View {
 
 struct ComplicationView: View {
     @Environment(\.widgetFamily) private var family
+    @Environment(\.widgetRenderingMode) private var mode
     let entry: Entry
 
     var body: some View {
@@ -219,7 +255,8 @@ struct ComplicationView: View {
                 if let e = entry.events.first {
                     Text(whenShort(e))
                         .font(.headline)
-                        .foregroundStyle(calColor(e))
+                        .foregroundStyle(family == .accessoryCorner && mode == .fullColor ? calColor(e) : Color.primary)
+                        .widgetAccentable(timeIsAccented(mode))
                         .widgetLabel("\(e.text)")
                 } else {
                     Image(systemName: "calendar").widgetLabel("No events")
@@ -232,7 +269,8 @@ struct ComplicationView: View {
                         VStack(spacing: 0) {
                             Text(whenShort(e))
                                 .font(.system(size: 13, weight: .bold))
-                                .foregroundStyle(calColor(e))
+                                .foregroundStyle(mode == .fullColor ? calColor(e) : Color.primary)
+                                .widgetAccentable(timeIsAccented(mode))
                             Image(systemName: "calendar").font(.system(size: 8))
                         }
                     } else {

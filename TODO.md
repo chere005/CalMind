@@ -14,7 +14,7 @@ Standing rules live in `CLAUDE.md`, not here.
 
 ## Suite counts, as of this commit
 
-core **388** · gesture **137** (+1 skipped) · WebKit **16** · server **38** ·
+core **388** · gesture **139** (+1 skipped) · WebKit **16** · server **38** ·
 live **16** with the API · desktop **7** (+3 in `npm run test:desktop`) · deploy guards **9** · plus the four
 native seam checkers no browser can reach: `npm run test:watch`,
 `npm run test:widget`, `npm run test:deploy`.
@@ -72,12 +72,20 @@ skewed device then beats a genuinely newer edit from a correct one. Same root
 cause as the tie (a local clock used as a version), not fixed by the tiebreak,
 and more likely to bite than an exact tie ever was.
 
-### The widget key rotates on every visit
-Opening Settings → Widget mints a new key and retires the one already on the
-home screen — it holds a dead key and simply stops updating. The page now
-says so out loud, which costs nothing. Better: (a) store the token, not just
-its hash, so the page shows the SAME key; (b) mint only behind an explicit
-"new key" button; (c) leave it rotating and rely on the warning.
+### ~~The widget key rotates on every visit~~ — ALREADY FIXED, entry was stale
+Checked against the source 2026-08-11 when Sean asked what was needed: option
+(b) shipped some time ago. `handle_widget_token` mints only when asked —
+without `rotate`, an account that already holds a key is told `exists: true`
+and nothing changes — and WidgetSetup only sends `rotate` from the explicit
+button. Opening the page costs you nothing.
+
+The one thing still true: the key cannot be SHOWN again, because only its
+hash is stored. Lose the Scriptable script and you must rotate and re-paste.
+Option (a) — keeping the token itself so the page can redisplay it — is the
+only outstanding choice, and it is a real tradeoff: that token is a bearer
+credential for a read-only feed of everything, and storing it in plaintext to
+save a re-paste is not obviously the right trade. Sean's call if it ever
+annoys him.
 
 ### The PWA cannot open offline
 No service worker, so a phone with no signal never gets `index.html`. Native
@@ -86,11 +94,14 @@ it collides head-on with the deploy's own rule — index.html must always
 revalidate, or a phone runs last week's app against this week's data. A
 careless caching worker turns an annoyance into the worse failure.
 
-### The wrist's clock on the mirrored page
-The new first watch page uses the WRIST's compact clock (`3:30`, no suffix
-below 8pm — Sean's own rule), while the widget it mirrors always shows the
-suffix (`3:30pm`). Kept consistent with the watch pages beside it rather than
-with the widget. Say the word and it flips.
+### ~~The wrist's clock on the mirrored page~~ — NOT AN ISSUE, entry was stale
+Sean, 2026-08-11: "the wrist complication is correct as 3:30 over 3:30pm. it
+should be 3:30pm everywhere except the complication, and i don't think there's
+any issue with this". He is right, and the code already does exactly that:
+every watch page uses `WatchFormat.clockFull`/`whenFull` (`3:30pm`) and only
+the complication uses the compact `clock12` (`3:30`). check-watch-format.sh
+pins both, and pins that the two DISAGREE below 8pm so one cannot become the
+other. This entry described a state that is not the case.
 
 ### Smaller, still his
 - A FINISHED item greys out rather than keeping its folder colour. That is
