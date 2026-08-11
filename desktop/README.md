@@ -15,6 +15,39 @@ npm run export:web                      # refresh the web export first
 cd desktop && npm run build             # → src-tauri/target/release/bundle/macos/CalMind.app
 ```
 
+The build stages the export before compiling (`stage-dist.sh`, wired in as
+tauri.conf.json's `beforeBuildCommand`), and that staging is not incidental —
+see below.
+
+### Why the export is staged rather than embedded directly
+
+The website is exported with a base path — `experiments.baseUrl` in
+`apps/app/app.json` is `/test/calmind` — so every asset URL in `index.html` is
+absolute. This shell used to embed that export and serve it at the ROOT of
+`tauri://localhost`, where no such prefix exists: the bundle 404'd, Tauri's
+asset protocol answered with `index.html`, and the window opened on
+
+```
+CalMind could not start.
+SyntaxError: Unexpected token '<'
+```
+
+The macOS app had never once rendered, and `./desktop/smoke.sh` passed
+throughout — it built, carried the right bundle name, launched, survived six
+seconds and quit, all of which a broken window does too.
+
+The base path is baked into the JS as well as the HTML (it is used to load
+async chunks at runtime), so rewriting `index.html` would break on the first
+lazy import, and rewriting the bundle would mean shipping bytes the web suite
+never tested. Instead the export is staged UNDER the path it was built for and
+the window opens it there, so the desktop runs the identical bytes the site
+serves.
+
+`sh desktop/check-assets.sh` (also `npm run test:desktop`) is what keeps that
+true: it reads the window's start URL out of `tauri.conf.json`, finds that page
+in the staged tree, and requires every absolute asset it references to be a
+real file at exactly that path. It needs no GUI.
+
 Needs the Rust toolchain (`rustup`, minimal profile is enough) and the
 `LANG=en_US.UTF-8` habit does not apply here — plain shells are fine.
 

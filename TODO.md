@@ -15,7 +15,7 @@ Standing rules live in `CLAUDE.md`, not here.
 ## Suite counts, as of this commit
 
 core **372** · gesture **130** (+1 skipped) · WebKit **16** · server **38** ·
-live **16** with the API · desktop **6** · deploy guards **9** · plus the four
+live **16** with the API · desktop **8** · deploy guards **9** · plus the four
 native seam checkers no browser can reach: `npm run test:watch`,
 `npm run test:widget`, `npm run test:deploy`.
 
@@ -126,6 +126,13 @@ then the watch needs the direct install and the build number is the proof.
   `Color.green` the watch app already uses for today, so it should match the
   page beside it rather than introduce a second idea of "today".
 
+- **The macOS .app is ad-hoc linker-signed, and Gatekeeper rejects it**
+  (`code has no resources but signature indicates they must be present`;
+  `Info.plist=not bound`). It launches locally and survives being copied to
+  another directory, so nothing is blocked today — but it is not distributable,
+  and a quarantined copy (anything downloaded) would be refused. Fixing it
+  means a real signing identity in `tauri.conf.json` and, for anyone else's
+  Mac, notarisation. Not started; nobody has asked to hand this app to anyone.
 - **The widget's pixels with REAL data** — everything upstream is covered
   (entitlements, the cache writer, core's shape, the decoder, `drawnDays`),
   but an unsigned simulator build has no App Group at all, so the last mile

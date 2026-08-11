@@ -23,3 +23,7 @@ desktop/src-tauri/target/
 
 # Playwright writes failure artefacts here; they are never source.
 test-results/
+
+# Staged copy of the web export, built for the desktop shell by
+# desktop/stage-dist.sh. Generated on every build; never edited by hand.
+desktop/dist-desktop/

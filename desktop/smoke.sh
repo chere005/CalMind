@@ -55,6 +55,16 @@ else
   strings -a "$BIN" | grep -oE 'index-[a-f0-9]+\.js' | sort -u | head -3 | sed 's/^/      embedded: /'
 fi
 
+# Everything index.html asks for must exist where it asks for it. Split out
+# so it can run with no GUI at all — see desktop/check-assets.sh for the bug
+# it exists for, which is the one that made this whole smoke test a liar.
+if sh "$ROOT/desktop/check-assets.sh" >/tmp/calmind-desktop-assets.log 2>&1; then
+  ok "the shell can load what it ships"
+else
+  bad "the shell cannot load its own assets:"
+  sed 's/^/      /' /tmp/calmind-desktop-assets.log
+fi
+
 open "$APP"
 LAUNCHED=0
 for _ in 1 2 3 4 5 6 7 8 9 10; do

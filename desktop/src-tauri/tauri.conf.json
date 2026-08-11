@@ -4,7 +4,9 @@
   "version": "0.1.0",
   "identifier": "com.seancheren.calmind.desktop",
   "build": {
-    "frontendDist": "../../apps/app/dist"
+    "frontendDist": "../dist-desktop",
+    "beforeBuildCommand": "sh \"$(git rev-parse --show-toplevel)/desktop/stage-dist.sh\"",
+    "beforeDevCommand": "sh \"$(git rev-parse --show-toplevel)/desktop/stage-dist.sh\""
   },
   "app": {
     "windows": [
@@ -14,7 +16,8 @@
         "height": 800,
         "minWidth": 420,
         "minHeight": 600,
-        "backgroundColor": "#111111"
+        "backgroundColor": "#111111",
+        "url": "/test/calmind/index.html"
       }
     ],
     "security": {
@@ -23,8 +26,13 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["app"],
-    "icon": ["icons/icon.icns", "icons/icon.png"],
+    "targets": [
+      "app"
+    ],
+    "icon": [
+      "icons/icon.icns",
+      "icons/icon.png"
+    ],
     "category": "Productivity"
   }
 }

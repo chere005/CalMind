@@ -1432,3 +1432,54 @@ reads an empty feed. Sean confirmed both by eye.
 
 - The widget-selection lag above.
 - Everything in TODO.md §1, unchanged.
+
+## Iteration — the macOS app had never rendered
+
+Sean asked to get the macOS version working. It built, it launched, it passed
+all six of its smoke checks — and it had never once drawn the app. The window
+said:
+
+```
+CalMind could not start.
+SyntaxError: Unexpected token '<'
+tauri://localhost/test/calmind/_expo/static/js/web/index-….js:1
+```
+
+The website is exported with a base path (`experiments.baseUrl` =
+`/test/calmind`), so every asset URL in index.html is absolute. The shell
+embedded that export and served it at the root of `tauri://localhost`, where
+no such prefix exists: the bundle 404'd, Tauri's asset protocol answered with
+index.html, and the JS parser met a `<`.
+
+**The smoke test was the real defect.** Six green checks — it builds, the
+bundle is there, it carries THIS export, it launches, it survives six seconds,
+it quits — and every one of them is equally true of a window showing an error
+message. This is the trap CLAUDE.md already names, found again at full size:
+the checks were about the .app as a FILE, and none about the app as a program.
+Nothing looked at the window until today, which is why the bug could sit there
+while the file-level checks stayed honest and green.
+
+The fix stages the export under the path it was built for and points the
+window at it, so the desktop runs the identical bytes the site serves — the
+base path is baked into the JS too (async chunk loading), so rewriting the
+HTML would have broken on the first lazy import and rewriting the bundle would
+have meant shipping code the web suite never ran.
+
+`desktop/check-assets.sh` is the check that cannot pass on a blank app: it
+reads the window's start URL out of tauri.conf.json, finds that page in the
+staged tree that actually gets embedded, and requires every absolute asset it
+references to resolve to a real file. It needs no GUI, so it runs as
+`npm run test:desktop`. Broken three ways before being trusted — the original
+root-serving bug reproduced exactly, the base path moved in app.json without
+restaging, and an asset deleted from the bundle.
+
+Verified by opening the window and reading it: Reminders drawn, folders and
+sections intact, signed in and synced against the test API.
+
+### Still open
+
+- **The .app is ad-hoc linker-signed and Gatekeeper rejects it**
+  (`code has no resources but signature indicates they must be present`). It
+  runs locally and survives being copied, so this is not urgent, but it is not
+  distributable and it is not what "signed" normally means.
+- Everything in TODO.md §1, unchanged.
