@@ -260,6 +260,27 @@ then the watch needs the direct install and the build number is the proof.
   run one, so the toggle was written, broken deliberately, and the whole suite
   stayed green. It is checked now.
 
+  AND THE SHARED LISTS, which were the last surface without it and the one
+  where it matters most — a mis-tap on a PARTNER's reminder cannot be found
+  again in my Completed, and they see it. Three sites tick one (Reminders' All
+  view, the shared folder view, Calendar's day panel); all three now go through
+  `useSharedTick`.
+
+  Its second tap is not the owned one. An owned tick writes locally and the
+  next render reads the new payload; a shared tick is a POST followed by a
+  re-pull, so inside the grace the record on screen can still say `done:
+  false`. Toggling from it again would send done a SECOND time and finish the
+  partner's reminder — the mis-tap "corrected" into itself. The pre-tick
+  payload is therefore put aside at the first tap and put back verbatim at the
+  second; `release()` returns it rather than offering a getter, so reading it
+  after dropping it is not a spelling mistake away.
+
+  The spec for that (`e2e/sharedgrace.spec.ts`) PASSED WITH THE BUG IN when it
+  was first written: a loopback server answers so fast the stale window never
+  opened. It now holds `shared_pull` for 1.5s inside the grace, which makes the
+  race a fact rather than a hope, and both breaks — no grace at all, and the
+  near-miss that re-toggles from the stale copy — were watched going red.
+
 ## 4 · Steady state, every iteration
 
 - `git pull --autostash` first; stage explicit paths; never `git add -A`.

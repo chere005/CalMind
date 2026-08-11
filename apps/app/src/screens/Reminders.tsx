@@ -18,7 +18,7 @@ import { TopBar } from '../chrome';
 import { FolderPick, useFolderView } from '../components/FolderPick';
 import { useRowDrag } from '../components/rowdrag';
 import { useSwipeLeft } from '../components/swiperow';
-import { useTickGrace } from '../components/tickgrace';
+import { useSharedTick, useTickGrace } from '../components/tickgrace';
 import { Chevron } from '../components/Chevron';
 import { EditExit } from '../components/EditExit';
 import { useSectionDrag, type SectionSlot } from '../components/sectiondrag';
@@ -32,7 +32,7 @@ type ReminderRec = Rec<'reminder'>;
 const FOLD_KEY = 'calmind.folded.reminders';
 
 export function Reminders() {
-  const { recs, session, mutate, sharedRecs, sharedPut, sharedPartnerLabel } = useStore();
+  const { recs, session, mutate, sharedRecs, sharedPartnerLabel } = useStore();
   const { view, visible: visibleFolders, visibleShared, sharedView, sharedPartner } = useFolderView('reminders');
   const [showDone, setShowDone] = useState(false);
   const [adding, setAdding] = useState<string | null>(null); // sectionId with the open add row
@@ -42,6 +42,9 @@ export function Reminders() {
   const holdCluster = React.useRef(false);
   const swipe = useSwipeLeft();
   const grace = useTickGrace();
+  // The All view draws a partner's rows too, and they tick through their own
+  // grace — a shared tick is a round trip, not a local write. See useSharedTick.
+  const shTick = useSharedTick();
   const clock24 = useClock24();
   const [pageEdit, setPageEdit] = useState(false);
   const exitEdit = () => { setPageEdit(false); setEditing(null); };
@@ -718,17 +721,19 @@ export function Reminders() {
                       </Pressable>
                       {!folded.has(`sh:${sec.id}`) && sortByDate(
                         sharedRecs
-                          .filter((r): r is ReminderRec => r.type === 'reminder' && r.payload.sectionId === sec.id && !r.payload.done)
+                          .filter((r): r is ReminderRec => r.type === 'reminder' && r.payload.sectionId === sec.id && shTick.shows(r))
                           .sort((a, b) => byOrd(a.payload, b.payload))
                           .map((x) => ({ due: x.payload.due, indent: x.payload.indent, rec: x })),
                       ).map(({ rec: r }, ri, arr) => (
                         <View key={r.id} style={[s.row, s.sharedRow, ri === arr.length - 1 && s.rowLast, r.payload.indent > 0 && s.rowIndented]}>
                           <Pressable
                             testID="all-shared-tick"
-                            onPress={() => void sharedPut({ ...r, payload: reminderToggle(r.payload, todayStr()) })}
+                            onPress={() => shTick.tick(r)}
                             hitSlop={8}
-                            style={s.tick}
-                          />
+                            style={[s.tick, shTick.done(r) && s.tickDone]}
+                          >
+                            {shTick.done(r) && <Text style={s.tickMark}>✓</Text>}
+                          </Pressable>
                           <Text style={s.rowText}>{r.payload.text}</Text>
                           {dueChipStatic(r, todayStr(), clock24)}
                         </View>
@@ -775,6 +780,7 @@ export function Reminders() {
  */
 function SharedReminders({ viewKey, partner }: { viewKey: string; partner: string }) {
   const { sharedRecs, sharedPut, sharedPartnerLabel } = useStore();
+  const shTick = useSharedTick();
   // MY clock setting, not the partner's — it is how I read a time, and their
   // prefs are not in my store anyway.
   const clock24 = useClock24();
@@ -788,7 +794,7 @@ function SharedReminders({ viewKey, partner }: { viewKey: string; partner: strin
   const rowsOf = (secId: string) =>
     sortByDate(
       sharedRecs
-        .filter((r): r is ReminderRec => r.type === 'reminder' && r.payload.sectionId === secId && !r.payload.done)
+        .filter((r): r is ReminderRec => r.type === 'reminder' && r.payload.sectionId === secId && shTick.shows(r))
         .sort((a, b) => byOrd(a.payload, b.payload))
         .map((x) => ({ due: x.payload.due, indent: x.payload.indent, rec: x })),
     ).map((row) => row.rec);
@@ -831,11 +837,11 @@ function SharedReminders({ viewKey, partner }: { viewKey: string; partner: strin
               <View key={r.id} style={[s.row, r.payload.indent > 0 && s.rowIndented]}>
                 <Pressable
                   testID="shared-tick"
-                  onPress={() => void sharedPut({ ...r, payload: reminderToggle(r.payload, today) })}
+                  onPress={() => shTick.tick(r)}
                   hitSlop={8}
-                  style={[s.tick, r.payload.done && s.tickDone]}
+                  style={[s.tick, shTick.done(r) && s.tickDone]}
                 >
-                  {r.payload.done && <Text style={s.tickMark}>✓</Text>}
+                  {shTick.done(r) && <Text style={s.tickMark}>✓</Text>}
                 </Pressable>
                 <Text style={s.rowText}>{r.payload.text}</Text>
                 {dueChipStatic(r, today, clock24)}

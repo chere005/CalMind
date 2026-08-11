@@ -33,7 +33,7 @@ import { ItemModal, type ItemKind } from '../components/ItemModal';
 import { useSwipeLeft } from '../components/swiperow';
 import { BalancedRow } from '../components/BalancedRow';
 import { Chevron } from '../components/Chevron';
-import { useTickGrace } from '../components/tickgrace';
+import { useSharedTick, useTickGrace } from '../components/tickgrace';
 import { EditExit } from '../components/EditExit';
 import { CircleBtn, CollapseAllBtn, ConfirmDelete, Pill, Rule, WebHitSlop } from '../ui';
 
@@ -44,7 +44,7 @@ const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 let calDay: string | null = null;
 
 export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => void }) {
-  const { recs, mutate, sharedRecs, sharedPartner, sharedPartnerLabel, sharedPut, session } = useStore();
+  const { recs, mutate, sharedRecs, sharedPartner, sharedPartnerLabel, session } = useStore();
   const { visible: visibleCals, calendars, visibleShared } = useCalendarView();
   const clock24 = useClock24();
   const today = todayStr();
@@ -122,11 +122,17 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
   // …|| grace.held: Sean's two seconds. A row that has just gone done stays
   // on the day panel long enough to untick a mis-tap.
   const grace = useTickGrace();
+  const shTick = useSharedTick();
   const myReminders = useMemo(
     () => items.reminders.filter(({ rec: r }) => showDone || !r.payload.done || grace.held(r.id)),
     [items, showDone, grace.version],
   );
-  const theirReminders = useMemo(() => sharedItems.reminders.filter(({ rec: r }) => !r.payload.done), [sharedItems]);
+  // shTick.version for the same reason as grace.version above: a memo filtered
+  // by a held row has to recompute when the hold starts and when it ends.
+  const theirReminders = useMemo(
+    () => sharedItems.reminders.filter(({ rec: r }) => shTick.shows(r)),
+    [sharedItems, shTick.version],
+  );
   /**
    * The groups the day panel can draw, so collapse-all knows what "all" is.
    * Only the ones actually on screen count — a key for a group that is not
@@ -526,10 +532,12 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
           <View key={`sh${r.id}`} style={s.row}>
             <Pressable
               testID="shared-day-tick"
-              onPress={() => void sharedPut({ ...r, payload: reminderToggle(r.payload, todayStr()) })}
+              onPress={() => shTick.tick(r)}
               hitSlop={8}
-              style={[s.tickBox, overdue && s.tickOverdue]}
-            />
+              style={[s.tickBox, overdue && s.tickOverdue, shTick.done(r) && s.tickDone]}
+            >
+              {shTick.done(r) && <Text style={s.tickMark}>✓</Text>}
+            </Pressable>
             <Text style={s.rowText}>{r.payload.text}</Text>
             {overdue && <Text style={[s.chip, { color: T.overdue }]}>{dueLabel(r.payload.due!)}</Text>}
             {r.payload.time && <Text style={s.chip}>{timeLabel(r.payload.time, clock24)}</Text>}
