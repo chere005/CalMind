@@ -17,3 +17,12 @@
   AddType application/manifest+json .webmanifest
   Header set Cache-Control "no-cache"
 </Files>
+
+# The service worker itself must NEVER be cached immutably, or the *.js rule
+# above would make a broken one permanent: the browser would keep serving the
+# worker it already has and there would be no way to ship a replacement. This
+# comes after that rule deliberately, so it wins. It is also what makes
+# tools/sw-kill.js a usable escape hatch rather than a theory.
+<Files "sw.js">
+  Header set Cache-Control "no-cache"
+</Files>

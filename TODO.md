@@ -14,8 +14,8 @@ Standing rules live in `CLAUDE.md`, not here.
 
 ## Suite counts, as of this commit
 
-core **392** · gesture **150** (+1 skipped) · WebKit **16** · server **41** ·
-live **16** with the API · desktop **7** (+3 in `npm run test:desktop`) · deploy guards **9** · plus the four
+core **392** · gesture **153** (+1 skipped) · WebKit **16** · server **41** ·
+live **19** with the API · desktop **7** (+3 in `npm run test:desktop`) · deploy guards **9** · plus the four
 native seam checkers no browser can reach: `npm run test:watch`,
 `npm run test:widget`, `npm run test:deploy`.
 
@@ -99,12 +99,33 @@ credential for a read-only feed of everything, and storing it in plaintext to
 save a re-paste is not obviously the right trade. Sean's call if it ever
 annoys him.
 
-### The PWA cannot open offline
-No service worker, so a phone with no signal never gets `index.html`. Native
-and the Tauri shell carry their bundle and genuinely do open offline. Fixing
-it collides head-on with the deploy's own rule — index.html must always
-revalidate, or a phone runs last week's app against this week's data. A
-careless caching worker turns an annoyance into the worse failure.
+### ~~The PWA cannot open offline~~ — SHIPPED 2026-08-11
+It opens offline now, and the "head-on collision" this entry feared was not
+one. The server already publishes the caching policy in web.htaccess, and the
+worker is that policy said a second time for when there is no server to ask:
+index.html and the manifest are no-cache, so the worker is NETWORK-FIRST for
+the document and only reaches its cache when there is nothing to revalidate
+against; the bundles are content-hashed and declared immutable, so they are
+cache-first. The failure the entry feared — a phone running last week's app
+against this week's API — comes from a cache-FIRST document, which this is not.
+
+Three things worth knowing before touching it:
+
+- **The shell list is generated at export time** from what dist actually
+  contains. It has to be: a worker does not control the load that registers
+  it, so the first visit fetches the bundle without the worker seeing it, and
+  a runtime-only cache is empty of the one file the app cannot start without.
+  The first offline boot failed exactly that way.
+- **sw.js must stay no-cache**, and the live smoke now checks it on the real
+  server. The `*.js` rule beside it says immutable; if that won, a bad worker
+  would be permanent and the site unloadable. `tools/sw-kill.js` is the escape
+  hatch and it only works because of that header.
+- **The offline gate is real.** `e2e/offlineboot.spec.ts` boots the app with
+  the network off and asserts the calendar draws with its own data. Its
+  "document came from the network" check had to be rewritten: watching for a
+  document request passed with a cache-first worker too, because the browser
+  emits one either way. It asserts the WORKER initiated the fetch, which is
+  the thing that differs, and was proven by breaking it.
 
 ### ~~The wrist's clock on the mirrored page~~ — NOT AN ISSUE, entry was stale
 Sean, 2026-08-11: "the wrist complication is correct as 3:30 over 3:30pm. it

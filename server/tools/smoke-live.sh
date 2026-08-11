@@ -53,6 +53,25 @@ for ICON in icon-192.png icon-512.png apple-touch-icon.png; do
   is "$ICON serves" "$CODE" "200"
 done
 
+# The service worker, and the one header that makes it survivable.
+#
+# sw.js MUST be served no-cache. The *.js rule beside it says immutable, and if
+# that won the worker would be permanent: a browser would keep serving the one
+# it already had and there would be no way to ship a replacement — which turns
+# a bad worker from an annoyance into an unloadable site. tools/sw-kill.js is
+# the escape hatch and it only works if this header is right, so it is checked
+# on the LIVE server rather than trusted from the .htaccess in the repo.
+SWCODE=$(curl -sS -o /dev/null -w '%{http_code}' "$BASE/sw.js")
+is "the service worker serves" "$SWCODE" "200"
+SWCACHE=$(curl -sSI "$BASE/sw.js" | tr -d '\r' | awk 'tolower($1)=="cache-control:"{$1="";print substr($0,2)}')
+is "the worker is never cached immutably (the kill switch depends on it)" "$SWCACHE" "no-cache"
+
+# And the page has to actually register it, or the worker is dead weight.
+case "$HEAD" in
+  *"navigator.serviceWorker.register"*) ok "the page registers the worker" ;;
+  *) bad "the page registers the worker" ;;
+esac
+
 # The relying-party id a passkey is bound to. It is derived from the request
 # host rather than configured, which is the safer default and also the one
 # failure nobody would see coming: get it wrong and every passkey on every

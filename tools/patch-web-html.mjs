@@ -27,8 +27,9 @@
  * iOS caches an installed web app's head aggressively: an existing home-screen
  * icon keeps the old status-bar style until it is REMOVED and re-added.
  */
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const file = process.argv[2] ?? 'apps/app/dist/index.html';
 let html = readFileSync(file, 'utf8');
@@ -142,6 +143,48 @@ if (!/id="calmind-vh"/.test(html)) {
   html = html.replace(
     '</head>',
     '<style id="calmind-vh">@supports (height:100dvh){html,body{height:100dvh}#root{height:100dvh}}</style></head>',
+  );
+}
+
+/**
+ * The service worker, copied in beside index.html and registered from it.
+ *
+ * Its cache name carries the entry bundle's content hash, so every deploy is
+ * a new cache and the old one is dropped on activate — nothing to remember to
+ * bump. Swap WORKER to 'sw-kill.js' to ship the kill switch; see that file.
+ */
+const TOOLS = dirname(fileURLToPath(import.meta.url));
+const WORKER = 'sw.js';
+const bundle = (/index-[a-f0-9]+\.js/.exec(html) || ['nohash'])[0];
+// Everything the export produced, as scope-relative URLs: the document, the
+// manifest, and every hashed asset — the bundle above all, which the worker
+// can never catch at runtime because it does not control the load that
+// registers it.
+const distDir = dirname(file);
+const shell = ['./', './index.html', './manifest.webmanifest'];
+const walk = (dir, base = '') => {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const rel = base ? `${base}/${entry.name}` : entry.name;
+    if (entry.isDirectory()) walk(join(dir, entry.name), rel);
+    else if (/\.(js|png|ico)$/.test(entry.name)) shell.push(`./${rel}`);
+  }
+};
+walk(distDir);
+const worker = readFileSync(join(TOOLS, WORKER), 'utf8')
+  .replace('__BUILD__', bundle)
+  .replace('__SHELL__', JSON.stringify(shell));
+writeFileSync(join(dirname(file), 'sw.js'), worker);
+
+// Registered after load so it never competes with the first paint, and
+// swallowed entirely on failure: a browser that refuses the worker (private
+// mode, an insecure origin) must still get the app.
+if (!/id="calmind-sw"/.test(html)) {
+  html = html.replace(
+    '</head>',
+    '<script id="calmind-sw">' +
+      "if('serviceWorker' in navigator){window.addEventListener('load',function(){" +
+      "navigator.serviceWorker.register('sw.js').catch(function(){});});}" +
+    '</script></head>',
   );
 }
 
