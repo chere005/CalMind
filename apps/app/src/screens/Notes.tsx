@@ -181,6 +181,14 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
       if (t && typeof t.closest === 'function' && t.closest(KEEP)) return;
       setPageEdit(false);
     };
+    // BUBBLE, deliberately, though habits needs capture for the same job.
+    //
+    // Capture was tried here and reverted the same hour: it makes MORE clicks
+    // reach this listener — every one react-native-web was stopping at a
+    // Pressable — and on this screen that closes the inline editor mid-edit.
+    // Two repeat-editor specs went red immediately. Habits has no inline
+    // editing and a grid of Pressables that swallowed the taps meant to
+    // leave, which is why the same change is right there and wrong here.
     document.addEventListener('click', onClick);
     return () => {
       document.removeEventListener('keydown', onKey, true);

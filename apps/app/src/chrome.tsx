@@ -36,6 +36,35 @@ export function TopBar({
   /** What the last undo brought back, shown briefly under the bar. */
   const [undone, setUndone] = useState<string | null>(null);
   const undoTimer = React.useRef<ReturnType<typeof setTimeout>>(undefined);
+  /**
+   * Where the username pill actually is on screen.
+   *
+   * The menu used to be `right: 16` inside its Modal — 16px from the right
+   * edge of the WINDOW. The app is a 640px centred column, so on any window
+   * wider than that the menu flew off to the side, nowhere near the pill that
+   * opened it (Sean, on web and macOS, with a screenshot). A menu belongs
+   * under its button, so the button is measured and the menu hung off it.
+   */
+  const pillRef = React.useRef<View>(null);
+  const [anchor, setAnchor] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
+  const openMenu = () => {
+    // measureInWindow gives SCREEN coordinates, which is the space a Modal
+    // lays out in — the same reason the inset is needed for `top`.
+    //
+    // Opened INSIDE the callback, not beside it: measuring is asynchronous,
+    // and opening first meant the menu sometimes drew one frame before its
+    // anchor existed and fell back to the window's corner. That is what made
+    // the old bug look "random" — it reproduced at 1160px and not at 1440.
+    const node = pillRef.current as unknown as
+      { measureInWindow?: (cb: (x: number, y: number, w: number, h: number) => void) => void } | null;
+    if (node?.measureInWindow) {
+      node.measureInWindow((x, y, w, h) => { setAnchor({ x, y, w, h }); setMenuOpen(true); });
+    } else {
+      // No measurement available: the corner fallback is better than no menu.
+      setAnchor(null);
+      setMenuOpen(true);
+    }
+  };
   useEffect(() => () => clearTimeout(undoTimer.current), []);
   return (
     <>
@@ -61,7 +90,8 @@ export function TopBar({
               The label names what it opens, since "sean ▾" read aloud does
               not say that a menu is behind it. */}
           <Pressable
-            onPress={() => setMenuOpen(true)}
+            ref={pillRef}
+            onPress={openMenu}
             hitSlop={8}
             accessibilityRole="button"
             accessibilityLabel={`${session?.username ?? ''} — account menu`}
@@ -95,7 +125,16 @@ export function TopBar({
       {menuOpen && (
         <Modal transparent animationType="fade" onRequestClose={() => setMenuOpen(false)}>
           <Pressable style={s.menuBackdrop} onPress={() => setMenuOpen(false)}>
-            <View style={[s.menu, { top: insets.top + 52 }]}>
+            <View
+              style={[
+                s.menu,
+                anchor
+                  // Right edges aligned, hanging 6 under the pill. max(8) keeps
+                  // it on screen if the window is narrower than the menu.
+                  ? { top: anchor.y + anchor.h + 6, left: Math.max(8, anchor.x + anchor.w - MENU_W), width: MENU_W }
+                  : { top: insets.top + 52, right: 16 },
+              ]}
+            >
               <Pressable style={s.menuRow} onPress={() => { setMenuOpen(false); setSettingsOpen(true); }}>
                 <Text style={s.menuText}>Settings</Text>
               </Pressable>
@@ -136,6 +175,9 @@ export function TopBar({
   );
 }
 
+/** The menu's width, needed up front to right-align it against the pill. */
+const MENU_W = 180;
+
 const s = themed(() => StyleSheet.create({
   ruleWrap: { marginBottom: 10 },
   topbar: {
@@ -168,10 +210,8 @@ const s = themed(() => StyleSheet.create({
   menuBackdrop: { flex: 1, backgroundColor: '#0007' },
   menu: {
     position: 'absolute',
-    // top is set inline: 52 below where the app's content actually starts.
-    top: 52,
-    right: 16,
-    minWidth: 160,
+    // top/left are set inline, measured off the username pill.
+    minWidth: MENU_W,
     backgroundColor: T.surface,
     borderWidth: 1,
     borderColor: T.line,
