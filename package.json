@@ -18,6 +18,7 @@
     "test:watch": "sh tools/check-watch-format.sh && sh tools/check-watch-feed.sh",
     "test:widget": "sh tools/check-widget-feed.sh && sh tools/check-appgroup.sh",
     "test:feed": "sh tools/check-feed-format.sh",
+    "test:counts": "sh tools/check-suite-counts.sh",
     "test:deploy": "sh tools/check-deploy-guards.sh",
     "test:desktop": "sh desktop/check-assets.sh"
   },

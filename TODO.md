@@ -14,14 +14,18 @@ Standing rules live in `CLAUDE.md`, not here.
 
 ## Suite counts, as of this commit
 
-core **424** · gesture **156** (+1 skipped) · WebKit **16** · server **48** ·
+core **424** · gesture **159** (+1 skipped) · WebKit **16** · server **48** ·
 live **19** with the API · desktop **7** (+3 in `npm run test:desktop`) · deploy guards **9** · plus the four
 native seam checkers no browser can reach: `npm run test:watch`,
 `npm run test:widget`, `npm run test:deploy`.
 
-`npx playwright test --list` gives the gesture total without a run. Keep this
-line right — the README points here rather than carrying its own numbers,
-precisely because its own "145 tests" went stale unnoticed.
+`npm run test:counts` checks this line against the suites, so it can no longer
+drift — it went stale by three in the very session that added the tests, which
+is how a number kept right by remembering to keep it right always ends up.
+It measures core, gesture, WebKit, server and the deploy guards, and counts
+desktop statically out of smoke.sh; `live` needs the deployed server and is
+the one figure still on trust. The README points here rather than carrying its
+own numbers, precisely because its own "145 tests" went stale unnoticed.
 
 ---
 
