@@ -732,6 +732,33 @@ then the watch needs the direct install and the build number is the proof.
   assertions were neutralised to simulate a Thursday, and the new block caught
   it on its own.
 
+- **`hitarea`'s two scans passed clean on a screen that never rendered.** Both
+  report VIOLATIONS, and an empty report is also what an empty page produces.
+  `chevrons.spec` and `labels.spec` each guard theirs with "the scan found
+  candidates at all — without this it can pass on nothing"; this one, which is
+  the tap-target guard and runs over five tabs, had no such floor. A tab click
+  that silently did nothing passed five times over.
+
+  Each iteration now proves WHICH screen it is on (a landmark testid per tab)
+  and that the screen had something to measure (buttons ran 10-14 across the
+  tabs, absolutely positioned children 1-15 — the Add page has the one — so
+  the floors are 8 and 1, deliberately loose since the landmark carries the
+  real weight).
+
+  Proven by making the habits tab ignore its own press: the landmark goes red.
+  The first attempt at that break did not apply — the regex missed — and "4
+  passed" was very nearly read as verification. A break that did not happen
+  looks exactly like a guard that works.
+
+  The rest of the audit came out clean and is worth recording so it is not
+  redone: all nine `getByText(...)` absence assertions are capable of failing
+  ('Edit habit' is the editor's own title, 'Online — synced' is in syncLook,
+  '✓' is the tick mark, and recipeurl's 'grandmother' and '400 kcal' really are
+  in the mocked page it filters). `testids.spec` cannot see regex or
+  `locator('[data-testid…]')` forms, but every one of those is a positive use
+  where a typo fails loudly. `longPress` throws on a missing element rather
+  than skipping.
+
 ## 4 · Steady state, every iteration
 
 - `git pull --autostash` first; stage explicit paths; never `git add -A`.

@@ -80,9 +80,24 @@ test('extra tap area stays near its control, and off its neighbours', async ({ p
   await page.getByText('Save', { exact: true }).click();
   await expect(page.getByTestId('day-tick').first()).toBeVisible({ timeout: 10_000 });
 
+  // A LANDMARK PER TAB, because both scans below report violations and an empty
+  // report is also what a screen that never rendered produces. chevrons.spec
+  // and labels.spec each guard their scan with "it found candidates at all";
+  // this one did not, so a tab click that silently did nothing passed clean
+  // five times over. The landmark says which screen is actually being measured;
+  // the counts after it say the screen had something on it to measure.
+  const landmark: Record<string, () => Promise<unknown>> = {
+    reminders: () => expect(page.getByTestId('pick-reminders')).toBeVisible(),
+    calendar: () => expect(page.getByTestId('cal-grid')).toBeVisible(),
+    add: () => expect(page.getByText('+ Repeat', { exact: true })).toBeVisible(),
+    notes: () => expect(page.getByTestId('pick-notes')).toBeVisible(),
+    habits: () => expect(page.getByTestId('pick-habits')).toBeVisible(),
+  };
+
   for (const tab of ['reminders', 'calendar', 'add', 'notes', 'habits']) {
     await page.getByTestId(`tab-${tab}`).click();
     await page.waitForTimeout(350);
+    await landmark[tab]!();
 
     // Every piece of extra area on the page, found by shape rather than by
     // name: an absolutely positioned child that sticks out past its parent on
@@ -91,6 +106,14 @@ test('extra tap area stays near its control, and off its neighbours', async ({ p
     // work — a plain Pressable has no role and no testID, so the row body you
     // tap to open a reminder is invisible to a search for buttons, and an
     // over-extended tick sitting on top of it went unnoticed.
+    const counted = await page.evaluate(() => {
+      let absolute = 0;
+      for (const el of Array.from(document.querySelectorAll('*')))
+        for (const kid of Array.from(el.children))
+          if (getComputedStyle(kid).position === 'absolute') absolute++;
+      return { absolute, buttons: document.querySelectorAll('[role="button"], [data-testid^="pick-"]').length };
+    });
+
     const overreach = await page.evaluate(() => {
       const bad: string[] = [];
       for (const el of Array.from(document.querySelectorAll('*'))) {
@@ -110,6 +133,13 @@ test('extra tap area stays near its control, and off its neighbours', async ({ p
       }
       return Array.from(new Set(bad));
     });
+    // Floors measured on 2026-08-11, well under the real numbers (buttons ran
+    // 10-14 across the five tabs, absolutely positioned children 1-15 — the
+    // Add page has the one). They are not tight, and are not meant to be: the
+    // landmark above says WHICH screen this is, and these only say it was not
+    // empty when the scans ran.
+    expect(counted.buttons, `${tab}: the stolen-centre scan found controls at all`).toBeGreaterThanOrEqual(8);
+    expect(counted.absolute, `${tab}: the overreach scan found extra tap area at all`).toBeGreaterThanOrEqual(1);
     expect(overreach, `${tab}: extra tap area is running well past its control`).toEqual([]);
 
     // And the narrower question, for the controls that can be named: whatever
