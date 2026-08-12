@@ -65,19 +65,42 @@ $check = function (array $cases, bool $c24) use (&$bad) {
     }
 };
 
-// The same cases check-watch-format.sh gives WatchFormat.clockFull. Noon and
-// midnight are the two that catch a 12-hour clock out and are the reason this
-// list is not three entries long.
-$twelve = [
-    ['14:00', '2pm'], ['15:30', '3:30pm'], ['09:00', '9am'], ['09:05', '9:05am'],
-    ['00:00', '12am'], ['12:00', '12pm'], ['20:00', '8pm'], ['23:59', '11:59pm'],
-];
-// core's timeLabel: 24-hour keeps the leading zero AND the minutes always,
-// because dropping ':00' is a 12-hour habit and '9' reads as a number.
-$twentyfour = [
-    ['14:00', '14:00'], ['15:30', '15:30'], ['09:00', '09:00'], ['09:05', '09:05'],
-    ['00:00', '00:00'], ['12:00', '12:00'], ['20:00', '20:00'], ['23:59', '23:59'],
-];
+// FROM spec/clock.json, not written out here. These cases lived in this file
+// AND in tools/check-watch-format.sh, byte for byte — two copies that had not
+// yet disagreed, which is not the same as two that cannot. Noon and midnight
+// are in the file because they are what catch a 12-hour clock out.
+//
+// check-watch-format.sh still carries its own copy: it builds a Swift program
+// from a python heredoc and threading JSON through that was three failed
+// attempts at restructuring a checker that works, for a duplicate that has
+// never actually drifted. So this compares the two instead, below, which
+// catches the drift without touching it.
+$spec = json_decode(file_get_contents('spec/clock.json'), true);
+$twelve = $spec['full12'];
+$twentyfour = $spec['clock24'];
+
+// The other copy, read out of the Swift harness and held to the same file.
+$swift = file_get_contents('tools/check-watch-format.sh');
+// After the '=', not after the first '[': `let fullCases: [(String?, String)]`
+// puts a bracket pair in the TYPE, and matching that captured an empty list —
+// which the comparison then reported as a mismatch rather than passing on
+// nothing, because the empty case is checked below.
+if (preg_match('/let fullCases[^=]*=\s*\[(.*?)\]/s', $swift, $m)) {
+    preg_match_all('/\("([^"]*)", "([^"]*)"\)/', $m[1], $pairs, PREG_SET_ORDER);
+    $theirs = array_map(fn($p) => [$p[1], $p[2]], $pairs);
+    if (count($theirs) === 0) {
+        print("no cases extracted from check-watch-format.sh — the comparison is not running\n");
+        $bad++;
+    } elseif ($theirs !== $twelve) {
+        print("check-watch-format.sh's fullCases no longer match spec/clock.json:\n");
+        printf("  spec:  %%s\n  swift: %%s\n", json_encode($twelve), json_encode($theirs));
+        $bad++;
+    }
+} else {
+    print("could not find fullCases in check-watch-format.sh — this comparison is not running\n");
+    $bad++;
+}
+
 
 $check($twelve, false);
 $check($twentyfour, true);

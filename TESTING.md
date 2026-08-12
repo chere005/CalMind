@@ -292,6 +292,37 @@ than a red run, because it looks like an answer.
   inlining the time the way the rewrite did turns two of these red. The
   gesture suite's string-matching catches a rewrite; only this catches a typo.
 
+### One clock spec, and the copy that could not be moved, 2026-08-11
+
+The twelve-hour clock cases were written out twice, byte for byte — in
+`check-watch-format.sh` for the watch app's `clockFull`, and again in
+`check-feed-format.sh` for the widget feed's PHP. Two copies that had not yet
+disagreed, which is not the same as two that cannot, and the second one was
+added this same day by someone copying the first.
+
+`spec/clock.json` is the list now. check-feed-format reads it directly.
+
+check-watch-format DOES NOT, and that is a decision rather than an oversight:
+it builds a Swift program inside a python heredoc inside a shell script, and
+threading JSON through that took three failed attempts at restructuring a
+checker that works, for a duplicate that has never actually drifted. So the
+feed checker COMPARES the two instead — it reads the Swift harness's
+`fullCases` and holds them to the same file. The drift is caught without
+touching the fragile thing.
+
+Two details that were bugs in the comparison before they were features of it:
+
+  · The first regex matched `let fullCases: [(String?, String)]` — the TYPE's
+    brackets — and extracted an empty list. It reported a mismatch rather than
+    quietly agreeing, which is the only reason it was noticed within a minute.
+    An explicit "no cases extracted" check now sits beside it, because an empty
+    list compared against an empty list is exactly the shape this repo keeps
+    finding.
+  · The first attempt to PROVE the comparison bites changed `("20:00", "8pm")`
+    — which appears in both the compact list and the full one — so it edited
+    the wrong copy and caught nothing. The break has to be a case unique to
+    `fullCases`.
+
 ### The desktop check passed over an eight-hour-old stage, 2026-08-11
 
 `npm run test:desktop` runs `desktop/check-assets.sh`, which verifies that
