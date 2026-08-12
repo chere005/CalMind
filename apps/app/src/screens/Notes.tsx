@@ -757,7 +757,15 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
                     </Pressable>
                   )}
                   <CircleBtn testID={`secadd-${sec.payload.name}`} glyph="+" label="Add" color={T.accent} size={22} onPress={() => addNote(sec)} />
-                  {pageEdit && (
+                  {/* No × on a folder's ONLY section, exactly as the suite
+                      does it: "No × on a folder's only section — its last
+                      section can't be deleted." core's deleteSection refuses
+                      it, and both screens swallowed that refusal, so the
+                      button was offered and did nothing — in the state every
+                      folder STARTS in, since normalize seeds each with one
+                      section. The two-press × then answered a confirmed
+                      delete with silence. */}
+                  {pageEdit && sectionsOf(f.id).length > 1 && (
                     <ConfirmDelete testID={`nsecdel-${sec.payload.name}`} size={22} onDelete={() => {
                       const res = deleteSection(recs, sec.id);
                       if (!('error' in res)) mutate((e) => res.put.forEach((r) => e.put(r)));
