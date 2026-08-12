@@ -147,7 +147,20 @@ export function RecipeEditor({ note, onClose }: { note: Rec<'note'>; onClose: ()
         return;
       }
       if (r.title && !title) setTitle(r.title);
-      if (r.ingredients.length) setIngredients((cur) => [...r.ingredients, ...cur]);
+      if (r.ingredients.length) {
+        setIngredients((cur) => [...r.ingredients, ...cur]);
+        // An import can land while a LINE IS BEING EDITED, and `editing.at` is
+        // an index into a list that has just grown at the front. Left alone,
+        // the commit writes the correction into whichever row now sits at that
+        // index — proven 2026-08-12: editing 'milk' while an import prepended
+        // eggs and salt saved the correction OVER the salt and left the milk
+        // untouched. Shifting the index keeps the edit on its own row and
+        // keeps the typing, which cancelling it would throw away.
+        //
+        // Ingredients prepend, so every index moves; steps append, so theirs
+        // do not.
+        setEditing((e) => (e && e.list === 'ing' ? { ...e, at: e.at + r.ingredients.length } : e));
+      }
       if (r.steps.length) setSteps((cur) => [...cur, ...r.steps]);
       setUrlField('');
       setUrlOpen(false);
@@ -186,7 +199,20 @@ export function RecipeEditor({ note, onClose }: { note: Rec<'note'>; onClose: ()
         });
       const r = recipeFromPages(pages);
       if (r.title && !title) setTitle(r.title);
-      if (r.ingredients.length) setIngredients((cur) => [...r.ingredients, ...cur]);
+      if (r.ingredients.length) {
+        setIngredients((cur) => [...r.ingredients, ...cur]);
+        // An import can land while a LINE IS BEING EDITED, and `editing.at` is
+        // an index into a list that has just grown at the front. Left alone,
+        // the commit writes the correction into whichever row now sits at that
+        // index — proven 2026-08-12: editing 'milk' while an import prepended
+        // eggs and salt saved the correction OVER the salt and left the milk
+        // untouched. Shifting the index keeps the edit on its own row and
+        // keeps the typing, which cancelling it would throw away.
+        //
+        // Ingredients prepend, so every index moves; steps append, so theirs
+        // do not.
+        setEditing((e) => (e && e.list === 'ing' ? { ...e, at: e.at + r.ingredients.length } : e));
+      }
       if (r.steps.length) setSteps((cur) => [...cur, ...r.steps]);
       if (r.extra.length) setExtra((cur) => [...cur, ...r.extra]);
       // A photo it could not read used to end in silence: the spinner cleared,
