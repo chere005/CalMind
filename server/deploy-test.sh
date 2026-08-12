@@ -131,7 +131,6 @@ php server/tools/test.php >/dev/null || { echo "server tests failed — not depl
 # the account's clock24. The Swift copies gate each other in `npm run
 # test:watch`; nothing gated this one, and it is the only one of the four that
 # goes out of this script.
-sh tools/check-feed-format.sh >/dev/null || { echo "the feed's clock disagrees with core and the watch — not deploying" >&2; exit 1; }
 
 if [ "$WEB" = 1 ]; then
   echo "==> web export"

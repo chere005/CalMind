@@ -295,7 +295,13 @@ The twelve-hour clock cases were written out twice, byte for byte — in
 disagreed, which is not the same as two that cannot, and the second one was
 added this same day by someone copying the first.
 
-`spec/clock.json` is the list now. check-feed-format reads it directly.
+`spec/clock.json` is the list now.
+
+BOTH the feed and its checker were REMOVED on 2026-08-12 with the Scriptable
+widget, so the fourth copy of the rule is gone rather than guarded — the
+strongest version of this fix, and the reason the entry stays: the argument
+is about duplication nothing checks, and it is what made deleting the copy
+safe to do quickly.
 
 check-watch-format DOES NOT, and that is a decision rather than an oversight:
 it builds a Swift program inside a python heredoc inside a shell script, and
@@ -401,7 +407,6 @@ is supposed to see, by EXIT CODE rather than by reading its output:
 | `check-watch-format` | (already carried its own proof — the drop-the-':00' rule) | — |
 | `check-appgroup` | the phone's writer of `watchlist.json` deleted — the original bug | caught |
 | `check-assets` | the window pointed at an unstaged path; an asset removed from the bundle | caught ×2 |
-| `check-feed-format` | the 24-hour leading zero; `$h % 12` without the `=== 0 ? 12` | caught ×2 |
 | `check-suite-counts` | a stale gesture count; a wrong core count | caught ×2 |
 | `check-deploy-guards` | (is itself a suite of nine) | — |
 

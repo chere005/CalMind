@@ -1,5 +1,5 @@
 {
-  "_note": "The spoken clock, shared by every surface that formats a time. core's timeLabel is the reference; tools/check-watch-format.sh runs the watch app's clockFull against full12, and tools/check-feed-format.sh runs the widget feed's PHP against both. These cases were re-typed in two shell scripts, byte for byte, until 2026-08-11 — the copies could not disagree because nobody had changed one yet, which is not the same as a guarantee.",
+  "_note": "The spoken clock, shared by every surface that formats a time. core's timeLabel is the reference; tools/check-watch-format.sh runs the watch app's clockFull against full12,. These cases were re-typed in shell scripts, byte for byte, until 2026-08-11 — the copies could not disagree because nobody had changed one yet, which is not the same as a guarantee.",
   "full12": [
     ["14:00", "2pm"],
     ["15:30", "3:30pm"],
