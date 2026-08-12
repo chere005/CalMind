@@ -134,7 +134,13 @@ def grab_priv(name):
 
 # Colour is SwiftUI; the check is about grouping and filtering, so Line's
 # colour becomes a plain string and hexColor is stubbed to pass it through.
-widget_logic = (grab_func('drawnDays') + '\n' + grab_func('packed') + '\n' + grab_top('toggledTicks') + '\n' + grab_func('drawnHeight') + '\n' + grab_priv('dayHeading') + '\n' + grab_priv('clock12'))
+# TICK_GRACE is a top-level `let`, not a func, so the grabbers cannot reach
+# it — taken by line, the way check-watch-format.sh takes LATE_HOUR. Reading
+# it rather than re-typing the 2 is the point: the check and the widget cannot
+# disagree about how long the grace is.
+_src_all = open('apps/app/targets/appwidget/HomeWidget.swift').read()
+_grace = next(l for l in _src_all.splitlines() if l.startswith('let TICK_GRACE'))
+widget_logic = (_grace + '\n' + grab_func('drawnDays') + '\n' + grab_func('packed') + '\n' + grab_top('toggledTicks') + '\n' + grab_func('drawnHeight') + '\n' + grab_priv('dayHeading') + '\n' + grab_priv('clock12'))
 # The header is not part of packed() — it is subtracted in the view — so the
 # only way to keep it charged is to read the view. Sean's card sliced its own
 # "Calendar" title through the middle because the day list was handed the FULL
@@ -284,13 +290,43 @@ check(clock12("12:00") == "12pm", "noon is 12pm — got \(clock12("12:00"))")
 // opposite until 2026-08-11 — the row vanished the instant it was tapped, and
 // with it any way to take the tap back. Sean asked for a mis-tap to be
 // undoable "in all apps", and the widget was the only surface with no route at
-// all; a widget cannot run a timer, so the window here is "until the app next
-// comes forward" rather than the phone's two seconds.
+// all. The window was "until the app next comes forward" until 2026-08-12,
+// when Sean asked for the widget to match the other two — it is two seconds
+// here now as well, measured from the tick, and the cases below are that
+// rule. A row with no recorded time is treated as just-ticked.
 let afterTick = drawnDays(feed: feed, ticked: ["shown"], wanted: [], today: today)
 let afterIds = afterTick.flatMap { $0.lines.map { $0.id } }
 check(afterIds.contains("shown"), "a queued row stays, so the tap can be taken back — got \(afterIds)")
 check(afterTick.flatMap { $0.lines }.first { $0.id == "shown" }?.pending == true,
       "…and is drawn as done while it waits")
+
+// THE TWO-SECOND GRACE, the widget's copy of it. A queued row is drawn while
+// the grace is running and gone once it has passed — still queued for the app
+// either way, so nothing is lost by the row leaving. `now` is passed rather
+// than read from the clock, which is the only reason this is checkable at all.
+let graceDay = [WDay(date: today, lines: [
+    WLine(id: "fresh", text: "just ticked", time: nil, isReminder: true, overdue: false, color: nil, calendarId: nil),
+    WLine(id: "stale", text: "ticked a while ago", time: nil, isReminder: true, overdue: false, color: nil, calendarId: nil),
+])]
+let graceFeed = Feed(items: [], events: nil, folders: nil, calendars: nil, days: graceDay, clock24: nil)
+let T0 = 1_000_000.0
+let duringGrace = drawnDays(feed: graceFeed, ticked: ["fresh", "stale"], wanted: [], today: today,
+                            tickedAt: ["fresh": T0, "stale": T0 - 5], now: T0 + 1)
+let duringIds = duringGrace.flatMap { $0.lines.map { $0.id } }
+check(duringIds.contains("fresh"), "a tick one second old is still drawn, so it can be taken back — got \(duringIds)")
+check(!duringIds.contains("stale"), "one five seconds old is gone — got \(duringIds)")
+
+let afterGrace = drawnDays(feed: graceFeed, ticked: ["fresh"], wanted: [], today: today,
+                           tickedAt: ["fresh": T0], now: T0 + TICK_GRACE)
+check(!afterGrace.flatMap { $0.lines.map { $0.id } }.contains("fresh"),
+      "at exactly two seconds it has gone, not at 2.001")
+
+// A tick with no recorded time is one queued by an older build. It must draw,
+// not vanish on upgrade.
+let legacy = drawnDays(feed: graceFeed, ticked: ["fresh"], wanted: [], today: today,
+                       tickedAt: [:], now: T0 + 9_999)
+check(legacy.flatMap { $0.lines.map { $0.id } }.contains("fresh"),
+      "a tick from before this rule existed still draws")
 
 // The picker chooses CALENDARS, so it filters EVENTS. A reminder is never
 // filtered here — whether it appears was already decided by the tri-state in

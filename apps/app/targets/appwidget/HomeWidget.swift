@@ -18,6 +18,11 @@ import AppIntents
 private let GROUP = "group.com.seancheren.calmind"
 private let CACHE = "watchlist.json"
 private let TICKS = "pendingTicks"
+/// When each queued tick happened, so the row can leave after the grace the
+/// phone and the watch both give. Keyed by row id, epoch seconds.
+private let TICK_TIMES = "pendingTickTimes"
+/// Sean's two seconds, the same number in every app.
+let TICK_GRACE: Double = 2
 /// The calendars THIS widget is configured for, written back so the phone can
 /// read a WidgetKit configuration it otherwise has no access to. The watch's
 /// first page mirrors it. See Provider.build for why the last render wins.
@@ -284,8 +289,20 @@ struct TickIntent: AppIntent {
         // TOGGLE, not append. Tapping a queued row again removes it from the
         // queue, which is the undo — the app never hears about it, so nothing
         // has to be reversed and a repeating reminder cannot roll twice.
+        let wasQueued = ticks.contains(id)
         ticks = toggledTicks(ticks, id)
         d?.set(ticks, forKey: TICKS)
+        // WHEN it was ticked, so the row can leave two seconds later the way
+        // it does on the phone and the watch. Sean, 2026-08-12: the check did
+        // not disappear here, and this surface was the odd one out.
+        //
+        // The tick itself STAYS queued — only the drawing stops. The app still
+        // drains the queue when it next comes forward, so nothing is lost by
+        // the row going; what ends after two seconds is the chance to undo it
+        // by tapping again, which is exactly the bargain everywhere else.
+        var times = (d?.dictionary(forKey: TICK_TIMES) as? [String: Double]) ?? [:]
+        if wasQueued { times[id] = nil } else { times[id] = Date().timeIntervalSince1970 }
+        d?.set(times, forKey: TICK_TIMES)
         WidgetCenter.shared.reloadAllTimelines()
         return .result()
     }
@@ -340,13 +357,48 @@ struct Provider: AppIntentTimelineProvider {
         // Midnight changes what "today" and "overdue" mean even when no data
         // changes; data changes reload through WidgetCenter.
         let next = Calendar.current.startOfDay(for: Date()).addingTimeInterval(86_400)
-        return Timeline(entries: [build(configuration)], policy: .after(next))
+        let now = Date()
+
+        // A queued tick has to STOP being drawn two seconds after it happened,
+        // and a widget cannot wait — it has no run loop of its own. What it
+        // can do is hand WidgetKit a second, already-rendered entry dated at
+        // the end of the grace; the system swaps to it at that moment without
+        // asking for a new timeline. That is the whole mechanism, and it is
+        // why the grace works here without a timer.
+        let times = (UserDefaults(suiteName: GROUP)?.dictionary(forKey: TICK_TIMES) as? [String: Double]) ?? [:]
+        let deadlines = times.values
+            .map { Date(timeIntervalSince1970: $0 + TICK_GRACE) }
+            .filter { $0 > now }
+            .sorted()
+        guard let due = deadlines.first else {
+            return Timeline(entries: [build(configuration)], policy: .after(next))
+        }
+        // Entry two is built AT the deadline — `now:` is that moment, not this
+        // one — so the row it draws is the row without the ticked line.
+        let after = Entry(date: due,
+                          days: buildDays(configuration, now: due.timeIntervalSince1970),
+                          clock24: build(configuration).clock24,
+                          state: loadFeed())
+        return Timeline(entries: [build(configuration), after], policy: .after(next))
+    }
+
+    /// The day sections as they would be drawn at `now`. Split out so the
+    /// timeline can render the after-the-grace entry without pretending the
+    /// clock has moved.
+    private func buildDays(_ configuration: SelectFolders, now: Double) -> [DaySection] {
+        guard case let .ok(feed) = loadFeed() else { return [] }
+        let ticked = Set(UserDefaults(suiteName: GROUP)?.stringArray(forKey: TICKS) ?? [])
+        let tickedAt = (UserDefaults(suiteName: GROUP)?.dictionary(forKey: TICK_TIMES) as? [String: Double]) ?? [:]
+        let wanted = Set((configuration.folders ?? []).map(\.id))
+        return Provider.drawnDays(feed: feed, ticked: ticked, wanted: wanted, today: todayStr(),
+                                  tickedAt: tickedAt, now: now)
     }
 
     private func build(_ configuration: SelectFolders) -> Entry {
         let state = loadFeed()
         guard case let .ok(feed) = state else { return Entry(date: Date(), days: [], state: state) }
         let ticked = Set(UserDefaults(suiteName: GROUP)?.stringArray(forKey: TICKS) ?? [])
+        let tickedAt = (UserDefaults(suiteName: GROUP)?.dictionary(forKey: TICK_TIMES) as? [String: Double]) ?? [:]
         // No selection means everything — an empty picker must not mean an
         // empty widget. (Tested in core; the one-line version of that rule
         // shipped a blank widget in an earlier draft.)
@@ -365,7 +417,8 @@ struct Provider: AppIntentTimelineProvider {
         // mirror two differently-configured widgets at once.
         UserDefaults(suiteName: GROUP)?.set(Array(wanted), forKey: WIDGET_CALS)
         return Entry(date: Date(),
-                     days: Provider.drawnDays(feed: feed, ticked: ticked, wanted: wanted, today: todayStr()),
+                     days: Provider.drawnDays(feed: feed, ticked: ticked, wanted: wanted, today: todayStr(),
+                                              tickedAt: tickedAt, now: Date().timeIntervalSince1970),
                      clock24: feed.clock24 ?? false,
                      state: state)
     }
@@ -379,7 +432,12 @@ struct Provider: AppIntentTimelineProvider {
     /// Grouping and ordering are already decided in core. What is left is what
     /// core cannot know: which folders THIS INSTANCE of the widget was
     /// configured for, and which ticks are queued but not yet applied.
-    static func drawnDays(feed: Feed, ticked: Set<String>, wanted: Set<String>, today: String) -> [DaySection] {
+    /// `tickedAt` is empty and `now` irrelevant for a caller that does not
+    /// care about the grace — and a queued id with NO timestamp is treated as
+    /// just-ticked, which is both what the older callers mean and what a tick
+    /// queued by a previous build should do rather than vanishing on upgrade.
+    static func drawnDays(feed: Feed, ticked: Set<String>, wanted: Set<String>, today: String,
+                          tickedAt: [String: Double] = [:], now: Double = Date().timeIntervalSince1970) -> [DaySection] {
         let days: [DaySection] = (feed.days ?? []).compactMap { day in
             let lines = day.lines.compactMap { l -> Line? in
                 // A queued tick used to remove the row outright, which left
@@ -392,6 +450,10 @@ struct Provider: AppIntentTimelineProvider {
                 // the app next comes forward" rather than two seconds. That is
                 // longer than the phone's grace and shorter than nothing.
                 let pending = ticked.contains(l.id)
+                // Past the grace it is gone from the widget, still queued for
+                // the app. No timestamp means it was ticked by a build that
+                // did not record one — draw it rather than drop it.
+                if pending, let at = tickedAt[l.id], now - at >= TICK_GRACE { return nil }
                 // The picker chooses CALENDARS, so it filters EVENTS. A
                 // reminder is never filtered here: whether it appears at all
                 // was already decided by the tri-state in Manage reminders,

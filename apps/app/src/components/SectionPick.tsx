@@ -50,7 +50,12 @@ export function SectionPick() {
             a glyph 6px wider than the identical button on Reminders, Notes
             and Calendar — the bar's placement and ring were already pinned
             identical, which is why this was the part left to notice. */}
-        <PieDot colors={visible.map((s) => s.payload.color)} size={16} />
+        {/* Rainbow when everything is on, the pie of what is visible
+            otherwise — the rule FolderPick and CalendarPick already draw.
+            This one was the odd picker of the four (Sean, 2026-08-12): it
+            never went rainbow, so "everything is showing" looked the same
+            here as a partial selection did. */}
+        <PieDot rainbow={hidden.length === 0} colors={visible.map((s) => s.payload.color)} size={16} />
       </Pressable>
       {open && (
         <Modal transparent animationType="fade" onRequestClose={() => setOpen(false)}>
@@ -74,8 +79,11 @@ export function SectionPick() {
                         <WebHitSlop />
                         <Text style={[s.box, allOn && s.boxOn]}>{allOn ? '☑' : '☐'}</Text>
                       </Pressable>
-                      <Pressable style={s.rowMain} onPress={() => { setPrefs({ hidden: [] }); setOpen(false); }}>
-                        <PieDot colors={sections.map((x) => x.payload.color)} size={14} />
+                      <Pressable testID="msec-all" style={s.rowMain} onPress={() => { setPrefs({ hidden: [] }); setOpen(false); }}>
+                        {/* The All row wears the rainbow unconditionally, as
+                            the folder picker's does — it is the icon FOR all,
+                            not a reading of the current selection. */}
+                        <PieDot rainbow colors={sections.map((x) => x.payload.color)} size={14} />
                         <Text style={[s.rowText, allOn && s.rowActive]}>All</Text>
                       </Pressable>
                     </View>

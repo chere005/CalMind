@@ -47,7 +47,7 @@ Standing rules live in `CLAUDE.md`, not here.
 
 ## Suite counts, as of this commit
 
-core **500** · gesture **202** (+2 skipped) · WebKit **16** · server **48** ·
+core **500** · gesture **203** (+2 skipped) · WebKit **16** · server **48** ·
 live **19** with the API · desktop **7** (+3 in `npm run test:desktop`) · deploy guards **9** · plus the four
 native seam checkers no browser can reach: `npm run test:watch`,
 `npm run test:widget`, `npm run test:deploy`.
@@ -792,6 +792,23 @@ then the watch needs the direct install and the build number is the proof.
   A weekend tick counts in the month charts; an untouched weekend enters
   neither side of the sum, so it can only help and never reads as a day you
   failed. Tick cells announce themselves as checkboxes on the way past.
+- Nothing scrolls that has nothing to scroll: `alwaysBounceVertical={false}`,
+  in ui.tsx's `Scroll` rather than on 21 call sites, guarded by a source
+  scan. The web half of the same idea — `overscroll-behavior: none` — was
+  written and REVERTED: it broke the End key in the note body, and the
+  desktop shell is that build.
+- The + button opens on Event, and a reminder filed from it takes today's
+  date rather than none — an undated one went to the all-view and appeared on
+  no day at all.
+- The habits picker's All row wears the rainbow, like the other three; its
+  button goes rainbow when everything is on.
+- The WIDGET's tick now leaves after the same two seconds the phone and watch
+  give, which needed a second pre-rendered timeline entry dated at the end of
+  the grace — a widget has no timer of its own. The tick stays QUEUED either
+  way; only the drawing stops.
+- The watch's FIRST tab can check and uncheck. Its reminder rows drew a
+  circle that pressed nothing, so the page you land on could show a reminder
+  and not let you finish it.
 - The habits grid pages on a SWIPE, back and forth, weeks in week view and
   months in month view — the calendar's gesture, on the screen that only had
   arrows. Horizontal-only capture, because this grid scrolls and drags

@@ -185,9 +185,34 @@ struct WidgetMirrorView: View {
                             // A reminder gets the tick outline the Reminders
                             // page uses; an event gets its calendar's dot, the
                             // same colour the widget draws it in.
-                            Image(systemName: l.isReminder ? "circle" : "calendar")
-                                .foregroundStyle(l.overdue ? Color.orange
-                                                 : l.color.map { Color(hex: $0) } ?? .secondary)
+                            //
+                            // AND THE REMINDER'S IS A BUTTON (Sean,
+                            // 2026-08-12: "watch should be able to
+                            // check/uncheck on the first tab"). It was drawn
+                            // as a circle here and pressed nothing, so the
+                            // page you land on could show a reminder and not
+                            // let you finish it — you had to know to swipe to
+                            // the Reminders page for the same row.
+                            //
+                            // Same store.tick as that page, so it is the same
+                            // two-second grace and the same undo: filled while
+                            // it waits, tapped again inside the window cancels
+                            // before the phone is ever told. An EVENT is not
+                            // tickable and keeps its plain icon.
+                            if l.isReminder {
+                                Button {
+                                    store.tick(l.id)
+                                } label: {
+                                    Image(systemName: store.pendingTicks.contains(l.id) ? "checkmark.circle.fill" : "circle")
+                                        .foregroundStyle(store.pendingTicks.contains(l.id) ? Color.green
+                                                         : l.overdue ? Color.orange : Color.secondary)
+                                }
+                                .buttonStyle(.plain)
+                            } else {
+                                Image(systemName: "calendar")
+                                    .foregroundStyle(l.overdue ? Color.orange
+                                                     : l.color.map { Color(hex: $0) } ?? .secondary)
+                            }
                         }
                         .font(.body)
                     }
