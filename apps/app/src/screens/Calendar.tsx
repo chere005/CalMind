@@ -68,7 +68,26 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
     // store.tsx's persistFailed and the shared-write reconcile.
     AsyncStorage.setItem('calmind.calFold', JSON.stringify([...next])).catch(() => {});
   };
-  const [showDone, setShowDone] = useState(false);
+  // Remembered, like calWeekMode and calFold beside it — the suite keeps this
+  // in localStorage as calShowDone and restores it on load. It was the one
+  // toggle on this screen that did not persist, so switching tabs (which
+  // unmounts the screen) silently turned Completed back off.
+  //
+  // NOT replicated: the suite makes this transient while EDITING — toggling
+  // it there leaves the saved preference alone, so leaving edit mode restores
+  // what you had. CalMind's edit mode does not touch showDone at all, so
+  // there is nothing to be transient about; if that behaviour is wanted it is
+  // a separate change and Sean's call.
+  const [showDone, setShowDoneState] = useState(false);
+  useEffect(() => {
+    AsyncStorage.getItem('calmind.calShowDone').then((raw) => raw === '1' && setShowDoneState(true));
+  }, []);
+  const setShowDone = (on: boolean) => {
+    setShowDoneState(on);
+    // Swallowed for the same reason the fold writes are: what is lost is
+    // which view you had, next launch. No content, nothing unrecoverable.
+    AsyncStorage.setItem('calmind.calShowDone', on ? '1' : '').catch(() => {});
+  };
   const swipe = useSwipeLeft();
   // Week mode sticks per device, like the suite's localStorage calWeekMode.
   const [weekMode, setWeekMode] = useState(false);

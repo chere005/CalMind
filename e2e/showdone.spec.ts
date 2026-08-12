@@ -1,0 +1,110 @@
+/**
+ * "Completed" is a remembered view, not a mood.
+ *
+ * The suite keeps this toggle in localStorage — `calShowDone` on the calendar,
+ * `remShowDone` on reminders — and restores it on load. CalMind held both in
+ * plain component state, and App.tsx renders each screen only while its tab is
+ * selected, so the screen UNMOUNTS the moment you look at anything else.
+ * Turning Completed on and glancing at Notes turned it back off.
+ *
+ * Found 2026-08-12 by listing the suite's localStorage keys and checking each
+ * against CalMind's AsyncStorage: it keeps `calFold` and `calWeekMode`, both
+ * set up a few lines away from this in the same file, and not these two. The
+ * asymmetry is the tell — nobody decided this, it was just never wired.
+ *
+ * Both halves are tested, because they fail differently: a TAB SWITCH
+ * (unmount and remount, state gone, storage read again) and a RELOAD (the
+ * whole app rebuilt). The first is the one that bites daily and the one plain
+ * state loses; a fix that only survived reloads would still be wrong.
+ *
+ * What is NOT tested, because it is not implemented: the suite makes the
+ * toggle transient while EDITING, leaving the saved value alone. CalMind's
+ * edit mode does not touch showDone at all, so there is nothing to be
+ * transient about. Called out in Calendar.tsx as a deliberate deviation.
+ */
+import { test, expect, type Page } from '@playwright/test';
+
+let seq = 0;
+async function signup(page: Page): Promise<string> {
+  const user = `sd${Date.now()}${seq++}`;
+  await page.goto('.');
+  await page.getByText('Sign up', { exact: true }).click();
+  await page.getByPlaceholder('Username').fill(user);
+  await page.getByPlaceholder('Email').fill(`${user}@example.com`);
+  await page.getByPlaceholder('Password', { exact: true }).fill('e2epassword');
+  await page.getByPlaceholder('Confirm password').fill('e2epassword');
+  await page.getByText('Sign up', { exact: true }).click();
+  await expect(page.getByTestId('tab-reminders')).toBeVisible({ timeout: 10_000 });
+  return user;
+}
+
+/** A done reminder is what makes the toggle observable: with nothing
+ *  completed, every assertion below passes whatever the code does. */
+async function addAndTick(page: Page, text: string) {
+  await page.getByTestId('tab-reminders').click();
+  await page.getByTestId('secadd-General').first().click();
+  await page.getByTestId('rem-add-field').fill(text);
+  await page.getByTestId('rem-add-field').press('Enter');
+  const row = page.getByTestId('rem-row').filter({ hasText: text });
+  await expect(row).toBeVisible();
+  await row.getByTestId('tick').click();
+  // The two-second grace keeps a just-ticked row on screen, so wait it out
+  // rather than racing it — otherwise "still visible" means nothing.
+  await expect(row).toBeHidden({ timeout: 10_000 });
+}
+
+test('reminders remembers Completed across a tab switch and a reload', async ({ page }) => {
+  await signup(page);
+  await addAndTick(page, 'done thing');
+  const row = page.getByTestId('rem-row').filter({ hasText: 'done thing' });
+
+  await page.getByRole('button', { name: 'Completed' }).click();
+  await expect(row, 'the toggle shows completed rows').toBeVisible();
+
+  // The tab switch: this screen unmounts, which is what plain state loses.
+  await page.getByTestId('tab-notes').click();
+  await page.getByTestId('tab-reminders').click();
+  await expect(row, 'and it is still on after coming back to the tab').toBeVisible({ timeout: 10_000 });
+
+  await page.reload();
+  await page.getByTestId('tab-reminders').click();
+  await expect(row, 'and after a reload').toBeVisible({ timeout: 10_000 });
+
+  // Off must persist too, or "always on" would pass everything above.
+  await page.getByRole('button', { name: 'Completed' }).click();
+  await expect(row).toBeHidden();
+  await page.getByTestId('tab-notes').click();
+  await page.getByTestId('tab-reminders').click();
+  await expect(row, 'switching it off is remembered as well').toBeHidden({ timeout: 10_000 });
+});
+
+test('the calendar remembers Completed across a tab switch and a reload', async ({ page }) => {
+  await signup(page);
+
+  // Added through the CALENDAR, so it lands on the selected day. A reminder
+  // made on the Reminders screen has no due date and never reaches a day
+  // panel at all — which is how the first attempt at this test "failed".
+  await page.getByTestId('tab-calendar').click();
+  await page.getByText('+ Add', { exact: true }).click();
+  await page.getByTestId('kind-reminder').click();
+  await page.getByPlaceholder(/What\?/).fill('cal done');
+  await page.getByText('Save', { exact: true }).click();
+  const tick = page.getByTestId('day-tick').first();
+  await expect(tick).toBeVisible({ timeout: 10_000 });
+
+  const row = page.getByText('cal done', { exact: true });
+  await tick.click();
+  // Two-second grace: wait it out rather than racing it.
+  await expect(row).toBeHidden({ timeout: 10_000 });
+
+  await page.getByTestId('cal-completed').click();
+  await expect(row, 'the day panel shows completed rows').toBeVisible();
+
+  await page.getByTestId('tab-notes').click();
+  await page.getByTestId('tab-calendar').click();
+  await expect(row, 'still on after coming back to the tab').toBeVisible({ timeout: 10_000 });
+
+  await page.reload();
+  await page.getByTestId('tab-calendar').click();
+  await expect(row, 'and after a reload').toBeVisible({ timeout: 10_000 });
+});

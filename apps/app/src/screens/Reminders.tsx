@@ -34,7 +34,20 @@ const FOLD_KEY = 'calmind.folded.reminders';
 export function Reminders() {
   const { recs, session, mutate, sharedRecs, sharedPartnerLabel } = useStore();
   const { view, visible: visibleFolders, visibleShared, sharedView, sharedPartner } = useFolderView('reminders');
-  const [showDone, setShowDone] = useState(false);
+  // Remembered, as the suite's remShowDone is. Same gap and same fix as the
+  // calendar's: it was plain state, so leaving the tab turned Completed off.
+  // The suite's edit-mode transience is not replicated here either — see the
+  // note in Calendar.tsx.
+  const [showDone, setShowDoneState] = useState(false);
+  useEffect(() => {
+    AsyncStorage.getItem('calmind.remShowDone').then((raw) => raw === '1' && setShowDoneState(true));
+  }, []);
+  const setShowDone = (on: boolean) => {
+    setShowDoneState(on);
+    // Swallowed for the same reason the fold writes are: what is lost is
+    // which view you had, next launch. No content, nothing unrecoverable.
+    AsyncStorage.setItem('calmind.remShowDone', on ? '1' : '').catch(() => {});
+  };
   const [adding, setAdding] = useState<string | null>(null); // sectionId with the open add row
   const [addText, setAddText] = useState('');
   const [editing, setEditing] = useState<string | null>(null); // reminder id in inline edit
