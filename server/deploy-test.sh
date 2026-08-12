@@ -157,6 +157,23 @@ if [ "$WEB" = 1 ]; then
       exit 1
     fi
     rm -f "$GLOG"
+
+    # …AND WEBKIT, which this gate did not run. The suite exists because a
+    # react-native-web `hitSlop` is a no-op in a browser and the browser that
+    # matters here is Safari — "verifying that fix in Chromium alone would have
+    # been checking it everywhere except where it matters", says its own
+    # config. Leaving it out of the gate meant precisely that: a Safari-only
+    # regression could ship. Sixteen specs, under thirty seconds, and the log
+    # is kept for the same reason as the one above — a gate that blocks
+    # without evidence costs more than the minute it saves.
+    WLOG=$(mktemp -t calmind-webkit)
+    if ! npx playwright test -c playwright.webkit.config.ts >"$WLOG" 2>&1; then
+      echo "WebKit suite failed — not deploying. Last lines:" >&2
+      grep -E '✘|Error:|Timeout|[0-9]+ failed|webServer' "$WLOG" | tail -25 >&2
+      echo "full output: $WLOG" >&2
+      exit 1
+    fi
+    rm -f "$WLOG"
   fi
 
   # A native build's bundling step writes over dist, and an xcodebuild that

@@ -292,6 +292,28 @@ than a red run, because it looks like an answer.
   inlining the time the way the rewrite did turns two of these red. The
   gesture suite's string-matching catches a rewrite; only this catches a typo.
 
+### The WebKit suite is in the deploy gate now, 2026-08-11
+
+It was not, and that was the whole point of it going missing: `deploy-test.sh`
+ran `npx playwright test` — the Chromium config — and stopped there. The WebKit
+suite exists because a react-native-web `hitSlop` is a no-op in a browser and
+the browser that matters is Safari; its own config says verifying that in
+Chromium alone "would have been checking it everywhere except where it
+matters". Leaving it out of the gate meant exactly that could ship.
+
+Sixteen specs, under thirty seconds, keeping its log for the same reason the
+gesture run does.
+
+ONE FLAKE SEEN, and recorded rather than papered over. The first WebKit run of
+2026-08-11 failed on "note body renders its markers as styled text when you tap
+away" — the blur-to-view swap not appearing inside the default five seconds, on
+a cold browser and a freshly created server. It then passed five consecutive
+full runs and twice in isolation. A clean A/B ruled out the editor's new status
+dot as the cause. No timeout was added and no retry was configured: the config
+has `retries: 0` deliberately, one unreproducible observation is not grounds to
+loosen an assertion, and a note costs nothing. If it recurs, this is what was
+already ruled out.
+
 ### Every checker broken on purpose, 2026-08-11
 
 The eight shell checkers are the only cover some of this code has, and most of
