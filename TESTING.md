@@ -138,6 +138,18 @@ than a red run, because it looks like an answer.
   Proven by breaking one copy's drop-the-':00' rule and watching six
   mismatches appear.
 
+  **The per-keystroke cost, measured 2026-08-11 rather than worried about.**
+  `refresh()` runs on every mutate and the note body writes on every keystroke,
+  so each one re-runs `normalize()` over the whole store and rebuilds the watch
+  feed — which includes fourteen days of `dayItems`. That sounds alarming and
+  is not: 0.8ms at ~100 records, 2.1ms at ~600, 4.9ms at ~1800, scaling
+  linearly, and `normalize` is a rounding error next to the feed. A frame is
+  16ms. It is also iOS-only — `pushWatchList` returns immediately when the
+  native bridge is absent, which is every other platform.
+
+  Written down so the next person does not re-derive the worry and then
+  "optimise" a path that is already fast.
+
   `tools/check-watch-feed.sh` covers the seam BETWEEN the two languages,
   which is where the worst watch bug so far actually lived. core's
   `watchFeed()` writes the JSON and `WatchStore.swift`'s Codable structs
