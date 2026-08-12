@@ -764,13 +764,38 @@ function instructionStrings(v: unknown): string[] {
   }).filter((s) => s.length > 1);
 }
 
-/** JSON-LD carries HTML entities through; a fraction must survive them. */
+/**
+ * JSON-LD carries HTML entities through; a fraction must survive them.
+ *
+ * The named list is deliberately short — the ones a MEASUREMENT meets. Any
+ * other named entity ('&eacute;', '&mdash;', '&deg;') is left as written,
+ * which is visible but harmless, and a full table is not worth carrying for
+ * pages that overwhelmingly serve UTF-8 already.
+ *
+ * The numeric branch is TOTAL, and that is not tidiness. `String.fromCodePoint`
+ * THROWS on anything outside 0..0x10FFFF, and on the NaN that a malformed
+ * '&#abc;' parses to — so one bad character anywhere on a fetched page threw a
+ * RangeError out of the whole parse. RecipeEditor catches it, which is why the
+ * app did not fall over; what Sean got instead was the entire recipe refused
+ * with "Invalid code point 1114112" written across the import box. This reads
+ * arbitrary pages from a URL somebody typed, so malformed input is the normal
+ * case rather than the exception, and an unreadable entity is not worth the
+ * recipe. Anything it cannot turn into a character it leaves exactly as it
+ * found it.
+ *
+ * NUL is refused with them: '&#0;' produced a real \0 in the note body, which
+ * is not a character anyone typed and makes the record awkward everywhere
+ * downstream.
+ */
 function decodeEntities(s: string): string {
   return s
     .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"').replace(/&#0?39;|&apos;|&rsquo;/g, "'")
     .replace(/&nbsp;/g, ' ')
     .replace(/&frac12;/g, '½').replace(/&frac14;/g, '¼').replace(/&frac34;/g, '¾')
-    .replace(/&#x?([0-9a-f]+);/gi, (_m, code) => String.fromCodePoint(parseInt(code, /^x/i.test(_m.slice(2, 3)) ? 16 : 10)))
+    .replace(/&#x?([0-9a-f]+);/gi, (m, code) => {
+      const n = parseInt(code, /^&#x/i.test(m) ? 16 : 10);
+      return Number.isFinite(n) && n > 0 && n <= 0x10ffff ? String.fromCodePoint(n) : m;
+    })
     .replace(/\s+/g, ' ');
 }

@@ -14,7 +14,7 @@ Standing rules live in `CLAUDE.md`, not here.
 
 ## Suite counts, as of this commit
 
-core **420** · gesture **156** (+1 skipped) · WebKit **16** · server **48** ·
+core **424** · gesture **156** (+1 skipped) · WebKit **16** · server **48** ·
 live **19** with the API · desktop **7** (+3 in `npm run test:desktop`) · deploy guards **9** · plus the four
 native seam checkers no browser can reach: `npm run test:watch`,
 `npm run test:widget`, `npm run test:deploy`.
@@ -636,6 +636,41 @@ then the watch needs the direct install and the build number is the proof.
 
   Proven by reproducing it: two engines, the same two records, opposite arrival
   order. Dropping the id fallback turns that test red on its own.
+
+- **One bad HTML entity refused the whole recipe.** `String.fromCodePoint`
+  throws on anything outside 0..0x10FFFF and on the NaN a malformed '&#abc;'
+  parses to, and that RangeError came out of the entire parse.
+  `recipeFromHtml` reads arbitrary pages fetched from a URL somebody typed, so
+  malformed input is the ordinary case, not the exception.
+
+  RecipeEditor's try/catch is why the app never fell over — and why this was
+  invisible. What it did instead was show the catch's `err.message`, so an
+  import died with **"Invalid code point 1114112"** written across the box and
+  the recipe thrown away over one character.
+
+  The numeric branch is total now: anything it cannot turn into a character it
+  leaves exactly as written, per this repo's own rule about tolerating what it
+  cannot interpret. Dropping it silently would leave a measurement quietly
+  missing its number, which is worse than a visible '&#1114112;'. NUL goes with
+  them — '&#0;' put a real NUL in the note body.
+
+  Both halves broken and watched: restoring the throw turns three tests red,
+  and giving up on ALL numeric entities turns the fourth red, which is the one
+  that keeps the guard from swallowing the fractions it exists to protect.
+
+  Named entities beyond the measurement set ('&eacute;', '&deg;', '&mdash;')
+  are still left as written. Visible, harmless, and not worth a full table for
+  pages that overwhelmingly serve UTF-8 — recorded rather than fixed.
+
+- **A test docstring that overstated its own fixture, corrected.**
+  `realpage.test.ts` claimed to prove the parser survives "578KB of a live
+  site — analytics blobs, several JSON-LD blocks, entity-encoded fractions, a
+  @graph wrapper". The capture is 5.7KB, trimmed to the JSON-LD (which the
+  FIXTURE's own first line said and the test did not), the analytics are gone,
+  and it contains **not one entity** — so a third of what it claimed to cover
+  was covered by nothing at all. That is the same shape as a check that cannot
+  fail, and it is how the entity bug above stayed hidden. Both headers now say
+  what is actually in the file.
 
 ## 4 · Steady state, every iteration
 
