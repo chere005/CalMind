@@ -47,6 +47,26 @@ export function syncLook(
 }
 
 /**
+ * The same state as ONE WORD, for a corner with no room for a sentence.
+ *
+ * The note editor's footer used to print the literal string 'Saved' — not a
+ * state, a hardcoded word — so it said "Saved" while this device could not
+ * write its own snapshot, while a note was refused for being too long, and
+ * while the app was offline. Once the editor grew an honest dot the two sat
+ * three inches apart contradicting each other, which is the same fault Settings
+ * had and had fixed: a second copy of a message beside a dot that reads the
+ * shared one.
+ */
+export function syncWord(
+  syncState: 'idle' | 'syncing' | 'offline' | 'refused',
+  persistFailed: boolean,
+): string {
+  if (persistFailed || syncState === 'refused') return 'Not saved';
+  if (syncState === 'offline') return 'Offline';
+  return syncState === 'syncing' ? 'Saving…' : 'Saved';
+}
+
+/**
  * The dot alone, for a corner that has no room for a sentence.
  *
  * It carries the sentence as its accessibility label, because a bare coloured
@@ -61,7 +81,7 @@ export function SyncDot({ testID, withText = false }: { testID?: string; withTex
   return (
     <View style={s.row} testID={testID} accessibilityLabel={look.text}>
       <View style={[s.dot, { backgroundColor: look.color }]} />
-      {withText && bad && <Text style={s.short} numberOfLines={1}>{look.color === T.gold ? 'Offline' : 'Not saved'}</Text>}
+      {withText && bad && <Text style={s.short} numberOfLines={1}>{syncWord(syncState, persistFailed)}</Text>}
     </View>
   );
 }

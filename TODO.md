@@ -14,7 +14,7 @@ Standing rules live in `CLAUDE.md`, not here.
 
 ## Suite counts, as of this commit
 
-core **474** · gesture **159** (+1 skipped) · WebKit **16** · server **53** ·
+core **474** · gesture **160** (+1 skipped) · WebKit **16** · server **53** ·
 live **19** with the API · desktop **7** (+3 in `npm run test:desktop`) · deploy guards **9** · plus the four
 native seam checkers no browser can reach: `npm run test:watch`,
 `npm run test:widget`, `npm run test:deploy`.
@@ -899,6 +899,26 @@ then the watch needs the direct install and the build number is the proof.
   Verified both ways — the guard exits 1 on an unmatched name, the fallback
   exits 0 and writes the hollow worker — and the offline-boot spec still
   passes on the regenerated one.
+
+- **The note editor's footer said "Saved" whatever had happened.** Not a
+  state — the literal string `'Saved'`, printed unconditionally. It said so
+  while the device could not write its own snapshot, while a note was refused
+  for being too long, and while the app was offline.
+
+  Worse after this session than before it: the editor grew an honest status dot
+  in its top right, so the two sat three inches apart contradicting each other,
+  the red one telling the truth. That is the exact fault Settings had and had
+  already fixed — "it used to carry its own copy beside a dot that read the
+  shared one, so the two could disagree, and did" — reproduced on another
+  screen by adding the dot without noticing the label.
+
+  One rule now: `syncWord()` beside `syncLook()`, used by the footer AND by the
+  dot's own short form, which had a third copy of the same if-chain. Saved,
+  Saving…, Offline, Not saved — and red when it is not saved, since a grey
+  "Not saved" reads as furniture.
+
+  Found by LOOKING at the screen, not by testing it. Nothing could have caught
+  it: a hardcoded string is exactly as green as a correct one.
 
 ## 4 · Steady state, every iteration
 

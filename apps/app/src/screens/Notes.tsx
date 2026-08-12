@@ -18,7 +18,7 @@ import { useRowDrag } from '../components/rowdrag';
 import { useSectionDrag, type SectionSlot } from '../components/sectiondrag';
 import { useSwipeLeft } from '../components/swiperow';
 import { Chevron } from '../components/Chevron';
-import { SyncDot } from '../components/SyncDot';
+import { SyncDot, syncWord } from '../components/SyncDot';
 import { EditExit } from '../components/EditExit';
 import { RecipeEditor } from './RecipeEditor';
 
@@ -54,7 +54,7 @@ function useNoteScoped<T>(noteId: string | null, initial: T): [T, React.Dispatch
 }
 
 export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | null; onOpenConsumed?: () => void }) {
-  const { recs, mutate, sharedRecs, sharedPartnerLabel } = useStore();
+  const { recs, mutate, sharedRecs, sharedPartnerLabel, syncState, persistFailed } = useStore();
   const nav = useNav();
   const { view, visible: visibleFolders, visibleShared, sharedView, sharedPartner } = useFolderView('notes');
   const setNotePrefs = (lastView: string) => mutate((e) => e.put(prefsPut(recs, 'notes', { lastView })));
@@ -639,9 +639,20 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
           )}
 
           {recipeOpen && <RecipeEditor note={open} onClose={() => setRecipeOpen(false)} />}
-          {/* Saved sits bottom-left; the two-press delete bottom-right. */}
+          {/* Saved sits bottom-left; the two-press delete bottom-right.
+              It READS THE STATE now. It used to be the literal string 'Saved',
+              which is a claim this screen was in no position to make: it said
+              so while the device could not write its snapshot, while a note was
+              refused for being too long, and while the app was offline — and
+              once the editor grew an honest dot in its top right, the two sat
+              three inches apart disagreeing. Same word, same rule, one source. */}
           <View style={s.footRow}>
-            <Text style={s.saved}>{'Saved'}</Text>
+            <Text
+              testID="editor-saved"
+              style={[s.saved, (persistFailed || syncState === 'refused') && s.savedBad]}
+            >
+              {syncWord(syncState, persistFailed)}
+            </Text>
             <Pressable
               onPress={() => {
                 if (delArmed) { setOpenId(null); mutate((e) => e.del(open.id)); setDelArmed(false); }
@@ -1207,6 +1218,8 @@ const s = themed(() => StyleSheet.create({
   dateField: { minWidth: 90, paddingVertical: 6 },
   footRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 },
   saved: { color: T.muted, fontSize: 12 },
+  // The word turns with the state; a grey 'Not saved' would read as furniture.
+  savedBad: { color: T.danger, fontWeight: '700' },
   goesMenu: { position: 'absolute', left: 16, right: 16, top: 140, backgroundColor: T.surface, borderWidth: 1, borderColor: T.line, borderRadius: 14, padding: 12, gap: 8, flexDirection: 'row', flexWrap: 'wrap' },
   title: {
     flex: 1,
