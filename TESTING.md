@@ -72,11 +72,16 @@ invent one.
 The gesture run now **refuses to start against a stale export** (`e2e/
 freshness.ts`, wired in as playwright's globalSetup): if anything under
 `apps/app/src`, `apps/app/App.tsx`, `apps/app/index.ts` or
-`packages/core/src` is newer than `apps/app/dist/index.html`, it stops and
-tells you to run `npm run export:web`. The specs drive the EXPORT, not the
-source, so a stale bundle makes the run a lie in either direction — a pass
-for code that isn't there, or a failure for a fix that is. That is worse
-than a red run, because it looks like an answer.
+`packages/core/src` has CHANGED since the export was built, it stops, names
+the files, and tells you to run `npm run export:web`. The specs drive the
+EXPORT, not the source, so a stale bundle makes the run a lie in either
+direction — a pass for code that isn't there, or a failure for a fix that is.
+That is worse than a red run, because it looks like an answer.
+
+Changed, not merely touched: the comparison is by content hash against
+`apps/app/dist/.sources.json`, which the export writes. It was mtimes until
+2026-08-12, and the section below says what that cost. Mtimes remain the
+fallback when no manifest exists.
 
 ## packages/core — the behavior itself (vitest)
 
