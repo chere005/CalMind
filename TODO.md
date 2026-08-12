@@ -502,8 +502,8 @@ add `apple-touch-icon` (deploy-test.sh:235) and iOS was not using it.
 Cosmetic.
 
 ### The new-note focus is a 50ms race (WebKit only)
-STILL LIVE, and the count is 5 in ~43 full runs: it recurred on
-2026-08-11 and twice on 2026-08-12, all at `app.spec.ts:359` ("note body
+STILL LIVE, and the count is 6 in ~45 full runs: it recurred on
+2026-08-11 and three times on 2026-08-12, all at `app.spec.ts:359` ("note body
 renders its markers as styled text when you tap away"), each time passing
 3/3 in isolation and clean on the very next full run. Consistent with
 everything below — and worth knowing that the line number moved, so anyone
@@ -529,7 +529,10 @@ Worth keeping because it cost nothing and rules things out. Measured
   move is a useful thing to know: it points away from "the machine was busy"
   and towards something in the page's own sequencing.
 - **1 run immediately after a full 7-minute gesture suite**, which is the
-  condition both failures actually shared.
+  condition the failures keep sharing — all three on 2026-08-12 came
+  straight after one. That single control run passed, so it is a correlation
+  with one counter-example and not a reproduction; it is the next thing to
+  test properly, with several runs rather than one.
 
 So two plausible causes are eliminated and the obvious third — that the
 day's changes moved the timing — is unsupported: those changes were removals
