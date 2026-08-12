@@ -117,8 +117,23 @@ enum Load {
 
 private func loadFeed() -> Load {
     guard let raw = UserDefaults(suiteName: GROUP)?.data(forKey: CACHE) else { return .waiting }
-    guard let feed = try? JSONDecoder().decode(Feed.self, from: raw) else { return .failed }
-    return .ok(feed)
+    // do/catch rather than try?, which was the last `try?` left in the three
+    // native targets — and the two beside it both rejected it in writing.
+    // WatchStore: "try? here was the same silence that hid WCSession 7006 for
+    // a day." ComplicationWidget: "a silent decode failure here draws exactly
+    // like a genuinely empty calendar."
+    //
+    // The state was never the problem here — .failed already draws "Can't
+    // read the list", distinct from "Nothing due." — so this is the smaller
+    // half: WHY it failed. Without it the widget can say it could not read
+    // the list and leave nothing anywhere that says what was wrong with it,
+    // which is a bad place to start from when the cache is on a device.
+    do {
+        return .ok(try JSONDecoder().decode(Feed.self, from: raw))
+    } catch {
+        NSLog("[HomeWidget] decode FAILED: %@", String(describing: error))
+        return .failed
+    }
 }
 
 private func todayStr() -> String {
