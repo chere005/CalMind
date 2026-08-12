@@ -14,7 +14,7 @@ Standing rules live in `CLAUDE.md`, not here.
 
 ## Suite counts, as of this commit
 
-core **467** · gesture **159** (+1 skipped) · WebKit **16** · server **52** ·
+core **471** · gesture **159** (+1 skipped) · WebKit **16** · server **52** ·
 live **19** with the API · desktop **7** (+3 in `npm run test:desktop`) · deploy guards **9** · plus the four
 native seam checkers no browser can reach: `npm run test:watch`,
 `npm run test:widget`, `npm run test:deploy`.
@@ -178,6 +178,21 @@ suite's code and its intent disagree that is a question for you rather than a
 side to pick. One word settles it — "match the native widget" (port
 folderModes into the feed and rewrite that test) or "leave the feed on the
 suite's rule" (and fix the comment instead).
+
+### Scaled quantities round DOWN to a whole but never up — 0.99 stays 0.99
+Noticed 2026-08-11 while pinning the fraction rendering. `qtyText` drops a
+remainder under 0.02 and prints the whole number, so `0.67 cup × 3 = 2.01`
+reads "2 cups". The mirror case is not handled: `0.33 cup × 3 = 0.99` reads
+"0.99 cup", and 1.99 reads "1.99", rather than 1 cup and 2 cups.
+
+Both are accurate; neither is a measurement anyone owns a cup for. The
+existing down-snap says the intent is that a hundredth is noise, and if that
+is true going down it is true going up — but changing how your recipes round
+is your call, not a tidy-up I should make quietly. One word either way.
+
+The rest of that rendering is pinned now (`scalefrac.test.ts`), including the
+tolerance and the down-snap, both of which mutation showed nothing was
+watching.
 
 ### Smaller, still his
 - A FINISHED item greys out rather than keeping its folder colour. That is
