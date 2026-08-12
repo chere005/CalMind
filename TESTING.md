@@ -419,6 +419,32 @@ Nothing was found wrong. That is the point of writing it down: "the checker
 works" is a claim, and until the subject has been broken under it, it is an
 untested one.
 
+### What the gesture suite does NOT reach, 2026-08-12
+
+Measured rather than guessed: every `testID` in `apps/app/src` against every
+spec in `e2e/`. 158 controls, 14 that no spec addresses. Two of the bugs
+fixed today were found by following an entry on this list into the source —
+the recipe editor's hand-typing, and the × on a folder's only section, which
+turned out to be wrong on the WELL-tested screen too. So the list is worth
+keeping accurate rather than merely long.
+
+| control | what is unwatched |
+|---|---|
+| `shared-day-tick`, `all-shared-note`, `calshared-box-`, `shared-add-field`, `legend-partner` | the partner's rows on the CALENDAR, and the share window's own add field. Sharing needs two accounts, so these cost a second browser context — `app.spec.ts` has one such test and these are the surfaces it does not walk. |
+| `nsec-grip-`, `nsecempty-` | reordering a NOTES section by dragging, and its empty drop slot. Reminders and habits both have a drag test; notes does not. Checked 2026-08-12: the wiring and the drop handler are identical to the tested reminders one, character for character, so this is a guard against future divergence rather than a suspected bug. |
+| `cal-all-box`, `trimode-all`, `trimode-dated` | the calendar picker's All toggle, and two of the folder tri-state's three buttons. `trimode-none` IS tested, which proves the wiring mechanism, and core covers all three MODE semantics thoroughly (`day.test.ts`) — so what is missing here is only the two remaining button literals. |
+| `hsec-dot-`, `hsec-name-`, `sec-rename`, `login-confirm` | reached by other means and so less bare than they look: the habit swatch is covered by `hitarea.spec.ts`'s shape sweep rather than by name, and the confirm-password field by its placeholder. |
+
+TWO WRONG SWEEPS CAME FIRST, and both are the same lesson in opposite
+directions. A plain `grep -rl` reported `sec-grip-` as covered because
+`hsec-grip-` contains it — a substring pretending to be a match. Fixing that
+by demanding a quote or dash after the id then reported `secadd-` as
+UNCOVERED, because specs write `secadd-General` and the template ends at the
+dash. The number only became trustworthy once known-good and known-bad cases
+were asserted in both directions, which is the same discipline as breaking a
+test on purpose: a sweep is a check, and a check nobody has seen fail proves
+nothing.
+
 ### The hit-area spec I did not find, 2026-08-12
 
 Recorded because the mistake is more useful than the work was.
