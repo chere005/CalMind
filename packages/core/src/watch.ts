@@ -236,8 +236,9 @@ export function watchGroups(
  * nothing in this repo can test it. The rules, each a sentence:
  *
  *   - The day is the section, not the kind — a reminder and an event on the
- *     same date sit under one heading. That is tools/scriptable-widget.js's
- *     choice, and Sean asked the widget to look like that one.
+ *     same date sit under one heading. That came from the Scriptable widget,
+ *     since removed; Sean asked for this one to look like that one, and the
+ *     shape outlived its source.
  *   - An undated reminder still belongs where a person looks: today.
  *   - A reminder already ticked ON THE WIDGET is gone immediately, before the
  *     app has woken to apply it — the optimistic half of check-off.

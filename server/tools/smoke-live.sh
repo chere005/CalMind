@@ -103,8 +103,6 @@ SYNC=$(post "{\"action\":\"sync\",\"cursor\":0,\"changes\":[
 ]}" "$TOK")
 is "sync takes the batch" "$(echo "$SYNC" | jq1 cursor)" "3"
 
-WT=$(post '{"action":"widget_token"}' "$TOK" | jq1 token)
-[ -n "$WT" ] && ok "a widget token mints" || bad "no widget token"
 
 curl -sS "$API?feed=1&t=$WT&cals=all" -o /tmp/calmind-smoke-feed.json
 FEED_TODAY=$(jq1 today < /tmp/calmind-smoke-feed.json)

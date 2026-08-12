@@ -84,18 +84,6 @@ export function TopBar({
         </View>
         <View style={s.right}>
           {controls}
-          {/* THE STATUS DOT, which this file's own header has described all
-              along while nothing drew it: `syncState` was destructured here
-              and never used. So the app's one honest signal that a note did
-              not save — the red dot for a refused record — lived only inside
-              Settings, which you have to go and open. A warning you have to
-              go looking for is most of the way to no warning.
-
-              Same component and same rule as Settings and the note editor,
-              so the three cannot drift. It carries the full sentence as its
-              accessibility label; the colour alone tells a screen reader, and
-              a colour-blind reader, nothing. */}
-          <SyncDot testID="topbar-sync" />
           {picker && <View style={s.pickerRing}>{picker}</View>}
           {/* The suite's `.who` is a <button>; ours was a bare Pressable, and
               react-native-web only emits role="button" when it is asked to —
@@ -113,7 +101,22 @@ export function TopBar({
             <Text style={s.who}>{session?.username}</Text>
             <Text style={s.whoCaret}>▾</Text>
           </Pressable>
+          {/* THE STATUS DOT, which this file's own header has described all
+              along while nothing drew it: `syncState` was destructured here
+              and never used. So the app's one honest signal that a note did
+              not save — the red dot for a refused record — lived only inside
+              Settings, which you have to go and open. A warning you have to
+              go looking for is most of the way to no warning.
 
+              Same component and same rule as Settings and the note editor,
+              so the three cannot drift. It carries the full sentence as its
+              accessibility label; the colour alone tells a screen reader, and
+              a colour-blind reader, nothing.
+
+              LAST in the row, on Sean's word (2026-08-12): far right of the
+              top bar, outside the account pill rather than between the picker
+              and it. */}
+          <SyncDot testID="topbar-sync" />
         </View>
       </View>
       {/* The gap AFTER the divider belongs here, not to each screen.

@@ -5,17 +5,19 @@
  * Frequency, and Frequency is one of three:
  *
  *   Always    every day, which is what every habit was before this existed
- *   Weekdays  Monday to Friday — "it's taken out of the list on weekend days
- *             entirely", so it is not a habit you failed at on a Sunday, it
- *             is not a habit that day at all
+ *   Weekdays  Monday to Friday. It was "taken out of the list on weekend days
+ *             entirely"; Sean revised that on 2026-08-12 — the weekend cell
+ *             is still there, drawn FAINT, and can still be ticked. What
+ *             changed is only what an untouched weekend costs, which is
+ *             nothing
  *   Never     "doesn't count towards the pie charts in the month view at all"
  *
  * THE TWO QUESTIONS ARE DIFFERENT, and conflating them is the whole subtlety
- * here. "Is this listed today?" and "does this count today?" have different
- * answers for Never: he asked for it to stop counting, not to disappear — so
- * it stays on the week grid where it can still be ticked, and contributes
- * nothing to the month's pies, numerator and denominator alike. Weekdays
- * answers both the same way, because he did say "taken out of the list".
+ * here. "Is this day on the habit's schedule?" and "does it count today?" now
+ * come apart for BOTH of the non-always frequencies, in opposite directions:
+ * Never is on schedule every day and counts on none of them, while Weekdays
+ * is off schedule at the weekend and counts there only when it is ticked.
+ * Every habit is drawn on every day; none of them is ever missing a cell.
  *
  * Living here rather than in Habits.tsx because it is behaviour: a rule you
  * can say in a sentence belongs in core with a test. The pie's own maths came
@@ -53,16 +55,37 @@ export function isWeekend(date: string): boolean {
   return day === 0 || day === 6;
 }
 
-/** Does this habit appear in the list on this day? */
-export function habitListedOn(h: Rec<'habit'>, date: string): boolean {
+/**
+ * Is this day one the habit is MEANT to happen on?
+ *
+ * Only 'weekdays' has an off-schedule day. 'never' is on schedule every day —
+ * its exclusion is about COUNTING, not about when it is meant to happen — so
+ * it stays drawn as an ordinary habit rather than a permanently faint one.
+ */
+export function habitOnScheduleOn(h: Rec<'habit'>, date: string): boolean {
   return frequencyOf(h) === 'weekdays' ? !isWeekend(date) : true;
 }
 
-/** Does this habit count towards the day's pie — numerator AND denominator? */
-export function habitCountedOn(h: Rec<'habit'>, date: string): boolean {
-  const f = frequencyOf(h);
-  if (f === 'never') return false;
-  return f === 'weekdays' ? !isWeekend(date) : true;
+/**
+ * Does this habit count towards the day's pie — numerator AND denominator?
+ *
+ * Sean, 2026-08-12, revising the weekend rule he gave the day before: an
+ * off-schedule day "can still be selected … when checked off they DO get
+ * counted in the month charts, but when not checked they don't count". So a
+ * Saturday tick on a weekdays habit is a BONUS — it enters the numerator and
+ * the denominator together, which means it can only ever help the circle, and
+ * leaving it alone costs nothing because it never reaches the denominator.
+ *
+ * That is why this needs to know whether the day is ticked: the question is
+ * no longer answerable from the calendar alone.
+ *
+ * 'never' still counts on no day at all, ticked or not — "doesn't count
+ * towards the pie charts in the month view at all" was explicit and is a
+ * different request from this one.
+ */
+export function habitCountedOn(h: Rec<'habit'>, date: string, ticked: boolean): boolean {
+  if (frequencyOf(h) === 'never') return false;
+  return habitOnScheduleOn(h, date) || ticked;
 }
 
 /**
@@ -83,26 +106,13 @@ export function dayShares(
   isTicked: (habitId: string, date: string) => boolean,
   date: string,
 ): { color: string; frac: number }[] {
-  const counted = habits.filter((h) => habitCountedOn(h, date));
+  const counted = habits.filter((h) => habitCountedOn(h, date, isTicked(h.id, date)));
   const total = counted.length;
   return sections.map((sec) => {
     if (total === 0) return { color: sec.payload.color, frac: 0 };
     const mine = counted.filter((h) => h.payload.sectionId === sec.id && isTicked(h.id, date));
     return { color: sec.payload.color, frac: mine.length / total };
   });
-}
-
-/**
- * Every habit, filtered to the ones this day actually lists, in the order
- * given. The week grid draws a column per day, so this is asked per column.
- */
-export function habitsListedOn(habits: Rec<'habit'>[], date: string): Rec<'habit'>[] {
-  return habits.filter((h) => habitListedOn(h, date));
-}
-
-/** The habits of one section, for a day, already filtered by frequency. */
-export function sectionHabitsOn(habits: Rec<'habit'>[], sectionId: string, date: string): Rec<'habit'>[] {
-  return habits.filter((h) => h.payload.sectionId === sectionId && habitListedOn(h, date));
 }
 
 /** Is `rec` a live habit? Narrowing helper, so screens stop re-writing it. */

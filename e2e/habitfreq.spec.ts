@@ -83,7 +83,7 @@ test('a habit is added on its own screen, with a frequency that sticks', async (
   await expect(page.getByTestId('habit-freq-always')).toHaveAttribute('aria-checked', 'false');
 });
 
-test('a weekdays habit has no tick cell on a weekend column', async ({ page }) => {
+test('a weekdays habit\'s weekend cell is faint, and can still be ticked', async ({ page }) => {
   test.setTimeout(90_000);
   await page.setViewportSize({ width: 390, height: 844 });
   await signup(page);
@@ -107,13 +107,13 @@ test('a weekdays habit has no tick cell on a weekend column', async ({ page }) =
   const off = await page.getByTestId('habit-cell-off').count();
   expect(
     off,
-    `a weekdays habit is out of the list on every weekend column in view (${weekendCols} of ${cols})`,
+    `a weekdays habit is off schedule on every weekend column in view (${weekendCols} of ${cols})`,
   ).toBe(weekendCols);
 
   // And the check must be capable of failing: an every-day habit has none.
   await addHabit(page, 'Water', 'always');
   const offAfter = await page.getByTestId('habit-cell-off').count();
-  expect(offAfter, 'the always habit adds no blank cells').toBe(weekendCols);
+  expect(offAfter, 'the always habit adds no off-schedule cells').toBe(weekendCols);
 
   // ONE DAY IN SEVEN THE ABOVE PROVES NOTHING, which is why the rest of this
   // test exists. The phone shows five columns and the window ends tomorrow, so
@@ -139,6 +139,32 @@ test('a weekdays habit has no tick cell on a weekend column', async ({ page }) =
   expect(wideWeekend, 'seven days always hold exactly one Saturday and one Sunday').toBe(2);
   expect(
     await page.getByTestId('habit-cell-off').count(),
-    'the weekdays habit is out of the list on both weekend columns',
+    'the weekdays habit is off schedule on both weekend columns',
   ).toBe(2);
+
+  // THE POINT OF THE 2026-08-12 REVISION: faint, not gone. The cell used to
+  // be an empty View with nothing to press; it is a real checkbox now, and a
+  // weekend run must be recordable.
+  //
+  // Which weekend column to press is derived, not guessed: the window ends
+  // TOMORROW, so the last column is always in the future and disabled. Column
+  // i holds today+i-5, so any weekend column with i <= 5 is pressable, and a
+  // seven-day window always has one — on a Friday or Saturday one weekend
+  // column is tomorrow, and the other is not.
+  const pressable = await page.evaluate(() => {
+    const now = new Date();
+    const weekend: number[] = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + i - 5);
+      if (d.getDay() === 0 || d.getDay() === 6) weekend.push(i);
+    }
+    // Its position AMONG the off cells, which is what nth() indexes.
+    return weekend.findIndex((i) => i <= 5);
+  });
+  expect(pressable, 'a seven-day window always holds a weekend day that is not tomorrow').toBeGreaterThanOrEqual(0);
+
+  const cell = page.getByTestId('habit-cell-off').nth(pressable);
+  await expect(cell, 'it starts unticked').toHaveAttribute('aria-checked', 'false');
+  await cell.click();
+  await expect(cell, 'a weekend run is recorded like any other').toHaveAttribute('aria-checked', 'true');
 });

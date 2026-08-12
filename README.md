@@ -14,8 +14,7 @@ parity with the plain-PHP suite at
 successor architecture this is. Everything the product *does* is written once,
 in TypeScript, and every surface renders it: the outline drags, the repeat
 rolls, the four full themes, mutual-consent sharing with live ticks, recipes
-read out of a photo or a URL, the Scriptable widget with its setup page, the
-?tick= quick-done, and the watch and widget feeds — all proven by the harnesses
+read out of a photo or a URL, the ?tick= quick-done, and the watch and widget feeds — all proven by the harnesses
 in `TESTING.md`, which is the map of which one watches what. `PARITY.md` is the
 build ledger and `TODO.md` is what is still owed, including the current test
 counts.
@@ -73,7 +72,7 @@ tools/             The checks no browser can reach, plus the export's own
                    wrist's and the widget's REAL decoders and their drawing
                    logic), the App Group rule, the deploy guards proven by
                    breaking copies, the web-head patch every export needs,
-                   the tap-target sweep, and the Scriptable widget script.
+                   and the tap-target sweep.
 desktop/           CalMind Desktop — a Tauri 2 shell around the identical web
                    export. Rust opens the window; everything else is the
                    shared code. macOS builds locally (desktop/README.md);

@@ -78,9 +78,15 @@ export function SyncDot({ testID, withText = false }: { testID?: string; withTex
   const look = syncLook(syncState, persistFailed, refusedLabels);
   const bad = look.color === T.danger || look.color === T.gold;
   return (
+    // The word goes to the LEFT of the dot so the DOT is what the right edge
+    // anchors. With the dot first, the group was right-aligned and the word
+    // shoved the dot leftwards — so the one indicator on the screen jumped
+    // sideways at exactly the moment it turned red, which is the moment you
+    // want to find it in the same place as always. Now the word grows away
+    // from the dot and the dot does not move, in the editor or the top bar.
     <View style={s.row} testID={testID} accessibilityLabel={look.text}>
-      <View style={[s.dot, { backgroundColor: look.color }]} />
       {withText && bad && <Text style={s.short} numberOfLines={1}>{syncWord(syncState, persistFailed)}</Text>}
+      <View style={[s.dot, { backgroundColor: look.color }]} />
     </View>
   );
 }

@@ -13,7 +13,6 @@ import { syncLook } from '../components/SyncDot';
 import { CircleBtn, Field, Pill, ErrorLine } from '../ui';
 import { applyTheme, currentTheme, themed, T, THEMES, type ThemeName } from '../theme';
 import { ShareModal } from '../components/ShareModal';
-import { WidgetSetup } from './WidgetSetup';
 
 export function Settings({ onClose }: { onClose: () => void }) {
   const { session, setSession, signOut, recs, mutate, syncState, persistFailed, refusedLabels } = useStore();
@@ -47,7 +46,6 @@ export function Settings({ onClose }: { onClose: () => void }) {
   const [msg, setMsg] = useState('');
   const [err, setErr] = useState('');
   const [shareOpen, setShareOpen] = useState(false);
-  const [widgetOpen, setWidgetOpen] = useState(false);
 
   const change = async () => {
     setErr('');
@@ -70,7 +68,6 @@ export function Settings({ onClose }: { onClose: () => void }) {
 
   // The suite closes settings before the share window opens — one layer.
   if (shareOpen) return <ShareModal onClose={onClose} />;
-  if (widgetOpen) return <WidgetSetup onClose={onClose} />;
 
   return (
     <Modal transparent animationType="fade" onRequestClose={onClose}>
@@ -166,12 +163,12 @@ export function Settings({ onClose }: { onClose: () => void }) {
               </Pressable>
             </View>
           </View>
-          {/* The suite's settings footer: one row of three identical round icon
-              buttons — Share, Widget, Done (the accent checkmark). Share and
-              Widget say where they are on the roadmap until those land. */}
+          {/* The suite's settings footer, now one round icon button and the
+              accent checkmark: Share and Done. The Widget button opened the
+              Scriptable setup page, and the Scriptable widget was removed
+              entirely on Sean's word (2026-08-12). */}
           <View style={s.footer}>
             <CircleBtn testID="open-share" glyph="⇗" label="Sharing" size={40} onPress={() => setShareOpen(true)} />
-            <CircleBtn testID="open-widget" glyph="▤" label="Widget setup" size={40} onPress={() => setWidgetOpen(true)} />
             <CircleBtn glyph="✓" label="Done" size={40} color={T.accent} active onPress={onClose} />
           </View>
           <View style={s.row}>

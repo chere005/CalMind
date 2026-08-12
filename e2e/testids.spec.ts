@@ -48,6 +48,15 @@ test('no spec reaches for a testID the app never renders', () => {
   for (const m of appSrc.matchAll(/testID=\{?\s*`([^`]*)`/g)) {
     if (!m[1]!.includes('${')) literals.add(m[1]!);
   }
+  // …and names chosen by an expression — `testID={off ? 'habit-cell-off' :
+  // undefined}`, which is how a cell that only SOMETIMES wants a name says so.
+  // Every quoted literal inside the braces is a name the app can render, so
+  // they all count. This does not soften the check: a spec asking for a name
+  // that appears nowhere in the source is still an orphan, which is the typo
+  // this guard exists to catch.
+  for (const m of appSrc.matchAll(/testID=\{([^}]*)\}/g)) {
+    for (const lit of m[1]!.matchAll(/['"]([^'"]+)['"]/g)) literals.add(lit[1]!);
+  }
   // …and the plain-DOM spelling, which the head patch uses because it is
   // inline script rather than TSX. Same thing to a spec, written differently.
   for (const m of appSrc.matchAll(/setAttribute\(\s*['"]data-testid['"]\s*,\s*['"]([^'"]+)['"]/g)) {

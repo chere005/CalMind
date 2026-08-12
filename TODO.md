@@ -47,7 +47,7 @@ Standing rules live in `CLAUDE.md`, not here.
 
 ## Suite counts, as of this commit
 
-core **505** · gesture **195** (+2 skipped) · WebKit **16** · server **55** ·
+core **500** · gesture **194** (+2 skipped) · WebKit **16** · server **48** ·
 live **19** with the API · desktop **7** (+3 in `npm run test:desktop`) · deploy guards **9** · plus the four
 native seam checkers no browser can reach: `npm run test:watch`,
 `npm run test:widget`, `npm run test:deploy`.
@@ -237,21 +237,6 @@ wall-clock last-write-wins and no client-side scheme fixes it; only a
 server-assigned receipt time would, which is a protocol change of the same
 size as the tie-break. Sean's call if it ever shows up in practice.
 
-### ~~The widget key rotates on every visit~~ — ALREADY FIXED, entry was stale
-Checked against the source 2026-08-11 when Sean asked what was needed: option
-(b) shipped some time ago. `handle_widget_token` mints only when asked —
-without `rotate`, an account that already holds a key is told `exists: true`
-and nothing changes — and WidgetSetup only sends `rotate` from the explicit
-button. Opening the page costs you nothing.
-
-The one thing still true: the key cannot be SHOWN again, because only its
-hash is stored. Lose the Scriptable script and you must rotate and re-paste.
-Option (a) — keeping the token itself so the page can redisplay it — is the
-only outstanding choice, and it is a real tradeoff: that token is a bearer
-credential for a read-only feed of everything, and storing it in plaintext to
-save a re-paste is not obviously the right trade. Sean's call if it ever
-annoys him.
-
 ### ~~The PWA cannot open offline~~ — SHIPPED 2026-08-11
 It opens offline now, and the "head-on collision" this entry feared was not
 one. The server already publishes the caching policy in web.htaccess, and the
@@ -288,36 +273,6 @@ every watch page uses `WatchFormat.clockFull`/`whenFull` (`3:30pm`) and only
 the complication uses the compact `clock12` (`3:30`). check-watch-format.sh
 pins both, and pins that the two DISAGREE below 8pm so one cannot become the
 other. This entry described a state that is not the case.
-
-### Which rule should the SCRIPTABLE widget's feed obey? — needs one word
-Two widgets, two folder rules, and they disagree. Found 2026-08-11.
-
-- The NATIVE widget (`widgetDays` → `dayItems`) obeys the calendar's tri-state
-  from `prefs_calendar.folderModes`: a folder is 'all' (its undated items ride
-  along on today), 'dated' (only items carrying a date) or 'none' (never
-  appears). It was changed to that deliberately, because a folder you had
-  switched off for the calendar still filled the home screen — your report.
-- The SCRIPTABLE widget's feed (`handle_feed`) still reads
-  `prefs_reminders.hidden`, which is the ALL VIEW's switch, a different
-  preference entirely, and takes riders from the folder's raw `rideAlong` flag
-  rather than from its mode.
-
-So today: a folder set to 'none' for the calendar still feeds that widget; a
-folder set to 'dated' still drops its undated items onto today there if it
-carries `rideAlong`; and a folder merely hidden in the All view vanishes from
-it while the calendar still shows it.
-
-The feed's own comment says "the widget follows what the calendar shows",
-which is the intent and no longer the code — CLAUDE.md's drifted-comment trap,
-found by reading the two rules side by side.
-
-NOT CHANGED, because either answer contradicts something already written down:
-the server test 'the feed follows the suite … hidden folders drop out' pins
-`hidden`, ported from the old suite's feed.php, and CLAUDE.md says where the
-suite's code and its intent disagree that is a question for you rather than a
-side to pick. One word settles it — "match the native widget" (port
-folderModes into the feed and rewrite that test) or "leave the feed on the
-suite's rule" (and fix the comment instead).
 
 ### Scaled quantities round DOWN to a whole but never up — 0.99 stays 0.99
 Noticed 2026-08-11 while pinning the fraction rendering. `qtyText` drops a
@@ -532,8 +487,8 @@ add `apple-touch-icon` (deploy-test.sh:235) and iOS was not using it.
 Cosmetic.
 
 ### The new-note focus is a 50ms race (WebKit only)
-STILL LIVE, and the count is 7 in ~46 full runs: it recurred on
-2026-08-11 and four times on 2026-08-12, all at `app.spec.ts:359` ("note body
+STILL LIVE, and the count is 8 in ~47 full runs: it recurred on
+2026-08-11 and five times on 2026-08-12, all at `app.spec.ts:359` ("note body
 renders its markers as styled text when you tap away"), each time passing
 in isolation and clean on the very next full run. Consistent with
 everything below — and worth knowing that the line number moved, so anyone
@@ -545,6 +500,12 @@ editor's focus and title handling — the one change most likely to have caused
 it. It had not. Five isolation runs and a clean 16/16 WebKit suite said so,
 and the deploy went through on the retry. Four minutes to tell a flake from a
 regression, spent at exactly the moment it is tempting to skip.
+
+The EIGHTH came the same afternoon, on the WebKit gate again, after the
+Scriptable removal and the habits change — a different set of changes, the
+same line, cleared the same way (5/5 isolated, 16/16 full). Twice in one
+session is within a rate of roughly one full run in six; it is not evidence
+that anything got worse.
 
 The 2026-08-12 recurrences are the useful ones: the first landed in the same
 run as a sweep that touched every screen, which is exactly when a flake is
@@ -795,6 +756,15 @@ then the watch needs the direct install and the build number is the proof.
   near-miss that re-toggles from the stale copy — were watched going red.
 
 ### Shipped 2026-08-12 — one line each
+
+- **The Scriptable widget was removed ENTIRELY**, on Sean's word. Gone: the
+  script, its setup page and the Settings button that opened it, the server's
+  `widget_token` action and read-only GET feed with their token store, and the
+  tests for all of it (7 server, 2 gesture, the core suite that executed the
+  script). The NATIVE home-screen widget is untouched and is now the only one
+  — it reads the App Group, never that feed, which is what made the removal
+  separable. Two questions in §1 died with it: which folder rule the feed
+  should obey, and whether to store the token so it could be re-shown.
 
 - The item sheet PUT BACK a record deleted on another device. It was handed a
   snapshot rather than an id, so the 30s pull took the row away underneath it

@@ -287,16 +287,6 @@ fallback when no manifest exists.
   actually opened — the first version measured the recipe editor's link row
   twice with the row closed, and the two passes agreed, which is what a
   measurement that cannot fail looks like.
-- The SCRIPTABLE WIDGET, actually executed (`test/widget.test.ts`). Its
-  Scriptable globals are stubbed just enough to record what the script builds,
-  then the structure is asserted: the header row, uppercase day headings with
-  today named as today, the time as its own node AFTER the title rather than
-  glued in front of it, "No more items today." on an empty day, "Couldn't
-  load." when the feed won't, and a small widget showing fewer rows than a
-  large one. Checked against the real regression — breaking the header and
-  inlining the time the way the rewrite did turns two of these red. The
-  gesture suite's string-matching catches a rewrite; only this catches a typo.
-
 ### One clock spec, and the copy that could not be moved, 2026-08-11
 
 The twelve-hour clock cases were written out twice, byte for byte — in
@@ -1176,7 +1166,6 @@ software: the editor closing to the notes list with the tab unchanged.
   app without its companion makes updateApplicationContext throw, silently
   eaten by the try?), and sim pairs drift to 'active, disconnected' —
   bounce the WATCH sim and re-check `xcrun simctl list pairs`.
-- Scriptable on a real phone (the widget itself, tick links, the PWA hop).
 
 - **The Modal safe-area trap** — CLAUDE.md's most expensive recurring one: a
   Modal is its own window, so anything absolutely positioned in it is measured

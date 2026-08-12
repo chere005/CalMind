@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  dayShares, frequencyOf, habitCountedOn, habitListedOn, habitsListedOn, isWeekend,
+  dayShares, frequencyOf, habitCountedOn, habitOnScheduleOn, isWeekend,
   type Frequency,
 } from '../src/habit';
 import type { Rec } from '../src/index';
@@ -42,29 +42,35 @@ describe('a habit’s frequency', () => {
     expect(isWeekend(SUN)).toBe(true);
   });
 
-  it('LISTS and COUNTS are different questions, and only Never tells them apart', () => {
-    // Sean asked for Never to stop counting, not to disappear — it stays
-    // tickable on the week grid and contributes nothing to the month's pies.
-    // Weekdays answers both the same way, because he did say "taken out of
-    // the list entirely" for the weekend.
+  it('SCHEDULE and COUNT are different questions, and the two frequencies part them oppositely', () => {
+    // Never is on schedule every day and counts on none of them; Weekdays is
+    // off schedule at the weekend and counts there only when it is ticked.
     const never = habit('n', 's', 'never');
-    expect(habitListedOn(never, MON), 'Never is still there to tick').toBe(true);
-    expect(habitCountedOn(never, MON), 'Never never counts').toBe(false);
+    expect(habitOnScheduleOn(never, MON), 'Never is an ordinary day, drawn normally').toBe(true);
+    expect(habitCountedOn(never, MON, false), 'Never never counts').toBe(false);
+    expect(habitCountedOn(never, MON, true), 'not even ticked — "at all" was explicit').toBe(false);
 
     const week = habit('w', 's', 'weekdays');
-    expect(habitListedOn(week, FRI)).toBe(true);
-    expect(habitListedOn(week, SAT), 'gone from the list at the weekend').toBe(false);
-    expect(habitCountedOn(week, SAT)).toBe(false);
+    expect(habitOnScheduleOn(week, FRI)).toBe(true);
+    expect(habitOnScheduleOn(week, SAT), 'off schedule, so drawn faint').toBe(false);
+    expect(habitCountedOn(week, SAT, false), 'an untouched weekend costs nothing').toBe(false);
+    expect(habitCountedOn(week, SAT, true), 'a ticked weekend is a bonus that counts').toBe(true);
+    expect(habitCountedOn(week, FRI, false), 'a weekday counts whether done or not').toBe(true);
 
     const always = habit('a', 's', 'always');
-    expect(habitListedOn(always, SUN)).toBe(true);
-    expect(habitCountedOn(always, SUN)).toBe(true);
+    expect(habitOnScheduleOn(always, SUN)).toBe(true);
+    expect(habitCountedOn(always, SUN, false)).toBe(true);
   });
 
-  it('drops weekday-only habits from the weekend list, and keeps the rest', () => {
+  it('every habit is drawn on every day now — no cell is ever missing', () => {
+    // The weekend cell used to be absent. It is present and faint instead, so
+    // there is no day on which a habit cannot be ticked.
     const hs = [habit('a', 's', 'always'), habit('w', 's', 'weekdays'), habit('n', 's', 'never')];
-    expect(habitsListedOn(hs, FRI).map((h) => h.id)).toEqual(['a', 'w', 'n']);
-    expect(habitsListedOn(hs, SAT).map((h) => h.id)).toEqual(['a', 'n']);
+    for (const d of [FRI, SAT, SUN, MON]) {
+      expect(hs.every((h) => typeof habitOnScheduleOn(h, d) === 'boolean')).toBe(true);
+    }
+    expect(hs.filter((h) => !habitOnScheduleOn(h, SAT)).map((h) => h.id)).toEqual(['w']);
+    expect(hs.filter((h) => !habitOnScheduleOn(h, FRI))).toEqual([]);
   });
 });
 
@@ -77,7 +83,8 @@ describe('the day’s pie', () => {
     // fill however much Sean actually did.
     const hs = [habit('a', 's1', 'always'), habit('w', 's1', 'weekdays')];
     const ticked = (id: string) => id === 'a';
-    // Saturday: only 'a' counts, and it is ticked — a full circle.
+    // Saturday: the weekdays habit is off schedule and untouched, so only 'a'
+    // counts, and it is ticked — a full circle.
     expect(dayShares(secs, hs, ticked, SAT)).toEqual([
       { color: '#ff0000', frac: 1 },
       { color: '#00ff00', frac: 0 },
@@ -100,6 +107,31 @@ describe('the day’s pie', () => {
       { color: '#ff0000', frac: 0 },
       { color: '#00ff00', frac: 0 },
     ]);
+  });
+
+  it('a weekend tick is a bonus: it can only help the circle, never dilute it', () => {
+    // The rule Sean asked for on 2026-08-12, stated as the two halves that
+    // matter. A weekdays habit at the weekend enters BOTH sides or NEITHER.
+    const hs = [habit('a', 's1', 'always'), habit('w', 's1', 'weekdays')];
+
+    // Nothing done at all: the untouched weekend habit stays out of the
+    // denominator, so the circle is empty rather than half-failed.
+    expect(dayShares(secs, hs, () => false, SAT).map((x) => x.frac)).toEqual([0, 0]);
+
+    // The always habit done, the weekend one not: a FULL circle, because the
+    // weekend one was never asked for.
+    expect(dayShares(secs, hs, (id) => id === 'a', SAT)[0]!.frac).toBe(1);
+
+    // Both done: still a full circle — a bonus cannot make a finished day
+    // read as unfinished.
+    expect(dayShares(secs, hs, () => true, SAT)[0]!.frac).toBe(1);
+
+    // The bonus alone does NOT fill the circle, and this is the assertion
+    // worth having: 'a' is an always habit, so it is due on Saturday whether
+    // or not it is done. Doing only the weekend bonus leaves it half — the
+    // bonus joins the denominator it earns, it does not excuse the day's real
+    // work. (Written expecting 1 at first; the suite was right and I was not.)
+    expect(dayShares(secs, hs, (id) => id === 'w', SAT)[0]!.frac).toBe(0.5);
   });
 
   it('splits the circle between sections, and the shares sum to one when everything is done', () => {

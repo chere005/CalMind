@@ -4,6 +4,15 @@ The Ralph loop's working memory: what's shipped, what's in flight, what's next,
 checked against the suite's CLAUDE.md/TESTING.md notes each pass. Keep this
 honest — the next iteration trusts it.
 
+## Removed
+
+- **The Scriptable widget, 2026-08-12, entirely, on Sean's word.** The lines
+  below that describe it are kept as the ledger they are — it did ship and it
+  did work — but the script, its setup page, the server's `widget_token` and
+  read-only feed, and every test of them are gone. The NATIVE home-screen
+  widget is untouched and is now the only one: it reads the App Group, never
+  that feed.
+
 ## Shipped (verified on web against seeded example/buddy)
 - Core: spec replay (parse/repeats/sort), day model (overdue collection,
   rideAlong riders, repeat expansion), normalize guarantees, manage rules

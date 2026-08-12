@@ -3,9 +3,11 @@ import SwiftUI
 import AppIntents
 
 /**
- The iPhone home-screen widget, drawn to match tools/scriptable-widget.js —
- the one Sean has actually been living with. That widget's decisions are kept
- deliberately: near-black card, one heading per DAY rather than per kind, a
+ The iPhone home-screen widget, drawn to match the Scriptable widget Sean had
+ actually been living with — `tools/scriptable-widget.js`, REMOVED ENTIRELY on
+ 2026-08-12 on his word, so this native one is now the only home-screen
+ widget and the references to it below are lineage rather than a file you can
+ open. That widget's decisions are kept deliberately: near-black card, one heading per DAY rather than per kind, a
  square tick box for a reminder (a thing to DO) against a coloured dot for an
  event, the label one line, the time right-aligned in grey, a hairline under
  each date and a heavier rule between days.

@@ -1137,60 +1137,6 @@ test('unticking Include notes shows what it would drop, rather than hiding it', 
   expect(user).toBeTruthy();
 });
 
-test('the widget setup page bakes the pin and carries the whole script', async ({ page }) => {
-  const user = await signup(page);
-  await page.getByText(user, { exact: true }).click();
-  await page.getByText('Settings', { exact: true }).click();
-  await page.getByTestId('open-widget').click();
-  await expect(page.getByText('Calendar widget')).toBeVisible();
-  await expect(page.getByTestId('copy-script')).toBeVisible({ timeout: 10_000 });
-  await page.getByText(/Show raw feed URL/).click();
-  const raw = await page.getByText(/feed=1&t=/).last().innerText();
-  expect(raw).toContain('&cals=all'); // every calendar showing → the all pin
-  await expect(page.getByText(/every calendar/)).toBeVisible();
-
-  // …and the script it hands over is the SUITE's widget, not the flat list a
-  // rewrite once shipped: a header row, uppercase day headings with today in
-  // green over its own rule, a heavier rule between days, the time
-  // right-aligned rather than crammed in front of the title, and a real
-  // empty-state line. These two copies (this page and
-  // tools/scriptable-widget.js) drifted apart once already.
-  // Opening this page used to RETIRE the key the widget was already using, so
-  // a visit out of curiosity killed the widget on the home screen with nothing
-  // said. It does not any more: a first visit mints one and says it is yours
-  // to keep.
-  await expect(page.getByTestId('widget-replaces')).toContainText('yours to keep');
-
-  await expect(page.getByTestId('copy-script')).toBeVisible({ timeout: 10_000 });
-
-  const script = await page.getByTestId('script-body').innerText();
-  for (const mark of [
-    'head.addText("Calendar")',      // the header row
-    'toUpperCase()',                 // uppercase day headings
-    'rule(2, "#3a3a3a")',            // the divider between days
-    'rule(1, isToday ? "#2f5f4d"',   // today's own green underline
-    'No more items today.',          // the empty state, not an omitted day
-    'row.addSpacer();',              // the time pushed to the far edge
-  ]) {
-    expect(script, `the widget script kept: ${mark}`).toContain(mark);
-  }
-  // The regression it shipped as: amber headings and the time inline.
-  expect(script).not.toContain('#f0b429');
-  expect(script).not.toContain('row.time + " "');
-
-  // A SECOND visit hands out nothing rather than rotating: the key cannot be
-  // shown twice (only its hash is kept), so the page offers the rotation
-  // instead of performing it. That is the guard the old behaviour lacked —
-  // opening this page used to retire the key the widget was using, silently.
-  await page.getByText('← Calendar', { exact: true }).click();
-  await page.getByText(user, { exact: true }).click();
-  await page.getByText('Settings', { exact: true }).click();
-  await page.getByTestId('open-widget').click();
-  await expect(page.getByTestId('widget-held')).toBeVisible({ timeout: 10_000 });
-  await expect(page.getByTestId('widget-rotate')).toBeVisible();
-  await expect(page.getByTestId('widget-replaces')).toHaveCount(0);
-});
-
 test('habits shows five day columns on a phone and seven with room, paging without gaps', async ({ page }) => {
   // Sean's rule, made a real breakpoint rather than a permanent narrowing.
   await signup(page);

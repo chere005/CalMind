@@ -12,9 +12,9 @@ import { join } from 'node:path';
  * deployed, which is the sort of thing a person notices before a test does.
  *
  * This reads the SOURCE rather than driving each screen. Some of these pages
- * are behind a widget token or a partner handshake, and a spec that toured
- * them all would be a tour rather than a check. The rule is one line: if you
- * call timeLabel, you pass the flag.
+ * are behind a partner handshake, and a spec that toured them all would be a
+ * tour rather than a check. The rule is one line: if you call timeLabel, you
+ * pass the flag.
  */
 const SRC = join(__dirname, '..', 'apps', 'app', 'src');
 

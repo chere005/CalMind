@@ -282,183 +282,6 @@ t('logout revokes exactly that token', function () {
     eq(200, api(['action' => 'whoami'], $t2)['status'], 'the other device stays signed in');
 });
 
-echo "\n\033[1mwidget feed\033[0m\n";
-t('the widget token reads the feed — dated rows in, undated non-riders out', function () use ($tokenA) {
-    $dated = ['id' => 'wfeed', 'type' => 'reminder', 'updated' => 8000,
-              'payload' => ['text' => 'feed me', 'due' => date('Y-m-d'), 'time' => null, 'done' => false,
-                            'repeat' => null, 'folderId' => 'f', 'sectionId' => 's', 'indent' => 0, 'ord' => 'V']];
-    $loose = ['id' => 'wloose', 'type' => 'reminder', 'updated' => 8000,
-              'payload' => ['text' => 'not on the widget', 'due' => null, 'time' => null, 'done' => false,
-                            'repeat' => null, 'folderId' => 'f', 'sectionId' => 's', 'indent' => 0, 'ord' => 'W']];
-    api(['action' => 'sync', 'cursor' => 0, 'changes' => [$dated, $loose]], $tokenA);
-    // rotate: these specs want a usable key, not the "you already have one"
-    // answer that a second plain call now (correctly) gives.
-    $wt = api(['action' => 'widget_token', 'rotate' => true], $tokenA)['body']['token'];
-    ok(strlen($wt) === 48, 'a widget token minted');
-    global $port;
-    $feed = json_decode((string) @file_get_contents("http://127.0.0.1:$port/api/index.php?feed=1&t=$wt"), true);
-    ok(!empty($feed['ok']), 'the feed answers the token');
-    $texts = [];
-    foreach (($feed['days'] ?? []) as $rows) { foreach ($rows as $r) { $texts[] = $r['text']; } }
-    ok(in_array('feed me', $texts, true), 'a dated reminder feeds');
-    ok(!in_array('not on the widget', $texts, true), 'an undated non-rider stays off the widget');
-});
-t('the feed follows the suite: rolled repeats keep future dates, hidden folders drop out', function () use ($tokenA) {
-    global $port;
-    $lastWeek = date('Y-m-d', strtotime('-7 days'));
-    $rows = [
-        // Overdue weekly repeat: today (rolled) AND its next date inside the window.
-        ['id' => 'wrep', 'type' => 'reminder', 'updated' => 8100,
-         'payload' => ['text' => 'water ferns', 'due' => $lastWeek, 'time' => null, 'done' => false,
-                       'repeat' => ['n' => 1, 'unit' => 'week'], 'folderId' => 'f', 'sectionId' => 's', 'indent' => 0, 'ord' => 'X']],
-        // A folder switched off in prefs: its reminder never feeds.
-        ['id' => 'fhid', 'type' => 'folder', 'updated' => 8100, 'payload' => ['name' => 'Hidden', 'color' => '#929aaa', 'ord' => 'z', 'app' => 'reminders']],
-        ['id' => 'whid', 'type' => 'reminder', 'updated' => 8100,
-         'payload' => ['text' => 'invisible', 'due' => date('Y-m-d'), 'time' => null, 'done' => false,
-                       'repeat' => null, 'folderId' => 'fhid', 'sectionId' => 's', 'indent' => 0, 'ord' => 'Y']],
-        ['id' => 'prefs_reminders', 'type' => 'pref', 'updated' => 8100, 'payload' => ['hidden' => ['fhid']]],
-    ];
-    api(['action' => 'sync', 'cursor' => 0, 'changes' => $rows], $tokenA);
-    // rotate: these specs want a usable key, not the "you already have one"
-    // answer that a second plain call now (correctly) gives.
-    $wt = api(['action' => 'widget_token', 'rotate' => true], $tokenA)['body']['token'];
-    $feed = json_decode((string) @file_get_contents("http://127.0.0.1:$port/api/index.php?feed=1&t=$wt"), true);
-    $today = date('Y-m-d');
-    $texts = fn($d) => array_column($feed['days'][$d] ?? [], 'text');
-    ok(in_array('water ferns', $texts($today), true), 'the rolled one sits on today');
-    $rolled = array_values(array_filter($feed['days'][$today], fn($r) => $r['text'] === 'water ferns'))[0];
-    ok(!empty($rolled['rolled']), 'and wears the rolled tint');
-    $next = date('Y-m-d', strtotime($lastWeek . ' +14 days'));
-    ok(in_array('water ferns', $texts($next), true), 'its future repeat date still lists');
-    $all = [];
-    foreach (($feed['days'] ?? []) as $rs) { foreach ($rs as $r) { $all[] = $r['text']; } }
-    ok(!in_array('invisible', $all, true), 'a hidden folder never feeds');
-    ok(count($all) <= 12, 'the suite cap of 12 rows holds');
-});
-t('a repeat that cannot advance does not fill the widget with one row', function () {
-    global $port;
-    // The SAME bug core's repeatDates was fixed for, in the feed's own copy of
-    // the expansion — which is an inline closure here, not a named function,
-    // and so was missed when "nothing outside core reimplements repeats" was
-    // checked by grepping for one. Every step returns the start, `$d > $to`
-    // never trips, and the same day is pushed 400 times.
-    //
-    // The 12-row cap does not save it: the cap is spent day by day from today
-    // forward, so one bad record takes all twelve and every later day gets
-    // nothing. The widget shows twelve copies of one row for three weeks.
-    //
-    // A FRESH account, because the cap is global — on the shared one the
-    // earlier specs' records decide how much room is left and this would
-    // assert about them instead.
-    $r = api(['action' => 'signup', 'username' => 'nonadv', 'email' => 'nonadv@example.com', 'password' => 'nonadvpass']);
-    eq(200, $r['status'], 'fresh account');
-    $tok = $r['body']['token'];
-    $today = date('Y-m-d');
-    api(['action' => 'sync', 'cursor' => 0, 'changes' => [
-        ['id' => 'stuck', 'type' => 'reminder', 'updated' => 9100,
-         'payload' => ['text' => 'stuck', 'due' => $today, 'time' => null, 'done' => false,
-                       'repeat' => ['n' => 0, 'unit' => 'day'], 'folderId' => 'f', 'sectionId' => 's', 'indent' => 0, 'ord' => 'A']],
-        ['id' => 'later', 'type' => 'reminder', 'updated' => 9100,
-         'payload' => ['text' => 'later', 'due' => date('Y-m-d', strtotime('+3 days')), 'time' => null, 'done' => false,
-                       'repeat' => null, 'folderId' => 'f', 'sectionId' => 's', 'indent' => 0, 'ord' => 'B']],
-    ]], $tok);
-    $wt = api(['action' => 'widget_token', 'rotate' => true], $tok)['body']['token'];
-    $feed = json_decode((string) @file_get_contents("http://127.0.0.1:$port/api/index.php?feed=1&t=$wt"), true);
-    $all = [];
-    foreach (($feed['days'] ?? []) as $rs) { foreach ($rs as $r0) { $all[] = $r0['text']; } }
-    eq(1, count(array_filter($all, fn($t) => $t === 'stuck')), 'it lists once, as the one-off it is');
-    ok(in_array('later', $all, true), 'and does not crowd out the rest of the window');
-
-    // The other non-advancing shape, and the one where this port could differ
-    // from core: PHP reaches it through match()'s `default`, which catches a
-    // unit it has never seen the same way the TypeScript falls through to its
-    // month/year branch. A missing `n` or a missing `unit` lands here too.
-    api(['action' => 'sync', 'cursor' => 0, 'changes' => [
-        ['id' => 'stuck2', 'type' => 'reminder', 'updated' => 9200,
-         'payload' => ['text' => 'unknown unit', 'due' => $today, 'time' => null, 'done' => false,
-                       'repeat' => ['n' => 1, 'unit' => 'fortnight'], 'folderId' => 'f', 'sectionId' => 's', 'indent' => 0, 'ord' => 'C']],
-    ]], $tok);
-    $feed2 = json_decode((string) @file_get_contents("http://127.0.0.1:$port/api/index.php?feed=1&t=$wt"), true);
-    $all2 = [];
-    foreach (($feed2['days'] ?? []) as $rs) { foreach ($rs as $r0) { $all2[] = $r0['text']; } }
-    eq(1, count(array_filter($all2, fn($t) => $t === 'unknown unit')), 'an unrecognised unit lists once too');
-});
-t('the cals= pin narrows the feed to the calendars baked at copy time', function () use ($tokenA) {
-    global $port;
-    api(['action' => 'sync', 'cursor' => 0, 'changes' => [
-        ['id' => 'calA', 'type' => 'calendar', 'updated' => 8200, 'payload' => ['name' => 'Home', 'color' => '#0379f6', 'ord' => 'a']],
-        ['id' => 'calB', 'type' => 'calendar', 'updated' => 8200, 'payload' => ['name' => 'Work', 'color' => '#ed0d10', 'ord' => 'b']],
-        ['id' => 'evA', 'type' => 'event', 'updated' => 8200, 'payload' => ['text' => 'home thing', 'date' => date('Y-m-d'), 'time' => null, 'repeat' => null, 'calendarId' => 'calA', 'ord' => 'a']],
-        ['id' => 'evB', 'type' => 'event', 'updated' => 8200, 'payload' => ['text' => 'work thing', 'date' => date('Y-m-d'), 'time' => null, 'repeat' => null, 'calendarId' => 'calB', 'ord' => 'b']],
-    ]], $tokenA);
-    // rotate: these specs want a usable key, not the "you already have one"
-    // answer that a second plain call now (correctly) gives.
-    $wt = api(['action' => 'widget_token', 'rotate' => true], $tokenA)['body']['token'];
-    $texts = function (string $extra) use ($wt) {
-        global $port;
-        $feed = json_decode((string) @file_get_contents("http://127.0.0.1:$port/api/index.php?feed=1&t=$wt$extra"), true);
-        $out = [];
-        foreach (($feed['days'] ?? []) as $rows) { foreach ($rows as $r) { $out[] = $r['text']; } }
-        return $out;
-    };
-    $pinned = $texts('&cals=calA');
-    ok(in_array('home thing', $pinned, true), 'the pinned calendar feeds');
-    ok(!in_array('work thing', $pinned, true), 'the unpinned one does not');
-    $all = $texts('&cals=all');
-    ok(in_array('work thing', $all, true), 'cals=all follows prefs as before');
-    $stale = $texts('&cals=ghost1,ghost2');
-    ok(in_array('work thing', $stale, true), 'a fully-stale pin falls back to prefs');
-});
-t('the feed speaks the account\'s clock, not always a 12-hour one', function () {
-    global $port;
-    // Every other surface reads prefs_suite.clock24 — the app through
-    // useClock24, the watch and the complication through watchFeed, which
-    // carries the flag out to Swift. The widget feed formats times itself, in
-    // PHP, and always spoke 12-hour whatever the setting said. That is the
-    // straggler that makes a per-account preference feel unreliable: you set
-    // 24-hour and one surface out of four ignores you.
-    //
-    // A fresh account so the setting is the only thing under test.
-    $r = api(['action' => 'signup', 'username' => 'clockw', 'email' => 'clockw@example.com', 'password' => 'clockwpass']);
-    eq(200, $r['status'], 'fresh account');
-    $tok = $r['body']['token'];
-    $today = date('Y-m-d');
-    api(['action' => 'sync', 'cursor' => 0, 'changes' => [
-        ['id' => 'ev24', 'type' => 'reminder', 'updated' => 9300,
-         'payload' => ['text' => 'standup', 'due' => $today, 'time' => '15:30', 'done' => false,
-                       'repeat' => null, 'folderId' => 'f', 'sectionId' => 's', 'indent' => 0, 'ord' => 'A']],
-        ['id' => 'ev00', 'type' => 'reminder', 'updated' => 9300,
-         'payload' => ['text' => 'sharp', 'due' => $today, 'time' => '09:00', 'done' => false,
-                       'repeat' => null, 'folderId' => 'f', 'sectionId' => 's', 'indent' => 0, 'ord' => 'B']],
-    ]], $tok);
-    $wt = api(['action' => 'widget_token', 'rotate' => true], $tok)['body']['token'];
-    $read = function () use ($port, $wt, $today) {
-        $feed = json_decode((string) @file_get_contents("http://127.0.0.1:$port/api/index.php?feed=1&t=$wt"), true);
-        $out = [];
-        foreach (($feed['days'][$today] ?? []) as $r0) { $out[$r0['text']] = $r0['time']; }
-        return $out;
-    };
-    $twelve = $read();
-    eq('3:30pm', $twelve['standup'] ?? null, 'the default is still the suite 12-hour style');
-    eq('9am', $twelve['sharp'] ?? null, 'and still drops :00 there');
-
-    api(['action' => 'sync', 'cursor' => 0, 'changes' => [
-        ['id' => 'prefs_suite', 'type' => 'pref', 'updated' => 9400, 'payload' => ['clock24' => true]],
-    ]], $tok);
-    $t24 = $read();
-    // core's timeLabel keeps the leading zero and the minutes ALWAYS on a
-    // 24-hour clock: '09:00', never '9' — which reads as a number, not a time.
-    eq('15:30', $t24['standup'] ?? null, 'the account asked for 24-hour');
-    eq('09:00', $t24['sharp'] ?? null, 'leading zero and minutes kept, as core does it');
-});
-t('a bad feed token is a 401 and a bearer token does not work as one', function () use ($tokenA) {
-    global $port;
-    $r1 = json_decode((string) @file_get_contents("http://127.0.0.1:$port/api/index.php?feed=1&t=" . str_repeat('0', 48)), true);
-    ok(empty($r1['ok']), 'garbage refused');
-    $r2 = json_decode((string) @file_get_contents("http://127.0.0.1:$port/api/index.php?feed=1&t=$tokenA"), true);
-    ok(empty($r2['ok']), 'a WRITE bearer token is not a feed token');
-});
-
 echo "\n\033[1mpasswords\033[0m\n";
 t('change_password needs the old one and revokes other tokens', function () use (&$tokenA) {
     eq(403, api(['action' => 'change_password', 'old' => 'wrong', 'new' => 'alicepass2'], $tokenA)['status'], 'wrong old');
@@ -586,33 +409,6 @@ t('removal on either side ends sharing instantly, both ways', function () use ($
     eq(null, api(['action' => 'shared_pull'], $tokP)['body']['partner'], 'and pat loses quinn the same instant');
     eq(403, api(['action' => 'shared_put', 'partner' => 'pat', 'record' =>
         ['id' => 'rs', 'type' => 'reminder', 'updated' => 10, 'payload' => ['text' => 'x', 'due' => null, 'time' => null, 'done' => false, 'repeat' => null, 'folderId' => 'fs', 'sectionId' => 'ss', 'indent' => 0, 'ord' => 'a']]], $tokQ)['status'], 'writes die with the handshake');
-});
-
-t('opening the widget page does NOT retire the key the widget is using', function () {
-    // It used to. The two blocks in handle_widget_token contradicted each
-    // other — the first returned null for "already minted; the client keeps
-    // its copy", the second then deleted that token and minted a fresh one —
-    // so every visit to Settings → Widget silently killed the widget on the
-    // home screen. Invisible, and it reads as the widget being broken rather
-    // than as something you did.
-    $tok = api(['action' => 'signup', 'username' => 'widgy', 'email' => 'w@example.com', 'password' => 'widgypassword'])['body']['token'];
-    $first = api(['action' => 'widget_token'], $tok)['body']['token'];
-    ok($first !== '' && $first !== null, 'the first visit mints a key');
-
-    $again = api(['action' => 'widget_token'], $tok)['body'];
-    eq(true, $again['exists'] ?? false, 'a second visit says one already exists');
-    eq(null, $again['token'], 'and hands out nothing — only the hash is kept, so it cannot be shown twice');
-
-    // The feed still works on the original key, which is the whole point.
-    global $port;
-    $feed = @file_get_contents("http://127.0.0.1:$port/api/index.php?feed=1&t=$first");
-    ok($feed !== false, 'the key the widget already holds still feeds');
-
-    // Rotation is available, but only when asked for by name.
-    $rot = api(['action' => 'widget_token', 'rotate' => true], $tok)['body']['token'];
-    ok($rot !== '' && $rot !== null && $rot !== $first, 'rotate mints a different key');
-    $dead = @file_get_contents("http://127.0.0.1:$port/api/index.php?feed=1&t=$first");
-    ok($dead === false, 'and the old one stops feeding, as a rotation should');
 });
 
 t('an OVERSIZED record is REFUSED by name, not dropped in silence', function () {
@@ -940,9 +736,10 @@ t('recipe_fetch: the ENDPOINT is behind auth and behind the address guard', func
 });
 
 t("the server's day is Chicago's, not UTC", function () {
-    // The feed asks the server what day it is. Left on UTC that answer turned
-    // over at 7pm Chicago, so the widget spent every evening calling tomorrow
-    // "today" and rolling reminders a day early with it.
+    // Anything here that asks what day it is gets this answer. Left on UTC it
+    // turned over at 7pm Chicago, so every server-decided date was a day early
+    // all evening. Found through the widget feed, since removed; repeats and
+    // dated reads still ask, so the rule outlived the thing that exposed it.
     eq('America/Chicago', date_default_timezone_get(), 'the default the config can move');
     // And the answer itself: the server's date must equal Chicago's date,
     // which is the thing that actually bit — not merely a string setting.

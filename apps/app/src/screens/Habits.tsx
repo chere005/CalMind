@@ -11,7 +11,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Svg, { Circle, Path } from 'react-native-svg';
-import { byRecOrd, dayShares, habitListedOn, monthGrid, moveHabit, moveHabitSection, newId, ordBetween, prefsOf, prefsPut, tickId, todayStr, type Frequency, type Rec } from '@calmind/core';
+import { byRecOrd, dayShares, habitOnScheduleOn, monthGrid, moveHabit, moveHabitSection, newId, ordBetween, prefsOf, prefsPut, tickId, todayStr, type Frequency, type Rec } from '@calmind/core';
 import { useStore } from '../store';
 import { APP_PALETTES, themed, T } from '../theme';
 import { TopBar } from '../chrome';
@@ -499,29 +499,44 @@ export function Habits() {
                         {edit && <ConfirmDelete size={24} onDelete={() => mutate((e) => e.del(h.id))} />}
                       </View>
                       {days.map((d) => {
-                        // "Weekdays … it's taken out of the list on weekend
-                        // days entirely" (Sean). A row spans every column, so
-                        // "out of the list" for one day means the CELL is not
-                        // there — no circle to tick, and nothing that reads as
-                        // a habit you failed at on a Sunday. The column keeps
-                        // its width so the grid stays square.
-                        if (!habitListedOn(h, d)) {
-                          return <View key={d} style={s.dayCol} testID="habit-cell-off" />;
-                        }
+                        // An off-schedule day — a weekend for a weekdays
+                        // habit. It used to have NO cell at all: "taken out of
+                        // the list on weekend days entirely". Sean revised
+                        // that on 2026-08-12 — the circle stays, drawn faint,
+                        // and can still be ticked, because a weekend run is
+                        // still a run. Faint is the whole signal: it says this
+                        // one is not asked of you today, and core says an
+                        // untouched one costs nothing while a ticked one
+                        // counts.
                         const on = ticked(h.id, d);
+                        const off = !habitOnScheduleOn(h, d);
                         const future = d > today;
                         return (
                           <View key={d} style={s.dayCol}>
                             <Pressable
                               disabled={future}
                               onPress={() => toggle(h.id, d)}
+                              // A tick box is a checkbox, and a bare coloured
+                              // square announces nothing. It also gives the
+                              // suite the one thing it had no way to read:
+                              // whether a cell is ticked.
+                              accessibilityRole="checkbox"
+                              // `aria-checked`, not accessibilityState: RNW
+                              // renders the role and the label from the
+                              // latter but drops the CHECKED bit entirely
+                              // (verified in the DOM), and RN maps the aria
+                              // prop to accessibilityState on the native side.
+                              aria-checked={on}
+                              accessibilityLabel={`${h.payload.name} — ${d}${off ? ' (not scheduled)' : ''}`}
                               style={[
                                 s.tickCell,
                                 { borderColor: tint(sec.payload.color, '44'), backgroundColor: tint(sec.payload.color, '10') },
                                 on && { backgroundColor: sec.payload.color, borderColor: sec.payload.color },
                                 d === today && s.tickCellToday,
                                 future && s.tickCellFuture,
+                                off && s.tickCellOff,
                               ]}
+                              testID={off ? 'habit-cell-off' : undefined}
                             />
                           </View>
                         );
@@ -633,6 +648,10 @@ const s = themed(() => StyleSheet.create({
   tickCell: { width: 38, height: 38, borderRadius: 19, borderWidth: 1.5 },
   tickCellToday: { borderColor: T.accent, borderWidth: 2 },
   tickCellFuture: { opacity: 0.35 },
+  // Faint, not gone: an off-schedule day is still tickable, so it has to look
+  // available rather than disabled. Lighter than the future's 0.35, which
+  // really is untouchable.
+  tickCellOff: { opacity: 0.45 },
   monthGridRow: { flexDirection: 'row', flexWrap: 'wrap' },
   monthHead: { width: `${100 / 7}%`, textAlign: 'center', color: T.muted, fontSize: 11, paddingVertical: 2 },
   monthCell: { width: `${100 / 7}%`, alignItems: 'center', paddingVertical: 6, gap: 3 },
