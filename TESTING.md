@@ -419,6 +419,41 @@ Nothing was found wrong. That is the point of writing it down: "the checker
 works" is a claim, and until the subject has been broken under it, it is an
 untested one.
 
+### What the SCREEN costs as it grows, measured 2026-08-12
+
+The measurements below that one are core's: pure functions, all linear, all
+under 4ms at 8,000 records. They say nothing about the app, because the cost
+that reaches Sean is the re-render, and no spec has ever run against more
+than about five items — the whole suite builds its own data by hand.
+
+Seeded through the snapshot the store already persists (`calmind.snapshot.
+<user>`, shape `{cursor, recs, dirty}`) and reloaded into, then a real
+interaction timed: typing ten characters into the reminders add field, which
+re-renders the list on every keystroke.
+
+| reminders in the store | ms per keystroke |
+|---|---|
+| 10 | 5.1 |
+| 100 | 15.4 |
+| 400 | 39.6 |
+
+Roughly linear — forty times the records for about eight times the cost — so
+`flatIdxOf`'s findIndex-per-row does NOT dominate the way reading it suggests
+it might. Suspected quadratic, measured not.
+
+What it does say is that the screen, not core, is where the time goes, and
+that 400 reminders already costs ~40ms a keystroke on a fast desktop under
+Chromium. Perceptible lag starts around 50–100ms, so this is approaching it
+rather than at it, and a phone is slower than this machine. Worth
+re-measuring before assuming a large store still feels fine, and worth
+knowing that the fix would be in the render (virtualising, or memoising rows)
+rather than in core, which is already fast.
+
+Not turned into a test: a timing assertion on a shared machine is a flake
+generator, and this suite already has one flake it does not need company for.
+The seeding recipe above is the reusable part — it takes about ten lines and
+gets a realistic store in under a second.
+
 ### What the store costs as it grows, measured 2026-08-12
 
 Nothing watches performance, and the two questions worth an answer both had
