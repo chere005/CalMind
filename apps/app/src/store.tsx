@@ -157,11 +157,18 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   // and none of them ever recovering. Two concurrent syncs of one engine are
   // no use even when the network is healthy; they race the same dirty set.
   const syncing = useRef(false);
+  // …but a request that arrives DURING one is remembered, not dropped. The
+  // guard alone traded a pile-up for a delay: an edit made while a slow sync
+  // was in flight had its debounced push skipped, and then waited for the
+  // thirty-second poll, because the running sync only carries what was dirty
+  // when it STARTED. One extra pass afterwards costs nothing and is what the
+  // debounce was promising in the first place.
+  const syncAgain = useRef(false);
 
   const syncNow = useCallback(async () => {
     const s = sessionRef.current;
     if (!s) return;
-    if (syncing.current) return;
+    if (syncing.current) { syncAgain.current = true; return; }
     syncing.current = true;
     setSyncState('syncing');
     // The OUTER try exists only for the finally: the 401 path below returns
@@ -202,6 +209,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     persistNow(s.username);
     } finally {
       syncing.current = false;
+      // Only if there is still a session: the 401 path above clears it and
+      // returns through here, and syncing after a sign-out is both useless and
+      // a way to resurrect a dead token's error.
+      if (syncAgain.current && sessionRef.current) {
+        syncAgain.current = false;
+        void syncNow();
+      } else {
+        syncAgain.current = false;
+      }
     }
   }, [refresh, persistNow, pullShared]);
 

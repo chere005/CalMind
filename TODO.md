@@ -14,7 +14,7 @@ Standing rules live in `CLAUDE.md`, not here.
 
 ## Suite counts, as of this commit
 
-core **477** · gesture **161** (+1 skipped) · WebKit **16** · server **53** ·
+core **477** · gesture **162** (+2 skipped) · WebKit **16** · server **53** ·
 live **19** with the API · desktop **7** (+3 in `npm run test:desktop`) · deploy guards **9** · plus the four
 native seam checkers no browser can reach: `npm run test:watch`,
 `npm run test:widget`, `npm run test:deploy`.
@@ -989,6 +989,15 @@ then the watch needs the direct install and the build number is the proof.
   wedges syncing for the life of the page, which is worse than the pile-up.
   Same care on the timer, cleared in its own `finally` so a failed request
   does not leave one holding the event loop.
+
+  AND THE GUARD ALONE WAS HALF A FIX. Dropping a request that arrives during a
+  sync trades a pile-up for a delay: the running sync carries only what was
+  dirty when it STARTED, so an edit made mid-flight is not in it and its own
+  debounced push is thrown away — the next chance being the thirty-second poll.
+  On a slow link that is half a minute of a reminder living on one device while
+  the app says nothing is wrong. The request is remembered now and one more
+  pass runs when the current one finishes, guarded on the session still
+  existing so a 401 does not sync after signing out.
 
   Removing the guard turns the spec back to four. What the spec does NOT claim
   is that the state reaches Offline — Settings already said "Syncing…" rather
