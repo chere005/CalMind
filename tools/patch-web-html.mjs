@@ -155,7 +155,32 @@ if (!/id="calmind-vh"/.test(html)) {
  */
 const TOOLS = dirname(fileURLToPath(import.meta.url));
 const WORKER = 'sw.js';
-const bundle = (/index-[a-f0-9]+\.js/.exec(html) || ['nohash'])[0];
+// NO SILENT FALLBACK. This used to answer 'nohash' when the regex missed, and
+// everything downstream kept working while quietly meaning something else: the
+// cache name stopped changing between deploys, and — the one that matters —
+// CRITICAL lost the entry bundle, so `cache.addAll` had nothing left to fail
+// on. The list whose entire job is to make a bad install FAIL rather than
+// pretend would have installed happily, reported itself healthy, and left the
+// app unable to open on a train. Exactly the shape sw.js's own header warns
+// about, one file upstream of it.
+//
+// Measured rather than argued: with the fallback and a bundle name the pattern
+// does not match, the export exits 0 with CACHE 'calmind-nohash' and CRITICAL
+// ["./index.html"].
+//
+// Reachable on an Expo upgrade rather than in theory — apps/app/AGENTS.md
+// exists because Expo's export has changed before. A build that cannot name
+// its own bundle is not one worth shipping.
+const bundleMatch = /index-[a-f0-9]+\.js/.exec(html);
+if (!bundleMatch) {
+  throw new Error(
+    'patch-web-html: no index-<hash>.js in ' + file + '\n' +
+      'The service worker needs the entry bundle by name — for its cache name, and for\n' +
+      'CRITICAL, which is what makes a failed install loud. If the export changed how it\n' +
+      'names bundles, fix this pattern rather than letting it fall back.',
+  );
+}
+const bundle = bundleMatch[0];
 // Everything the export produced, as scope-relative URLs: the document, the
 // manifest, and every hashed asset — the bundle above all, which the worker
 // can never catch at runtime because it does not control the load that

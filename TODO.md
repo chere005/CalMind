@@ -851,6 +851,29 @@ then the watch needs the direct install and the build number is the proof.
   Unlocked, 119 of 160 increments vanish, on every run of three. Locked, none
   do. A guard that only fires under concurrency needs a test that creates some.
 
+- **The service worker's CRITICAL list could quietly lose the entry bundle.**
+  `patch-web-html.mjs` read the bundle name with
+  `(/index-[a-f0-9]+\.js/.exec(html) || ['nohash'])[0]` — a silent fallback,
+  and everything downstream kept working while meaning something else.
+
+  Measured rather than argued. Feed it a bundle name the pattern does not
+  match and the export exits **0**, with `CACHE = 'calmind-nohash'` — a name
+  that never changes between deploys — and `CRITICAL = ["./index.html"]`. The
+  entry bundle drops out of the one list whose entire job is to make a bad
+  install FAIL instead of pretend: `cache.addAll` would have nothing left to
+  fail on, the worker would install, report itself healthy, and leave the app
+  unable to open on a train. That is the exact shape sw.js's own header warns
+  about, one file upstream of it.
+
+  It throws now, naming the file and the fix. Reachable on an Expo upgrade
+  rather than in theory: `apps/app/AGENTS.md` exists precisely because that
+  export has changed before, and the hash case or the path is all it would
+  take.
+
+  Verified both ways — the guard exits 1 on an unmatched name, the fallback
+  exits 0 and writes the hollow worker — and the offline-boot spec still
+  passes on the regenerated one.
+
 ## 4 · Steady state, every iteration
 
 - `git pull --autostash` first; stage explicit paths; never `git add -A`.
