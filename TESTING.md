@@ -659,6 +659,30 @@ because a screenshot of a stale build is extremely convincing). It is a list
 of what to LOOK at when something is reported on the phone and the suite says
 everything is fine, because for these five the suite was never speaking.
 
+### Compound states: "X while Y", 2026-08-12
+
+Four mutation survivors turned out to share a shape — each guarded a path
+where something ELSE was simultaneously true — so that shape was used as a
+PREDICTOR rather than just described. Every probe below is "do X while Y is
+happening", and the hit rate was worth the trouble: three real bugs, two
+load-bearing guards with no coverage, two behaviours that turned out correct.
+
+| X while Y | outcome |
+|---|---|
+| press a row's cluster button WHILE editing that row | **BUG** — stale `recs`; duplicate copied the pre-edit text, outdent wrote it back over the save |
+| swipe a recipe line, then ADD one | **BUG** — swipe keyed by index, the parked × deleted a different line |
+| edit a recipe line while an IMPORT lands | **BUG** — `editing.at` is an index; the correction overwrote a freshly imported line |
+| drag a recipe line while an import lands | correct-ish: the drag is DROPPED. A no-op rather than a wrong move, which is the safe failure — do not "fix" it into one |
+| drag a reminder while a ticked row above it leaves | correct — the right row moves; pinned in `dragunder.spec.ts` |
+| sign IN on a device with an empty engine | guard, untested — `seconddevice.spec.ts` |
+| a sharing call failing while the network is FINE | guard, untested — `sharedoffline.spec.ts` |
+
+The recipe editor accounts for three of the hits because it keys everything by
+INDEX — its lines are plain strings with no identity — while the list moves
+under them: adds prepend, imports prepend, drags reorder. Reminders keys the
+same states by record id and none of it applies there. That asymmetry is what
+made the file worth going through exhaustively rather than sampling.
+
 ### The APP layer, mutation-audited, 2026-08-12
 
 Core was audited on 2026-08-11. The screens never had been, and they are the
