@@ -194,6 +194,32 @@ The rest of that rendering is pinned now (`scalefrac.test.ts`), including the
 tolerance and the down-snap, both of which mutation showed nothing was
 watching.
 
+### The phone's top-bar title disappears behind a long username — your call
+Found by LOOKING at the app rather than testing it, 2026-08-11, which is a
+method this session had not used at all.
+
+At 390px the title is clipped once a username passes five characters, and it
+degrades badly: 6 chars leaves 119px of the 123 it needs, 8 leaves 105, 10
+leaves 91, and 17 leaves **4px** — the screen title renders as "R..", "C..",
+"H..". At desktop width everything fits.
+
+IT DOES NOT AFFECT YOU TODAY. Your username is four characters, which fits
+exactly — measured, not assumed. So this is about anyone else, and about the
+day a name gets longer.
+
+The code already states the rule it is following: "The title is what gives at a
+narrow width — it can ellipsize; the back control, the picker and the username
+cannot shrink without becoming unhittable." That is true of the back button and
+the picker, which are fixed 32pt circles. It is NOT true of the username's
+LABEL: the pill can ellipsize its text and keep every pixel of its hit area.
+So the stated criterion points at capping the username rather than the title —
+the title is the only thing in that bar that differs between screens, and you
+already know who you are.
+
+A `maxWidth` on the pill would be a no-op at four characters and would leave
+the title intact at seventeen. NOT DONE, because you have been specific about
+this bar before and how your own name renders is yours to decide.
+
 ### Smaller, still his
 - A FINISHED item greys out rather than keeping its folder colour. That is
   the suite's rule; it can go.
