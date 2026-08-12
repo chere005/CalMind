@@ -307,7 +307,7 @@ It was then dropped entirely when §3 was cut back — recovered from git.)
 ## 2 · Open bugs
 
 ### The new-note focus is a 50ms race (WebKit only)
-STILL LIVE, and the count is now 5 in ~28 full runs: it recurred on
+STILL LIVE, and the count is 5 in ~43 full runs: it recurred on
 2026-08-11 and twice on 2026-08-12, all at `app.spec.ts:359` ("note body
 renders its markers as styled text when you tap away"), each time passing
 3/3 in isolation and clean on the very next full run. Consistent with
@@ -319,19 +319,31 @@ run as a sweep that touched every screen, which is exactly when a flake is
 easiest to mistake for the change. Isolation and a clean re-run are what
 separate them, and they cost four minutes.
 
-**The RATE has changed, and that is the part worth acting on.** It was 3 in
-~24 runs. On 2026-08-12 alone it went 5 in ~28 — failing twice in four full
-WebKit runs that afternoon, each followed by a clean one. Roughly one run in
-two, against one in eight historically.
+**The rate did NOT change — that was a cluster, and measuring said so.**
+The two failures on 2026-08-12 arrived within four runs of each other, which
+looked like the rate jumping from 1-in-8 to 1-in-2 and got written down as
+such. Fifteen consecutive clean runs followed on the same machine the same
+afternoon. Over the day it is 2 in 19, which is the rate it always was.
 
-Stated as an observation and not a diagnosis, because two explanations fit
-and nothing here separates them: the machine was running suites back to back
-all afternoon, and a 50ms race is exactly what load makes worse; or something
-in that day's changes moved the timing. Against the second, the changes to
-Notes.tsx were all removals of dead code — an unused `Rule` import, a `goes`
-state and label nothing rendered — and the WebKit spec passed 3/3 in
-isolation each time. Whoever picks this up should get the rate under a quiet
-machine FIRST; a 1-in-2 flake is cheap to bisect and a 1-in-8 one is not.
+Worth keeping because it cost nothing and rules things out. Measured
+2026-08-12, all full WebKit runs, all clean:
+
+- **10 runs on a quiet machine** — nothing else running.
+- **4 runs under 8 busy loops** on an 8-core machine, run time pushed from
+  26s to 28s so the load was real. A 50ms race that CPU starvation does not
+  move is a useful thing to know: it points away from "the machine was busy"
+  and towards something in the page's own sequencing.
+- **1 run immediately after a full 7-minute gesture suite**, which is the
+  condition both failures actually shared.
+
+So two plausible causes are eliminated and the obvious third — that the
+day's changes moved the timing — is unsupported: those changes were removals
+of dead code, and 15 runs of the changed tree came back clean.
+
+The practical note stands, inverted: at ~1 in 10 this is expensive to bisect
+by re-running, and the failures CLUSTER, so a single red run says very little.
+Confirm with isolation plus a clean full re-run before believing it is
+anything but this.
 
 Ruled out 2026-08-11: the note editor's status dot, which was new that day and
 the obvious suspect — a clean A/B on the same spec passes with it and without.
