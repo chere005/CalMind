@@ -14,7 +14,7 @@ Standing rules live in `CLAUDE.md`, not here.
 
 ## Suite counts, as of this commit
 
-core **405** · gesture **156** (+1 skipped) · WebKit **16** · server **48** ·
+core **407** · gesture **156** (+1 skipped) · WebKit **16** · server **48** ·
 live **19** with the API · desktop **7** (+3 in `npm run test:desktop`) · deploy guards **9** · plus the four
 native seam checkers no browser can reach: `npm run test:watch`,
 `npm run test:widget`, `npm run test:deploy`.
@@ -556,6 +556,27 @@ then the watch needs the direct install and the build number is the proof.
   made — a guard that rejected a legitimate gap would be a worse bug than the
   one it fixes. Removing the guard turns the refusal test red; the app's only
   hand-written ord, manage.ts's `'zzzz'` ghost, cannot reach it.
+
+- **richLines is CLEAN — fuzzed, and it found nothing.** Worth writing down as
+  a result rather than as work: 10,000 random bodies over an alphabet of the
+  markers, a newline, an accent and an emoji, and the note's text is never
+  eaten, invented or reordered. The parser handles a surrogate pair correctly
+  because a marker is ASCII and cannot sit between its halves.
+
+  Three checks, none redundant, each proven by breaking richLines a different
+  way: the runs are a SUBSEQUENCE of the line (catches invented or reordered
+  text), everything removed is a marker (catches a dropped character), and the
+  markers really were removed (catches a parser that returns the line
+  untouched, which sails through the other two).
+
+  BOTH apparent failures on the way were faults in the CHECKING, and both are
+  the kind worth remembering. The subsequence helper walked the line by code
+  POINT while indexing the runs by code UNIT, so every body with an emoji read
+  as text loss. And the marker check ran on the runs JOINED: ">>é_*_-" parses
+  to [">>é_", "_-"], two runs each holding one literal underscore either side
+  of a consumed '*', which concatenate into a '__' that was never in the input.
+  It is per-run now — inside one run two adjacent underscores cannot both be
+  literal, because the parser would have eaten them.
 
 ## 4 · Steady state, every iteration
 
