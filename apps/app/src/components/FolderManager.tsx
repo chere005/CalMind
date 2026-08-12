@@ -8,6 +8,7 @@
 import React, { useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import {
+  byRecOrd,
   byOrd,
   deleteFolder,
   folderNameTaken,
@@ -49,8 +50,8 @@ export function FolderManager({ app, onClose }: { app: 'reminders' | 'notes'; on
   const { folders, sectionChoices, defaultSectionId } = useMemo(() => {
     const folders = recs
       .filter((r): r is Rec<'folder'> => r.type === 'folder' && (r.payload.app ?? 'reminders') === app)
-      .sort((a, b) => byOrd(a.payload, b.payload));
-    const sections = recs.filter((r): r is Rec<'section'> => r.type === 'section').sort((a, b) => byOrd(a.payload, b.payload));
+      .sort(byRecOrd);
+    const sections = recs.filter((r): r is Rec<'section'> => r.type === 'section').sort(byRecOrd);
     return {
       folders,
       sectionChoices: folders.flatMap((f) =>

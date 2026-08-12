@@ -6,7 +6,7 @@
  */
 import React, { useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { byOrd, prefsOf, prefsPut, type Rec } from '@calmind/core';
+import { byOrd, byRecOrd, prefsOf, prefsPut, type Rec } from '@calmind/core';
 import { useStore } from '../store';
 import { themed, T } from '../theme';
 import { pickHit, WebHitSlop } from '../ui';
@@ -18,7 +18,7 @@ export function useHabitSections(): { sections: Rec<'habitsection'>[]; hidden: s
   return useMemo(() => {
     const sections = recs
       .filter((r): r is Rec<'habitsection'> => r.type === 'habitsection')
-      .sort((a, b) => byOrd(a.payload, b.payload));
+      .sort(byRecOrd);
     const ids = new Set(sections.map((s) => s.id));
     const hidden = (prefsOf(recs, 'habits').hidden ?? []).filter((id) => ids.has(id));
     return { sections, hidden, visible: sections.filter((s) => !hidden.includes(s.id)) };

@@ -9,7 +9,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { REPEAT_UNITS, byOrd, deleteSection, duplicateItem, moveReminderBlock, moveSection, moveSectionEmptyingFolder, newId, nowStr, ordBetween, parseWhenFromText, reminderToggle, remindersMarkdown, renameSection, repeatLabel, sectionNameTaken, sortByDate, timeLabel, todayStr, type Rec, type Repeat } from '@calmind/core';
+import { REPEAT_UNITS, byOrd, byRecOrd, deleteSection, duplicateItem, moveReminderBlock, moveSection, moveSectionEmptyingFolder, newId, nowStr, ordBetween, parseWhenFromText, reminderToggle, remindersMarkdown, renameSection, repeatLabel, sectionNameTaken, sortByDate, timeLabel, todayStr, type Rec, type Repeat } from '@calmind/core';
 import * as Clipboard from 'expo-clipboard';
 import { useStore } from '../store';
 import { useClock24 } from '../useClock24';
@@ -165,8 +165,8 @@ export function Reminders() {
 
   const { folders, sectionsOf, remindersOf } = useMemo(() => {
     const folders = visibleFolders;
-    const sections = recs.filter((r): r is SectionRec => r.type === 'section').sort((a, b) => byOrd(a.payload, b.payload));
-    const reminders = recs.filter((r): r is ReminderRec => r.type === 'reminder').sort((a, b) => byOrd(a.payload, b.payload));
+    const sections = recs.filter((r): r is SectionRec => r.type === 'section').sort(byRecOrd);
+    const reminders = recs.filter((r): r is ReminderRec => r.type === 'reminder').sort(byRecOrd);
     return {
       folders,
       sectionsOf: (fid: string) => sections.filter((x) => x.payload.folderId === fid),
@@ -293,7 +293,7 @@ export function Reminders() {
   const addSubtask = (parent: ReminderRec) => {
     const siblings = recs
       .filter((x): x is ReminderRec => x.type === 'reminder' && x.payload.sectionId === parent.payload.sectionId)
-      .sort((a, b) => byOrd(a.payload, b.payload));
+      .sort(byRecOrd);
     const at = siblings.findIndex((x) => x.id === parent.id);
     const next = siblings[at + 1];
     const id = newId();
@@ -686,7 +686,7 @@ export function Reminders() {
         {view === 'all' && sharedPartner &&
           visibleShared
             .slice()
-            .sort((a, b) => byOrd(a.payload, b.payload))
+            .sort(byRecOrd)
             .map((f) => (
               <View key={`sh${f.id}`} style={s.folderBlock}>
                 {/* A partner's folder collapses like my own. It had no control
@@ -706,7 +706,7 @@ export function Reminders() {
                 </Pressable>
                 {!foldedFolders.has(`sh:${f.id}`) && sharedRecs
                   .filter((r): r is Rec<'section'> => r.type === 'section' && r.payload.folderId === f.id)
-                  .sort((a, b) => byOrd(a.payload, b.payload))
+                  .sort(byRecOrd)
                   .map((sec) => (
                     <View key={sec.id} style={s.section}>
                       {/* A partner's section collapses like my own. The
@@ -723,7 +723,7 @@ export function Reminders() {
                       {!folded.has(`sh:${sec.id}`) && sortByDate(
                         sharedRecs
                           .filter((r): r is ReminderRec => r.type === 'reminder' && r.payload.sectionId === sec.id && shTick.shows(r))
-                          .sort((a, b) => byOrd(a.payload, b.payload))
+                          .sort(byRecOrd)
                           .map((x) => ({ due: x.payload.due, indent: x.payload.indent, rec: x })),
                       ).map(({ rec: r }, ri, arr) => (
                         <View key={r.id} style={[s.row, s.sharedRow, ri === arr.length - 1 && s.rowLast, r.payload.indent > 0 && s.rowIndented]}>
@@ -791,12 +791,12 @@ function SharedReminders({ viewKey, partner }: { viewKey: string; partner: strin
   const folder = sharedRecs.find((r): r is Rec<'folder'> => r.type === 'folder' && r.id === folderId);
   const sections = sharedRecs
     .filter((r): r is Rec<'section'> => r.type === 'section' && r.payload.folderId === folderId)
-    .sort((a, b) => byOrd(a.payload, b.payload));
+    .sort(byRecOrd);
   const rowsOf = (secId: string) =>
     sortByDate(
       sharedRecs
         .filter((r): r is ReminderRec => r.type === 'reminder' && r.payload.sectionId === secId && shTick.shows(r))
-        .sort((a, b) => byOrd(a.payload, b.payload))
+        .sort(byRecOrd)
         .map((x) => ({ due: x.payload.due, indent: x.payload.indent, rec: x })),
     ).map((row) => row.rec);
   const [adding, setAdding] = useState<string | null>(null);

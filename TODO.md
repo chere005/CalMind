@@ -14,7 +14,7 @@ Standing rules live in `CLAUDE.md`, not here.
 
 ## Suite counts, as of this commit
 
-core **419** · gesture **156** (+1 skipped) · WebKit **16** · server **48** ·
+core **420** · gesture **156** (+1 skipped) · WebKit **16** · server **48** ·
 live **19** with the API · desktop **7** (+3 in `npm run test:desktop`) · deploy guards **9** · plus the four
 native seam checkers no browser can reach: `npm run test:watch`,
 `npm run test:widget`, `npm run test:deploy`.
@@ -613,6 +613,29 @@ then the watch needs the direct install and the build number is the proof.
   always append to the end turns two OTHER tests red, and that second break is
   the one that matters: "it no longer throws" passes for a version that has
   quietly stopped landing rows where they were dropped.
+
+- **Two devices drew the SAME account in different orders, permanently.** The
+  follow-on from the duplicate key above, and the worse half of it: `byOrd`
+  answers 0 for two rows sharing a key, `Array.sort` is stable, so the tie was
+  settled by whatever order each engine happened to hold them in — which is the
+  order that device first SAW them. Device A made a row and later received its
+  twin; device B saw them the other way about; and neither had anything on
+  screen to explain why one list read a-then-b and the other b-then-a. It
+  survived reloads too, since the snapshot preserves that order.
+
+  `byRecOrd` makes the order TOTAL by falling back to the record id: the one
+  thing every device already agrees on, unique by construction, never changing.
+  Where keys differ it is `byOrd` exactly and the fallback is unreachable, so
+  no existing order moves.
+
+  All 66 sort sites went over to it — they were one identical shape,
+  `sort((a, b) => byOrd(a.payload, b.payload))`, which is why this was
+  mechanical — plus the two compound comparators whose tiebreak was the same
+  call (day.ts's by-time-then-order, and Habits' by-section-then-order).
+  `byOrd` stays for the payload-only callers.
+
+  Proven by reproducing it: two engines, the same two records, opposite arrival
+  order. Dropping the id fallback turns that test red on its own.
 
 ## 4 · Steady state, every iteration
 

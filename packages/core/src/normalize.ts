@@ -7,7 +7,7 @@
  */
 import type { AnyRec, Rec } from './types';
 import { folderApp, newId } from './types';
-import { ordBetween, byOrd } from './order';
+import { ordBetween, byOrd, byRecOrd } from './order';
 
 export const FOLDER_STARTER = 'Reminders';
 export const FOLDER_CALENDAR = 'Calendar'; // seeded WITH rideAlong — the name is a label, the flag is the identity
@@ -52,7 +52,7 @@ export function normalize(recs: AnyRec[]): { added: AnyRec[]; edited: AnyRec[] }
   // Starters. Reminders opens with its general folder plus the ride-along
   // Calendar folder; Notes with General; one calendar; one habit section.
   const appFolders = (app: 'reminders' | 'notes') =>
-    folders.filter((f) => folderApp(f.payload) === app).sort((a, b) => byOrd(a.payload, b.payload));
+    folders.filter((f) => folderApp(f.payload) === app).sort(byRecOrd);
   if (appFolders('reminders').length === 0) {
     folder(FOLDER_STARTER, C_REMINDERS, 'reminders');
   }
@@ -81,7 +81,7 @@ export function normalize(recs: AnyRec[]): { added: AnyRec[]; edited: AnyRec[] }
 
   // Every folder keeps at least one section, so nothing can land loose.
   const secsOf = (fid: string) =>
-    sections.filter((s) => s.payload.folderId === fid).sort((a, b) => byOrd(a.payload, b.payload));
+    sections.filter((s) => s.payload.folderId === fid).sort(byRecOrd);
   for (const f of folders) {
     if (secsOf(f.id).length === 0) {
       sections.push(
@@ -109,7 +109,7 @@ export function normalize(recs: AnyRec[]): { added: AnyRec[]; edited: AnyRec[] }
 
   // Events with a dead calendar fall to the first one; habits likewise.
   const calIds = new Set(calendars.map((c) => c.id));
-  const firstCal = calendars.sort((a, b) => byOrd(a.payload, b.payload))[0]!;
+  const firstCal = calendars.sort(byRecOrd)[0]!;
   for (const e of of('event')) {
     if (!calIds.has(e.payload.calendarId)) {
       e.payload = { ...e.payload, calendarId: firstCal.id };
@@ -117,7 +117,7 @@ export function normalize(recs: AnyRec[]): { added: AnyRec[]; edited: AnyRec[] }
     }
   }
   const hsIds = new Set(habitSections.map((s) => s.id));
-  const firstHs = habitSections.sort((a, b) => byOrd(a.payload, b.payload))[0]!;
+  const firstHs = habitSections.sort(byRecOrd)[0]!;
   for (const h of of('habit')) {
     if (!hsIds.has(h.payload.sectionId)) {
       h.payload = { ...h.payload, sectionId: firstHs.id };

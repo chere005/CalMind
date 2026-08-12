@@ -12,7 +12,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import {
-  ordBetween, ordGap, moveReminderBlock, moveNote, duplicateItem, byOrd,
+  ordBetween, ordGap, moveReminderBlock, moveNote, duplicateItem, byRecOrd, SyncEngine,
   type AnyRec, type Rec,
 } from '../src/index';
 
@@ -75,9 +75,25 @@ describe('a duplicate order key does not break the drag', () => {
     expect(ordGap(['V', 'V', 'V'], 1)).toEqual(['V', null]);
   });
 
+  it('two devices holding the same records draw them in the SAME order', () => {
+    // The divergence this fixes, reproduced exactly: device A made 'a' and
+    // then received its twin; device B saw them the other way about. byOrd
+    // answers 0 for the pair and Array.sort is stable, so each device fell
+    // back to its own arrival order and the two drew one account differently,
+    // for good, with nothing on screen to explain it.
+    const A = new SyncEngine(); A.put(rem('a', 'V')); A.put(rem('b', 'V'));
+    const B = new SyncEngine(); B.put(rem('b', 'V')); B.put(rem('a', 'V'));
+    const list = (e: SyncEngine) => (e.all() as AnyRec[])
+      .filter((r): r is Rec<'reminder'> => r.type === 'reminder')
+      .sort(byRecOrd)
+      .map((r) => r.id);
+    expect(list(A)).toEqual(list(B));
+    expect(list(A)).toEqual(['a', 'b']);
+  });
+
   it('the block keeps its family order through the degenerate gap', () => {
     const parent = rem('p', 'V');
-    const child = { ...rem('k', 'V2'), payload: { ...rem('k', 'V2').payload, indent: 1 } };
+    const child: Rec<'reminder'> = { ...rem('k', 'V2'), payload: { ...rem('k', 'V2').payload, indent: 1 as const } };
     const recs: AnyRec[] = [sec, parent, child, rem('x', 'V'), rem('y', 'z')];
     const res = moveReminderBlock(recs, 'p', 's1', 'y');
     expect('error' in res, JSON.stringify(res)).toBe(false);

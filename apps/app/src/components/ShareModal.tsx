@@ -8,7 +8,7 @@
  */
 import React, { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { byOrd, SHARE_ID, shareOf, type AnyRec, type Rec, type Share } from '@calmind/core';
+import { byOrd, byRecOrd, SHARE_ID, shareOf, type AnyRec, type Rec, type Share } from '@calmind/core';
 import { useStore } from '../store';
 import { themed, T } from '../theme';
 import { CircleBtn, ConfirmDelete, Field, Pill } from '../ui';
@@ -32,10 +32,10 @@ export function ShareModal({ onClose }: { onClose: () => void }) {
   const foldersOf = (app: 'reminders' | 'notes') =>
     recs
       .filter((r): r is Rec<'folder'> => r.type === 'folder' && !r.deleted && (r.payload.app ?? 'reminders') === app)
-      .sort((a, b) => byOrd(a.payload, b.payload));
+      .sort(byRecOrd);
   const calendars = recs
     .filter((r): r is Rec<'calendar'> => r.type === 'calendar' && !r.deleted)
-    .sort((a, b) => byOrd(a.payload, b.payload));
+    .sort(byRecOrd);
 
   const badge = (name: string) => partners.find((p) => p.name === name)?.mutual ? 'sharing' : 'waiting for them';
 

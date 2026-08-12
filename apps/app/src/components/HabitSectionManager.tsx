@@ -6,7 +6,7 @@
  */
 import React, { useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { byOrd, deleteHabitSection, newId, ordBetween, type Rec } from '@calmind/core';
+import { byOrd, byRecOrd, deleteHabitSection, newId, ordBetween, type Rec } from '@calmind/core';
 import { SwatchTray } from './SwatchTray';
 import { useStore } from '../store';
 import { themed, APP_PALETTES, T } from '../theme';
@@ -21,7 +21,7 @@ export function HabitSectionManager({ onClose }: { onClose: () => void }) {
   const [err, setErr] = useState('');
 
   const sections = useMemo(
-    () => recs.filter((r): r is Rec<'habitsection'> => r.type === 'habitsection').sort((a, b) => byOrd(a.payload, b.payload)),
+    () => recs.filter((r): r is Rec<'habitsection'> => r.type === 'habitsection').sort(byRecOrd),
     [recs],
   );
   const pal = APP_PALETTES.habits;

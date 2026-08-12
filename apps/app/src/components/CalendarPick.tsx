@@ -7,6 +7,7 @@
 import React, { useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import {
+  byRecOrd,
   byOrd,
   calendarNameTaken,
   deleteCalendar,
@@ -38,7 +39,7 @@ export type CalendarView = {
 export function useCalendarView(): CalendarView {
   const { recs, sharedRecs, sharedPartner } = useStore();
   return useMemo(() => {
-    const calendars = recs.filter((r): r is Rec<'calendar'> => r.type === 'calendar').sort((a, b) => byOrd(a.payload, b.payload));
+    const calendars = recs.filter((r): r is Rec<'calendar'> => r.type === 'calendar').sort(byRecOrd);
     const prefs = prefsOf(recs, 'calendar');
     const ids = new Set(calendars.map((c) => c.id));
     const view = prefs.lastView && ids.has(prefs.lastView) ? prefs.lastView : 'all';
@@ -48,7 +49,7 @@ export function useCalendarView(): CalendarView {
     // show/hide flags in hiddenShared — never merged into one list, so whose
     // calendar an event lands in is never a guess.
     const sharedCals = sharedPartner
-      ? sharedRecs.filter((r): r is Rec<'calendar'> => r.type === 'calendar').sort((a, b) => byOrd(a.payload, b.payload))
+      ? sharedRecs.filter((r): r is Rec<'calendar'> => r.type === 'calendar').sort(byRecOrd)
       : [];
     const hiddenShared = (prefs.hiddenShared ?? []).filter((id) => sharedCals.some((c) => c.id === id));
     const visibleShared = sharedCals.filter((c) => !hiddenShared.includes(c.id));
@@ -169,9 +170,9 @@ function ReminderFoldersManager({ onClose }: { onClose: () => void }) {
   const [openFor, setOpenFor] = useState<string | null>(null);
   const own = recs
     .filter((r): r is Rec<'folder'> => r.type === 'folder' && folderApp(r.payload) === 'reminders')
-    .sort((a, b) => byOrd(a.payload, b.payload));
+    .sort(byRecOrd);
   const shared = sharedPartner
-    ? sharedRecs.filter((r): r is Rec<'folder'> => r.type === 'folder' && folderApp(r.payload) === 'reminders').sort((a, b) => byOrd(a.payload, b.payload))
+    ? sharedRecs.filter((r): r is Rec<'folder'> => r.type === 'folder' && folderApp(r.payload) === 'reminders').sort(byRecOrd)
     : [];
   const set = (id: string, mode: FolderMode) => {
     mutate((e) => e.put(prefsPut(recs, 'calendar', { folderModes: { ...modes, [id]: mode } })));

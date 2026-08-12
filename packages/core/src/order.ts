@@ -88,3 +88,28 @@ export function ordSeq(n: number): string[] {
 export function byOrd<T extends { ord: string }>(a: T, b: T): number {
   return a.ord < b.ord ? -1 : a.ord > b.ord ? 1 : 0;
 }
+
+/**
+ * The same order, made TOTAL by falling back to the record id.
+ *
+ * byOrd alone answers 0 for two rows sharing a key, and Array.sort is stable,
+ * so the tie was settled by whatever order the engine happened to hold them
+ * in — which is the order each device first saw them. Device A created a row
+ * and then received its twin; device B saw them the other way about; and the
+ * two drew the SAME account in different orders, for good, with nothing on
+ * screen to explain it.
+ *
+ * Sharing a key is not exotic: ordBetween(null, null) is deterministic and
+ * always answers 'V', so two devices adding the FIRST row to a section while
+ * offline both write it. See ordGap above, which keeps a drag through such a
+ * pair from throwing.
+ *
+ * The id is the tiebreak because it is the one thing every device already
+ * agrees on, it is unique by construction, and it never changes. Where keys
+ * differ this is byOrd exactly — the fallback is unreachable.
+ */
+export function byRecOrd<T extends { id: string; payload: { ord: string } }>(a: T, b: T): number {
+  const c = byOrd(a.payload, b.payload);
+  if (c !== 0) return c;
+  return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+}

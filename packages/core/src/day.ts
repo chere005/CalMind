@@ -8,7 +8,7 @@
 import type { FolderMode, AnyRec, Rec } from './types';
 import { folderApp } from './types';
 import { repeatDates } from './repeats';
-import { byOrd } from './order';
+import { byOrd, byRecOrd } from './order';
 import { shiftDate } from './parse';
 
 const live = (r: { deleted?: boolean }) => !r.deleted;
@@ -28,7 +28,7 @@ export function folderMode(f: { rideAlong?: boolean }, id: string, modes?: Recor
 export function dayItems(recs: AnyRec[], date: string, today: string, modes?: Record<string, FolderMode>): DayItems {
   const events = of(recs, 'event')
     .filter((e) => repeatDates(e.payload.date, e.payload.repeat, date, date).length > 0)
-    .sort((a, b) => (a.payload.time ?? '') < (b.payload.time ?? '') ? -1 : (a.payload.time ?? '') > (b.payload.time ?? '') ? 1 : byOrd(a.payload, b.payload));
+    .sort((a, b) => (a.payload.time ?? '') < (b.payload.time ?? '') ? -1 : (a.payload.time ?? '') > (b.payload.time ?? '') ? 1 : byRecOrd(a, b));
 
   const modeById = new Map(
     of(recs, 'folder')
@@ -57,7 +57,7 @@ export function dayItems(recs: AnyRec[], date: string, today: string, modes?: Re
 
   const notes = of(recs, 'note')
     .filter((n) => n.payload.date === date)
-    .sort((a, b) => byOrd(a.payload, b.payload));
+    .sort(byRecOrd);
 
   return { events, reminders, notes };
 }
@@ -154,10 +154,10 @@ export function monthLegend(
     for (const n of items.notes) noteFolders.add(n.payload.folderId);
   }
   const out: LegendRow[] = [];
-  for (const c of of(recs, 'calendar').sort((a, b) => byOrd(a.payload, b.payload))) {
+  for (const c of of(recs, 'calendar').sort(byRecOrd)) {
     if (cals.has(c.id)) out.push({ kind: 'event', id: c.id, name: c.payload.name, color: c.payload.color });
   }
-  const folders = of(recs, 'folder').sort((a, b) => byOrd(a.payload, b.payload));
+  const folders = of(recs, 'folder').sort(byRecOrd);
   for (const f of folders) {
     if (remFolders.has(f.id)) out.push({ kind: 'reminder', id: f.id, name: f.payload.name, color: f.payload.color });
   }

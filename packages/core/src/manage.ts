@@ -7,7 +7,7 @@
  */
 import type { AnyRec, Prefs, Rec } from './types';
 import { folderApp, prefsId, type PrefsApp } from './types';
-import { byOrd, ordBetween, ordGap } from './order';
+import { byOrd, byRecOrd, ordBetween, ordGap } from './order';
 import { sectionNameTaken } from './rules';
 
 const live = (r: { deleted?: boolean }) => !r.deleted;
@@ -30,12 +30,12 @@ export function prefsPut(recs: AnyRec[], app: PrefsApp, next: Partial<Prefs>): R
 const sectionsOf = (recs: AnyRec[], folderId: string) =>
   of(recs, 'section')
     .filter((s) => s.payload.folderId === folderId)
-    .sort((a, b) => byOrd(a.payload, b.payload));
+    .sort(byRecOrd);
 
 const foldersOf = (recs: AnyRec[], app: 'reminders' | 'notes') =>
   of(recs, 'folder')
     .filter((f) => folderApp(f.payload) === app)
-    .sort((a, b) => byOrd(a.payload, b.payload));
+    .sort(byRecOrd);
 
 /** Where deleted-container items land: the default-for-new-items, re-resolved
  *  to skip anything being deleted — the suite's folder_default_get rule. */
@@ -140,7 +140,7 @@ export function renameCalendar(recs: AnyRec[], calendarId: string, name: string)
 /** Deleting a calendar keeps its events — they fall to the first remaining
  *  calendar. The last calendar is undeletable, as the last folder is. */
 export function deleteCalendar(recs: AnyRec[], calendarId: string): ManageResult {
-  const cals = of(recs, 'calendar').sort((a, b) => byOrd(a.payload, b.payload));
+  const cals = of(recs, 'calendar').sort(byRecOrd);
   const c = cals.find((x) => x.id === calendarId);
   if (!c) return { error: 'no such calendar' };
   if (cals.length <= 1) return { error: 'the last calendar stays' };
@@ -160,7 +160,7 @@ export function deleteCalendar(recs: AnyRec[], calendarId: string): ManageResult
 /** Deleting a habit section keeps its habits — they move to the first
  *  remaining section. The last section stays, as everywhere else. */
 export function deleteHabitSection(recs: AnyRec[], sectionId: string): ManageResult {
-  const sections = of(recs, 'habitsection').sort((a, b) => byOrd(a.payload, b.payload));
+  const sections = of(recs, 'habitsection').sort(byRecOrd);
   const target = sections.find((s) => s.id === sectionId);
   if (!target) return { error: 'no such section' };
   if (sections.length <= 1) return { error: 'the last section stays' };
@@ -189,7 +189,7 @@ export function reminderBlock(recs: AnyRec[], reminderId: string): Rec<'reminder
   if (r.payload.indent > 0) return [r];
   const siblings = of(recs, 'reminder')
     .filter((x) => x.payload.sectionId === r.payload.sectionId)
-    .sort((a, b) => byOrd(a.payload, b.payload));
+    .sort(byRecOrd);
   const at = siblings.findIndex((x) => x.id === reminderId);
   const block = [siblings[at]!];
   for (let i = at + 1; i < siblings.length && siblings[i]!.payload.indent > 0; i++) {
@@ -219,7 +219,7 @@ export function moveReminderBlock(
   if (beforeId !== null && blockIds.has(beforeId)) return { error: 'a block cannot land inside itself' };
   const destRows = of(recs, 'reminder')
     .filter((x) => x.payload.sectionId === destSectionId && !blockIds.has(x.id))
-    .sort((a, b) => byOrd(a.payload, b.payload));
+    .sort(byRecOrd);
   const at = beforeId === null ? destRows.length : destRows.findIndex((x) => x.id === beforeId);
   if (at === -1) return { error: 'no such landing row' };
   // ordGap, not the raw neighbours: two rows can share a key — see order.ts —
@@ -243,7 +243,7 @@ export function moveNote(recs: AnyRec[], noteId: string, destSectionId: string, 
   if (!dest) return { error: 'no such section' };
   const destRows = of(recs, 'note')
     .filter((x) => x.payload.sectionId === destSectionId && x.id !== noteId)
-    .sort((a, b) => byOrd(a.payload, b.payload));
+    .sort(byRecOrd);
   const at = beforeId === null ? destRows.length : destRows.findIndex((x) => x.id === beforeId);
   if (at === -1) return { error: 'no such landing row' };
   const ord = ordBetween(...ordGap(destRows.map((x) => x.payload.ord), at));
@@ -261,7 +261,7 @@ export function moveHabit(recs: AnyRec[], habitId: string, destSectionId: string
   if (!of(recs, 'habitsection').some((s) => s.id === destSectionId)) return { error: 'no such habit section' };
   const destRows = of(recs, 'habit')
     .filter((x) => x.payload.sectionId === destSectionId && x.id !== habitId)
-    .sort((a, b) => byOrd(a.payload, b.payload));
+    .sort(byRecOrd);
   const at = beforeId === null ? destRows.length : destRows.findIndex((x) => x.id === beforeId);
   if (at === -1) return { error: 'no such landing row' };
   const ord = ordBetween(...ordGap(destRows.map((x) => x.payload.ord), at));
@@ -279,7 +279,7 @@ export function moveHabitSection(recs: AnyRec[], sectionId: string, beforeSectio
   if (!sec) return { error: 'no such habit section' };
   const sibs = of(recs, 'habitsection')
     .filter((s) => s.id !== sectionId)
-    .sort((a, b) => byOrd(a.payload, b.payload));
+    .sort(byRecOrd);
   const at = beforeSectionId === null ? sibs.length : sibs.findIndex((s) => s.id === beforeSectionId);
   if (at === -1) return { error: 'no such landing section' };
   const ord = ordBetween(...ordGap(sibs.map((x) => x.payload.ord), at));
@@ -309,7 +309,7 @@ export function moveSection(recs: AnyRec[], sectionId: string, destFolderId: str
   }
   const destSecs = of(recs, 'section')
     .filter((s) => s.payload.folderId === destFolderId && s.id !== sectionId)
-    .sort((a, b) => byOrd(a.payload, b.payload));
+    .sort(byRecOrd);
   const at = beforeSectionId === null ? destSecs.length : destSecs.findIndex((s) => s.id === beforeSectionId);
   if (at === -1) return { error: 'no such landing section' };
   const ord = ordBetween(...ordGap(destSecs.map((x) => x.payload.ord), at));
@@ -408,7 +408,7 @@ export function duplicateItem(recs: AnyRec[], id: string, mkId: () => string): M
     const n = src as Rec<'note'>;
     const rows = of(recs, 'note')
       .filter((x) => x.payload.sectionId === n.payload.sectionId)
-      .sort((a, b) => byOrd(a.payload, b.payload));
+      .sort(byRecOrd);
     const at = rows.findIndex((x) => x.id === id);
     // at + 1: the same pair, widened past a duplicate key below it.
     const ord = ordBetween(...ordGap(rows.map((x) => x.payload.ord), at + 1));
@@ -420,7 +420,7 @@ export function duplicateItem(recs: AnyRec[], id: string, mkId: () => string): M
   const last = block[block.length - 1]!;
   const rows = of(recs, 'reminder')
     .filter((x) => x.payload.sectionId === last.payload.sectionId)
-    .sort((a, b) => byOrd(a.payload, b.payload));
+    .sort(byRecOrd);
   const at = rows.findIndex((x) => x.id === last.id);
   let [lo, hi] = ordGap(rows.map((x) => x.payload.ord), at + 1);
   const put: AnyRec[] = [];
@@ -439,7 +439,7 @@ export function convertToNote(recs: AnyRec[], sourceId: string, destSectionId: s
   if (!dest) return { error: 'no such section' };
   const first = of(recs, 'note')
     .filter((n) => n.payload.sectionId === destSectionId)
-    .sort((a, b) => byOrd(a.payload, b.payload))[0];
+    .sort(byRecOrd)[0];
   const title = src.type === 'reminder' ? src.payload.text : src.payload.text;
   const put: AnyRec[] = [
     {
@@ -483,7 +483,7 @@ export function convertEventToReminder(recs: AnyRec[], eventId: string, destSect
   if (!dest) return { error: 'no such section' };
   const first = of(recs, 'reminder')
     .filter((x) => x.payload.sectionId === destSectionId)
-    .sort((a, b) => byOrd(a.payload, b.payload))[0];
+    .sort(byRecOrd)[0];
   return {
     put: [
       {

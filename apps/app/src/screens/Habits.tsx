@@ -11,7 +11,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Svg, { Circle, Path } from 'react-native-svg';
-import { byOrd, dayShares, habitListedOn, monthGrid, moveHabit, moveHabitSection, newId, ordBetween, prefsOf, prefsPut, tickId, todayStr, type Frequency, type Rec } from '@calmind/core';
+import { byOrd, byRecOrd, dayShares, habitListedOn, monthGrid, moveHabit, moveHabitSection, newId, ordBetween, prefsOf, prefsPut, tickId, todayStr, type Frequency, type Rec } from '@calmind/core';
 import { useStore } from '../store';
 import { APP_PALETTES, themed, T } from '../theme';
 import { TopBar } from '../chrome';
@@ -132,12 +132,12 @@ export function Habits() {
   const cells = useMemo(() => monthGrid(year, month), [year, month]);
 
   const { habitsOf, allHabits, ticked } = useMemo(() => {
-    const habits = recs.filter((r): r is Rec<'habit'> => r.type === 'habit').sort((a, b) => byOrd(a.payload, b.payload));
+    const habits = recs.filter((r): r is Rec<'habit'> => r.type === 'habit').sort(byRecOrd);
     const visIds = new Set(sections.map((s) => s.id));
     const secOrd = new Map(sections.map((s, i) => [s.id, i]));
     const counted = habits.filter((h) => visIds.has(h.payload.sectionId));
     const allHabits = [...counted].sort(
-      (a, b) => (secOrd.get(a.payload.sectionId) ?? 99) - (secOrd.get(b.payload.sectionId) ?? 99) || byOrd(a.payload, b.payload),
+      (a, b) => (secOrd.get(a.payload.sectionId) ?? 99) - (secOrd.get(b.payload.sectionId) ?? 99) || byRecOrd(a, b),
     );
     const ticks = new Set(recs.filter((r) => r.type === 'tick').map((r) => r.id));
     return {

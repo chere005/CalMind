@@ -7,7 +7,7 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Text, Pressable, View } from 'react-native';
 import { showAgain,
-  byOrd,
+  byOrd, byRecOrd,
   newId,
   ordBetween,
   parseDateField,
@@ -48,14 +48,14 @@ export function Add({ done, onNoteCreated }: { done: () => void; onNoteCreated?:
   const todayLabel = new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
 
   const { sectionChoices, calendars } = useMemo(() => {
-    const folders = recs.filter((r): r is Rec<'folder'> => r.type === 'folder').sort((a, b) => byOrd(a.payload, b.payload));
-    const sections = recs.filter((r): r is Rec<'section'> => r.type === 'section').sort((a, b) => byOrd(a.payload, b.payload));
+    const folders = recs.filter((r): r is Rec<'folder'> => r.type === 'folder').sort(byRecOrd);
+    const sections = recs.filter((r): r is Rec<'section'> => r.type === 'section').sort(byRecOrd);
     const app = kind === 'note' ? 'notes' : 'reminders';
     return {
       sectionChoices: folders
         .filter((f) => (f.payload.app ?? 'reminders') === app)
         .flatMap((f) => sections.filter((x) => x.payload.folderId === f.id).map((x) => ({ sec: x, label: `${f.payload.name} · ${x.payload.name}` }))),
-      calendars: recs.filter((r): r is Rec<'calendar'> => r.type === 'calendar').sort((a, b) => byOrd(a.payload, b.payload)),
+      calendars: recs.filter((r): r is Rec<'calendar'> => r.type === 'calendar').sort(byRecOrd),
     };
   }, [recs, kind]);
 

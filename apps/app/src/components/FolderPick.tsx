@@ -8,7 +8,7 @@
  */
 import React, { useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { byOrd, prefsOf, prefsPut, type Rec } from '@calmind/core';
+import { byOrd, byRecOrd, prefsOf, prefsPut, type Rec } from '@calmind/core';
 import { useStore } from '../store';
 import { themed, T } from '../theme';
 import { pickHit, WebHitSlop } from '../ui';
@@ -28,14 +28,14 @@ export function useFolderView(app: 'reminders' | 'notes'): FolderView {
   return useMemo(() => {
     const folders = recs
       .filter((r): r is Rec<'folder'> => r.type === 'folder' && (r.payload.app ?? 'reminders') === app)
-      .sort((a, b) => byOrd(a.payload, b.payload));
+      .sort(byRecOrd);
     const prefs = prefsOf(recs, app);
     const ids = new Set(folders.map((f) => f.id));
     // The partner's shared folders ride along as @partner:folderId views.
     const sharedFolders = sharedPartner
       ? sharedRecs
           .filter((r): r is Rec<'folder'> => r.type === 'folder' && (r.payload.app ?? 'reminders') === app)
-          .sort((a, b) => byOrd(a.payload, b.payload))
+          .sort(byRecOrd)
       : [];
     const sharedKey = (fid: string) => `@${sharedPartner}:${fid}`;
     const sharedView =

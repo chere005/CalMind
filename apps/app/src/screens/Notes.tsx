@@ -6,7 +6,7 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { defaultNoteTitle, looksLikeDefaultNoteTitle, deleteSection, renameSection, sectionNameTaken, byOrd, richLines, scaleRecipeBody, duplicateItem, formatRecipe, prefsPut, moveNote, moveSection, moveSectionEmptyingFolder, newId, nowStr, ordBetween, parseDateField, parseWhenFromText, todayStr, type Rec } from '@calmind/core';
+import { defaultNoteTitle, looksLikeDefaultNoteTitle, deleteSection, renameSection, sectionNameTaken, byOrd, byRecOrd, richLines, scaleRecipeBody, duplicateItem, formatRecipe, prefsPut, moveNote, moveSection, moveSectionEmptyingFolder, newId, nowStr, ordBetween, parseDateField, parseWhenFromText, todayStr, type Rec } from '@calmind/core';
 import { useStore } from '../store';
 import { useNav } from '../nav';
 import { themed, T } from '../theme';
@@ -241,8 +241,8 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
 
   const { folders, sectionsOf, notesOf } = useMemo(() => {
     const folders = visibleFolders;
-    const sections = recs.filter((r): r is Rec<'section'> => r.type === 'section').sort((a, b) => byOrd(a.payload, b.payload));
-    const notes = recs.filter((r): r is Rec<'note'> => r.type === 'note').sort((a, b) => byOrd(a.payload, b.payload));
+    const sections = recs.filter((r): r is Rec<'section'> => r.type === 'section').sort(byRecOrd);
+    const notes = recs.filter((r): r is Rec<'note'> => r.type === 'note').sort(byRecOrd);
     return {
       folders,
       sectionsOf: (fid: string) => sections.filter((x) => x.payload.folderId === fid),
@@ -322,8 +322,8 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
   const goesChoices = useMemo(() => {
     const allFolders = recs
       .filter((r): r is Rec<'folder'> => r.type === 'folder' && (r.payload.app ?? 'reminders') === 'notes')
-      .sort((a, b) => byOrd(a.payload, b.payload));
-    const allSections = recs.filter((r): r is Rec<'section'> => r.type === 'section').sort((a, b) => byOrd(a.payload, b.payload));
+      .sort(byRecOrd);
+    const allSections = recs.filter((r): r is Rec<'section'> => r.type === 'section').sort(byRecOrd);
     return allFolders.flatMap((f) =>
       allSections.filter((x) => x.payload.folderId === f.id).map((x) => ({ sec: x, label: `${f.payload.name} · ${x.payload.name}` })),
     );
@@ -826,7 +826,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
         {view === 'all' && sharedPartner &&
           visibleShared
             .slice()
-            .sort((a, b) => byOrd(a.payload, b.payload))
+            .sort(byRecOrd)
             .map((f) => (
               <View key={`sh${f.id}`} style={s.folderBlock}>
                 {/* Collapsible like my own, and the fold is MINE — device-local
@@ -843,7 +843,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
                 </Pressable>
                 {!foldedFolders.has(`sh:${f.id}`) && sharedRecs
                   .filter((r): r is Rec<'section'> => r.type === 'section' && r.payload.folderId === f.id)
-                  .sort((a, b) => byOrd(a.payload, b.payload))
+                  .sort(byRecOrd)
                   .map((sec) => (
                     <View key={sec.id} style={s.section}>
                       {/* A partner's section collapses like my own. The
@@ -859,7 +859,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
                       </Pressable>
                       {!nfolded.has(`sh:${sec.id}`) && sharedRecs
                         .filter((r): r is Rec<'note'> => r.type === 'note' && r.payload.sectionId === sec.id)
-                        .sort((a, b) => byOrd(a.payload, b.payload))
+                        .sort(byRecOrd)
                         .map((n) => (
                           <View key={n.id} style={[s.row, s.sharedRow]}>
                             <Pressable
@@ -987,11 +987,11 @@ function SharedNotes({ viewKey, partner }: { viewKey: string; partner: string })
   const folder = sharedRecs.find((r): r is Rec<'folder'> => r.type === 'folder' && r.id === folderId);
   const sections = sharedRecs
     .filter((r): r is Rec<'section'> => r.type === 'section' && r.payload.folderId === folderId)
-    .sort((a, b) => byOrd(a.payload, b.payload));
+    .sort(byRecOrd);
   const notesOf = (sid: string) =>
     sharedRecs
       .filter((r): r is Rec<'note'> => r.type === 'note' && r.payload.sectionId === sid)
-      .sort((a, b) => byOrd(a.payload, b.payload));
+      .sort(byRecOrd);
   const [openShared, setOpenShared] = useState<Rec<'note'> | null>(null);
   const [sharedBodyEdit, setSharedBodyEdit] = useNoteScoped(openShared?.id ?? null, false);
   const [draft, setDraft] = useNoteScoped(openShared?.id ?? null, '');

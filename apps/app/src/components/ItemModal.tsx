@@ -9,6 +9,7 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import {
+  byRecOrd,
   byOrd,
   REPEAT_UNITS,
   showAgain,
@@ -82,11 +83,11 @@ export function ItemModal({
   const [err, setErr] = useState('');
 
   const { calendars, sectionChoices } = useMemo(() => {
-    const folders = recs.filter((r): r is Rec<'folder'> => r.type === 'folder').sort((a, b) => byOrd(a.payload, b.payload));
-    const sections = recs.filter((r): r is Rec<'section'> => r.type === 'section').sort((a, b) => byOrd(a.payload, b.payload));
+    const folders = recs.filter((r): r is Rec<'folder'> => r.type === 'folder').sort(byRecOrd);
+    const sections = recs.filter((r): r is Rec<'section'> => r.type === 'section').sort(byRecOrd);
     const app = kind === 'note' ? 'notes' : 'reminders';
     return {
-      calendars: recs.filter((r): r is Rec<'calendar'> => r.type === 'calendar').sort((a, b) => byOrd(a.payload, b.payload)),
+      calendars: recs.filter((r): r is Rec<'calendar'> => r.type === 'calendar').sort(byRecOrd),
       sectionChoices: folders
         .filter((f) => (f.payload.app ?? 'reminders') === app)
         .flatMap((f) => sections.filter((x) => x.payload.folderId === f.id).map((x) => ({ sec: x, label: `${f.payload.name} · ${x.payload.name}` }))),
@@ -98,11 +99,11 @@ export function ItemModal({
   // exactly one owner is ever selected, and a shared pick writes THEIR store.
   const sharedChoices = useMemo(() => {
     if (mode !== 'create' || !sharedPartner) return { cals: [] as Rec<'calendar'>[], secs: [] as { sec: Rec<'section'>; label: string }[] };
-    const folders = sharedRecs.filter((r): r is Rec<'folder'> => r.type === 'folder').sort((a, b) => byOrd(a.payload, b.payload));
-    const sections = sharedRecs.filter((r): r is Rec<'section'> => r.type === 'section').sort((a, b) => byOrd(a.payload, b.payload));
+    const folders = sharedRecs.filter((r): r is Rec<'folder'> => r.type === 'folder').sort(byRecOrd);
+    const sections = sharedRecs.filter((r): r is Rec<'section'> => r.type === 'section').sort(byRecOrd);
     const app = kind === 'note' ? 'notes' : 'reminders';
     return {
-      cals: sharedRecs.filter((r): r is Rec<'calendar'> => r.type === 'calendar').sort((a, b) => byOrd(a.payload, b.payload)),
+      cals: sharedRecs.filter((r): r is Rec<'calendar'> => r.type === 'calendar').sort(byRecOrd),
       secs: folders
         .filter((f) => (f.payload.app ?? 'reminders') === app)
         .flatMap((f) => sections.filter((x) => x.payload.folderId === f.id).map((x) => ({ sec: x, label: `${f.payload.name} · ${x.payload.name}` }))),

@@ -12,7 +12,7 @@
  * way would disagree with the phone it is strapped beside.
  */
 import { folderApp, type AnyRec, type Rec } from './types';
-import { byOrd } from './order';
+import { byOrd, byRecOrd } from './order';
 import { addDays, dayItems } from './day';
 import { prefsOf } from './manage';
 import { sortByDate } from './sort';
@@ -44,7 +44,7 @@ export type WatchSection = { id: string; name: string; folderId: string };
 export function watchRows(recs: AnyRec[]): WatchRow[] {
   const reminders = recs
     .filter((r): r is Rec<'reminder'> => r.type === 'reminder' && !r.deleted && !r.payload.done)
-    .sort((a, b) => byOrd(a.payload, b.payload));
+    .sort(byRecOrd);
   return sortByDate(
     reminders.map((r) => ({
       id: r.id,
@@ -131,25 +131,25 @@ export function watchFeed(
   const calendars: WatchCalendar[] = [
     ...recs
       .filter((r): r is Rec<'calendar'> => r.type === 'calendar' && !r.deleted)
-      .sort((a, b) => byOrd(a.payload, b.payload))
+      .sort(byRecOrd)
       .map((c) => ({ id: c.id, name: c.payload.name, color: c.payload.color })),
     ...(shared
       ? shared.recs
           .filter((r): r is Rec<'calendar'> => r.type === 'calendar' && !r.deleted)
-          .sort((a, b) => byOrd(a.payload, b.payload))
+          .sort(byRecOrd)
           .map((c) => ({ id: c.id, name: c.payload.name, color: c.payload.color, sharedFrom: shared.partner }))
       : []),
   ];
   const folders = recs
     .filter((r): r is Rec<'folder'> => r.type === 'folder' && !r.deleted && folderApp(r.payload) === 'reminders')
-    .sort((a, b) => byOrd(a.payload, b.payload))
+    .sort(byRecOrd)
     .map((f) => ({ id: f.id, name: f.payload.name, color: f.payload.color }));
   // Sections travel too: Sean asked the wrist to show the same folder and
   // section structure the phone does, rather than one flat list. In list
   // order, so the watch never has to sort anything.
   const sections = recs
     .filter((r): r is Rec<'section'> => r.type === 'section' && !r.deleted)
-    .sort((a, b) => byOrd(a.payload, b.payload))
+    .sort(byRecOrd)
     .map((x) => ({ id: x.id, name: x.payload.name, folderId: x.payload.folderId }));
   // The grouped shape travels too, so the wrist DRAWS rather than decides —
   // the standing rule, and the reason those three header rules are now
