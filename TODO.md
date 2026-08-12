@@ -14,7 +14,7 @@ Standing rules live in `CLAUDE.md`, not here.
 
 ## Suite counts, as of this commit
 
-core **401** · gesture **156** (+1 skipped) · WebKit **16** · server **46** ·
+core **401** · gesture **156** (+1 skipped) · WebKit **16** · server **47** ·
 live **19** with the API · desktop **7** (+3 in `npm run test:desktop`) · deploy guards **9** · plus the four
 native seam checkers no browser can reach: `npm run test:watch`,
 `npm run test:widget`, `npm run test:deploy`.
@@ -379,8 +379,11 @@ then the watch needs the direct install and the build number is the proof.
   implying it is guarded. The behaviour that IS guarded is `reminderToggle`'s,
   and removing its check turns two tests red.
 
-  Nothing outside core reimplements this: no Swift, no PHP. Checked, because
-  the wrist and the widget would each need the same guard if they did.
+  **THAT CLAIM WAS WRONG, and the correction is the interesting part.** It was
+  made by grepping for a named function (`repeat_next|repeat_step|function
+  repeat`) and the feed's expansion is an inline CLOSURE — `$expand`/`$step` in
+  `handle_feed` — so the grep could not have found it however carefully it was
+  read. See the entry below for what it cost.
 
 - **"Undo last delete" offered to resurrect a CONVERSION.** Undo is defined as
   the newest tombstone, which is a good definition and why it needs no
@@ -431,6 +434,28 @@ then the watch needs the direct install and the build number is the proof.
   never reach `shared_put`, because ItemModal's shared branch returns early
   with a freshly built record and never touches convertToNote and friends. So
   `superseded` does not need to travel this path.
+
+- **The widget feed had its own copy of the expansion, and its own version of
+  the same bug.** `handle_feed` expands repeats in PHP rather than reading
+  core, so core's non-advancing guard never reached it: every step returned the
+  start, `$d > $to` never tripped, and the same day was pushed 400 times.
+
+  The 12-row cap is NOT a defence, which is the part that makes this bad. The
+  cap is spent day by day from today forward, so one such record took all
+  twelve and every later day got none — twelve copies of one row for three
+  weeks, and nothing else in the widget at all. Proven: the row listed 12
+  times and the reminder three days out never appeared.
+
+  Both non-advancing shapes are covered, including the one where the port
+  could have differed: PHP reaches an unknown unit through `match()`'s
+  `default`, where the TypeScript falls through to its month/year branch. A
+  missing `n` or `unit` lands there too.
+
+  THE SWEEP, done properly this time rather than by grepping for a name:
+  TypeScript has exactly one expansion (`repeatDates`), and the native widget
+  and the watch both reach it through `dayItems`, so they were always guarded.
+  PHP had the second. Swift has none — its only date arithmetic is the month
+  grid's layout.
 
 ## 4 · Steady state, every iteration
 

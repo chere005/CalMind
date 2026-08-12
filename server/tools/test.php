@@ -311,6 +311,54 @@ t('the feed follows the suite: rolled repeats keep future dates, hidden folders 
     ok(!in_array('invisible', $all, true), 'a hidden folder never feeds');
     ok(count($all) <= 12, 'the suite cap of 12 rows holds');
 });
+t('a repeat that cannot advance does not fill the widget with one row', function () {
+    global $port;
+    // The SAME bug core's repeatDates was fixed for, in the feed's own copy of
+    // the expansion — which is an inline closure here, not a named function,
+    // and so was missed when "nothing outside core reimplements repeats" was
+    // checked by grepping for one. Every step returns the start, `$d > $to`
+    // never trips, and the same day is pushed 400 times.
+    //
+    // The 12-row cap does not save it: the cap is spent day by day from today
+    // forward, so one bad record takes all twelve and every later day gets
+    // nothing. The widget shows twelve copies of one row for three weeks.
+    //
+    // A FRESH account, because the cap is global — on the shared one the
+    // earlier specs' records decide how much room is left and this would
+    // assert about them instead.
+    $r = api(['action' => 'signup', 'username' => 'nonadv', 'email' => 'nonadv@example.com', 'password' => 'nonadvpass']);
+    eq(200, $r['status'], 'fresh account');
+    $tok = $r['body']['token'];
+    $today = date('Y-m-d');
+    api(['action' => 'sync', 'cursor' => 0, 'changes' => [
+        ['id' => 'stuck', 'type' => 'reminder', 'updated' => 9100,
+         'payload' => ['text' => 'stuck', 'due' => $today, 'time' => null, 'done' => false,
+                       'repeat' => ['n' => 0, 'unit' => 'day'], 'folderId' => 'f', 'sectionId' => 's', 'indent' => 0, 'ord' => 'A']],
+        ['id' => 'later', 'type' => 'reminder', 'updated' => 9100,
+         'payload' => ['text' => 'later', 'due' => date('Y-m-d', strtotime('+3 days')), 'time' => null, 'done' => false,
+                       'repeat' => null, 'folderId' => 'f', 'sectionId' => 's', 'indent' => 0, 'ord' => 'B']],
+    ]], $tok);
+    $wt = api(['action' => 'widget_token', 'rotate' => true], $tok)['body']['token'];
+    $feed = json_decode((string) @file_get_contents("http://127.0.0.1:$port/api/index.php?feed=1&t=$wt"), true);
+    $all = [];
+    foreach (($feed['days'] ?? []) as $rs) { foreach ($rs as $r0) { $all[] = $r0['text']; } }
+    eq(1, count(array_filter($all, fn($t) => $t === 'stuck')), 'it lists once, as the one-off it is');
+    ok(in_array('later', $all, true), 'and does not crowd out the rest of the window');
+
+    // The other non-advancing shape, and the one where this port could differ
+    // from core: PHP reaches it through match()'s `default`, which catches a
+    // unit it has never seen the same way the TypeScript falls through to its
+    // month/year branch. A missing `n` or a missing `unit` lands here too.
+    api(['action' => 'sync', 'cursor' => 0, 'changes' => [
+        ['id' => 'stuck2', 'type' => 'reminder', 'updated' => 9200,
+         'payload' => ['text' => 'unknown unit', 'due' => $today, 'time' => null, 'done' => false,
+                       'repeat' => ['n' => 1, 'unit' => 'fortnight'], 'folderId' => 'f', 'sectionId' => 's', 'indent' => 0, 'ord' => 'C']],
+    ]], $tok);
+    $feed2 = json_decode((string) @file_get_contents("http://127.0.0.1:$port/api/index.php?feed=1&t=$wt"), true);
+    $all2 = [];
+    foreach (($feed2['days'] ?? []) as $rs) { foreach ($rs as $r0) { $all2[] = $r0['text']; } }
+    eq(1, count(array_filter($all2, fn($t) => $t === 'unknown unit')), 'an unrecognised unit lists once too');
+});
 t('the cals= pin narrows the feed to the calendars baked at copy time', function () use ($tokenA) {
     global $port;
     api(['action' => 'sync', 'cursor' => 0, 'changes' => [

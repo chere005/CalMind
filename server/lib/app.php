@@ -635,6 +635,27 @@ function handle_feed(array $cfg): never
     $expand = function (?string $start, $rep) use ($days, $step, $today): array {
         if (!$start) { return []; }
         if (!is_array($rep)) { return isset($days[$start]) ? [$start] : []; }
+        // A rule that does not ADVANCE is not a repeat, and the loop below
+        // cannot survive one: every step returns $start, `$d > $to` never
+        // trips, and the same day is pushed 400 times. `{n: 0}` and a unit
+        // this build has never met both do it, and neither can come from the
+        // app — but a record arrives from sync as well, written by a client
+        // that knows something this one does not.
+        //
+        // The 12-row cap is NOT a defence. It is spent day by day from today
+        // forward, so one such record takes all twelve and every later day
+        // gets none: twelve copies of one row, for three weeks, and nothing
+        // else in the widget at all.
+        //
+        // The twin of packages/core/src/repeats.ts's repeatAdvances(), and the
+        // reason this needed porting rather than inheriting is that the feed
+        // expands repeats HERE, in PHP, rather than reading core. Non-
+        // destructive by the same rule as there: draw it as a one-off, leave
+        // the record alone, since this build cannot tell "corrupt" from
+        // "newer than me".
+        if ($step($start, $rep, 1) <= $start) {
+            return isset($days[$start]) ? [$start] : [];
+        }
         $out = [];
         $to = date('Y-m-d', strtotime('+20 days'));
         for ($i = 0; $i < 400; $i++) {
