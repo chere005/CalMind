@@ -14,7 +14,7 @@ Standing rules live in `CLAUDE.md`, not here.
 
 ## Suite counts, as of this commit
 
-core **428** · gesture **159** (+1 skipped) · WebKit **16** · server **48** ·
+core **464** · gesture **159** (+1 skipped) · WebKit **16** · server **48** ·
 live **19** with the API · desktop **7** (+3 in `npm run test:desktop`) · deploy guards **9** · plus the four
 native seam checkers no browser can reach: `npm run test:watch`,
 `npm run test:widget`, `npm run test:deploy`.
@@ -758,6 +758,42 @@ then the watch needs the direct install and the build number is the proof.
   `locator('[data-testid…]')` forms, but every one of those is a positive use
   where a typo fails loudly. `longPress` throws on a missing element rather
   than skipping.
+
+- **33 of manage.ts's 48 error guards were watched by nothing.** Found by
+  mutation: each single-line `if (…) return { error: … }` neutered in turn and
+  the suite re-run. Coverage would have called every one of those lines
+  exercised — they are reached constantly, just never with the argument that
+  makes them fire.
+
+  Two of the five that were RULES are the sibling asymmetry this repo keeps
+  producing: 'a folder needs a name' was pinned and 'a section needs a name'
+  was not; 'an app keeps at least one folder' was pinned in
+  moveSectionEmptyingFolder and not in `deleteFolder`, which is the function
+  anyone actually reaches it through. The other three: a block cannot land
+  inside itself, renaming a calendar to its own name, and a folder is not
+  duplicable.
+
+  The other 27 are bad-id defences, and they got ONE table instead of 27 tests,
+  because what matters is the property they share: an id that is gone comes
+  back as an error and never as a crash. Not hypothetical — a row deleted on
+  the phone while the web is mid-drag arrives here as exactly that.
+
+  33 survivors down to 3. Two of the fixes were in the FIXTURE, not the tests:
+  with one calendar and one habit section, the 'no such calendar' guard was
+  masked by 'the last calendar stays' on the very next line, so neutering it
+  changed nothing observable. A fixture that hides the thing under test is its
+  own kind of check that cannot fail.
+
+  The last three are unreachable behind an earlier guard — no argument makes
+  them fire — and are left untested deliberately, with the reasoning written
+  where the next person will find it. A test that fakes an impossible store to
+  reach one pins the fake, not the rule.
+
+  One assumption of mine was wrong and the test caught it: the rideAlong
+  Calendar folder DOES count toward an app's one-folder minimum, so deleting
+  the last ordinary reminders folder is allowed and everything lands in
+  Calendar. Coherent, surprising enough to pin, and now pinned rather than
+  changed on a guess.
 
 ## 4 · Steady state, every iteration
 
