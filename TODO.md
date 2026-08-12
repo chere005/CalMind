@@ -220,6 +220,38 @@ A `maxWidth` on the pill would be a no-op at four characters and would leave
 the title intact at seventeen. NOT DONE, because you have been specific about
 this bar before and how your own name renders is yours to decide.
 
+### Two browser TABS lose each other's offline work — architectural, your call
+Proven 2026-08-11 by `e2e/twotab.spec.ts`, which is parked as `test.fixme` so
+the bug stays visible without turning the suite red.
+
+`twodevice.spec` opens a second browser CONTEXT — "its own storage, its own
+session" — so it tests two machines and passes. Two TABS of one browser are a
+different animal: they share the localStorage snapshot, each holds its own
+SyncEngine in memory, and each writes the WHOLE snapshot over that one key on
+every mutate. There is no `storage` listener and no BroadcastChannel; neither
+tab knows the other is there.
+
+Online this is harmless — the server is the meeting point and the snapshot is
+only a cache, refilled on the next sync. OFFLINE it is data loss: add a
+reminder in tab A, add one in tab B, reload, and **tab A's is gone**. It was
+never on the server, and B's snapshot never contained it.
+
+Three ways out, and the choice is a real one:
+
+- **A `storage` listener** that merges the other tab's snapshot through the
+  engine's existing last-write-wins. Cheap when there is one tab, uses
+  machinery that already exists, and is the usual answer on the web. The risk
+  is precisely what `clobber.spec` exists for: a merge arriving mid-sentence
+  must not eat the sentence.
+- **A single writer** — Web Locks or a BroadcastChannel election, one tab owns
+  the snapshot. Cleanest semantics, most machinery.
+- **Leave it.** Two tabs AND offline AND closing before reconnecting is a
+  narrow path, and the app is honest about being offline throughout.
+
+Not chosen here: inventing merge semantics for someone's notes is not a
+tidy-up, and this repo has already paid once for a remote edit landing on a
+sentence being typed.
+
 ### Smaller, still his
 - A FINISHED item greys out rather than keeping its folder colour. That is
   the suite's rule; it can go.

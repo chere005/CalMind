@@ -42,7 +42,11 @@ cmp_count() { # name, claimed, actual
 # listed too, which is why the line reads "N (+1 skipped)" and the claim below
 # is compared against the PASSING count.
 listed() { npx playwright test --list ${2:+-c "$2"} 2>/dev/null | grep -cE '^  [a-z].*spec\.ts:[0-9]+'; }
-SKIPPED=$(grep -rlE 'test\.skip\(' e2e/*.spec.ts | wc -l | tr -d ' ')
+# Both spellings: test.skip() gates a spec on an env var, test.fixme() marks a
+# known bug that is kept visible rather than deleted. Playwright reports either
+# as "skipped", so both have to come off the passing count or this line goes
+# stale the moment a bug is parked.
+SKIPPED=$(grep -rlE 'test\.(skip|fixme)\(' e2e/*.spec.ts | wc -l | tr -d ' ')
 
 cmp_count core "$(claim core)" \
   "$(npx vitest run --root packages/core 2>&1 | grep -oE 'Tests +[0-9]+ passed' | grep -oE '[0-9]+' | head -1)"
