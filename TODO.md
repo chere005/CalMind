@@ -14,7 +14,7 @@ Standing rules live in `CLAUDE.md`, not here.
 
 ## Suite counts, as of this commit
 
-core **401** · gesture **156** (+1 skipped) · WebKit **16** · server **48** ·
+core **405** · gesture **156** (+1 skipped) · WebKit **16** · server **48** ·
 live **19** with the API · desktop **7** (+3 in `npm run test:desktop`) · deploy guards **9** · plus the four
 native seam checkers no browser can reach: `npm run test:watch`,
 `npm run test:widget`, `npm run test:deploy`.
@@ -531,6 +531,31 @@ then the watch needs the direct install and the build number is the proof.
   It runs in `npm run test:feed` AND in the deploy gate, unlike the Swift
   checkers: those guard code this script does not ship, and this guards code
   it does.
+
+- **`ordBetween` answered wrongly instead of refusing, for a bound it cannot
+  fit under.** Its header says generated keys never end on DIGITS[0], "which is
+  what keeps the descent from ever needing to squeeze below an exhausted upper
+  bound". True — of keys IT made, and that is now fuzzed rather than asserted.
+  Not true of a key arriving over sync from a client this build has never met.
+
+  Given `('A', 'A0')` there is no answer at all: no string over this alphabet
+  lies between them, brute-forced to be sure, because 'A0' is already the
+  smallest thing after 'A'. It returned 'A0V' — which sorts AFTER the bound it
+  was told to stay below. A row dragged above such a neighbour landed somewhere
+  else, and that wrong order was written and synced to every device, for good.
+
+  It throws now, as it already did for `lo >= hi`. A drag that visibly fails
+  writes nothing and can be retried; a silently wrong order cannot be undone
+  and does not look like a bug, it looks like the app moving things by itself.
+  49 call sites, none of them catching — deliberate, since the existing throw
+  was never caught either and there is nothing sensible to swallow here.
+
+  `test/ordfuzz.test.ts` pins BOTH halves, which is the point: 4000 random
+  inserts and 500 squeezes of one gap all keep the invariant, and a second
+  3000-insert pass asserts the new refusal NEVER fires for a key this module
+  made — a guard that rejected a legitimate gap would be a worse bug than the
+  one it fixes. Removing the guard turns the refusal test red; the app's only
+  hand-written ord, manage.ts's `'zzzz'` ghost, cannot reach it.
 
 ## 4 · Steady state, every iteration
 
