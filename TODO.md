@@ -47,7 +47,7 @@ Standing rules live in `CLAUDE.md`, not here.
 
 ## Suite counts, as of this commit
 
-core **500** · gesture **203** (+2 skipped) · WebKit **16** · server **48** ·
+core **500** · gesture **206** (+2 skipped) · WebKit **16** · server **48** ·
 live **19** with the API · desktop **7** (+3 in `npm run test:desktop`) · deploy guards **9** · plus the four
 native seam checkers no browser can reach: `npm run test:watch`,
 `npm run test:widget`, `npm run test:deploy`.
@@ -69,7 +69,7 @@ is between real tradeoffs, not because the answer is unclear.
 
 ### The watch app stops launching on 2026-08-16 — four days from now
 Not a decision so much as a clock. Free Personal Team profiles last 7 days,
-the last device install was build 25 on 2026-08-12, and the apps stop
+the last device install was build 27 on 2026-08-12, and the apps stop
 launching when their profiles expire. Read out of the profiles themselves on
 2026-08-12 rather than counted forward from the build:
 
@@ -93,7 +93,7 @@ BEFORE the 16th rather than on it: Xcode → Settings → Accounts.
 This was written down on 2026-08-09 as "both device profiles expire
 2026-08-16" and the rewrite dropped it the next day.
 
-**Build 23 was installed on 2026-08-12 and the dates above did NOT move.**
+**Build 23 was installed on 2026-08-12 and the dates above did NOT move** (nor did they for 24-27 since).
 Checked by re-reading the profiles after the build: a rebuild only renews
 when the profile it needs is invalid, and these are still good, so
 `-allowProvisioningUpdates` reused them and bought nothing. So installing
@@ -792,6 +792,18 @@ then the watch needs the direct install and the build number is the proof.
   A weekend tick counts in the month charts; an untouched weekend enters
   neither side of the sum, so it can only help and never reads as a day you
   failed. Tick cells announce themselves as checkboxes on the way past.
+- Entering edit mode no longer moves anything on HABITS. Its grip used
+  `display: none`, so the grip, pencil and delete all appeared inside the name
+  column as you entered — and nameBox centres its text, so every habit name
+  slid sideways. Measured x=68 out of edit, x=48 in. The slots are held by
+  spacers, not by hidden controls: an opacity-0 button is still read out by a
+  screen reader and still counts as visible to a test.
+- Tap-to-exit was CHECKED on all four screens and was already right on every
+  one — `e2e/editmode.spec.ts`. The first version of that spec said Reminders
+  was broken and was wrong twice over: it pressed the tick rather than the
+  row body, so edit mode never opened, and it read `row-grip`, which is
+  always rendered at opacity 0 and which Playwright calls VISIBLE either way.
+  A marker that only exists in edit mode is the only honest signal.
 - Nothing scrolls that has nothing to scroll: `alwaysBounceVertical={false}`,
   in ui.tsx's `Scroll` rather than on 21 call sites, guarded by a source
   scan. The web half of the same idea — `overscroll-behavior: none` — was

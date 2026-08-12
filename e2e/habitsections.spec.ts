@@ -46,9 +46,12 @@ test('a habit section drags below its neighbour, and stays there', async ({ page
   await longPress(page, page.locator('[data-testid^="hsec-name-"]').first());
   await page.waitForTimeout(400);
 
+  // Read from the section NAMES, not the grips: grips exist only inside edit
+  // mode since 2026-08-12, and this order is also read after a reload, when
+  // edit mode is long gone.
   const order = async () =>
-    page.locator('[data-testid^="hsec-grip-"]').evaluateAll((els) =>
-      els.map((e) => (e.getAttribute('data-testid') ?? '').replace('hsec-grip-', '')));
+    page.locator('[data-testid^="hsec-name-"]').evaluateAll((els) =>
+      els.map((e) => (e.getAttribute('data-testid') ?? '').replace('hsec-name-', '')));
   expect(await order()).toEqual(['Habits', 'Evening', 'Morning']);
 
   const from = (await page.getByTestId('hsec-grip-Evening').boundingBox())!;

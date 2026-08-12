@@ -1274,11 +1274,15 @@ test('a habit drags to a new spot, and the order survives a reload', async ({ pa
     await page.getByTestId('habit-name-field').fill(name);
     await page.getByTestId('habit-save').click();
   }
-  const names = page.getByTestId('habit-grip');
-  await expect(names).toHaveCount(3);
+  // Counted by NAME, not by grip. The grips exist only inside edit mode since
+  // 2026-08-12 — they used to be rendered always and merely invisible, which
+  // is what let this line run before the hold below.
+  await expect(page.getByTestId('habit-name')).toHaveCount(3);
 
   // Edit mode is entered by HOLDING a habit — the pencil is gone.
   await longPress(page, page.getByTestId('habit-name').first());
+  const names = page.getByTestId('habit-grip');
+  await expect(names, 'the grips are there once edit mode is open').toHaveCount(3);
   const g0 = (await names.nth(0).boundingBox())!;
   const g2 = (await names.nth(2).boundingBox())!;
   // Drag the first habit down past the third.

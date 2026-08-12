@@ -421,16 +421,19 @@ export function Habits() {
                   ref={secDrag.registerHeader(sec.id, HFOLDER)}
                   style={[s.secHead, secDrag.dragging === sec.id && s.dragging]}
                 >
-                  <View
-                    testID={`hsec-grip-${sec.payload.name}`}
-                    {...(edit ? secDrag.gripFor(sec.id) : {})}
-                    style={[s.rowGrip, !edit && s.gripGone]}
-                    pointerEvents={edit ? 'auto' : 'none'}
-                    hitSlop={6}
-                  >
-                    <WebHitSlop slop={6} />
-                    <Text style={s.rowGripText}>≡</Text>
-                  </View>
+                  {edit ? (
+                    <View
+                      testID={`hsec-grip-${sec.payload.name}`}
+                      {...secDrag.gripFor(sec.id)}
+                      style={s.rowGrip}
+                      hitSlop={6}
+                    >
+                      <WebHitSlop slop={6} />
+                      <Text style={s.rowGripText}>≡</Text>
+                    </View>
+                  ) : (
+                    <View style={s.slotGrip} />
+                  )}
                   <Pressable onPress={() => toggleFold(sec.id)} hitSlop={8} style={s.chevWrap}>
                     <WebHitSlop />
                     <Chevron open={!folded.has(sec.id)} />
@@ -478,16 +481,19 @@ export function Habits() {
                         ]}
                       >
                       <View style={s.nameCol}>
-                        <View
-                          testID="habit-grip"
-                          {...(edit ? drag.handleFor(flatIdxOf(h.id)) : {})}
-                          style={[s.rowGrip, !edit && s.gripGone]}
-                          pointerEvents={edit ? 'auto' : 'none'}
-                          hitSlop={6}
-                        >
-                          <WebHitSlop slop={6} />
-                          <Text style={s.rowGripText}>≡</Text>
-                        </View>
+                        {edit ? (
+                          <View
+                            testID="habit-grip"
+                            {...drag.handleFor(flatIdxOf(h.id))}
+                            style={s.rowGrip}
+                            hitSlop={6}
+                          >
+                            <WebHitSlop slop={6} />
+                            <Text style={s.rowGripText}>≡</Text>
+                          </View>
+                        ) : (
+                          <View style={s.slotGrip} />
+                        )}
                         {/* Holding a habit no longer starts typing over its
                             name. Sean, 2026-08-11: it "displays pencil edit
                             icons next to the delete icons which goes to this
@@ -522,7 +528,9 @@ export function Habits() {
                         >
                           <Text testID="habit-name" style={[s.habitName, { color: tint(sec.payload.color, 'ee') }]} numberOfLines={1}>{h.payload.name}</Text>
                         </Pressable>
-                        {edit && (
+                        {/* Each control keeps its SLOT when it is not shown,
+                            so nothing in the row moves as edit mode opens. */}
+                        {edit ? (
                           <CircleBtn
                             testID="habit-edit"
                             glyph="✎"
@@ -530,8 +538,12 @@ export function Habits() {
                             size={24}
                             onPress={() => setEditor({ sectionId: sec.id, habit: h })}
                           />
+                        ) : (
+                          <View style={s.slotCtrl} />
                         )}
-                        {edit && <ConfirmDelete size={24} onDelete={() => mutate((e) => e.del(h.id))} />}
+                        {edit
+                          ? <ConfirmDelete size={24} onDelete={() => mutate((e) => e.del(h.id))} />
+                          : <View style={s.slotCtrl} />}
                       </View>
                       {days.map((d) => {
                         // An off-schedule day — a weekend for a weekdays
@@ -675,6 +687,21 @@ const s = themed(() => StyleSheet.create({
   // handle — the suite's rule, and the reason it uses display over visibility.
   rowGrip: { width: 16, alignItems: 'center', justifyContent: 'center' },
   gripGone: { display: 'none' },
+  /**
+   * A control's slot, held open while the control is not there.
+   *
+   * Entering edit mode used to widen nameCol's contents — a grip, a pencil
+   * and a delete appearing where nothing had been — and nameBox CENTRES its
+   * text, so every habit name slid sideways as you entered. Measured before
+   * the fix: the name at x=68 out of edit mode and x=48 in it.
+   *
+   * A spacer rather than the hidden control itself, deliberately: an
+   * opacity-0 button is still an element a screen reader reads out and still
+   * something `toBeHidden()` calls visible, so the controls stay genuinely
+   * absent and only their space is kept.
+   */
+  slotGrip: { width: 16 },
+  slotCtrl: { width: 24 },
   rowGripText: { color: T.muted, fontSize: 14 },
   dragging: { opacity: 0.55 },
   dropLine: { height: 2, backgroundColor: T.accent, borderRadius: 1, marginVertical: 1 },
