@@ -299,6 +299,7 @@ branch in seven modules was deleted or inverted in turn and the suite re-run.
 | `server/lib/app.php` — sharing scope, auth, caps, passkeys | 22 | **2** |
 | `server/lib/fetchurl.php` — the SSRF guards and redirects | 7 | **4** |
 | `server/lib/store.php` — encryption, corrupt-file handling, the lock | 3 | **1** |
+| the SWIFT the checkers extract — widget and watch | 6 | 0 |
 
 manage.ts is written up in TODO; the short version is that 27 of the 33 were
 bad-id defences that now share one table, five were rules (two of them the
@@ -351,6 +352,16 @@ TWO THINGS THE TECHNIQUE NEEDS, both learned the hard way here:
     were dead on arrival until the fixture grew a second calendar and a second
     habit section. Re-running the sweep AFTER writing the tests is what found
     that; writing them was not enough.
+
+The Swift row is the native seam, and it had never been checked the other way
+round: the checkers were trusted to catch a broken Swift function without
+anyone breaking one. Six mutations, all caught by exit code —
+`check-widget-feed.sh` sees `toggledTicks` losing its remove branch, gaining a
+duplicate, and `packed()` ignoring the height it is given (the overfill Sean
+reported); `check-watch-feed.sh` sees `capped()` dropping its limit, counting
+within days instead of across them, and a Codable field renamed on the wrist,
+which is the cross-language drift it exists for. `check-watch-format.sh` had
+already recorded its own proof.
 
   · store.php's one survivor was `flock(LOCK_EX)`, and the reason it had no
     cover is worth knowing: it CANNOT be tested through the API, because
