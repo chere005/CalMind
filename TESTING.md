@@ -665,8 +665,11 @@ Core was audited on 2026-08-11. The screens never had been, and they are the
 half where the gesture suite is the only guard — so a survivor there is a
 behaviour that could stop working with every suite still green.
 
-Seven mutations, chosen where a survivor would mean something rather than
-where one was easy to make:
+Ten mutations, chosen where a survivor would mean something rather than where
+one was easy to make. THREE survived, and all three had the same shape: a
+guard governing a path no spec walks. Two of them had real bugs sitting
+behind them, which is the argument for chasing a survivor rather than
+shrugging at it.
 
 | mutation | result |
 |---|---|
@@ -677,6 +680,9 @@ where one was easy to make:
 | the calendar's `delayLongPress` 350 → 5000 | caught by "the CALENDAR day panel leaves edit mode by tapping out" |
 | `justSwiped()` → false, so a swipe also opens the row it swiped | caught by three specs |
 | **the calendar's double-tap window → 0** | **SURVIVED — see `caldbltap.spec.ts`** |
+| **the `holdCluster` guard removed** | **SURVIVED — see `clusterhold.spec.ts`, and two real bugs were behind it** |
+| **`if (hydratedRef.current)` → `if (true)`** | **SURVIVED — see `seconddevice.spec.ts`** |
+| `persistNow` debounced by 2s | caught by six, including the two "survives a reload" drag specs its own comment names — the claim was true |
 
 Two things are worth taking from the survivor beyond the fix. The gesture
 exists FIVE times (a habit name, a reminder row, a reminders section head, a
