@@ -124,6 +124,35 @@ describe('normalize settles', () => {
     }
   });
 
+  it('survives every container for an app being DELETED, rather than throwing', () => {
+    // normalize claims `appFolders(app)[0]!.id` and `secsOf(folderId)[0]!.id`
+    // when it re-homes a stranded row. Both are true only because seeding
+    // runs FIRST — put the re-home ahead of it and these become a TypeError
+    // inside refresh(), which escapes syncNow (its try/catch covers the
+    // network, not this) and takes the render with it.
+    //
+    // Tombstones are the way to reach it: a folder can be deleted on the
+    // phone while the web still holds rows inside it, which is an ordinary
+    // Tuesday on three devices, not a corrupt store.
+    const del = (r: AnyRec): AnyRec => ({ ...r, deleted: true });
+    const note = (id: string, folderId: string, sectionId: string): AnyRec =>
+      ({ id, type: 'note', updated: 1, payload: { title: id, body: '', date: null, folderId, sectionId, ord: id } }) as AnyRec;
+
+    const cases: [string, AnyRec[]][] = [
+      ['every reminders folder deleted', [del(folder('a')), section('sa', 'a'), reminder('r', 'a', 'sa')]],
+      ['the folder lives, its every section deleted', [folder('a'), del(section('sa', 'a')), reminder('r', 'a', 'sa')]],
+      ['both deleted', [del(folder('a')), del(section('sa', 'a')), reminder('r', 'a', 'sa')]],
+      ['the notes side, same shape', [del(folder('n', 'notes')), del(section('sn', 'n')), note('nt', 'n', 'sn')]],
+    ];
+    for (const [name, recs] of cases) {
+      expect(() => normalize(recs), name).not.toThrow();
+      // …and it still settles afterwards, which is the property above holding
+      // on the paths that only a tombstone reaches.
+      const { passes } = settle(recs);
+      expect(passes, `${name}: repaired but would not settle`).toBeLessThanOrEqual(1);
+    }
+  });
+
   it('and a settled store is left completely alone', () => {
     // The strong form: not "few writes" but none, and the same records out as
     // in. A normalize that rewrote one field harmlessly on every pass would
