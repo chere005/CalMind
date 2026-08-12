@@ -450,6 +450,40 @@ It was then dropped entirely when §3 was cut back — recovered from git.)
 
 ## 2 · Open bugs
 
+### Habits' edit mode had NO way out on a phone — fixed, UNVERIFIED on device
+Found 2026-08-12 by mutation. Every screen leaves edit mode three ways: the
+Escape key, a document pointerdown listener, and `EditExit`. The first two
+live inside `if (!edit || typeof document === 'undefined') return;` — WEB
+ONLY. `EditExit` is the native half, and it renders nothing on the web at
+all.
+
+Reminders, Notes and the Calendar are all wrapped in it. Habits was not, and
+had no backdrop either. So on iOS a long press opened Habits' edit mode and
+nothing closed it: not a tap outside, not Escape, not the listener. Leaving
+the tab is the only escape, and it works by accident — the screen unmounts
+and the state resets.
+
+The comment in Reminders.tsx describes this exact situation as the bug
+EditExit was written to fix ("until now the only way out on iOS was the Done
+button"). Habits is the one screen of four that never got it.
+
+FIXED by wrapping its ScrollView the same way, character for character with
+its three siblings.
+
+**What is verified and what is not, because the distinction matters here.**
+The gesture suite is 181 green after the change — but `EditExit` returns its
+children untouched on the web, so that proves only that nothing regressed,
+NOT that the fix works. It cannot: the whole mechanism is native-only, and a
+mutation that made EditExit do nothing at all passed all 181 tests. That is
+measured, not assumed.
+
+So this needs one look on a phone or simulator: Habits → long-press a section
+to open edit mode → tap an empty part of the screen → the grips and × should
+go. Not done here because `tools/check-sim-fresh.sh` reports three reasons to
+distrust what the current simulator would show, and the Metro serving it
+started 2026-08-08 and may be the other session's — restarting it is not
+mine to do.
+
 ### The watch mirrors the widget's selection ONE PUSH BEHIND
 RESTORED 2026-08-12 and confirmed still live in the source. Sean reported
 shared events on the widget and missing from the watch's first tab. The

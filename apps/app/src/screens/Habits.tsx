@@ -17,6 +17,7 @@ import { APP_PALETTES, themed, T } from '../theme';
 import { TopBar } from '../chrome';
 import { Chevron } from '../components/Chevron';
 import { SectionPick, useHabitSections } from '../components/SectionPick';
+import { EditExit } from '../components/EditExit';
 import { useRowDrag } from '../components/rowdrag';
 import { useSectionDrag } from '../components/sectiondrag';
 import { CircleBtn, CollapseAllBtn, ConfirmDelete, WebHitSlop } from '../ui';
@@ -347,6 +348,14 @@ export function Habits() {
           is what keeps the gesture, but on a touch device a list that also
           scrolls under the finger fights the drop line for the same pixels. */}
       <ScrollView contentContainerStyle={s.scroll} scrollEnabled={drag.dragIdx === null && secDrag.dragging === null}>
+        {/* On a PHONE this wrapper is what makes a tap outside leave edit
+            mode. The two exits above it — Escape and the document
+            pointerdown listener — both sit behind `typeof document ===
+            'undefined'`, so on iOS neither exists, and Habits was the one
+            screen of the four that never got this. Reminders, Notes and the
+            Calendar have had it; here a long press opened edit mode and
+            nothing but leaving the tab closed it again. */}
+        <EditExit active={edit} onExit={() => setEdit(false)}>
         {view === 'week' && (
           <>
             <View style={s.headRow}>
@@ -555,6 +564,7 @@ export function Habits() {
             </View>
           </>
         )}
+        </EditExit>
       </ScrollView>
       {editor && (
         <HabitEditor
