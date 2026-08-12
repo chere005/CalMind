@@ -14,7 +14,7 @@ Standing rules live in `CLAUDE.md`, not here.
 
 ## Suite counts, as of this commit
 
-core **464** · gesture **159** (+1 skipped) · WebKit **16** · server **51** ·
+core **464** · gesture **159** (+1 skipped) · WebKit **16** · server **52** ·
 live **19** with the API · desktop **7** (+3 in `npm run test:desktop`) · deploy guards **9** · plus the four
 native seam checkers no browser can reach: `npm run test:watch`,
 `npm run test:widget`, `npm run test:deploy`.
@@ -819,6 +819,22 @@ then the watch needs the direct install and the build number is the proof.
   `127.`/`169.254.`/`0.0.0.0` shortcut and the metadata line sit below a
   `filter_var` that already refuses every one of them, checked address by
   address. No test can tell them apart. Left alone as defence in depth.
+
+- **The store's exclusive lock had no test at all.** Removing
+  `flock($h, LOCK_EX)` from `with_lock` failed nothing — mutation, 2026-08-11.
+  Encryption and the corrupt-file path were both well covered (writing
+  plaintext turns 2 red; a decrypt that always fails turns 43 red); the lock
+  was the one nothing watched.
+
+  It cannot be tested through the API, which is why it had escaped: `php -S`
+  serialises requests all by itself, so a parallel HTTP test would prove the
+  dev server's behaviour rather than the lock's. Four real processes calling
+  `with_lock` directly is what makes the race happen, on the shape that loses
+  data — read, add one, write, with the window held open long enough that the
+  unlocked version fails every time instead of occasionally.
+
+  Unlocked, 119 of 160 increments vanish, on every run of three. Locked, none
+  do. A guard that only fires under concurrency needs a test that creates some.
 
 ## 4 · Steady state, every iteration
 

@@ -735,6 +735,49 @@ t('the URL fetcher refuses the addresses a server must never be asked for', func
     ok(str_contains(fetch_url('file:///etc/passwd')['error'], 'only http'), 'and says which schemes it speaks');
 });
 
+t('with_lock actually serialises writers', function () use ($scratch, $root) {
+    // Dropping flock(LOCK_EX) failed nothing — found by mutation, 2026-08-11.
+    // Nothing here had ever run two writers at once, and it cannot be done
+    // through the API either: php -S serialises requests all by itself, so a
+    // parallel HTTP test would prove the dev server's behaviour, not the
+    // lock's. Real processes against with_lock directly is the only way to
+    // make the race happen.
+    //
+    // The shape that loses data is read-modify-write: two workers read the
+    // same number, both add one, and one increment is gone. usleep widens that
+    // window so the unlocked version fails every time rather than occasionally
+    // — a flaky demonstration would be no demonstration.
+    $worker = $scratch . '/lockworker.php';
+    file_put_contents($worker, '<?php
+require_once $argv[1] . "/lib/store.php";
+$cfg  = ["data_dir" => $argv[2]];
+$file = $argv[2] . "/lockcount.json";
+for ($i = 0; $i < 40; $i++) {
+    with_lock($cfg, "counttest", function () use ($cfg, $file) {
+        $d = store_read($cfg, $file);
+        $n = (int) ($d["n"] ?? 0);
+        usleep(500);
+        store_write($cfg, $file, ["n" => $n + 1]);
+    });
+}
+');
+    $cfg  = ['data_dir' => $scratch];
+    $file = $scratch . '/lockcount.json';
+    store_write($cfg, $file, ['n' => 0]);
+
+    $procs = [];
+    for ($k = 0; $k < 4; $k++) {
+        $procs[] = proc_open(
+            'php ' . escapeshellarg($worker) . ' ' . escapeshellarg($root) . ' ' . escapeshellarg($scratch),
+            [1 => ['file', '/dev/null', 'w'], 2 => ['file', '/dev/null', 'w']],
+            $pipes,
+        );
+    }
+    foreach ($procs as $p) { if (is_resource($p)) { proc_close($p); } }
+
+    eq(160, (int) (store_read($cfg, $file)['n'] ?? 0), 'every increment survived — four writers, forty each');
+});
+
 t('a redirect resolves to the address it actually means', function () {
     // The redirect branch had NO cover: mutation replaced the recursive call
     // with a function that does not exist and every spec still passed, because

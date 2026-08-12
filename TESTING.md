@@ -298,6 +298,7 @@ branch in seven modules was deleted or inverted in turn and the suite re-run.
 | `manage.ts` — all 48 single-line error guards | 48 | **33** |
 | `server/lib/app.php` — sharing scope, auth, caps, passkeys | 22 | **2** |
 | `server/lib/fetchurl.php` — the SSRF guards and redirects | 7 | **4** |
+| `server/lib/store.php` — encryption, corrupt-file handling, the lock | 3 | **1** |
 
 manage.ts is written up in TODO; the short version is that 27 of the 33 were
 bad-id defences that now share one table, five were rules (two of them the
@@ -350,6 +351,14 @@ TWO THINGS THE TECHNIQUE NEEDS, both learned the hard way here:
     were dead on arrival until the fixture grew a second calendar and a second
     habit section. Re-running the sweep AFTER writing the tests is what found
     that; writing them was not enough.
+
+  · store.php's one survivor was `flock(LOCK_EX)`, and the reason it had no
+    cover is worth knowing: it CANNOT be tested through the API, because
+    `php -S` serialises requests by itself — a parallel HTTP test would
+    demonstrate the dev server's behaviour, not the lock's. Four real processes
+    calling with_lock directly is what makes the race happen. Unlocked, 119 of
+    160 increments are lost, on every run; locked, none are. A guard that only
+    fires under concurrency needs a test that creates some.
 
   · A THIRD, from the passkey work: **a shared-state suite makes ORDER part of
     the test.** Placed after the counter-regression spec, all three new flag
