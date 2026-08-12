@@ -419,6 +419,40 @@ Nothing was found wrong. That is the point of writing it down: "the checker
 works" is a claim, and until the subject has been broken under it, it is an
 untested one.
 
+### The four clocks, compared over every minute, 2026-08-12
+
+The time rule exists four times — core's `timeLabel`, `WatchFormat.clockFull`
+on the wrist, the complication's `clock12`, and a fourth in PHP because
+`handle_feed` formats its own rows. The checkers hold them to `spec/clock.json`,
+which is about a dozen cases chosen because they are the ones that catch a
+12-hour clock out. Good cases, but a sample.
+
+Driven exhaustively once, to find out whether the sample is faithful: all
+1440 minutes of the day, in both clock modes, real code in each language
+extracted the way the checkers already extract it.
+
+| pair | comparisons | disagreements |
+|---|---|---|
+| PHP `$spoken` (feed) vs core `timeLabel` | 2880 | **0** |
+| Swift `WatchFormat.clockFull` vs core `timeLabel` | 2880 | **0** |
+
+The complication's `clock12` is deliberately NOT in that table: it is the
+compact rule — bare below 8pm, ':00' dropped — so it is not supposed to agree
+with core, and `check-watch-format.sh` already holds it to its own spec.
+
+Not turned into a checker. The sample is now known to be faithful, the
+boundaries it samples (noon, midnight, 19:xx against 20:00) are exactly where
+divergence would appear, and the exhaustive version needs vitest, php AND
+swift in one script to earn nothing the sample does not already earn. Redo it
+rather than automate it, if the rule is ever rewritten.
+
+ONE TRAP, and it cost the first run: THE FLAG IS DUPLICATED TOO. The
+complication carries a global `var CLOCK24`; `WatchFormat` carries its own
+`static var clock24`. Setting one does not set the other, and the result was
+1440 failures that read exactly like a catastrophic divergence — the watch
+apparently answering 12-hour for every minute of a 24-hour clock. It was the
+harness. When comparing these copies, set BOTH.
+
 ### What the gesture suite does NOT reach, 2026-08-12
 
 Measured rather than guessed: every `testID` in `apps/app/src` against every
