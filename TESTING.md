@@ -280,6 +280,32 @@ than a red run, because it looks like an answer.
   inlining the time the way the rewrite did turns two of these red. The
   gesture suite's string-matching catches a rewrite; only this catches a typo.
 
+### Mutation-audited, 2026-08-11
+
+Coverage says a line ran. It does not say anything would have noticed if the
+line were wrong, which is the only question worth asking about a guard. So two
+modules were audited by deleting or inverting each branch in turn and watching
+whether the suite went red.
+
+`update.ts` — `shouldReload`'s six early returns: no-idea (either bundle name
+null), same-bundle, unsent work, half-typed field, already reloaded this page
+life, and already tried this build. Each removed in turn; each turns a test
+red. None is decoration.
+
+`sync.ts` — six mutations: accepting every incoming record regardless of stamp;
+dropping the equal-stamp tie-break; the tie-break ignoring the dirty check;
+the tie-break ignoring `sameContent`; no longer skipping rejected ids; and
+clearing a dirty id regardless of its stamp. All six caught, the first by two
+separate tests.
+
+Twelve mutations, twelve reds. Worth writing down because a clean mutation
+result is real evidence and an unrecorded one gets re-earned; and worth
+repeating on anything new here, since it is the cheapest way to find a branch
+nothing is watching. The technique also has to be watched itself: a mutation
+that fails to APPLY prints a green suite and reads exactly like a guard that
+works — the script above checks the file actually changed and says so when it
+did not.
+
 ## server/ — the API contract (PHP over real HTTP)
 
 - Auth: signup validation, hashed storage (no plaintext on disk), login,
