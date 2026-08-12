@@ -14,7 +14,7 @@ Standing rules live in `CLAUDE.md`, not here.
 
 ## Suite counts, as of this commit
 
-core **477** · gesture **162** (+2 skipped) · WebKit **16** · server **53** ·
+core **484** · gesture **162** (+2 skipped) · WebKit **16** · server **53** ·
 live **19** with the API · desktop **7** (+3 in `npm run test:desktop`) · deploy guards **9** · plus the four
 native seam checkers no browser can reach: `npm run test:watch`,
 `npm run test:widget`, `npm run test:deploy`.
@@ -489,6 +489,19 @@ where someone writing a test will meet them.
   non-letter characters are not — `scrubLine()` in `packages/core/src/recipe.ts`
   is the gate, extend it there.
 - Known and deliberate: '1 large free range egg' and '1 finely chopped onion'
-  are still missed; '2 dried chili' doubles to '4 dried chili'; the
-  '1 x 400g tin' shape is standard and still unconfirmed.
+  are still missed — the quantity IS found, it is the name that keeps its
+  adjectives. Nothing is pluralised there either, because the rule only counts
+  a word whose preceding words are participles ('2 dried chili' → '4 dried
+  chilis', which the entry here used to say did not happen; it does).
+- The '1 x 400g tin' shape is CONFIRMED, 2026-08-12, along with the other
+  three ways to write it — see `packages/core/test/tinsize.test.ts`. Driving
+  the claim instead of re-filing it found a real bug: the bare
+  '1 400g tin chopped tomatoes' doubled to '2 800 g tin', four times the
+  tomatoes. Fixed; the guard tested only for a literal 'x' rather than for
+  what the 'x' meant.
+- Still open from that, and deliberately not guessed at: a sized item with NO
+  container word — '1 2kg whole chicken' — doubles to '2 4 kg', the same
+  four-times shape. Recognising it means calling every bare 'COUNT SIZE NOUN'
+  a count of sized items, which is a guess about lines that are not in Sean's
+  recipes. Pinned as current behaviour in that test rather than changed.
 - Keep `recipe-incnotes` honored on every save path if the editor grows new ones.

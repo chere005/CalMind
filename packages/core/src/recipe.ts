@@ -570,6 +570,10 @@ export function scaleIngredient(text: string, factor: number): string {
   // '2-3 tbsp sugar' into 'sugars' — caught by the tests that were already
   // there, which is what they are for.
   let head = rest;
+  // Set when the leading number counts ITEMS and the size after it is the
+  // size of one of them, so that size must not be scaled. Read with perItem
+  // below, which is the same question asked of the 'x' spelling.
+  let sizeIsPerItem = false;
   // '1 x 400g tin coconut milk' — the size shields the word doing the
   // counting exactly as a bracket does, and 'x' has to be asked about first
   // because it is not a unit, so the general branch below would claim it and
@@ -619,6 +623,29 @@ export function scaleIngredient(text: string, factor: number): string {
     if (par && MEASURE.has(singularOf(par[2]!).toLowerCase())) {
       head = par[1]! + countWord(par[2]!, count) + rest.slice(par[0].length);
     }
+    // '1 400g tin chopped tomatoes' — the 'x' line above with the 'x' left
+    // out, which is how a tin is usually written down. The size shields the
+    // counting word identically, and means the same thing: two of these are
+    // two 400g tins, not two 800g ones.
+    //
+    // Without this the leading 1 AND the 400 both doubled — '2 800 g tin',
+    // 1600g of tomatoes for a line that asked for 800. That is the very
+    // four-times error the 'x' guard below was written against, reached
+    // through the one spelling it does not cover. Of the four ways to write
+    // this line, '1 x 400g tin', '1 (400g) tin' and '1 tin' were all right;
+    // only the bare one was wrong, which is why it survived.
+    //
+    // `unit === ''` is what makes it safe to assume: it means no word stands
+    // between the count and the size. '3 eggs 200g flour' has one, so it is
+    // two separate amounts rather than a count and a size, and both of ITS
+    // numbers still scale. The MEASURE test is the same conservatism as the
+    // two branches above — without a container word to count, the line is
+    // left as the author wrote it.
+    const bare = /^([\d.,/]+\s*[a-zA-Z]+\s+)([A-Za-z]+)\b/.exec(rest);
+    if (!par && bare && MEASURE.has(singularOf(bare[2]!).toLowerCase())) {
+      head = bare[1]! + countWord(bare[2]!, count) + rest.slice(bare[0].length);
+      sizeIsPerItem = true;
+    }
   }
 
   let after = head;
@@ -628,7 +655,7 @@ export function scaleIngredient(text: string, factor: number): string {
   // two of a tin twice as big — scaling both gave '2 x 800 g', which is four
   // times what the recipe asked for and reads as though it were right. The
   // leading count is the only thing that moves.
-  const perItem = unit.toLowerCase() === 'x';
+  const perItem = unit.toLowerCase() === 'x' || sizeIsPerItem;
   if (dual && !perItem && knownUnit(dual[2]!)) {
     const v = qtyValue(dual[1]!);
     if (v !== null) {
