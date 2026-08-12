@@ -362,15 +362,18 @@ matters". Leaving it out of the gate meant exactly that could ship.
 Sixteen specs, under thirty seconds, keeping its log for the same reason the
 gesture run does.
 
-ONE FLAKE SEEN, and recorded rather than papered over. The first WebKit run of
-2026-08-11 failed on "note body renders its markers as styled text when you tap
-away" — the blur-to-view swap not appearing inside the default five seconds, on
-a cold browser and a freshly created server. It then passed five consecutive
-full runs and twice in isolation. A clean A/B ruled out the editor's new status
-dot as the cause. No timeout was added and no retry was configured: the config
-has `retries: 0` deliberately, one unreproducible observation is not grounds to
-loosen an assertion, and a note costs nothing. If it recurs, this is what was
-already ruled out.
+ONE FLAKE SEEN on that first run, at `app.spec.ts:359` — and it is NOT news:
+it is TODO §2's first entry, "The new-note focus is a 50ms race (WebKit only)",
+which already names that exact spec and counts it at three in about
+twenty-four full runs. It was recorded here as a fresh observation because §2
+was never opened. Read the open-bugs list before writing down a bug.
+
+That entry also says, in as many words, not to spend time on synthetic load or
+suite ordering because both were already tried — and five reproduction runs
+went into exactly that before it was read.
+
+The one thing worth adding to it, done: a clean A/B ruled out the note
+editor's status dot, which was new that day and the obvious suspect.
 
 ### Every checker broken on purpose, 2026-08-11
 

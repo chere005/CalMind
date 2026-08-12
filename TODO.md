@@ -304,6 +304,9 @@ when you tap away"), then passed 3/3 in isolation and passed the very next
 full run clean. Consistent with everything below — and worth knowing that the
 line number moved, so anyone searching for :353 will not find it.
 
+Ruled out 2026-08-11: the note editor's status dot, which was new that day and
+the obvious suspect — a clean A/B on the same spec passes with it and without.
+
 2 failures in ~22 runs; every deliberate reproduction has failed, including
 replaying the exact sequence. Do not spend time on synthetic load or suite
 ordering — both were tried. What is real and reachable: for the first 50ms
