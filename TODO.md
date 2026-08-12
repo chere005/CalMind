@@ -47,7 +47,7 @@ Standing rules live in `CLAUDE.md`, not here.
 
 ## Suite counts, as of this commit
 
-core **500** · gesture **195** (+2 skipped) · WebKit **16** · server **48** ·
+core **500** · gesture **198** (+2 skipped) · WebKit **16** · server **48** ·
 live **19** with the API · desktop **7** (+3 in `npm run test:desktop`) · deploy guards **9** · plus the four
 native seam checkers no browser can reach: `npm run test:watch`,
 `npm run test:widget`, `npm run test:deploy`.
@@ -792,6 +792,11 @@ then the watch needs the direct install and the build number is the proof.
   A weekend tick counts in the month charts; an untouched weekend enters
   neither side of the sum, so it can only help and never reads as a day you
   failed. Tick cells announce themselves as checkboxes on the way past.
+- The habits grid pages on a SWIPE, back and forth, weeks in week view and
+  months in month view — the calendar's gesture, on the screen that only had
+  arrows. Horizontal-only capture, because this grid scrolls and drags
+  vertically; `e2e/habitswipe.spec.ts` and TESTING.md both record that the
+  axis itself is not something a browser can check.
 - The home widget's header names the weekday — "Wed Aug 12" — and
   `check-watch-format.sh` runs that formatter, proven by breaking it twice.
 - **The Scriptable widget was removed ENTIRELY**, on Sean's word. Gone: the

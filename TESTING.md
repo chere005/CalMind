@@ -264,6 +264,18 @@ fallback when no manifest exists.
   silently — which is exactly why the behaviour is written to keep work
   rather than to be clever.
 
+- A PAN RESPONDER'S AXIS is the same shape of blind spot, found 2026-08-12
+  adding the habits swipe. The grid pages on a horizontal swipe and must not
+  claim vertical travel, because it scrolls inside a ScrollView and holds two
+  vertical drags. `e2e/habitswipe.spec.ts` pins the paging and pins that a
+  drag still reorders — but relaxing the capture to `|dx| > 12 || |dy| > 12`
+  leaves ALL THREE tests green, measured. The drag survives because a grip
+  claims the responder at touch-down, before an ancestor's move-capture can
+  see anything; and the scrolling that WOULD break cannot be exercised, since
+  a mouse drag does not scroll a div and a wheel event never enters the
+  responder system. So the axis is real on a phone and invisible here. The
+  spec's own header says so, rather than letting a green run read as cover.
+
 - TAP TARGETS on the web are measured, never read off the source. `hitSlop`
   is a no-op under react-native-web, so a control is exactly as big as it is
   drawn there and bigger on native — the two disagree silently, in the

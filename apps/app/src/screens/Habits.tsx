@@ -8,7 +8,7 @@
  * the username) filters sections and opens Manage sections.
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { PanResponder, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { byRecOrd, dayShares, habitOnScheduleOn, monthGrid, moveHabit, moveHabitSection, newId, ordBetween, prefsOf, prefsPut, tickId, todayStr, type Frequency, type Rec } from '@calmind/core';
@@ -304,6 +304,40 @@ export function Habits() {
     setYm(`${y}-${String(m).padStart(2, '0')}`);
   };
 
+  /**
+   * Swipe back and forth through the weeks and months (Sean, 2026-08-12).
+   *
+   * `page` already knows which unit the view is in — a week in week view, a
+   * month in month view — so this is the gesture and nothing else, the same
+   * arrangement the calendar has.
+   *
+   * HORIZONTAL ONLY, and that is the difference from the calendar's copy.
+   * The calendar captures on |dx| OR |dy| because it uses the vertical for
+   * fold-to-week. This grid has no such gesture and cannot afford to take the
+   * vertical: it sits inside a ScrollView and holds two drags of its own —
+   * row reorder and section reorder — all three of which are vertical.
+   * Capturing on |dy| here would break every one of them.
+   *
+   * It also REFUSES the responder hand-over, which the calendar's does not
+   * need. A ScrollView asks for the responder the moment a gesture travels
+   * and silently ends the gesture when it gets it — the trap rowdrag,
+   * sectiondrag and swiperow each had to solve, and this is the same one.
+   */
+  const pageRef = useRef(page);
+  pageRef.current = page;
+  const pan = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponderCapture: (_e, g) =>
+        Math.abs(g.dx) > 12 && Math.abs(g.dx) > 1.5 * Math.abs(g.dy),
+      onPanResponderTerminationRequest: () => false,
+      onPanResponderRelease: (_e, g) => {
+        if (Math.abs(g.dx) > 50 && Math.abs(g.dx) > 1.5 * Math.abs(g.dy)) {
+          pageRef.current(g.dx < 0 ? 1 : -1);
+        }
+      },
+    }),
+  ).current;
+
   const pagerLabel =
     view === 'month'
       ? new Date(`${ym}-15T12:00:00`).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
@@ -339,7 +373,7 @@ export function Habits() {
         </View>
         <View style={s.pager}>
           <CircleBtn testID="habits-prev" glyph="‹" label="Previous" size={30} onPress={() => page(-1)} />
-          <Text style={s.pagerLabel}>{pagerLabel}</Text>
+          <Text testID="habits-pager-label" style={s.pagerLabel}>{pagerLabel}</Text>
           <CircleBtn glyph="›" label="Next" size={30} onPress={() => page(1)} />
         </View>
       </View>
@@ -356,6 +390,7 @@ export function Habits() {
             Calendar have had it; here a long press opened edit mode and
             nothing but leaving the tab closed it again. */}
         <EditExit active={edit} onExit={() => setEdit(false)}>
+        <View testID="habits-pan" {...pan.panHandlers}>
         {view === 'week' && (
           <>
             <View style={s.headRow}>
@@ -579,6 +614,7 @@ export function Habits() {
             </View>
           </>
         )}
+        </View>
         </EditExit>
       </ScrollView>
       {editor && (
