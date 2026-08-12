@@ -307,6 +307,25 @@ line number moved, so anyone searching for :353 will not find it.
 Ruled out 2026-08-11: the note editor's status dot, which was new that day and
 the obvious suspect — a clean A/B on the same spec passes with it and without.
 
+THE MECHANISM, read out of the code 2026-08-12 (reasoned, not demonstrated):
+`setBodyEditing(true)` mounts the body and `setTimeout(…, 50)` focuses it once
+it exists. A spec that fills the body and clicks the TITLE inside that window
+gets the focus stolen back when the timer fires, so the body never blurs, the
+`onBlur` collapse never runs, and `note-body-view` never appears — which is
+exactly what :359 asserts. The 50ms is not tuned to anything; it is a guess at
+how long the mount takes.
+
+Also worth knowing before the next attempt: the title has NO `autoFocus` any
+more, only `selectTextOnFocus`. The body's comment about "title wins the race,
+body blurs, and onBlur collapses the editor" describes a state that no longer
+exists, so that particular objection to focusing the body earlier is stale.
+
+An attempt was made and reverted the same night. Focusing at mount through the
+ref, plus cancelling the pending timer when the title takes focus, is the
+obvious shape — and the second half is precisely the "focus being stolen back"
+that three specs depend on, so it cannot be done without answering the design
+question above. It is not a patch.
+
 2 failures in ~22 runs; every deliberate reproduction has failed, including
 replaying the exact sequence. Do not spend time on synthetic load or suite
 ordering — both were tried. What is real and reachable: for the first 50ms

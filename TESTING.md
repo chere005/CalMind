@@ -350,6 +350,23 @@ The family resemblance to the stale simulator earlier the same day is the
 point: an artefact that is consistent with ITSELF says nothing about whether it
 is the artefact you meant to test.
 
+### Never run two Playwright suites at once, 2026-08-12
+
+Both configs bind their own port — 8790 for the gestures, 8791 for WebKit — and
+each starts its server with `reuseExistingServer: false`. Two runs of the SAME
+config therefore fight over one port, and the loser produces garbage that looks
+exactly like a code failure: a 24-minute run reporting 138 of 164 tests, a pile
+of `locator.fill` timeouts, and a spec named in the failure list.
+
+That was read as "the change under test broke the editor". It had not. The
+committed code, run alone afterwards, passed 162 with exit 0 — and the change
+was reverted on the strength of contaminated evidence before that was known.
+
+Two habits come out of it. Run one suite at a time, and check `lsof -ti
+tcp:8790` before believing a bad result. And do not pipe a diagnostic run
+through `tail`: the first attempt captured three lines and threw away every
+error, which is why it took three more runs to find out what had happened.
+
 ### The WebKit suite is in the deploy gate now, 2026-08-11
 
 It was not, and that was the whole point of it going missing: `deploy-test.sh`
