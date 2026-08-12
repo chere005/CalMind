@@ -14,7 +14,7 @@ Standing rules live in `CLAUDE.md`, not here.
 
 ## Suite counts, as of this commit
 
-core **393** · gesture **156** (+1 skipped) · WebKit **16** · server **41** ·
+core **400** · gesture **156** (+1 skipped) · WebKit **16** · server **41** ·
 live **19** with the API · desktop **7** (+3 in `npm run test:desktop`) · deploy guards **9** · plus the four
 native seam checkers no browser can reach: `npm run test:watch`,
 `npm run test:widget`, `npm run test:deploy`.
@@ -359,6 +359,28 @@ then the watch needs the direct install and the build number is the proof.
   and its Done are plain Pressables and stay invisible. Measured by hand off
   their styles they are ~86pt and ~50pt, which is why that gap is recorded
   rather than closed.
+
+- **A non-advancing repeat could never be ticked off.** `repeatDates()` grew a
+  guard for `{ n: 0 }` and for units this build has never met; `repeatNext()`,
+  its sibling and the function a TICK goes through, did not. So such a record
+  DREW correctly as a one-off while `reminderToggle` rolled it to the day it
+  was already on and left it undone — a row that absorbed taps for ever, in the
+  app, the widget and on the wrist.
+
+  The guard is one exported predicate now, `repeatAdvances()`, asked by both
+  walkers so they cannot silently disagree again — which is exactly how this
+  happened. `reminderToggle` finishes such a reminder like any one-off.
+
+  The shared vectors gained the two `next` cases they were missing; `window`
+  had three from the earlier fix and `next` had none, which is the divergence
+  written down. Note what those vectors do NOT cover: `repeatNext`'s own early
+  return changes no result for any input — with it or without it the answer is
+  `start` — so nothing can distinguish it and the code says so rather than
+  implying it is guarded. The behaviour that IS guarded is `reminderToggle`'s,
+  and removing its check turns two tests red.
+
+  Nothing outside core reimplements this: no Swift, no PHP. Checked, because
+  the wrist and the widget would each need the same guard if they did.
 
 ## 4 · Steady state, every iteration
 

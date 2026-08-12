@@ -47,6 +47,21 @@ export function repeatStep(start: string, rep: Repeat, i: number): string {
   return fmt(new Date(Date.UTC(first.getUTCFullYear(), first.getUTCMonth(), Math.min(d, days))));
 }
 
+/**
+ * Does this rule MOVE? `{ n: 0 }` does not, nor does a unit this build has
+ * never met — see the note above on why such a record is tolerated rather
+ * than repaired. A negative `n` does not either, since it walks backwards.
+ *
+ * One predicate, asked by everything that walks a rule, because the two
+ * functions below already disagreed once: repeatDates() grew this guard and
+ * repeatNext() did not, so a non-advancing repeat DREW correctly as a one-off
+ * while its tick rolled it to the day it was already on and left it undone —
+ * a row that could not be completed, absorbing taps for ever.
+ */
+export function repeatAdvances(start: string, rep: Repeat | null): boolean {
+  return !!rep && repeatStep(start, rep, 1) > start;
+}
+
 /** Every occurrence landing in [from, to]; a one-off is itself when inside. */
 export function repeatDates(start: string, rep: Repeat | null, from: string, to: string): string[] {
   if (start === '' || to < from) return [];
@@ -62,7 +77,7 @@ export function repeatDates(start: string, rep: Repeat | null, from: string, to:
   // This is the whole defence, and it is deliberately at the READ: see the
   // note above on why repairing such a record instead would propagate over a
   // newer client's data.
-  if (repeatStep(start, rep, 1) <= start) return start >= from && start <= to ? [start] : [];
+  if (!repeatAdvances(start, rep)) return start >= from && start <= to ? [start] : [];
   const out: string[] = [];
   for (let i = 0; i < REPEAT_MAX; i++) {
     const d = repeatStep(start, rep, i);
@@ -72,8 +87,23 @@ export function repeatDates(start: string, rep: Repeat | null, from: string, to:
   return out;
 }
 
-/** The first occurrence strictly after `after` — rolling a ticked repeat forward. */
+/**
+ * The first occurrence strictly after `after` — rolling a ticked repeat
+ * forward — or `start` when the rule has no next occurrence to offer.
+ *
+ * That fallback is NOT an answer, and a caller must not treat it as one:
+ * reminderToggle read it as a roll and wrote the reminder back onto the day it
+ * was already on, still undone, so the row could never be ticked off. Ask
+ * repeatAdvances() first; rules.ts does, and that is where the fix lives.
+ *
+ * The early return below changes NO result — with it or without it this
+ * returns `start`, for every input — so no test can tell the two apart, and
+ * none pretends to. It is a fast path that skips 399 pointless date
+ * constructions, and it puts the same question in both walkers so they cannot
+ * silently disagree again, which is how this bug happened.
+ */
 export function repeatNext(start: string, rep: Repeat, after: string): string {
+  if (!repeatAdvances(start, rep)) return start;
   for (let i = 1; i < REPEAT_MAX; i++) {
     const d = repeatStep(start, rep, i);
     if (d > after) return d;
