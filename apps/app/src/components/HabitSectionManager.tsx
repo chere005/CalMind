@@ -4,10 +4,9 @@
  * (tap cycles the habits palette), a pencil rename, and a two-press × whose
  * refusals (the last section stays) surface from core.
  */
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { byOrd, byRecOrd, deleteHabitSection, newId, ordBetween, type Rec } from '@calmind/core';
-import { SwatchTray } from './SwatchTray';
+import { byRecOrd, deleteHabitSection, newId, ordBetween, type Rec } from '@calmind/core';
 import { useStore } from '../store';
 import { themed, APP_PALETTES, T } from '../theme';
 import { CircleBtn, ConfirmDelete, Field, Pill, WebHitSlop } from '../ui';
@@ -31,7 +30,6 @@ export function HabitSectionManager({ onClose }: { onClose: () => void }) {
     setTimeout(() => setErr(''), 3000);
   };
 
-  const ROW_H = 44;
   const drag = useRowDrag(sections.length, (from: number, to: number) => {
     const item = sections[from];
     if (!item) return;

@@ -6,13 +6,13 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { defaultNoteTitle, looksLikeDefaultNoteTitle, deleteSection, renameSection, sectionNameTaken, byOrd, byRecOrd, richLines, scaleRecipeBody, duplicateItem, formatRecipe, prefsPut, moveNote, moveSection, moveSectionEmptyingFolder, newId, nowStr, ordBetween, parseDateField, parseWhenFromText, todayStr, type Rec } from '@calmind/core';
+import { defaultNoteTitle, looksLikeDefaultNoteTitle, deleteSection, renameSection, sectionNameTaken, byRecOrd, richLines, scaleRecipeBody, duplicateItem, prefsPut, moveNote, moveSection, moveSectionEmptyingFolder, newId, nowStr, ordBetween, parseDateField, parseWhenFromText, todayStr, type Rec } from '@calmind/core';
 import { useStore } from '../store';
 import { useNav } from '../nav';
 import { themed, T } from '../theme';
 import { TopBar } from '../chrome';
 import { FolderPick, useFolderView } from '../components/FolderPick';
-import { CircleBtn, CollapseAllBtn, ConfirmDelete, Field, Pill, Rule, WebHitSlop } from '../ui';
+import { CircleBtn, CollapseAllBtn, ConfirmDelete, Field, Pill, WebHitSlop } from '../ui';
 import { Dropdown } from '../components/Dropdown';
 import { useRowDrag } from '../components/rowdrag';
 import { useSectionDrag, type SectionSlot } from '../components/sectiondrag';
@@ -197,7 +197,6 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
     };
   }, [pageEdit]);
   const [dateField, setDateField] = useNoteScoped(openId, '');
-  const [goesOpen, setGoesOpen] = useState(false);
   const [delArmed, setDelArmed] = useNoteScoped(openId, false);
 
   // A note we JUST made should open ready to type, not just open. The scoped
@@ -328,7 +327,6 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
       allSections.filter((x) => x.payload.folderId === f.id).map((x) => ({ sec: x, label: `${f.payload.name} · ${x.payload.name}` })),
     );
   }, [recs]);
-  const goesLabel = open ? goesChoices.find((c) => c.sec.id === open.payload.sectionId)?.label ?? '—' : '—';
   const noteFolderOptions = useMemo(() => {
     const seen = new Map<string, string>();
     for (const c of goesChoices) {

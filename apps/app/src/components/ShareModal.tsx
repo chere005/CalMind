@@ -6,9 +6,9 @@
  * and everything here edits MY share record only; the server re-checks the
  * handshake from both stores on every shared read and write.
  */
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { byOrd, byRecOrd, SHARE_ID, shareOf, type AnyRec, type Rec, type Share } from '@calmind/core';
+import { byRecOrd, SHARE_ID, shareOf, type AnyRec, type Rec, type Share } from '@calmind/core';
 import { useStore } from '../store';
 import { themed, T } from '../theme';
 import { CircleBtn, ConfirmDelete, Field, Pill } from '../ui';

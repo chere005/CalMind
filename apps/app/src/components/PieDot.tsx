@@ -3,7 +3,6 @@
  * colour; viewing several shows a little pie of every visible colour, which
  * with everything switched on is the full rainbow.
  */
-import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { themed, T } from '../theme';

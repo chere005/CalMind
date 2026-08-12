@@ -11,7 +11,6 @@
  * table: a device that cannot write its own copy comes first, because being
  * online is no comfort if a reload loses the morning.
  */
-import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useStore } from '../store';
 import { themed, T } from '../theme';

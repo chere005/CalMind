@@ -25,7 +25,6 @@
  * Not to be confused with the '›' at the end of a note row: that one means
  * "open this", not "collapse this", and is deliberately left alone.
  */
-import React from 'react';
 import Svg, { Polyline } from 'react-native-svg';
 import { T } from '../theme';
 

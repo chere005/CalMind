@@ -5,8 +5,7 @@
  * The bar's contents cap at the same width as the page column, so on a wide
  * window the five tabs stay under the content instead of flying to the edges.
  */
-import React from 'react';
-import { Pressable, StyleSheet, Text, View , Platform } from 'react-native';
+import { Pressable, StyleSheet, View , Platform } from 'react-native';
 import { themed, T, PAGE_MAX_WIDTH } from './theme';
 import { CalendarIcon, FlameIcon, PageIcon, TickCircleIcon } from './components/KindIcons';
 import { DrawnGlyph } from './ui';

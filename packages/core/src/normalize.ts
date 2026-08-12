@@ -7,7 +7,7 @@
  */
 import type { AnyRec, Rec } from './types';
 import { folderApp, newId } from './types';
-import { ordBetween, byOrd, byRecOrd } from './order';
+import { ordBetween, byRecOrd } from './order';
 
 export const FOLDER_STARTER = 'Reminders';
 export const FOLDER_CALENDAR = 'Calendar'; // seeded WITH rideAlong — the name is a label, the flag is the identity

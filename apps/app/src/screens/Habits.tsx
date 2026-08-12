@@ -11,7 +11,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Svg, { Circle, Path } from 'react-native-svg';
-import { byOrd, byRecOrd, dayShares, habitListedOn, monthGrid, moveHabit, moveHabitSection, newId, ordBetween, prefsOf, prefsPut, tickId, todayStr, type Frequency, type Rec } from '@calmind/core';
+import { byRecOrd, dayShares, habitListedOn, monthGrid, moveHabit, moveHabitSection, newId, ordBetween, prefsOf, prefsPut, tickId, todayStr, type Frequency, type Rec } from '@calmind/core';
 import { useStore } from '../store';
 import { APP_PALETTES, themed, T } from '../theme';
 import { TopBar } from '../chrome';
@@ -146,8 +146,6 @@ export function Habits() {
       ticked: (habitId: string, date: string) => ticks.has(tickId(habitId, date)),
     };
   }, [recs, sections]);
-
-  const secColor = useMemo(() => new Map(sections.map((s) => [s.id, s.payload.color])), [sections]);
 
   // The suite's edit mode (body.editing): the grips and the row delete exist
   // only inside it, revealed by the top bar's pencil, left by Escape. Nothing

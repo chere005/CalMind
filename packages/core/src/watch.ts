@@ -12,7 +12,7 @@
  * way would disagree with the phone it is strapped beside.
  */
 import { folderApp, type AnyRec, type Rec } from './types';
-import { byOrd, byRecOrd } from './order';
+import { byRecOrd } from './order';
 import { addDays, dayItems } from './day';
 import { prefsOf } from './manage';
 import { sortByDate } from './sort';

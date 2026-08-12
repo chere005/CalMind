@@ -5,7 +5,7 @@
  * roll repeats, and the add row files a reminder or event by kind. A day is
  * selected by a tap and nothing else.
  */
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { PanResponder, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { prefsOf, duplicateItem,
@@ -17,8 +17,6 @@ import { prefsOf, duplicateItem,
   monthLegend,
   twoWeeksFrom,
   newId,
-  ordBetween,
-  parseWhenFromText,
   reminderToggle,
   todayStr,
   type Rec,

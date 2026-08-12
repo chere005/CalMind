@@ -2,7 +2,7 @@
  * The CalMind card: sign in, sign up, and the two-step email recovery. One
  * screen, three modes — the login page never draws chrome, matching the suite.
  */
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Platform, StyleSheet, Text, View } from 'react-native';
 import { defaultServerUrl } from '../config';
 import { login, signup, recover, reset } from '../api';

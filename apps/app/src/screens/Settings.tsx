@@ -3,10 +3,10 @@
  * one signed in on the fresh token), then Log out / Done — the suite's layout,
  * one modal.
  */
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { prefsOf, prefsPut } from '@calmind/core';
-import { apiPost, changePassword, logout } from '../api';
+import { changePassword, logout } from '../api';
 import { addPasskey, listPasskeys, passkeyAvailable, removePasskey, type PasskeyRow } from '../passkey';
 import { useStore } from '../store';
 import { syncLook } from '../components/SyncDot';
@@ -46,7 +46,6 @@ export function Settings({ onClose }: { onClose: () => void }) {
   const [confirmPass, setConfirmPass] = useState('');
   const [msg, setMsg] = useState('');
   const [err, setErr] = useState('');
-  const [note, setNote] = useState('');
   const [shareOpen, setShareOpen] = useState(false);
   const [widgetOpen, setWidgetOpen] = useState(false);
 
@@ -167,7 +166,6 @@ export function Settings({ onClose }: { onClose: () => void }) {
               </Pressable>
             </View>
           </View>
-          {note ? <Text style={s.note}>{note}</Text> : null}
           {/* The suite's settings footer: one row of three identical round icon
               buttons — Share, Widget, Done (the accent checkmark). Share and
               Widget say where they are on the roadmap until those land. */}

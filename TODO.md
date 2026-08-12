@@ -294,15 +294,30 @@ It was then dropped entirely when §3 was cut back — recovered from git.)
   in TYPING mode. Awaiting which. Cannot test it myself: it writes to his data.
 - Ok to make a throwaway account on the TEST server? It would let the watch
   tick round-trip be verified end to end without touching his data.
+- **Habit sections recolour by CYCLING; folders and calendars use the tray.**
+  Tapping a habit section's swatch advances one step through the palette, so
+  reaching a specific colour means tapping until it comes round. Folders and
+  calendars open `SwatchTray` and let you pick. Found 2026-08-12 because
+  `HabitSectionManager` still IMPORTED SwatchTray without rendering it —
+  a migration that stopped one file short, and the import was the only thing
+  that remembered. Removing the dead import erased that evidence, which is
+  why it is written down here. Which interaction he wants everywhere is his
+  call; they should not stay different.
 
 ## 2 · Open bugs
 
 ### The new-note focus is a 50ms race (WebKit only)
-STILL LIVE, and the count is now 3 in ~24 full runs: it recurred on
-2026-08-11 at `app.spec.ts:359` ("note body renders its markers as styled text
-when you tap away"), then passed 3/3 in isolation and passed the very next
-full run clean. Consistent with everything below — and worth knowing that the
-line number moved, so anyone searching for :353 will not find it.
+STILL LIVE, and the count is now 4 in ~26 full runs: it recurred on
+2026-08-11 and again on 2026-08-12, both at `app.spec.ts:359` ("note body
+renders its markers as styled text when you tap away"), each time passing
+3/3 in isolation and clean on the very next full run. Consistent with
+everything below — and worth knowing that the line number moved, so anyone
+searching for :353 will not find it.
+
+The 2026-08-12 recurrence is the useful one: it landed in the same run as a
+sweep that touched every screen, which is exactly when a flake is easiest to
+mistake for the change. Isolation and a clean re-run are what separate them,
+and they cost four minutes.
 
 Ruled out 2026-08-11: the note editor's status dot, which was new that day and
 the obvious suspect — a clean A/B on the same spec passes with it and without.

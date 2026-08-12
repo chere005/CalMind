@@ -3,7 +3,7 @@
  * palette as a row of dots; tapping one sets it and the tray folds away.
  * The swatch never moves — the tray drops in beneath the row.
  */
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { themed, T } from '../theme';
 

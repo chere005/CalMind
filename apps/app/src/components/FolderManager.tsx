@@ -1,15 +1,16 @@
 /**
  * Manage folders — the suite's manager window: an add row with a green +, each
- * folder with a colour swatch (tap cycles the app palette), a pencil that
+ * folder with a colour swatch (tap opens the palette as a tray; see
+ * SwatchTray — it used to cycle on tap, and this line still said so until
+ * 2026-08-12, when the recolour helper it described turned up dead), a pencil that
  * swaps the name for a rename field, and a two-press × (the rideAlong and last
  * folders refuse through core, and the refusal shows). Below, "Default for new
  * items" as folder·section pills. All rules come from core/manage.
  */
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import {
   byRecOrd,
-  byOrd,
   deleteFolder,
   folderNameTaken,
   newId,
@@ -34,14 +35,6 @@ export function FolderManager({ app, onClose }: { app: 'reminders' | 'notes'; on
   const sharedFolders = sharedPartner
     ? sharedRecs.filter((r): r is Rec<'folder'> => r.type === 'folder' && (r.payload.app ?? 'reminders') === app)
     : [];
-  const sharedPal = APP_PALETTES_SHARED[app];
-  const recolorShared = (f: Rec<'folder'>) => {
-    const key = `@${sharedPartner}:${f.id}`;
-    const cur = prefsOf(recs, app).sharedColors ?? {};
-    const at = sharedPal.indexOf(cur[key] ?? f.payload.color);
-    const next = sharedPal[(at + 1) % sharedPal.length]!;
-    mutate((e) => e.put(prefsPut(recs, app, { sharedColors: { ...cur, [key]: next } })));
-  };
   const [newName, setNewName] = useState('');
   const [renaming, setRenaming] = useState<string | null>(null);
   const [renameText, setRenameText] = useState('');
@@ -66,7 +59,6 @@ export function FolderManager({ app, onClose }: { app: 'reminders' | 'notes'; on
     setTimeout(() => setErr(''), 3000);
   };
 
-  const ROW_H = 44;
   const drag = useRowDrag(folders.length, (from: number, to: number) => {
     const item = folders[from];
     if (!item) return;
@@ -92,11 +84,6 @@ export function FolderManager({ app, onClose }: { app: 'reminders' | 'notes'; on
   };
 
   const pal = APP_PALETTES[app];
-  const recolor = (f: Rec<'folder'>) => {
-    const at = pal.indexOf(f.payload.color);
-    const next = pal[(at + 1) % pal.length]!;
-    mutate((e) => e.put({ ...f, payload: { ...f.payload, color: next } }));
-  };
 
   const commitRename = (f: Rec<'folder'>) => {
     setRenaming(null);

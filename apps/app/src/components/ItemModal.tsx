@@ -6,11 +6,10 @@
  * or time field wins the VALUE, but a parsed token always leaves the title —
  * it was an instruction, not part of the name.
  */
-import React, { useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import {
   byRecOrd,
-  byOrd,
   REPEAT_UNITS,
   showAgain,
   convertEventToReminder,
@@ -19,7 +18,6 @@ import {
   newId,
   ordBetween,
   parseDateField,
-  parseDateFromText,
   parseTimeFromText,
   nowStr,
   parseWhenFromText,

@@ -10,7 +10,7 @@
  * It replaces an inline add row and an inline rename field, neither of which
  * had anywhere to put a second field.
  */
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { FREQUENCIES, frequencyOf, type Frequency, type Rec } from '@calmind/core';
 import { themed, T } from '../theme';

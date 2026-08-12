@@ -8,7 +8,7 @@
  * themselves. Saving writes the fixed nice-looking recipe block back to the
  * note (any non-recipe text rides along after it, still editable there).
  */
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 // A Modal renders in its own window, OUTSIDE the app root's SafeAreaView — so
 // its content starts at y=0, under the clock and the Dynamic Island. On the

@@ -3,8 +3,8 @@
  * the current choice with a ⌄, opening a scrollable menu. Gold variant for
  * section pickers, matching the suite's gold section titles.
  */
-import React, { useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useState } from 'react';
+import { Modal, Pressable, ScrollView, StyleSheet, Text } from 'react-native';
 import { themed, T } from '../theme';
 
 export type DropdownOption = { id: string; label: string };

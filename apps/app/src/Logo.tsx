@@ -3,7 +3,6 @@
  * the M (Sean's pick from four candidates). assets/logo.svg is the canonical
  * copy for icons and favicons.
  */
-import React from 'react';
 import Svg, { Path } from 'react-native-svg';
 import { T } from './theme';
 

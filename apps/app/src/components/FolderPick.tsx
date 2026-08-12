@@ -6,9 +6,9 @@
  * (the ticks describe the All canvas). View + hidden live in the synced pref
  * record, so the choice follows the account across devices.
  */
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { byOrd, byRecOrd, prefsOf, prefsPut, type Rec } from '@calmind/core';
+import { byRecOrd, prefsOf, prefsPut, type Rec } from '@calmind/core';
 import { useStore } from '../store';
 import { themed, T } from '../theme';
 import { pickHit, WebHitSlop } from '../ui';

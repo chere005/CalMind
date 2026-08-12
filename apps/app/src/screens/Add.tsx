@@ -7,12 +7,11 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Text, Pressable, View } from 'react-native';
 import { showAgain,
-  byOrd, byRecOrd,
+  byRecOrd,
   newId,
   ordBetween,
   parseDateField,
   REPEAT_UNITS,
-  parseDateFromText,
   parseTimeFromText,
   nowStr,
   parseWhenFromText,

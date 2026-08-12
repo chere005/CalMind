@@ -4,11 +4,10 @@
  * box, and Manage calendars… with add / rename / recolor / delete (rules from
  * core) and the default calendar for new events.
  */
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import {
   byRecOrd,
-  byOrd,
   calendarNameTaken,
   deleteCalendar,
   folderApp,
@@ -60,7 +59,7 @@ export function useCalendarView(): CalendarView {
 export function CalendarPick() {
   const { recs, mutate, sharedPartnerLabel } = useStore();
   const [manageRem, setManageRem] = useState(false);
-  const { view, hidden, calendars, visible, sharedCals, hiddenShared, sharedPartner } = useCalendarView();
+  const { view, hidden, calendars, visible, sharedCals, hiddenShared } = useCalendarView();
   const [open, setOpen] = useState(false);
   const [manage, setManage] = useState(false);
 
@@ -229,13 +228,6 @@ function CalendarManager({ onClose }: { onClose: () => void }) {
   // The viewer's recolour of a partner's shared calendar — my override, my
   // prefs, the lighter shared palette, their data untouched.
   const sharedCalRows = sharedPartner ? sharedRecs.filter((r): r is Rec<'calendar'> => r.type === 'calendar') : [];
-  const recolorSharedCal = (c: Rec<'calendar'>) => {
-    const key = `@${sharedPartner}:${c.id}`;
-    const cur = prefsOf(recs, 'calendar').sharedColors ?? {};
-    const pal = APP_PALETTES_SHARED.calendar;
-    const at = pal.indexOf(cur[key] ?? c.payload.color);
-    mutate((e) => e.put(prefsPut(recs, 'calendar', { sharedColors: { ...cur, [key]: pal[(at + 1) % pal.length]! } })));
-  };
   const { calendars } = useCalendarView();
   const [newName, setNewName] = useState('');
   const [renaming, setRenaming] = useState<string | null>(null);
@@ -248,7 +240,6 @@ function CalendarManager({ onClose }: { onClose: () => void }) {
     setTimeout(() => setErr(''), 3000);
   };
 
-  const ROW_H = 44;
   const drag = useRowDrag(calendars.length, (from: number, to: number) => {
     const item = calendars[from];
     if (!item) return;
@@ -290,12 +281,6 @@ function CalendarManager({ onClose }: { onClose: () => void }) {
       return;
     }
     mutate((e) => res.put.forEach((r) => e.put(r)));
-  };
-
-  const recolor = (c: Rec<'calendar'>) => {
-    const pal = APP_PALETTES.calendar;
-    const at = pal.indexOf(c.payload.color);
-    mutate((e) => e.put({ ...c, payload: { ...c.payload, color: pal[(at + 1) % pal.length]! } }));
   };
 
   return (

@@ -3,7 +3,7 @@
  * glyph buttons (always flex-centred — the rule the web checks by eye is the
  * default here), and the two-press delete that replaces every confirm box.
  */
-import React, { useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, TextInput, type TextInputProps, View } from 'react-native';
 import Svg, { Polyline } from 'react-native-svg';
 import { themed, T } from './theme';

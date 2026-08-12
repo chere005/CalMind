@@ -7,7 +7,7 @@
  */
 import type { AnyRec, Prefs, Rec } from './types';
 import { folderApp, prefsId, type PrefsApp } from './types';
-import { byOrd, byRecOrd, ordBetween, ordGap } from './order';
+import { byRecOrd, ordBetween, ordGap } from './order';
 import { sectionNameTaken } from './rules';
 
 const live = (r: { deleted?: boolean }) => !r.deleted;

@@ -9,7 +9,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { REPEAT_UNITS, byOrd, byRecOrd, ordGap, deleteSection, duplicateItem, moveReminderBlock, moveSection, moveSectionEmptyingFolder, newId, nowStr, ordBetween, parseWhenFromText, reminderToggle, remindersMarkdown, renameSection, repeatLabel, sectionNameTaken, sortByDate, timeLabel, todayStr, type Rec, type Repeat } from '@calmind/core';
+import { REPEAT_UNITS, byRecOrd, ordGap, deleteSection, duplicateItem, moveReminderBlock, moveSection, moveSectionEmptyingFolder, newId, nowStr, ordBetween, parseWhenFromText, reminderToggle, remindersMarkdown, renameSection, repeatLabel, sectionNameTaken, sortByDate, timeLabel, todayStr, type Rec, type Repeat } from '@calmind/core';
 import * as Clipboard from 'expo-clipboard';
 import { useStore } from '../store';
 import { useClock24 } from '../useClock24';
@@ -295,7 +295,6 @@ export function Reminders() {
       .filter((x): x is ReminderRec => x.type === 'reminder' && x.payload.sectionId === parent.payload.sectionId)
       .sort(byRecOrd);
     const at = siblings.findIndex((x) => x.id === parent.id);
-    const next = siblings[at + 1];
     const id = newId();
     mutate((e) =>
       e.put({

@@ -8,7 +8,7 @@
  * page carries the same text with the constants filled, as the suite's page
  * bakes its own.
  */
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 // Same as the recipe editor: a Modal is its own window and starts under the
 // clock, so its back control needs the inset the app root cannot give it.

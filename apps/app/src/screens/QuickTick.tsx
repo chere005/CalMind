@@ -6,8 +6,7 @@
  * (reminderToggle), a plain one marks done, and either way you land on the
  * Calendar like any sign-in.
  */
-import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { reminderToggle, repeatLabel, timeLabel, todayStr, type Rec } from '@calmind/core';
 import { useStore } from '../store';
 import { useClock24 } from '../useClock24';

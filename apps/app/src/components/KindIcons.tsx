@@ -4,7 +4,6 @@
  * box before reminders, a page before notes. Sizes are exact multiples so
  * strokes land on pixels; every icon is centred by construction.
  */
-import React from 'react';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { T } from '../theme';
 
