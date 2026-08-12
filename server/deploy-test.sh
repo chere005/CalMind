@@ -239,7 +239,14 @@ if [ "$WEB" = 1 ]; then
   sips -z 512 512 apps/app/assets/icon.png --out apps/app/dist/icon-512.png >/dev/null 2>&1
   grep -q apple-touch-icon apps/app/dist/index.html || \
     perl -i -pe "s|</head>|<link rel=\"apple-touch-icon\" href=\"$WEB_PATH/apple-touch-icon.png\"/></head>|" apps/app/dist/index.html
-  rsync -avL $DRY --exclude 'api' apps/app/dist/ "$SSH_DEST:$WEB_DEST/"
+  # .sources.json is the export's record of what it was built from — a path
+  # and a content hash for all 67 source files — and it exists for
+  # e2e/freshness.ts on THIS machine. dist goes up wholesale, so without this
+  # exclude the repo's file listing would be served publicly beside the app.
+  # It lives in dist deliberately (a bare `expo export` clears dist and takes
+  # it with it, so a manifest can never outlive the bundle it measured), which
+  # is exactly why the exclude has to be here rather than solved by moving it.
+  rsync -avL $DRY --exclude 'api' --exclude '.sources.json' apps/app/dist/ "$SSH_DEST:$WEB_DEST/"
   # index.html must revalidate; the hashed bundles cache forever.
   rsync -avL $DRY server/public/web.htaccess "$SSH_DEST:$WEB_DEST/.htaccess"
 fi
