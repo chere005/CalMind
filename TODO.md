@@ -10,22 +10,38 @@ import, the watch's month grid), and 68 of its "open" checkboxes were prose
 rather than tasks. The old file is in git at `29686f2` if you want the
 story. Everything below was checked against the source on the day.
 
-**The rewrite was LOSSY, and not only of narrative.** Five open items were
-dropped whole and have been recovered since — login throttling (recovered
-earlier), calendar integrations with three unanswered questions, the blocked
-ssh key, the native-passkey probe with its two asks, the widget/watch
-one-push-behind bug, and the unverified PWA bottom gap. The device-profile
-expiry went with them, which is why nobody noticed the apps were four days
-from not launching.
+**BOTH compressions of this file lost open items — two for two.** That is
+the useful form of the lesson, not "one rewrite was careless".
 
-They were found by diffing the pre-rewrite file's UNCHECKED items against
-this one rather than by reading it, and 68 of them is more than anyone
-re-reads. If something you remember asking about is not here, it may not have
-been answered — check before assuming:
+- The 2026-08-10 rewrite (2140 → 587) dropped five, all recovered 2026-08-12:
+  calendar integrations with three unanswered questions, the blocked ssh key,
+  the native-passkey probe and its two asks, the widget/watch
+  one-push-behind bug, and the unverified PWA bottom gap. The device-profile
+  expiry went with them, which is why nobody noticed the apps were four days
+  from not launching.
+- The 2026-08-12 compression (`58ea89d`, 1034 → 458) dropped the
+  login-throttling entry, and its own message says why: it was the one item
+  in §3 that was a DECISION rather than work, so it fitted neither the
+  "still owed" nor the "shipped" bucket and fell between them.
+
+Both losses have the same shape — an item sitting in the wrong section is
+what a compression deletes, because compressing is done by section. So the
+check below is not optional housekeeping; it is the second half of the job.
+
+They were found by diffing the older file's UNCHECKED items against this one
+rather than by reading it, and 68 of them is more than anyone re-reads. If
+something you remember asking about is not here, it may not have been
+answered — check before assuming, and run this as part of ANY future
+compression rather than after someone notices:
 
 ```sh
 git show 29686f2:TODO.md | grep -n "^\s*- \[ \]"
 ```
+
+Verify each hit against the source before re-recording it. Several were STALE
+as well as missing: the calendar entry called RRULE "not yet expanded" when
+`rrule.ts` had been written since, and its stated expiry date had moved
+because of a rebuild.
 
 Standing rules live in `CLAUDE.md`, not here.
 
