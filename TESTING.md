@@ -419,6 +419,38 @@ Nothing was found wrong. That is the point of writing it down: "the checker
 works" is a claim, and until the subject has been broken under it, it is an
 untested one.
 
+### What the store costs as it grows, measured 2026-08-12
+
+Nothing watches performance, and the two questions worth an answer both had
+none: does the snapshot fit, and does anything go quadratic. Measured through
+the real engine and the real core functions rather than estimated.
+
+SIZE, per record in the persisted snapshot: a short reminder 229 bytes, a
+typical one 279, a small recipe note 265, a long recipe with method prose
+1,427. Against a 5MB origin that is ~22,900 short reminders or ~3,675 long
+recipes; halve it where a browser counts quota in UTF-16 units. Comfortable
+for text — the numbers are in TODO §3 because what they really settle is the
+cost of an inlined IMAGE, which is ~187 long recipes apiece.
+
+SPEED, healthy store, doubling the record count each row: `normalize`,
+`dayItems`, `cellMarks` and `sortByDate` all grow 1.3–2.2x per doubling —
+linear — and all four are under 4ms at 8,000 records. No quadratic anywhere
+on the paths the app runs constantly.
+
+SPEED, DAMAGED store, which is the interesting one: `normalize` re-homes a
+stranded row by scanning its folder's sections, so with N stranded records
+and M sections the two MULTIPLY — doubling either axis doubles the time
+(measured both ways: 2.0x, 2.0x on records; 2.1x, 1.6x, 1.9x on sections).
+2,000 stranded rows across 160 sections costs ~25ms, and 20,000 across 200
+would be a few hundred.
+
+That is not a bug and the reason matters: the scan only runs while a row is
+stranded, and normalize REPAIRS it on that same pass, so the cost is paid
+once after something like a folder delete and never again — the healthy-store
+guard short-circuits every refresh afterwards. Worth knowing before anyone
+"optimises" it, and worth re-measuring if normalize ever stops repairing in
+one pass (`normidem.test.ts` is what would catch that).
+
 ### The four clocks, compared over every minute, 2026-08-12
 
 The time rule exists four times — core's `timeLabel`, `WatchFormat.clockFull`
