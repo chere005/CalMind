@@ -47,7 +47,7 @@ Standing rules live in `CLAUDE.md`, not here.
 
 ## Suite counts, as of this commit
 
-core **497** · gesture **186** (+2 skipped) · WebKit **16** · server **55** ·
+core **497** · gesture **187** (+3 skipped) · WebKit **16** · server **55** ·
 live **19** with the API · desktop **7** (+3 in `npm run test:desktop`) · deploy guards **9** · plus the four
 native seam checkers no browser can reach: `npm run test:watch`,
 `npm run test:widget`, `npm run test:deploy`.
@@ -483,6 +483,46 @@ go. Not done here because `tools/check-sim-fresh.sh` reports three reasons to
 distrust what the current simulator would show, and the Metro serving it
 started 2026-08-08 and may be the other session's — restarting it is not
 mine to do.
+
+### Typing a NEW note's title loses the first letter
+Found 2026-08-12. Make a note, tap its title, type: the first keystroke is
+gone. Type immediately and the default title is still in the field with the
+letters landing inside it.
+
+Measured, clicking a brand-new note's title then typing "Pancakes" at 80ms a
+key — slow, deliberate speed:
+
+| pause after the click | what the field ends up holding |
+|---|---|
+| 0ms | `Aug 12, 2026 aPt` |
+| 50ms | `ancakes` |
+| 100ms | `ancakes` |
+| 200ms | `ancakes` |
+| 400ms | `Pancakes` |
+
+So the hazard is about the first 300ms of the field's life and it costs the
+first letter. It is the sort of papercut a person blames on themselves.
+
+Why nothing caught it: every spec sets a title with `fill()`, one change
+event for the whole value. Nothing in the suite had ever typed a title key by
+key. `e2e/titlerace.spec.ts` now carries it as a `test.fixme`, beside a
+passing control test showing the note BODY types perfectly at the same speed
+— so this is not "typing is broken", it is this field.
+
+**The decision, which is why it is here and not fixed.** The title is a
+controlled input whose `onFocus` does two state updates plus an imperative
+`setSelection(0, len)`, and every keystroke also writes through
+`mutate → refresh → re-render`. The lost letter is one of those re-renders
+landing between the selection and the key. Three ways out, each with a
+different cost to how the editor feels:
+
+- stop writing on every keystroke (debounce, or save on blur) — fewer
+  re-renders, but a crash or a tab switch mid-title loses more;
+- drop `selectTextOnFocus` on this field — the race goes, and so does
+  "tap the title and type over it", which is deliberate behaviour;
+- make the draft authoritative while focused and never re-read the record —
+  the smallest change, and the one that needs care around the blur that
+  parses a date out of the title.
 
 ### The watch mirrors the widget's selection ONE PUSH BEHIND
 RESTORED 2026-08-12 and confirmed still live in the source. Sean reported
