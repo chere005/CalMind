@@ -589,6 +589,7 @@ export function Reminders() {
                             pointerEvents={pageEdit ? 'auto' : 'none'}
                             hitSlop={6}
                           >
+                            <WebHitSlop slop={6} />
                             <Text style={s.rowGripText}>≡</Text>
                           </View>
                           <Pressable testID="tick" onPress={() => tick(r)} hitSlop={8} style={[s.tick, r.payload.done && s.tickDone]}>

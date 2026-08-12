@@ -281,6 +281,28 @@ then the watch needs the direct install and the build number is the proof.
   race a fact rather than a hope, and both breaks — no grace at all, and the
   near-miss that re-toggles from the stale copy — were watched going red.
 
+- **Three drag grips were 16pt wide on the web; they are 28 now.** Found by
+  extending `tools/sweep-tap-targets.mjs` to EDIT MODE, which it had never
+  entered — everything it measured before was what the screens draw at rest,
+  so every grip, the habit pencil and the note row's buttons were invisible to
+  it. Reminders' `row-grip` sat at 16×16 while `sec-grip` two hundred lines
+  above it measured 28×28, in the same file, off the same `rowGrip` style: the
+  difference was one `<WebHitSlop slop={6} />`. Both of Habits' grips were the
+  same, which matters because dragging between sections is what Sean asked
+  habits for.
+
+  This is CLAUDE.md's `hitSlop` trap exactly. All three carried `hitSlop={6}`
+  and read as fixed; it is a no-op under react-native-web, so the handle was
+  as big as the `≡` and no bigger. Reading the source would have said they
+  were fine — measuring said otherwise.
+
+  The four new passes each print whether they actually got in. They all
+  reported false at first: chained on from the recipe editor the tab clicks
+  were landing on the open editor, and Reminders had no row to hold on a fresh
+  account. Both were silent, because every click in the sweep is
+  `.catch(() => {})` — a pass that never arrives measures the resting screen a
+  second time and reports it clean.
+
 ## 4 · Steady state, every iteration
 
 - `git pull --autostash` first; stage explicit paths; never `git add -A`.

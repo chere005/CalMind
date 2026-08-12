@@ -386,6 +386,7 @@ export function Habits() {
                     pointerEvents={edit ? 'auto' : 'none'}
                     hitSlop={6}
                   >
+                    <WebHitSlop slop={6} />
                     <Text style={s.rowGripText}>≡</Text>
                   </View>
                   <Pressable onPress={() => toggleFold(sec.id)} hitSlop={8} style={s.chevWrap}>
@@ -442,6 +443,7 @@ export function Habits() {
                           pointerEvents={edit ? 'auto' : 'none'}
                           hitSlop={6}
                         >
+                          <WebHitSlop slop={6} />
                           <Text style={s.rowGripText}>≡</Text>
                         </View>
                         {/* Holding a habit no longer starts typing over its

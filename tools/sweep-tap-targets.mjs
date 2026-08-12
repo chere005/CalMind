@@ -102,5 +102,76 @@ const linkBox = await p.getByTestId('recipe-link').boundingBox().catch(() => nul
 console.log('recipe-link      :', linkBox && `${Math.round(linkBox.width)}x${Math.round(linkBox.height)}`);
 await measure('Recipe editor + link row');
 
+// ---------------------------------------------------------------------------
+// EDIT MODE, and the Name+Frequency screen.
+//
+// Everything above is what the screens draw AT REST, which is why none of the
+// controls added on 2026-08-11 appear in it: the habit pencil, the note row's
+// duplicate and delete, both grips and the frequency chips only exist once you
+// have held a row. They were the newest controls in the app and the only ones
+// this tool could not see.
+//
+// Each pass prints whether it actually got in. Without that, a hold that
+// missed measures the resting screen a second time and reports it as clean —
+// a sweep that cannot fail, which is the failure this repo keeps meeting.
+// ---------------------------------------------------------------------------
+// From a KNOWN state. Chained straight on from the recipe editor these four
+// passes all reported false: the editor was still up and every tab click was
+// landing on it, silently, because they are all .catch(()=>{}). A reload puts
+// the app back at its default tab with the session restored.
+await p.reload();
+await p.getByTestId('tab-reminders').waitFor({ timeout: 15000 });
+
+const hold = async (loc) => {
+  const box = await loc.boundingBox().catch(() => null);
+  if (!box) return false;
+  await p.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await p.mouse.down();
+  await p.waitForTimeout(700);
+  await p.mouse.up();
+  await p.waitForTimeout(500);
+  return true;
+};
+
+await p.getByTestId('tab-notes').click().catch(() => {});
+await p.waitForTimeout(500);
+await hold(p.getByTestId('note-row').first());
+// The grips are drawn all along and only revealed, so their presence proves
+// nothing. note-dup is rendered ONLY in edit mode.
+const notesIn = await p.getByTestId('note-dup').first().isVisible().catch(() => false);
+console.log('\nnotes edit mode  :', notesIn);
+if (notesIn) await measure('Notes — edit mode');
+
+await p.getByTestId('tab-habits').click().catch(() => {});
+await p.waitForTimeout(400);
+await p.locator('[data-testid^="habit-add-"]').first().click({ timeout: 2000 }).catch(() => {});
+await p.waitForTimeout(500);
+const freqIn = await p.getByTestId('habit-freq-always').isVisible().catch(() => false);
+console.log('habit add screen :', freqIn);
+if (freqIn) {
+  await measure('Habits — Name + Frequency');
+  await p.getByTestId('habit-name-field').fill('Swim');
+  await p.getByTestId('habit-save').click();
+  await p.waitForTimeout(600);
+}
+await hold(p.getByTestId('habit-name').first());
+const habitsIn = await p.getByTestId('habit-edit').first().isVisible().catch(() => false);
+console.log('habits edit mode :', habitsIn);
+if (habitsIn) await measure('Habits — edit mode');
+
+await p.getByTestId('tab-reminders').click().catch(() => {});
+await p.waitForTimeout(400);
+// A fresh account has no reminders, so there was no row to hold and this
+// pass reported false — the resting screen measured twice would have looked
+// identical to a clean bill of health.
+await p.getByTestId('secadd-General').first().click({ timeout: 2000 }).catch(() => {});
+await p.getByTestId('rem-add-field').fill('sweep row').catch(() => {});
+await p.getByTestId('rem-add-field').press('Enter').catch(() => {});
+await p.waitForTimeout(600);
+await hold(p.getByTestId('rem-body').first());
+const remIn = await p.getByTestId('rem-pencil').first().isVisible().catch(() => false);
+console.log('reminders edit   :', remIn);
+if (remIn) await measure('Reminders — edit mode');
+
 console.log('\nswept.');
 await b.close();
