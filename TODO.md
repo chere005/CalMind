@@ -14,7 +14,7 @@ Standing rules live in `CLAUDE.md`, not here.
 
 ## Suite counts, as of this commit
 
-core **477** · gesture **160** (+1 skipped) · WebKit **16** · server **53** ·
+core **477** · gesture **161** (+1 skipped) · WebKit **16** · server **53** ·
 live **19** with the API · desktop **7** (+3 in `npm run test:desktop`) · deploy guards **9** · plus the four
 native seam checkers no browser can reach: `npm run test:watch`,
 `npm run test:widget`, `npm run test:deploy`.
@@ -935,6 +935,33 @@ then the watch needs the direct install and the build number is the proof.
 
   Had it been wrong the damage would have been quiet and everywhere: every list
   in the app reordered slightly, with nothing to point at.
+
+- **A sync that HANGS stacked another one every thirty seconds, for ever.**
+  Not a refused connection — that rejects at once, is caught, and says Offline.
+  A stalled one: accepted and never answered, which is what a captive portal or
+  a dead middlebox gives you. `fetch` has no timeout of its own on the web and
+  `syncNow` had no in-flight guard, so the poll started a fresh request on top
+  of each stuck one. **Four in ninety-five seconds, measured**, each holding a
+  socket, none of them ever recovering — and an hour of that is a hundred and
+  twenty.
+
+  Two halves, and only one of them needed a judgement call. The in-flight guard
+  is unambiguous: two concurrent syncs of one engine are no use even on a
+  healthy network, since they race the same dirty set. The timeout is 60s
+  because that is NSURLSession's own default, which the native builds have
+  always had — the web catching up with the platform rather than a number
+  invented here, and comfortably above a slow first sync.
+
+  The guard is released in a `finally` wrapped around the whole body, because
+  the 401 path returns early: a flag released on some exits and not others
+  wedges syncing for the life of the page, which is worse than the pile-up.
+  Same care on the timer, cleared in its own `finally` so a failed request
+  does not leave one holding the event loop.
+
+  Removing the guard turns the spec back to four. What the spec does NOT claim
+  is that the state reaches Offline — Settings already said "Syncing…" rather
+  than "Online — synced" throughout, so that half was never broken, and the
+  first draft of this entry said it was.
 
 ## 4 · Steady state, every iteration
 

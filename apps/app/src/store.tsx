@@ -150,10 +150,24 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     applyTheme('midnight'); // the login page always renders midnight
   }, []);
 
+  // One sync at a time. The poll fires every 30 seconds regardless of whether
+  // the last one finished, so a request that hangs — accepted, never answered —
+  // used to have another started on top of it, and another, for as long as the
+  // stall lasted: four in ninety-five seconds, measured, each holding a socket
+  // and none of them ever recovering. Two concurrent syncs of one engine are
+  // no use even when the network is healthy; they race the same dirty set.
+  const syncing = useRef(false);
+
   const syncNow = useCallback(async () => {
     const s = sessionRef.current;
     if (!s) return;
+    if (syncing.current) return;
+    syncing.current = true;
     setSyncState('syncing');
+    // The OUTER try exists only for the finally: the 401 path below returns
+    // early, and a flag released on some exits and not others wedges syncing
+    // for the life of the page — a worse bug than the pile-up it prevents.
+    try {
     try {
       await engineRef.current.sync(syncTransport(s));
       hydratedRef.current = true; // the server has spoken — seeding is safe now
@@ -186,6 +200,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     }
     refresh();
     persistNow(s.username);
+    } finally {
+      syncing.current = false;
+    }
   }, [refresh, persistNow, pullShared]);
 
   // Every caller fires this and forgets it (`void sharedPut(...)`), so a

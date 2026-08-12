@@ -7,19 +7,46 @@ import type { SyncRequest, SyncResponse, Transport } from '@calmind/core';
 
 export type Session = { token: string; username: string; serverUrl: string };
 
+/**
+ * How long a request may hang before it is treated as a failure.
+ *
+ * `fetch` has no timeout of its own on the web, so a connection that is
+ * ACCEPTED and never answered — a captive portal, a dead middlebox, a server
+ * that stalls — never settles either way. It is not the same as a refused
+ * connection, which rejects at once and is already handled: the app simply
+ * waits, and goes on saying "Syncing…" for as long as it is left.
+ *
+ * 60 seconds because that is NSURLSession's own default, which the native
+ * builds have always had. This is the web catching up with the platform rather
+ * than a number invented here, and it is comfortably above a slow first sync
+ * (a batch is capped at 500 records) while still being finite.
+ */
+const REQUEST_TIMEOUT_MS = 60_000;
+
 export async function apiPost<T = Record<string, unknown>>(
   serverUrl: string,
   body: Record<string, unknown>,
   token?: string,
 ): Promise<T> {
-  const res = await fetch(serverUrl, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    body: JSON.stringify(body),
-  });
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), REQUEST_TIMEOUT_MS);
+  let res: Response;
+  try {
+    res = await fetch(serverUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify(body),
+      signal: ctl.signal,
+    });
+  } finally {
+    // In the finally, so a request that FAILS does not leave a timer holding
+    // the event loop open — which on native is a warning and on the web is a
+    // slow leak of one per failed request.
+    clearTimeout(timer);
+  }
   const data = (await res.json().catch(() => null)) as ({ ok?: boolean; error?: string } & T) | null;
   if (!data || data.ok !== true) {
     throw new ApiError(data?.error ?? `server error (${res.status})`, res.status);
