@@ -14,7 +14,7 @@ Standing rules live in `CLAUDE.md`, not here.
 
 ## Suite counts, as of this commit
 
-core **412** · gesture **156** (+1 skipped) · WebKit **16** · server **48** ·
+core **419** · gesture **156** (+1 skipped) · WebKit **16** · server **48** ·
 live **19** with the API · desktop **7** (+3 in `npm run test:desktop`) · deploy guards **9** · plus the four
 native seam checkers no browser can reach: `npm run test:watch`,
 `npm run test:widget`, `npm run test:deploy`.
@@ -589,6 +589,30 @@ then the watch needs the direct install and the build number is the proof.
   and agrees with nobody else on earth, so the round-trip fuzz cannot see it —
   proven by swapping A and B, which turned that test red and left the other
   four green.
+
+- **A drag between two rows sharing an order key THREW, unhandled.** And the
+  duplicate is not a corrupted record: `ordBetween(null, null)` is
+  deterministic and always answers 'V', so two devices that each add the FIRST
+  row to a section while offline both write 'V'. After a sync that section
+  holds two rows with one key between them — and Sean runs a phone, a watch
+  and the web against one account, so this is his setup, not a hypothetical.
+
+  Dropping anything there asked for a key between 'V' and 'V'. There is none,
+  so `ordBetween` threw mid-gesture with nothing catching it anywhere. Ten
+  sites computed the bounds the same way and every one was exposed:
+  `moveReminderBlock`, `moveNote`, `moveHabit`, `moveHabitSection`,
+  `moveSection` and both halves of `duplicateItem`.
+
+  `ordGap()` is the one rule now, in order.ts beside the generator: it widens
+  past a run of equal keys, so the row lands AFTER them. That is the only
+  representable answer — rows sharing a key have no order between them to
+  respect — and with no duplicates it returns exactly the neighbours it always
+  did.
+
+  Both halves proven. Removing the widening turns four tests red; making it
+  always append to the end turns two OTHER tests red, and that second break is
+  the one that matters: "it no longer throws" passes for a version that has
+  quietly stopped landing rows where they were dropped.
 
 ## 4 · Steady state, every iteration
 

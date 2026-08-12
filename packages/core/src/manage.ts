@@ -7,7 +7,7 @@
  */
 import type { AnyRec, Prefs, Rec } from './types';
 import { folderApp, prefsId, type PrefsApp } from './types';
-import { byOrd, ordBetween } from './order';
+import { byOrd, ordBetween, ordGap } from './order';
 import { sectionNameTaken } from './rules';
 
 const live = (r: { deleted?: boolean }) => !r.deleted;
@@ -222,8 +222,9 @@ export function moveReminderBlock(
     .sort((a, b) => byOrd(a.payload, b.payload));
   const at = beforeId === null ? destRows.length : destRows.findIndex((x) => x.id === beforeId);
   if (at === -1) return { error: 'no such landing row' };
-  let lo = destRows[at - 1]?.payload.ord ?? null;
-  const hi = destRows[at]?.payload.ord ?? null;
+  // ordGap, not the raw neighbours: two rows can share a key — see order.ts —
+  // and asking for one between them threw in the middle of the drag.
+  let [lo, hi] = ordGap(destRows.map((x) => x.payload.ord), at);
   const put: AnyRec[] = [];
   for (const b of block) {
     const ord = ordBetween(lo, hi);
@@ -245,7 +246,7 @@ export function moveNote(recs: AnyRec[], noteId: string, destSectionId: string, 
     .sort((a, b) => byOrd(a.payload, b.payload));
   const at = beforeId === null ? destRows.length : destRows.findIndex((x) => x.id === beforeId);
   if (at === -1) return { error: 'no such landing row' };
-  const ord = ordBetween(destRows[at - 1]?.payload.ord ?? null, destRows[at]?.payload.ord ?? null);
+  const ord = ordBetween(...ordGap(destRows.map((x) => x.payload.ord), at));
   return { put: [{ ...n, payload: { ...n.payload, ord, sectionId: destSectionId, folderId: dest.payload.folderId } }] };
 }
 
@@ -263,7 +264,7 @@ export function moveHabit(recs: AnyRec[], habitId: string, destSectionId: string
     .sort((a, b) => byOrd(a.payload, b.payload));
   const at = beforeId === null ? destRows.length : destRows.findIndex((x) => x.id === beforeId);
   if (at === -1) return { error: 'no such landing row' };
-  const ord = ordBetween(destRows[at - 1]?.payload.ord ?? null, destRows[at]?.payload.ord ?? null);
+  const ord = ordBetween(...ordGap(destRows.map((x) => x.payload.ord), at));
   return { put: [{ ...h, payload: { ...h.payload, ord, sectionId: destSectionId } }] };
 }
 
@@ -281,7 +282,7 @@ export function moveHabitSection(recs: AnyRec[], sectionId: string, beforeSectio
     .sort((a, b) => byOrd(a.payload, b.payload));
   const at = beforeSectionId === null ? sibs.length : sibs.findIndex((s) => s.id === beforeSectionId);
   if (at === -1) return { error: 'no such landing section' };
-  const ord = ordBetween(sibs[at - 1]?.payload.ord ?? null, sibs[at]?.payload.ord ?? null);
+  const ord = ordBetween(...ordGap(sibs.map((x) => x.payload.ord), at));
   return { put: [{ ...sec, payload: { ...sec.payload, ord } }] };
 }
 
@@ -311,7 +312,7 @@ export function moveSection(recs: AnyRec[], sectionId: string, destFolderId: str
     .sort((a, b) => byOrd(a.payload, b.payload));
   const at = beforeSectionId === null ? destSecs.length : destSecs.findIndex((s) => s.id === beforeSectionId);
   if (at === -1) return { error: 'no such landing section' };
-  const ord = ordBetween(destSecs[at - 1]?.payload.ord ?? null, destSecs[at]?.payload.ord ?? null);
+  const ord = ordBetween(...ordGap(destSecs.map((x) => x.payload.ord), at));
   const put: AnyRec[] = [{ ...sec, payload: { ...sec.payload, ord, folderId: destFolderId } }];
   // The rows follow their section; only their folderId needs re-pointing.
   for (const r of of(recs, 'reminder')) {
@@ -409,7 +410,8 @@ export function duplicateItem(recs: AnyRec[], id: string, mkId: () => string): M
       .filter((x) => x.payload.sectionId === n.payload.sectionId)
       .sort((a, b) => byOrd(a.payload, b.payload));
     const at = rows.findIndex((x) => x.id === id);
-    const ord = ordBetween(n.payload.ord, rows[at + 1]?.payload.ord ?? null);
+    // at + 1: the same pair, widened past a duplicate key below it.
+    const ord = ordBetween(...ordGap(rows.map((x) => x.payload.ord), at + 1));
     return { put: [{ ...n, id: mkId(), payload: { ...n.payload, ord } }] };
   }
   if (src.type !== 'reminder') return { error: 'not duplicable' };
@@ -420,8 +422,7 @@ export function duplicateItem(recs: AnyRec[], id: string, mkId: () => string): M
     .filter((x) => x.payload.sectionId === last.payload.sectionId)
     .sort((a, b) => byOrd(a.payload, b.payload));
   const at = rows.findIndex((x) => x.id === last.id);
-  const hi = rows[at + 1]?.payload.ord ?? null;
-  let lo: string | null = last.payload.ord;
+  let [lo, hi] = ordGap(rows.map((x) => x.payload.ord), at + 1);
   const put: AnyRec[] = [];
   for (const b of block) {
     const ord = ordBetween(lo, hi);

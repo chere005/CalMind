@@ -49,6 +49,33 @@ export function ordBetween(a?: string | null, b?: string | null): string {
   }
 }
 
+/**
+ * The bounds for an insertion at index `at`, widened past any run of EQUAL
+ * keys so that a gap always exists.
+ *
+ * Two rows can carry the same key, and not rarely: `ordBetween(null, null)` is
+ * deterministic and always answers 'V', so two devices that each add the FIRST
+ * row to a section while offline both write 'V'. After a sync the section holds
+ * two rows with one key between them. Dragging anything to land there then
+ * asked for a key between 'V' and 'V', which threw — unhandled, in the middle
+ * of a gesture, with 49 call sites and nothing catching.
+ *
+ * There is genuinely no key between two equal ones, so the honest answer is to
+ * land AFTER the run: rows that share a key have no order between them to
+ * respect in the first place. With no duplicates this returns exactly the
+ * neighbours it always did.
+ */
+export function ordGap(sorted: (string | null | undefined)[], at: number): [string | null, string | null] {
+  const lo = at > 0 ? sorted[at - 1] ?? null : null;
+  let j = at;
+  let hi = j < sorted.length ? sorted[j] ?? null : null;
+  while (lo !== null && hi !== null && lo >= hi) {
+    j += 1;
+    hi = j < sorted.length ? sorted[j] ?? null : null;
+  }
+  return [lo, hi];
+}
+
 /** Keys for n items appended in order onto an empty list. */
 export function ordSeq(n: number): string[] {
   const out: string[] = [];
