@@ -1062,6 +1062,23 @@ delete syncs in the lookup returns nothing; the spec holds that this is a
 graceful fall back to a working list rather than a blank screen with no way
 out, and that nothing throws on the way.
 
+That answer turned out not to be the whole house's. The item sheet — the
+add/edit window over the calendar and reminders — is handed a RECORD rather
+than an id, and never looked at it again, so the same delete left it editing
+a snapshot of something that no longer existed. Pressing Save wrote the
+snapshot back with a fresh `updated`, LWW beat the tombstone, and the deletion
+was undone on every device: measured, the row Sean deleted on one client came
+back on both, wearing the text he had just typed on the other.
+`e2e/zombiesheet.spec.ts` pins the sheet to the editor's behaviour — it leaves
+when its record does, and the reminder stays deleted. The wait in it is 36
+seconds because the 30-second pull is the only thing that carries another
+device's delete in: a reload would close the sheet and destroy the state under
+test, and behind a modal there is no mutation to schedule an earlier sync.
+Its first draft asked whether the sheet was gone AFTER pressing Save, which
+Save does by itself — green with the bug present and with it absent. Breaking
+the guard and watching which assertion went red is what caught it, and the
+check now reads the sheet's state before the press and asserts it after.
+
 Nor did any of them press a button TWICE. A thumb double-taps constantly, and
 `e2e/doubletap.spec.ts` checks the three places a second press would cost
 something: Done on the Add tab filing two copies, a section add committing on

@@ -6,7 +6,7 @@
  * or time field wins the VALUE, but a parsed token always leaves the title —
  * it was an instruction, not part of the name.
  */
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import {
   byRecOrd,
@@ -112,6 +112,19 @@ export function ItemModal({
     const id = dest.slice(1);
     return kind === 'event' ? sharedChoices.cals.find((c) => c.id === id) ?? null : sharedChoices.secs.find((c) => c.sec.id === id)?.sec ?? null;
   }, [dest, kind, sharedChoices]);
+
+  // The record can go while this sheet is open — deleted on the phone while
+  // the desktop still has it up, which the 30s pull brings in underneath.
+  // `rec` is a SNAPSHOT taken when the sheet opened, so Save wrote it back
+  // with a fresh `updated`, LWW beat the tombstone, and the deletion was
+  // silently undone on every device. The note editor already answers this by
+  // looking its record up on each render and falling back to the list; this
+  // leaves the same way rather than resurrecting what someone deleted.
+  const gone =
+    mode === 'edit' && !!rec && !recs.some((r) => r.id === rec.id) && !sharedRecs.some((r) => r.id === rec.id);
+  useEffect(() => {
+    if (gone) onClose();
+  }, [gone, onClose]);
 
   /** The picked destination, falling back to the app default, then the first. */
   const resolvedDest = useMemo(() => {
