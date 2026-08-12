@@ -33,6 +33,30 @@ bad() { BAD=$((BAD+1)); printf '  \033[31m✗\033[0m %s\n' "$1"; }
 
 [ -d "$STAGE" ] || { bad "nothing staged at $STAGE — run: sh desktop/stage-dist.sh"; echo; exit 1; }
 
+# IS THE STAGE THE CURRENT EXPORT? Everything below checks that the staged
+# bundle is internally consistent, which a stale one is — it was copied whole
+# from a dist that was consistent at the time. On 2026-08-11 this reported
+# green over a stage nearly eight hours behind the export, which is the same
+# false comfort a screenshot of an old simulator build gives.
+#
+# By NAME, not by timestamp: the bundle is content-hashed, so a name that
+# matches is the same bytes and a name that differs is different code. That is
+# what smoke.sh already does for the built .app; the headless half had no such
+# check, and the headless half is what `npm run test:desktop` runs.
+STAGED_HTML="$STAGE/$(sed -n 's/.*"baseUrl": "\([^"]*\)".*/\1/p' "$ROOT/apps/app/app.json" | head -1 | sed 's|^/||')/index.html"
+if [ -f "$STAGED_HTML" ] && [ -f "$ROOT/apps/app/dist/index.html" ]; then
+  STAGED_JS="$(grep -oE 'index-[a-f0-9]+\.js' "$STAGED_HTML" | head -1)"
+  DIST_JS="$(grep -oE 'index-[a-f0-9]+\.js' "$ROOT/apps/app/dist/index.html" | head -1)"
+  if [ -n "$STAGED_JS" ] && [ -n "$DIST_JS" ] && [ "$STAGED_JS" != "$DIST_JS" ]; then
+    bad "the stage carries $STAGED_JS but apps/app/dist has $DIST_JS"
+    echo "       everything below would still pass — a stale stage is internally"
+    echo "       consistent. Run: npm run export:web && sh desktop/stage-dist.sh"
+    echo
+    exit 1
+  fi
+  ok "the stage carries the current export ($DIST_JS)"
+fi
+
 START="$(sed -n 's/.*"url": "\([^"]*\)".*/\1/p' "$CONF" | head -1)"
 [ -n "$START" ] || { bad "tauri.conf.json names no window url — the shell opens the root"; echo; exit 1; }
 
@@ -52,9 +76,21 @@ case "$START" in
 esac
 
 CHECKED=0
+# ABSOLUTE refs — '/test/calmind/...' — resolve from the staged root.
 for REF in $(grep -oE '(src|href)="/[^"]+"' "$STAGE${START}" | sed -E 's/.*="([^"]+)"/\1/' | sed 's/?.*//' | sort -u); do
   CHECKED=$((CHECKED+1))
   [ -f "$STAGE$REF" ] || bad "index.html asks for $REF and it is not in the bundle"
+done
+# …and RELATIVE ones, which this used to walk straight past. The manifest is
+# written `href="manifest.webmanifest"` with no leading slash, so it was never
+# checked at all: it could vanish from the export and every line here would
+# still be green. Found on 2026-08-11 when the absolute count dropped from
+# three to two and the missing one turned out to be relative rather than gone.
+# They resolve against the page's own directory, not the staged root.
+START_DIR="${START%/*}"
+for REF in $(grep -oE '(src|href)="[^"/][^"]*"' "$STAGE${START}" | sed -E 's/.*="([^"]+)"/\1/' | sed 's/?.*//' | grep -vE '^(https?:|data:|#|mailto:)' | sort -u); do
+  CHECKED=$((CHECKED+1))
+  [ -f "$STAGE$START_DIR/$REF" ] || bad "index.html asks for $REF (relative) and it is not in the bundle"
 done
 # An empty alphabet is the failure mode this project keeps meeting: a loop
 # over nothing reports success. The page has a script tag at the very least.

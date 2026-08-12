@@ -292,6 +292,33 @@ than a red run, because it looks like an answer.
   inlining the time the way the rewrite did turns two of these red. The
   gesture suite's string-matching catches a rewrite; only this catches a typo.
 
+### The desktop check passed over an eight-hour-old stage, 2026-08-11
+
+`npm run test:desktop` runs `desktop/check-assets.sh`, which verifies that
+everything index.html asks for is present in the staged bundle. It reported
+green over a stage carrying `index-564c1cba…` while the export had moved on to
+`index-bc127492…` — nearly eight hours behind. Nothing was wrong with what it
+checked: a stale stage is INTERNALLY consistent, because it was copied whole
+from a dist that was consistent at the time.
+
+Two holes, both closed:
+
+  · **It never asked whether the stage was current.** It does now, by BUNDLE
+    NAME rather than timestamp — the bundle is content-hashed, so a matching
+    name is the same bytes. `smoke.sh` already did this for the built .app; the
+    headless half, which is what the npm script runs, did not.
+  · **It only scanned ABSOLUTE references.** The manifest is written
+    `href="manifest.webmanifest"` with no leading slash, so it was never
+    checked at all and could have vanished from the export with every line
+    still green. Found because the absolute count dropped from three to two and
+    the missing one turned out to be relative rather than gone. Relative refs
+    resolve against the page's own directory and are checked there now; removing
+    the manifest from the stage turns it red.
+
+The family resemblance to the stale simulator earlier the same day is the
+point: an artefact that is consistent with ITSELF says nothing about whether it
+is the artefact you meant to test.
+
 ### The WebKit suite is in the deploy gate now, 2026-08-11
 
 It was not, and that was the whole point of it going missing: `deploy-test.sh`
