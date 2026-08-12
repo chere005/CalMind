@@ -307,17 +307,31 @@ It was then dropped entirely when §3 was cut back — recovered from git.)
 ## 2 · Open bugs
 
 ### The new-note focus is a 50ms race (WebKit only)
-STILL LIVE, and the count is now 4 in ~26 full runs: it recurred on
-2026-08-11 and again on 2026-08-12, both at `app.spec.ts:359` ("note body
+STILL LIVE, and the count is now 5 in ~28 full runs: it recurred on
+2026-08-11 and twice on 2026-08-12, all at `app.spec.ts:359` ("note body
 renders its markers as styled text when you tap away"), each time passing
 3/3 in isolation and clean on the very next full run. Consistent with
 everything below — and worth knowing that the line number moved, so anyone
 searching for :353 will not find it.
 
-The 2026-08-12 recurrence is the useful one: it landed in the same run as a
-sweep that touched every screen, which is exactly when a flake is easiest to
-mistake for the change. Isolation and a clean re-run are what separate them,
-and they cost four minutes.
+The 2026-08-12 recurrences are the useful ones: the first landed in the same
+run as a sweep that touched every screen, which is exactly when a flake is
+easiest to mistake for the change. Isolation and a clean re-run are what
+separate them, and they cost four minutes.
+
+**The RATE has changed, and that is the part worth acting on.** It was 3 in
+~24 runs. On 2026-08-12 alone it went 5 in ~28 — failing twice in four full
+WebKit runs that afternoon, each followed by a clean one. Roughly one run in
+two, against one in eight historically.
+
+Stated as an observation and not a diagnosis, because two explanations fit
+and nothing here separates them: the machine was running suites back to back
+all afternoon, and a 50ms race is exactly what load makes worse; or something
+in that day's changes moved the timing. Against the second, the changes to
+Notes.tsx were all removals of dead code — an unused `Rule` import, a `goes`
+state and label nothing rendered — and the WebKit spec passed 3/3 in
+isolation each time. Whoever picks this up should get the rate under a quiet
+machine FIRST; a 1-in-2 flake is cheap to bisect and a 1-in-8 one is not.
 
 Ruled out 2026-08-11: the note editor's status dot, which was new that day and
 the obvious suspect — a clean A/B on the same spec passes with it and without.
