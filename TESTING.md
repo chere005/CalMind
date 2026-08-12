@@ -300,6 +300,7 @@ branch in seven modules was deleted or inverted in turn and the suite re-run.
 | `server/lib/fetchurl.php` — the SSRF guards and redirects | 7 | **4** |
 | `server/lib/store.php` — encryption, corrupt-file handling, the lock | 3 | **1** |
 | the SWIFT the checkers extract — widget and watch | 6 | 0 |
+| `parse.ts`, `undo.ts`, `rules.ts`, `recipe.ts`, `markdown.ts`, `layout.ts` | 30 | **5** |
 
 manage.ts is written up in TODO; the short version is that 27 of the 33 were
 bad-id defences that now share one table, five were rules (two of them the
