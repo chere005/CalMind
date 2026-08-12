@@ -25,6 +25,22 @@ import { Chevron } from './components/Chevron';
  */
 export const TOPBAR_CTRL = 32;
 
+/** The sync dot's diameter, read by both the dot itself and the maths below. */
+export const SYNC_DOT = 8;
+
+/**
+ * The top bar's own geometry, and where the status dot lands inside it.
+ *
+ * A screen that HIDES the top bar and draws its own dot — the note editor —
+ * has to put it in the same place, or the dot jumps the moment you open a
+ * note. It did: 28 in the bar, 20 in the editor, eight pixels up, which is
+ * exactly the sort of shift you see without being able to name. The editor
+ * pins its dot to TOPBAR_DOT_TOP now rather than to a number of its own, so
+ * moving the bar moves both.
+ */
+export const TOPBAR_MARGIN_TOP = 16;
+export const TOPBAR_DOT_TOP = TOPBAR_MARGIN_TOP + (TOPBAR_CTRL - SYNC_DOT) / 2;
+
 /**
  * The icons that are GEOMETRY rather than typography, drawn instead of typed.
  *

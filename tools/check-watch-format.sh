@@ -18,6 +18,7 @@ python3 - "$OUT" <<'PY'
 import sys, re
 fmt = open('apps/app/targets/watch/WatchFormat.swift').read()
 comp = open('apps/app/targets/watchwidget/ComplicationWidget.swift').read()
+home = open('apps/app/targets/appwidget/HomeWidget.swift').read()
 
 def grab(src, name):
     i = src.index('func %s(' % name)
@@ -40,6 +41,11 @@ twin = '\n'.join([
     # LATE_HOUR is a top-level `let`, not a func, so grab() cannot reach it.
     next(l for l in comp.splitlines() if l.startswith('let LATE_HOUR')),
     next(l for l in comp.splitlines() if l.startswith('var CLOCK24')),
+    # The HOME widget's header date, the third Swift surface. It is one
+    # DateFormatter pattern, which is exactly the kind of thing that gets
+    # written once and never run again — the complication's whenShort was
+    # precisely that, and it was wrong.
+    grab(home, 'headerDate').replace('private func', 'func'),
 ])
 open(sys.argv[1], 'w').write('''
 import Foundation
@@ -61,6 +67,15 @@ for (input, want) in cases {
     if b != want { print("complication: clock12(\\(input ?? "nil")) = \\(b), want \\(want)"); bad += 1 }
 }
 if WatchFormat.clock(nil) != nil || clock12(nil) != nil { print("an all-day event must show NO time"); bad += 1 }
+
+// The home widget's top-right date: "Wed Aug 12", the weekday Sean asked for
+// and NO comma. Built from a known day rather than from today, or the check
+// would only ever assert against whatever day it ran on.
+let hdFmt = DateFormatter(); hdFmt.dateFormat = "yyyy-MM-dd"
+for (ymd, want) in [("2026-08-12", "Wed Aug 12"), ("2026-08-16", "Sun Aug 16"), ("2026-12-01", "Tue Dec 1")] {
+    let got = headerDate(hdFmt.date(from: ymd)!)
+    if got != want { print("home widget: headerDate(\(ymd)) = \(got), want \(want)"); bad += 1 }
+}
 
 // The APP's clock, which is a DIFFERENT rule from the complication's and has
 // to stay that way. Sean, 2026-08-10: "only use the super short time notation

@@ -47,7 +47,7 @@ Standing rules live in `CLAUDE.md`, not here.
 
 ## Suite counts, as of this commit
 
-core **500** · gesture **194** (+2 skipped) · WebKit **16** · server **48** ·
+core **500** · gesture **195** (+2 skipped) · WebKit **16** · server **48** ·
 live **19** with the API · desktop **7** (+3 in `npm run test:desktop`) · deploy guards **9** · plus the four
 native seam checkers no browser can reach: `npm run test:watch`,
 `npm run test:widget`, `npm run test:deploy`.
@@ -503,9 +503,20 @@ regression, spent at exactly the moment it is tempting to skip.
 
 The EIGHTH came the same afternoon, on the WebKit gate again, after the
 Scriptable removal and the habits change — a different set of changes, the
-same line, cleared the same way (5/5 isolated, 16/16 full). Twice in one
-session is within a rate of roughly one full run in six; it is not evidence
-that anything got worse.
+same line, cleared the same way (5/5 isolated, 16/16 full).
+
+The NINTH came an hour later still, after the status-dot fix, which is a
+change INSIDE the note editor — so it was cleared with the same care and the
+same result (5/5, 16/16).
+
+**A rate question is now open, and it should be measured rather than
+argued.** Today's tally is 3 failures in roughly 9 full WebKit runs. The
+standing figure is about 1 in 6, and 3-in-9 is higher — but nine runs is a
+small sample and clustering is exactly what this flake has always done (the
+2026-08-12 pair earlier was itself called a cluster). I am NOT claiming the
+rate moved: that claim was made once in this project on this same flake and
+15 consecutive clean runs refuted it. The way to settle it is 25+ full WebKit
+runs at one commit, counted — not an impression formed while shipping.
 
 The 2026-08-12 recurrences are the useful ones: the first landed in the same
 run as a sweep that touched every screen, which is exactly when a flake is

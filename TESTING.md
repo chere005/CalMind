@@ -404,7 +404,7 @@ is supposed to see, by EXIT CODE rather than by reading its output:
 |---|---|---|
 | `check-widget-feed` | `toggledTicks` losing its remove branch; appending a duplicate; `packed()` ignoring the height it is given | caught ×3 |
 | `check-watch-feed` | `capped()` dropping its limit; counting within days not across; a Codable field renamed on the wrist | caught ×3 |
-| `check-watch-format` | (already carried its own proof — the drop-the-':00' rule) | — |
+| `check-watch-format` | (already carried its own proof — the drop-the-':00' rule); the home widget's header date, twice — the weekday dropped, and the comma form | caught ×2 |
 | `check-appgroup` | the phone's writer of `watchlist.json` deleted — the original bug | caught |
 | `check-assets` | the window pointed at an unstaged path; an asset removed from the bundle | caught ×2 |
 | `check-suite-counts` | a stale gesture count; a wrong core count | caught ×2 |

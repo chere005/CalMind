@@ -159,6 +159,19 @@ private func dayHeading(_ ymd: String, today: String) -> String {
     return wd.string(from: d).uppercased() + " · " + day
 }
 
+/// The header's own date, top right: "Wed Aug 12".
+///
+/// Sean, 2026-08-12: the corner carried "Aug 12" and he asked for the weekday
+/// with it. Written out with a pattern rather than SwiftUI's
+/// `.dateTime.weekday().month().day()`, which punctuates it "Wed, Aug 12" —
+/// he wrote it without the comma, and the day headings below use no comma
+/// either (they use the middle dot). One less thing that reads as almost
+/// right.
+private func headerDate(_ d: Date) -> String {
+    let f = DateFormatter(); f.dateFormat = "EEE MMM d"
+    return f.string(from: d)
+}
+
 /// "15:30" -> "3:30pm", "14:00" -> "2pm".
 ///
 /// The widget was drawing the feed's raw "HH:MM", so it read 24-hour while
@@ -471,7 +484,7 @@ struct HomeWidgetView: View {
             HStack(alignment: .firstTextBaseline) {
                 Text("Calendar").font(.system(size: 15, weight: .bold)).foregroundStyle(.white)
                 Spacer()
-                Text(Date(), format: .dateTime.month(.abbreviated).day())
+                Text(headerDate(Date()))
                     .font(.system(size: 14, weight: .bold))
                     .foregroundStyle(DATE_LABEL)
             }

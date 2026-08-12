@@ -10,7 +10,7 @@ import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { logout } from './api';
 import { useStore } from './store';
 import { themed, T } from './theme';
-import { CircleBtn, Rule, TOPBAR_CTRL } from './ui';
+import { CircleBtn, Rule, TOPBAR_CTRL, TOPBAR_MARGIN_TOP } from './ui';
 import { Settings } from './screens/Settings';
 import { SyncDot } from './components/SyncDot';
 import { useNav } from './nav';
@@ -197,8 +197,8 @@ const MENU_W = 180;
 const s = themed(() => StyleSheet.create({
   ruleWrap: { marginBottom: 10 },
   topbar: {
-    height: 32,
-    marginTop: 16,
+    height: TOPBAR_CTRL,
+    marginTop: TOPBAR_MARGIN_TOP,
     marginHorizontal: 16,
     marginBottom: 8,
     flexDirection: 'row',

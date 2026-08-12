@@ -14,6 +14,7 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { useStore } from '../store';
 import { themed, T } from '../theme';
+import { SYNC_DOT } from '../ui';
 
 export type SyncLook = { color: string; text: string };
 
@@ -93,6 +94,6 @@ export function SyncDot({ testID, withText = false }: { testID?: string; withTex
 
 const s = themed(() => StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  dot: { width: 8, height: 8, borderRadius: 4 },
+  dot: { width: SYNC_DOT, height: SYNC_DOT, borderRadius: SYNC_DOT / 2 },
   short: { color: T.dim, fontSize: 11 },
 }));

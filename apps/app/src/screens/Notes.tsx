@@ -12,7 +12,7 @@ import { useNav } from '../nav';
 import { themed, T } from '../theme';
 import { TopBar } from '../chrome';
 import { FolderPick, useFolderView } from '../components/FolderPick';
-import { CircleBtn, CollapseAllBtn, ConfirmDelete, Field, Pill, WebHitSlop } from '../ui';
+import { CircleBtn, CollapseAllBtn, ConfirmDelete, Field, Pill, TOPBAR_DOT_TOP, WebHitSlop } from '../ui';
 import { Dropdown } from '../components/Dropdown';
 import { useRowDrag } from '../components/rowdrag';
 import { useSectionDrag, type SectionSlot } from '../components/sectiondrag';
@@ -1248,7 +1248,9 @@ const s = themed(() => StyleSheet.create({
   // marginLeft auto pushes it to the right edge of the row, and it keeps its
   // corner when the row wraps on a narrow screen rather than following the
   // dropdowns down.
-  edStatus: { position: 'absolute', right: 16, top: 20 },
+  // Same height as the top bar's dot, from the same constant, so opening a
+  // note does not nudge it upwards.
+  edStatus: { position: 'absolute', right: 16, top: TOPBAR_DOT_TOP },
   ddPill: { borderWidth: 1, borderColor: T.line, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: T.surface },
   ddPillGold: { borderColor: T.gold },
   backText: { color: T.accent, fontSize: 15, fontWeight: '600' },
