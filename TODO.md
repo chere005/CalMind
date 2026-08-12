@@ -707,6 +707,25 @@ then the watch needs the direct install and the build number is the proof.
   its own .htaccess carrying `CGIPassAuth On`, without which every bearer
   token would arrive empty.
 
+- **The recipe editor's EDIT state is index-keyed too — same class as the
+  parked-delete bug, NOT demonstrated.** `commitEdit` writes by
+  `editing.at`, an index, exactly as the swipe state did before it was fixed
+  on 2026-08-12. If the list moves between `startEdit` and the commit, the
+  edit lands on a different line — or, with the text cleared, deletes one.
+
+  The ordinary routes are CLOSED, which is why this is a note and not a fix:
+  the edit field commits `onBlur`, so clicking the add field saves first and
+  the list cannot shift underneath. What remains is an async import landing
+  mid-edit — `importUrl` and `importPhotos` prepend their ingredients, and
+  nothing blocks the rows while "Reading that page…" is up.
+
+  Tried and NOT reproduced: a mocked slow `recipe_fetch` never applied its
+  results, so the race was never actually exercised and the run proves
+  nothing either way. The honest state is "a real shape, an unproven path".
+  Anyone touching that file should either key the edit by something stable or
+  demonstrate the race properly first — with a real fetch made slow rather
+  than a mocked response whose shape may be wrong.
+
 - **A shared calendar cannot be isolated; a shared folder can.** Found
   2026-08-12, and left alone because the fix needs one visual decision that
   is Sean's.
