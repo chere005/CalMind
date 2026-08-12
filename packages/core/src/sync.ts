@@ -37,6 +37,26 @@ export type Transport = (req: SyncRequest) => Promise<SyncResponse>;
 
 export type Snapshot = { cursor: number; recs: AnyRec[]; dirty: string[] };
 
+/**
+ * The most changes one sync may carry.
+ *
+ * The server refuses a larger batch outright — `app.php`'s MAX_BATCH, a 400
+ * with "batch too large" — and the client used to send EVERY dirty record in
+ * one request. Past the limit that is a deadlock rather than a slow sync:
+ * the same oversized batch is retried for ever, nothing is accepted, and the
+ * app reports itself offline while the network is fine.
+ *
+ * Reachable without doing anything strange. Deleting a folder with hundreds
+ * of items re-homes them all, and normalize marks every one dirty in a single
+ * refresh; so does a long spell offline, or a large import.
+ *
+ * The number is deliberately the SAME number as the server's rather than a
+ * safer smaller one, so the two can be checked against each other —
+ * `test/batchlimit.test.ts` reads app.php and fails if they drift. A quietly
+ * smaller client limit would work and would hide the day the server's moved.
+ */
+export const SYNC_MAX_BATCH = 500;
+
 export class SyncEngine {
   private recs = new Map<string, AnyRec>();
   private dirty = new Map<string, number>(); // id -> updated stamp when marked
@@ -83,10 +103,24 @@ export class SyncEngine {
 
   /** One round trip: push everything dirty, take the server's tail, advance. */
   async sync(transport: Transport): Promise<void> {
-    const sent = new Map(this.dirty);
+    // Drains in as many round trips as it takes. A backlog bigger than the
+    // limit used to be permanent; now it is merely several requests, and the
+    // loop stops the moment a round is not full — which is every ordinary
+    // sync, where one round carries everything and the second would be empty.
+    for (;;) {
+      const more = await this.syncOnce(transport);
+      if (!more) return;
+    }
+  }
+
+  /** One round trip. Returns true when a FULL batch went out, so there may
+   *  be more waiting behind it. */
+  private async syncOnce(transport: Transport): Promise<boolean> {
+    const batch = [...this.dirty.keys()].slice(0, SYNC_MAX_BATCH);
+    const sent = new Map(batch.map((id) => [id, this.dirty.get(id)!]));
     const req: SyncRequest = {
       cursor: this.cursor,
-      changes: [...sent.keys()].map((id) => this.recs.get(id)!),
+      changes: batch.map((id) => this.recs.get(id)!),
     };
     const res = await transport(req);
     for (const theirs of res.changes) {
@@ -126,6 +160,11 @@ export class SyncEngine {
       if (this.rejectedIds.has(id)) continue;
       if ((this.dirty.get(id) ?? 0) <= stamp) this.dirty.delete(id);
     }
+    // A full batch means there may be more behind it. Anything short — which
+    // includes every ordinary sync — is the end, and a batch entirely made of
+    // records the server REFUSED would otherwise loop for ever on the same
+    // ones, since those stay dirty by design.
+    return batch.length === SYNC_MAX_BATCH && [...this.dirty.keys()].some((id) => !sent.has(id));
   }
 
   toSnapshot(): Snapshot {
