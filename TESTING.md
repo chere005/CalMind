@@ -591,6 +591,39 @@ Redone from `server/`, both directions hold: with a type error in
 `apps/app/src/watch.ts` the script refuses and names `apps/app`; clean, it
 passes typecheck and goes on to the tests, echoing test destinations only.
 
+### What no browser test can see, 2026-08-12
+
+The Habits bug — edit mode with no way out on a phone — hid in a place the
+gesture suite cannot look, and it is worth naming every such place rather
+than waiting for the next one.
+
+`EditExit` is the shape of the problem: `Platform.OS === 'web'` returns its
+children untouched, so on the web the component does NOTHING. Breaking its
+native exit outright leaves all 181 gesture tests green. That is measured,
+not reasoned — and it means "the suite is green" says exactly nothing about
+any branch like it.
+
+Twelve `Platform.OS` branches, in nine files. The ones the suite CAN see are
+the web halves, and they are covered: nav's centred column, `ui.tsx`'s
+mousedown preventDefault and `WebHitSlop`, `update.ts` (web-only by
+construction, and `update.spec.ts` drives it), `config.ts`'s location sniff.
+
+The ones it CANNOT, in rough order of what a failure would cost:
+
+| branch | what hides there |
+|---|---|
+| `EditExit` (native) | a tap outside leaving edit mode. Had a real bug on Habits; fixed 2026-08-12, still unverified on a device. |
+| `watch.ts` — `Platform.OS === 'ios'` | the whole WatchBridge push. The feed's CONTENT is covered by core's `watchRows` and by the Swift decoder checkers; the bridge call itself is not. |
+| `ocr.ts` — the iOS path | native photo OCR. `ocr.spec.ts` drives the web route only. |
+| `Login.tsx` — `behavior={Platform.OS === 'ios' ? 'padding' : undefined}` | whether the keyboard covers the login fields on a phone. Never seen fail; also never seen at all. |
+| `config.ts` — the Android emulator host | only matters on Android, which Sean does not use. |
+
+None of this is a call to write native tests — there is no harness here that
+could, and the simulator has its own trap (`check-sim-fresh.sh` exists
+because a screenshot of a stale build is extremely convincing). It is a list
+of what to LOOK at when something is reported on the phone and the suite says
+everything is fine, because for these five the suite was never speaking.
+
 ### The APP layer, mutation-audited, 2026-08-12
 
 Core was audited on 2026-08-11. The screens never had been, and they are the
