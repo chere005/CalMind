@@ -505,6 +505,33 @@ then the watch needs the direct install and the build number is the proof.
   repeats (fixed), time formatting (fixed) and the folder gate — see §1, which
   is a decision rather than a bug.
 
+- **The feed's clock is gated now — it was the FOURTH copy of that rule and
+  the only ungated one.** The watch app's `WatchFormat` and the complication's
+  twin check each other in `npm run test:watch`; core's `timeLabel` is the
+  TypeScript one; `handle_feed` has a fourth, in PHP, because it formats its
+  own rows rather than reading core. Nothing ran it against anything, and it
+  was found already diverged (see the clock24 entry above) — which is
+  TESTING.md's own rule catching up with a copy nobody had noticed:
+  duplication that nothing checks is duplication that drifts, and this drift
+  reads as a time showing one way on the home screen and another in the app,
+  which nobody reports as a bug.
+
+  `tools/check-feed-format.sh` extracts the REAL closure out of app.php —
+  nothing re-typed, so a change to the implementation is what gets run — and
+  puts it through the same cases `check-watch-format.sh` gives
+  `WatchFormat.clockFull`, plus the 24-hour rule from core. It also asserts
+  the two branches DISAGREE at 15:30, since one quietly becoming the other
+  passes every case otherwise.
+
+  Broken two ways and watched going red: dropping the 24-hour leading zero,
+  and `$h % 12` without the `=== 0 ? 12` — the classic that turns midnight
+  into '0am' and noon into '0pm', which is exactly the case TESTING.md calls
+  out as catching 12-hour clocks out.
+
+  It runs in `npm run test:feed` AND in the deploy gate, unlike the Swift
+  checkers: those guard code this script does not ship, and this guards code
+  it does.
+
 ## 4 · Steady state, every iteration
 
 - `git pull --autostash` first; stage explicit paths; never `git add -A`.

@@ -116,6 +116,13 @@ echo "==> tests"
 # Core is the behaviour every client runs and it takes about a second.
 npm run test:core --silent >/dev/null 2>&1 || { echo "core tests failed — not deploying" >&2; exit 1; }
 php server/tools/test.php >/dev/null || { echo "server tests failed — not deploying" >&2; exit 1; }
+# The feed's own clock formatter, which this script SHIPS. It is a fourth copy
+# of a rule the watch app, the complication and core each hold, and it was
+# found already diverged — always 12-hour while every other surface honoured
+# the account's clock24. The Swift copies gate each other in `npm run
+# test:watch`; nothing gated this one, and it is the only one of the four that
+# goes out of this script.
+sh tools/check-feed-format.sh >/dev/null || { echo "the feed's clock disagrees with core and the watch — not deploying" >&2; exit 1; }
 
 if [ "$WEB" = 1 ]; then
   echo "==> web export"

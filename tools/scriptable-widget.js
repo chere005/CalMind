@@ -8,8 +8,11 @@
 // crammed in front of the title. A rewrite drifted away from all of that;
 // this brings it back and speaks the new feed.
 //
-// Times arrive already spoken ("3:30pm") — the server formats them, in its
-// own timezone (America/Chicago by config), so nothing here converts a clock.
+// Times arrive already spoken — the server formats them, in its own timezone
+// (America/Chicago by config), so nothing here converts a clock. That means
+// "3:30pm" OR "15:30": the feed reads the account's prefs_suite.clock24 like
+// every other surface does, so whichever you set is what arrives. Printing it
+// verbatim is what keeps this script out of that decision.
 const FEED = "PASTE_FEED_URL_HERE";
 
 // The app lives beside the api/: tapping the widget opens it, and tapping a
