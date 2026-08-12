@@ -419,32 +419,36 @@ Nothing was found wrong. That is the point of writing it down: "the checker
 works" is a claim, and until the subject has been broken under it, it is an
 untested one.
 
-### The 36-use workaround nothing tested, 2026-08-12
+### The hit-area spec I did not find, 2026-08-12
 
-`hitSlop` is a no-op under react-native-web — CLAUDE.md carries it as a trap
-that has cost real time, because it fails in the direction that hurts: the
-native builds get the bigger target and the web silently does not.
-`WebHitSlop` is the answer, and it is used in 36 places across 13 files.
+Recorded because the mistake is more useful than the work was.
 
-Nothing tested that it did anything. It could have been deleted, had its
-`Platform.OS !== 'web'` inverted, or lost its negative offsets, and every
-existing spec would have stayed green — Playwright clicks element CENTRES,
-which land inside the drawn box whether the pad is there or not. Found by
-measuring every control in the exported app and asking which are small enough
-to depend on it.
+Measuring every control in the exported app turned up the habit section's
+colour swatch at 11x11, the smallest in the app, and a grep of `e2e/` for
+`WebHitSlop` and `hsec-dot` came back empty. I concluded that a workaround
+used in 36 places across 13 files had no test, wrote one, broke it four ways,
+and committed it.
 
-`e2e/webhitslop.spec.ts` drives the habit section's colour swatch: 11×11
-drawn, `slop={10}`, and the one control whose own source comment says the slop
-is what makes it tappable. Distances are taken from the CENTRE outward, since
-an offset from an element's own edge lands inside it at any size: 13px out is
-7.5px past the drawn edge and must press; 20px out is 14.5px past it and must
-not. Vertically, because `hsec-name` sits immediately to the right — checked
-with elementFromPoint, not assumed.
+`e2e/hitarea.spec.ts` had covered it all along — four tests, in the WebKit
+list, opening with "A button is as big as it looks — on the web too." The grep
+missed it because it names neither the component nor that control. Two
+greps for the mechanism's NAME are not a search for its BEHAVIOUR, and the
+file's own title is the thing that would have found it.
 
-Broken four ways, each caught: the pad returning null, the platform test
-inverted, the offsets made positive so the pad sits inside, and — for the
-upper bound, which would otherwise be an assertion that cannot fail — the pad
-made four times too big.
+The redundant spec was removed. What it would have added, it added worse:
+its upper bound clicked 20px out and asserted nothing happened, while
+hitarea reads the reach straight off the element on all four sides and pins
+it at exactly 7px. That file explains why, and it is the better reason:
+"a click landing or missing says as much about what is painted on top as
+about the slop, and an earlier version of this test passed a deliberately
+broken 40px slop for exactly that reason."
+
+One real gap is left, and left on purpose. hitarea's sweep gives every pad an
+UPPER bound across five screens, and its first test gives a LOWER bound for
+one control (`cal-completed`). So deleting `WebHitSlop` wholesale is caught,
+but deleting it from a single control is not. Thirty-six per-control tests to
+close that is worse than the gap: they share one component, and the component
+is what the mutation would have to break.
 
 ### The freshness gate asked about mtimes, not code, 2026-08-12
 
