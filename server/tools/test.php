@@ -73,6 +73,30 @@ function api(array $body, string $token = ''): array
     return ['status' => $status, 'body' => $data];
 }
 
+/**
+ * The same POST, but with the Authorization header written out verbatim.
+ *
+ * api() always spells a correct `Bearer <token>`, which is exactly why nothing
+ * noticed that require_auth's anchors were doing no work — every header it had
+ * ever been sent was the right shape.
+ */
+function api_raw_auth(array $body, string $authHeader): array
+{
+    global $port;
+    $hdr = "Content-Type: application/json\r\nAuthorization: $authHeader\r\n";
+    $ctx = stream_context_create(['http' => [
+        'method' => 'POST', 'header' => $hdr, 'content' => json_encode($body), 'ignore_errors' => true,
+    ]]);
+    $raw    = (string) @file_get_contents("http://127.0.0.1:$port/api/index.php", false, $ctx);
+    $status = 0;
+    foreach ($http_response_header ?? [] as $h) {
+        if (preg_match('#^HTTP/\S+ (\d{3})#', $h, $m)) { $status = (int) $m[1]; }
+    }
+    $data = json_decode($raw, true);
+    if (!is_array($data)) { throw new RuntimeException("non-JSON reply ($status): " . substr($raw, 0, 200)); }
+    return ['status' => $status, 'body' => $data];
+}
+
 function t(string $label, callable $fn): void
 {
     global $pass, $fail;
@@ -906,6 +930,51 @@ t('a tampered signature, a foreign origin and a stale challenge are all refused'
     eq(400, api($replay)['status'], 'the replay');
 });
 
+t('a passkey that was not UNLOCKED on the device is refused', function () use ($pkKey, $pkOrigin, $pkRp, $pkId, $b64u) {
+    // POSITION IS LOAD-BEARING, twice, and both were found by getting it wrong.
+    // Placed AFTER the counter-regression spec, all three refusals still
+    // passed — for the wrong reason, because that spec REMOVES the passkey at
+    // the end and a 401 'not recognised' reads exactly like a 401 'not
+    // verified'. The positive case below is the only thing that exposed it.
+    // And that positive case signs in for real, advancing the stored
+    // signCount, so it uses 8: above this spec's own attempts, below the 9 the
+    // counter spec needs to succeed with, and above the 2 it needs refused.
+    //
+    // The flags byte carries UP (0x01, someone touched it) and UV (0x04,
+    // someone proved it was them — a face, a fingerprint, a PIN). Every other
+    // passkey spec here sends 0x05, both set, so the guard requiring them was
+    // never exercised: removing it outright failed nothing. Found by mutation,
+    // 2026-08-11.
+    //
+    // It is the server's only say in the matter. The flags come from the
+    // client, which is untrusted by definition, so "a real authenticator sets
+    // them properly" is not a check — it is a hope. Everything else about
+    // these assertions is valid: the signature is genuine, over this exact
+    // authenticator data, for a fresh challenge. Only the flags differ.
+    foreach ([[0x01, 'user present but never verified'], [0x04, 'verified but never touched'], [0x00, 'neither']] as [$flags, $why]) {
+        $begin = api(['action' => 'passkey_login_begin']);
+        $cd = fake_client_data('webauthn.get', $begin['body']['challenge'], $pkOrigin);
+        $ad = fake_authdata($pkRp, $flags, 8);
+        openssl_sign($ad . hash('sha256', $cd, true), $sig, $pkKey, OPENSSL_ALGO_SHA256);
+        $r = api([
+            'action' => 'passkey_login_finish', 'id' => $pkId,
+            'clientDataJSON' => $b64u($cd), 'authenticatorData' => $b64u($ad), 'signature' => $b64u($sig),
+        ]);
+        eq(401, $r['status'], "flags 0x" . dechex($flags) . " — $why");
+    }
+    // And the same assertion with BOTH flags set still signs in, so this is
+    // not simply "refuse everything".
+    $begin = api(['action' => 'passkey_login_begin']);
+    $cd = fake_client_data('webauthn.get', $begin['body']['challenge'], $pkOrigin);
+    $ad = fake_authdata($pkRp, 0x05, 8);
+    openssl_sign($ad . hash('sha256', $cd, true), $sig, $pkKey, OPENSSL_ALGO_SHA256);
+    eq(200, api([
+        'action' => 'passkey_login_finish', 'id' => $pkId,
+        'clientDataJSON' => $b64u($cd), 'authenticatorData' => $b64u($ad), 'signature' => $b64u($sig),
+    ])['status'], 'a properly unlocked passkey still works');
+});
+
+
 t('a counter that goes backwards is refused, and a removed passkey stops working', function () use ($pkKey, $pkOrigin, $pkRp, $pkId, $pkTok, $b64u) {
     // The stored counter is at 4 after the last test; 2 is a clone's answer.
     $b1 = api(['action' => 'passkey_login_begin']);
@@ -949,6 +1018,23 @@ t('the password is still a way in', function () use ($pkUser) {
     // anyone out of their own account.
     $r = api(['action' => 'login', 'username' => $pkUser, 'password' => 'passkeypw']);
     eq(200, $r['status'], 'password login still works after a passkey exists');
+});
+
+t('the Authorization header must BE a bearer token, not merely contain one', function () use ($pkUser) {
+    // require_auth anchors its match: ^Bearer <64 hex>$. Loosening it to a
+    // bare search passed every test here — found by mutation, 2026-08-11 —
+    // because nothing ever sent a header of the wrong shape carrying a real
+    // token. Low stakes on its own (you still need the secret) and worth a
+    // line anyway: the anchors are the difference between a header this
+    // server defines and any string a proxy or a client library might put
+    // there.
+    $r = api(['action' => 'login', 'username' => $pkUser, 'password' => 'passkeypw']);
+    eq(200, $r['status'], 'a password login to get a real token');
+    $tok = $r['body']['token'];
+    eq(200, api(['action' => 'whoami'], $tok)['status'], 'the token itself works');
+    foreach (['Basic ' . $tok, 'Bearer ' . $tok . ' extra', 'x' . $tok, $tok] as $hdr) {
+        eq(401, api_raw_auth(['action' => 'whoami'], $hdr)['status'], "header: $hdr");
+    }
 });
 
 

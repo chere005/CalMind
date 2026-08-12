@@ -296,11 +296,26 @@ branch in seven modules was deleted or inverted in turn and the suite re-run.
 | `habit.ts` — dayShares counting | 1 | 0 |
 | `normalize.ts` — every seed, every re-home, the edited report | 9 | 0 |
 | `manage.ts` — all 48 single-line error guards | 48 | **33** |
+| `server/lib/app.php` — sharing scope, auth, caps, passkeys | 22 | **2** |
 
 manage.ts is written up in TODO; the short version is that 27 of the 33 were
 bad-id defences that now share one table, five were rules (two of them the
 sibling-asymmetry this repo keeps producing), and the last three are
 unreachable behind an earlier guard and are deliberately left alone.
+
+The server's two survivors were both real gaps in guards nothing else could
+cover, since the server is the only thing enforcing either:
+
+  · **The passkey UP/UV flags.** Every existing spec sent `0x05` — both user
+    present and user verified — so deleting the guard that requires them failed
+    nothing. It is the difference between someone holding the device and
+    someone unlocking it with a face or a PIN, and the flags arrive from the
+    client, which is untrusted by definition. Now covered with a correctly
+    signed assertion for each of UP-only, UV-only and neither.
+  · **require_auth's anchors.** `^Bearer <64 hex>$` loosened to a bare search
+    passed everything, because no spec had ever sent a header of the wrong
+    shape carrying a real token. Low stakes on its own — you still need the
+    secret — and a line's worth of test.
 
 TWO THINGS THE TECHNIQUE NEEDS, both learned the hard way here:
 
@@ -316,6 +331,15 @@ TWO THINGS THE TECHNIQUE NEEDS, both learned the hard way here:
     were dead on arrival until the fixture grew a second calendar and a second
     habit section. Re-running the sweep AFTER writing the tests is what found
     that; writing them was not enough.
+
+  · A THIRD, from the passkey work: **a shared-state suite makes ORDER part of
+    the test.** Placed after the counter-regression spec, all three new flag
+    refusals passed — for the wrong reason, because that spec removes the
+    passkey at the end and a 401 'not recognised' reads exactly like a 401
+    'not verified'. Only the positive case at the end of the same test exposed
+    it. Its signCount then had to be chosen against the specs either side:
+    above its own attempts, below the 9 the counter spec must succeed with,
+    above the 2 it must refuse.
 
 Worth repeating on anything new here. It is the cheapest way to find a branch
 nothing is watching, and a clean result is real evidence — but only once both
