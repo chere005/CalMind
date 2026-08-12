@@ -509,20 +509,28 @@ key. `e2e/titlerace.spec.ts` now carries it as a `test.fixme`, beside a
 passing control test showing the note BODY types perfectly at the same speed
 — so this is not "typing is broken", it is this field.
 
-**The decision, which is why it is here and not fixed.** The title is a
-controlled input whose `onFocus` does two state updates plus an imperative
-`setSelection(0, len)`, and every keystroke also writes through
-`mutate → refresh → re-render`. The lost letter is one of those re-renders
-landing between the selection and the key. Three ways out, each with a
-different cost to how the editor feels:
+**NARROWED 2026-08-12, and the narrowing matters.** Six other text fields
+were typed key by key at the same 80ms: the reminder add field, the reminder
+inline edit, the recipe editor's ingredient and step fields, "New section",
+and the item sheet's What? field. All six are perfect. So is the note BODY —
+and the body writes through the same `mutate → refresh → re-render` on every
+keystroke that the title does.
 
-- stop writing on every keystroke (debounce, or save on blur) — fewer
-  re-renders, but a crash or a tab switch mid-title loses more;
-- drop `selectTextOnFocus` on this field — the race goes, and so does
-  "tap the title and type over it", which is deliberate behaviour;
-- make the draft authoritative while focused and never re-read the record —
-  the smallest change, and the one that needs care around the blur that
-  parses a date out of the title.
+That rules the per-keystroke write OUT as the cause. What the title does and
+nothing else does is `selectTextOnFocus` plus an imperative
+`setSelection(0, len)` in `onFocus`, alongside two state updates. The lost
+letter is a re-render landing between that selection and the first key.
+
+So the choice is narrower than it first looked:
+
+- drop `selectTextOnFocus` on this field — the race goes, and so does "tap
+  the title and type over it", which is deliberate behaviour Sean has;
+- keep the select-all but stop it being re-applied or fought by the
+  re-render — make the draft authoritative while focused, never re-reading
+  the record, with care around the blur that parses a date out of the title.
+
+Debouncing the write is NOT one of them any more; the body proves it is not
+the problem.
 
 ### The watch mirrors the widget's selection ONE PUSH BEHIND
 RESTORED 2026-08-12 and confirmed still live in the source. Sean reported

@@ -26,14 +26,18 @@
  * and so is an existing note's title — it is specific to a note that has just
  * been created and is still settling.
  *
- * NOT FIXED HERE, deliberately. The title field is a controlled input whose
- * onFocus does two state updates and an imperative setSelection(0, len), and
- * every keystroke also writes through mutate → refresh → re-render. The lost
- * character is one of those re-renders landing between the selection and the
- * key. Picking which of those to change is a real decision about the editor's
- * behaviour — dropping the per-keystroke write, or the select-all, or making
- * the draft authoritative — and each has a different cost to Sean's typing.
- * TODO §2 carries it.
+ * NOT FIXED HERE, deliberately, and the cause is narrower than it looks.
+ * SIX other fields were typed key by key at the same speed and are all
+ * perfect: the reminder add field, the reminder inline edit, the recipe
+ * editor's ingredient and step fields, "New section", and the item sheet's
+ * What? field. So is the note BODY, in the control test below — and the body
+ * writes through the same mutate → refresh → re-render on every keystroke.
+ *
+ * That rules out the per-keystroke write. What this field alone does is
+ * selectTextOnFocus plus an imperative setSelection(0, len) in onFocus, and
+ * the lost letter is a re-render landing between that selection and the first
+ * key. Which way to fix it is a decision about behaviour Sean asked for —
+ * tap the title and type over it — so TODO §2 carries it.
  */
 import { test, expect, type Page } from '@playwright/test';
 
