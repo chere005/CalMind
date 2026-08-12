@@ -34,6 +34,9 @@ twin = '\n'.join([
     'private let ymdFmt: DateFormatter = { let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"; return f }()',
     'struct Ev { let id: String; let text: String; let date: String; let time: String? }',
     grab(comp, 'todayStr'), grab(comp, 'clock12'), grab(comp, 'dayLabel12'), grab(comp, 'when'),
+    # whenShort drives accessoryCorner and accessoryCircular — the two smallest
+    # families, and the only formatter here nothing was running.
+    grab(comp, 'isToday'), grab(comp, 'whenShort'),
     # LATE_HOUR is a top-level `let`, not a func, so grab() cannot reach it.
     next(l for l in comp.splitlines() if l.startswith('let LATE_HOUR')),
     next(l for l in comp.splitlines() if l.startswith('var CLOCK24')),
@@ -123,6 +126,23 @@ if when(Ev(id: "x", text: "Chase", date: today, time: nil)) != "now" { print("co
 if when(Ev(id: "x", text: "Chase", date: other, time: nil)) != otherLabel { print("complication copy: a later all-day event keeps its date, got \\(when(Ev(id: "x", text: "Chase", date: other, time: nil)))"); bad += 1 }
 if WatchFormat.when(date: other, time: nil, today: today) != otherLabel { print("watch app: a later all-day event keeps its date"); bad += 1 }
 if when(Ev(id: "x", text: "Chase", date: other, time: "17:00")) != "\(otherLabel) 5" { print("complication copy: a later day names itself"); bad += 1 }
+
+// whenShort: the accessoryCorner and accessoryCircular text. Its rule is "the
+// circle has room for one thing" — the time if there is one, else the day —
+// and it was the one formatter in this file that no check ran. Added
+// 2026-08-12 after listing the Swift functions no checker names.
+if whenShort(Ev(id: "x", text: "Chase", date: today, time: "15:00")) != "3" { print("whenShort: today with a time is the time alone"); bad += 1 }
+if whenShort(Ev(id: "x", text: "Chase", date: today, time: "20:00")) != "8pm" { print("whenShort: the late rule applies here too"); bad += 1 }
+// Sean, 2026-08-10: an all-day event today reads "now", not "Today".
+if whenShort(Ev(id: "x", text: "Chase", date: today, time: nil)) != "now" { print("whenShort: an all-day event today reads 'now'"); bad += 1 }
+if whenShort(Ev(id: "x", text: "Chase", date: other, time: nil)) != otherLabel { print("whenShort: a later all-day event falls back to its date"); bad += 1 }
+// AND THE ONE THAT IS ONLY HALF A RULE. A later event WITH a time shows the
+// time and no date, so an event six days out reads exactly like one today.
+// `when`'s own comment argues the other way — "a date appears exactly when it
+// is not today, which is when it carries information" — so the two disagree
+// on purpose or by accident, and only Sean can say which. Pinned as it
+// behaves so the disagreement cannot change unnoticed while he decides.
+if whenShort(Ev(id: "x", text: "Chase", date: other, time: "17:00")) != "5" { print("whenShort: a later event with a time currently shows the TIME, no date"); bad += 1 }
 // Sean's Settings choice, which BOTH copies must honour: the wrist and the
 // complication are separate processes and each carries its own flag, so this
 // is exactly the kind of duplication that drifts.

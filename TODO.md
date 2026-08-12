@@ -584,6 +584,23 @@ holding a tunnel. Why the companion path does not update it is unknown; until
 then the watch needs the direct install and the build number is the proof.
 ## 3 · Work, not decisions
 
+- **The circular complication shows a bare time for an event days away.**
+  `whenShort` (ComplicationWidget.swift) drives accessoryCorner and
+  accessoryCircular. Its rule is "the circle has room for one thing": the
+  time if there is one, else the day. So an event on the 15th at 5pm reads
+  **"5"** — identical to one today at 5pm, and the phone sends the next 30
+  events, so a next-two that is days out is ordinary rather than rare.
+
+  `when`, its wider sibling in the same file, argues the opposite in its own
+  comment: "A date appears exactly when it is not today, which is when it
+  carries information." One of the two is wrong and only Sean can say which,
+  since it is his face and the circle really does hold one thing.
+
+  Found 2026-08-12 by listing the Swift functions no checker runs — this was
+  the only formatter in that file nothing exercised. Its current behaviour is
+  now pinned in `check-watch-format.sh`, including this case, so whichever
+  way he decides the change is deliberate rather than drift.
+
 - **A shared calendar cannot be isolated; a shared folder can.** Found
   2026-08-12, and left alone because the fix needs one visual decision that
   is Sean's.
