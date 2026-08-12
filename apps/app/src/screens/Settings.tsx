@@ -213,7 +213,14 @@ const s = themed(() => StyleSheet.create({
   clockRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 14 },
   clockLabel: { color: T.text, fontSize: 14 },
   clockSeg: { flexDirection: 'row', borderWidth: 1, borderColor: T.line, borderRadius: 999, overflow: 'hidden' },
-  clockOpt: { paddingHorizontal: 14, paddingVertical: 6, minWidth: 52, alignItems: 'center' },
+  // paddingVertical 9, not 6: at 6 both segments measured 28pt tall, under the
+  // 30 the tap-target sweep calls awkward. Real padding rather than a
+  // WebHitSlop, for two reasons that both matter here — clockSeg sets
+  // `overflow: 'hidden'`, which would clip an overlay, and these two sit edge
+  // to edge, so overlapping slop would make the boundary between 12h and 24h
+  // ambiguous in a control whose whole job is to be unambiguous. 9 matches the
+  // habit name box; the pill grows 6pt and nothing else moves.
+  clockOpt: { paddingHorizontal: 14, paddingVertical: 9, minWidth: 52, alignItems: 'center' },
   clockOptOn: { backgroundColor: T.accentSoft },
   clockOptText: { color: T.dim, fontSize: 13, fontWeight: '600' },
   clockOptTextOn: { color: T.accent },

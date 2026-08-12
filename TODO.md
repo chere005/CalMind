@@ -333,6 +333,33 @@ then the watch needs the direct install and the build number is the proof.
   padding inward the way Reminders did would shorten those and leave the panel
   with two row heights.
 
+- **The sweep now detects the dead-band CLASS, not just the three instances.**
+  Notes, Reminders and Calendar each grew the same bug independently, which is
+  the argument for a detector: it reports any element materially shorter than
+  the centring flex row it sits in. It REPORTS rather than flags, because the
+  DOM cannot say which divs are Pressables — react-native-web only sets
+  `role="button"` when `accessibilityRole` is given, and a row body does not —
+  so a padded heading looks identical from there. Two survivors were triaged
+  and are both fine: `cal-day-title` is a `<Text>`, and `rem-edit` is the
+  inline field, whose 20pt height and blur-to-save are deliberate.
+
+  It also reaches the Add page, Settings and the sharing sheet now, none of
+  which it had ever opened — every earlier measurement was a list screen. That
+  found the 12h/24h toggle at 28pt; it is 34 now, by real padding rather than
+  a `WebHitSlop`, because `clockSeg` sets `overflow: 'hidden'` (which clips an
+  overlay) and the two segments sit edge to edge (so overlapping slop would
+  blur the boundary in the one control that must not be ambiguous).
+
+  Two things learned about the tool itself. Settings and the sharing sheet open
+  OVER the current screen and it stays in the DOM, so opening them from a list
+  re-measures that entire list and buries whatever they contribute — they are
+  opened from the near-empty Add page for that reason. And **the Add page
+  carries no testIDs at all**, so it cannot be probed and no spec can pin it;
+  its Pills are measured through the role selector, but its three kind cards
+  and its Done are plain Pressables and stay invisible. Measured by hand off
+  their styles they are ~86pt and ~50pt, which is why that gap is recorded
+  rather than closed.
+
 ## 4 · Steady state, every iteration
 
 - `git pull --autostash` first; stage explicit paths; never `git add -A`.

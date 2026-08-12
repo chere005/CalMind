@@ -34,6 +34,52 @@ await p.getByPlaceholder('Confirm password').fill('demo-pass-1');
 await p.getByText('Sign up', { exact: true }).click();
 await p.getByTestId('tab-reminders').waitFor({ timeout: 10000 });
 
+/**
+ * The dead-band report: a press box materially shorter than the row it sits in.
+ *
+ * The 30pt rule above is about controls that are SMALL. This is a different
+ * bug and the 30pt rule cannot see it: a note row is 44pt tall and looks
+ * tappable all over, but the Pressable inside it is a flex child with no
+ * height of its own, so it collapses to its one line of text and sits centred
+ * while the 26pt around it — which IS the row — does nothing. It measured
+ * 240x18 and passed the width test comfortably.
+ *
+ * Found in Notes, Reminders AND Calendar on 2026-08-11, each written
+ * separately, which is why this is a detector rather than three fixes.
+ *
+ * It REPORTS rather than flags, because the DOM cannot tell it which divs are
+ * Pressables: react-native-web only sets role="button" when accessibilityRole
+ * is given, and a row body does not give one. So a heading inside a padded
+ * container looks identical to a dead band from here. The output needs a
+ * person; it just has to be short enough to read.
+ */
+const deadBands = async (where) => {
+  const rows = await p.evaluate(() => {
+    const out = [];
+    for (const el of document.querySelectorAll('[data-testid]')) {
+      const r = el.getBoundingClientRect();
+      const par = el.parentElement && el.parentElement.getBoundingClientRect();
+      if (!par || r.height === 0 || r.width < 60) continue;
+      // Only where the parent is a flex ROW that centres its children: that
+      // is the shape that produces this: a child with no cross-axis size.
+      const ps = getComputedStyle(el.parentElement);
+      if (ps.display !== 'flex' || ps.flexDirection !== 'row') continue;
+      if (ps.alignItems !== 'center') continue;
+      const gap = Math.round(par.height - r.height);
+      if (gap >= 8) {
+        out.push({ id: el.getAttribute('data-testid'), h: Math.round(r.height), parH: Math.round(par.height), gap });
+      }
+    }
+    return out;
+  });
+  const seen = new Set();
+  const uniq = rows.filter((x) => { const k = `${x.id}|${x.gap}`; if (seen.has(k)) return false; seen.add(k); return true; });
+  if (uniq.length) {
+    console.log(`\n  ~~ dead bands · ${where} ~~`);
+    for (const r of uniq) console.log(`     ${String(r.h).padStart(3)}pt in ${String(r.parH).padStart(3)}pt row  (${r.gap} dead)  ${r.id}`);
+  }
+};
+
 const measure = async (where) => {
   const small = await p.evaluate((MIN) => {
     const out = [];
@@ -67,6 +113,7 @@ for (const [tab, label] of [['tab-reminders', 'Reminders'], ['tab-calendar', 'Ca
   await p.getByTestId(tab).click().catch(() => {});
   await p.waitForTimeout(500);
   await measure(label);
+  await deadBands(label);
 }
 // The pickers, where the checkbox bug lived.
 for (const [tab, pick, label] of [['tab-notes', 'pick-notes', 'Notes picker'], ['tab-calendar', 'pick-calendar', 'Calendar picker']]) {
@@ -75,6 +122,7 @@ for (const [tab, pick, label] of [['tab-notes', 'pick-notes', 'Notes picker'], [
   await p.getByTestId(pick).click({ timeout: 2000 }).catch(() => {});
   await p.waitForTimeout(500);
   await measure(label);
+  await deadBands(label);
   await p.keyboard.press('Escape').catch(() => {});
 }
 // The recipe editor — added a link button and a URL row tonight, and never
@@ -140,7 +188,7 @@ await hold(p.getByTestId('note-row').first());
 // nothing. note-dup is rendered ONLY in edit mode.
 const notesIn = await p.getByTestId('note-dup').first().isVisible().catch(() => false);
 console.log('\nnotes edit mode  :', notesIn);
-if (notesIn) await measure('Notes — edit mode');
+if (notesIn) { await measure('Notes — edit mode'); await deadBands('Notes — edit mode'); }
 
 await p.getByTestId('tab-habits').click().catch(() => {});
 await p.waitForTimeout(400);
@@ -150,6 +198,7 @@ const freqIn = await p.getByTestId('habit-freq-always').isVisible().catch(() => 
 console.log('habit add screen :', freqIn);
 if (freqIn) {
   await measure('Habits — Name + Frequency');
+  await deadBands('Habits — Name + Frequency');
   await p.getByTestId('habit-name-field').fill('Swim');
   await p.getByTestId('habit-save').click();
   await p.waitForTimeout(600);
@@ -157,7 +206,7 @@ if (freqIn) {
 await hold(p.getByTestId('habit-name').first());
 const habitsIn = await p.getByTestId('habit-edit').first().isVisible().catch(() => false);
 console.log('habits edit mode :', habitsIn);
-if (habitsIn) await measure('Habits — edit mode');
+if (habitsIn) { await measure('Habits — edit mode'); await deadBands('Habits — edit mode'); }
 
 await p.getByTestId('tab-reminders').click().catch(() => {});
 await p.waitForTimeout(400);
@@ -171,7 +220,46 @@ await p.waitForTimeout(600);
 await hold(p.getByTestId('rem-body').first());
 const remIn = await p.getByTestId('rem-pencil').first().isVisible().catch(() => false);
 console.log('reminders edit   :', remIn);
-if (remIn) await measure('Reminders — edit mode');
+if (remIn) { await measure('Reminders — edit mode'); await deadBands('Reminders — edit mode'); }
+
+// ---------------------------------------------------------------------------
+// The surfaces this tool had never opened at all: the add window, Settings,
+// and the sharing sheet. Every measurement above is a LIST screen, and these
+// three are where most of the app's buttons actually live.
+// ---------------------------------------------------------------------------
+// The Add page carries NO testIDs — not one, checked 2026-08-11 — so there is
+// nothing here to probe with and nothing for a spec to pin either. What it
+// does have is Pills, and those set accessibilityRole, so measure() sees them
+// through the role selector and names them by their text. Its three kind cards
+// and its Done are plain Pressables and stay invisible to this tool; measured
+// by hand off their styles they are ~86pt and ~50pt, which is why closing that
+// gap is not urgent. Anything added to this page that must be tapped needs a
+// testID or it cannot be swept.
+await p.getByTestId('tab-add').click({ timeout: 2000 }).catch(() => {});
+await p.waitForTimeout(800);
+const addIn = await p.getByText('+ Repeat', { exact: true }).isVisible().catch(() => false);
+console.log('add page         :', addIn);
+if (addIn) { await measure('Add page'); await deadBands('Add page'); }
+// STAY on Add for the two below. Settings and the sharing sheet open OVER the
+// current screen and the one underneath stays in the DOM, so opening them from
+// a list re-measures that whole list and buries anything they contribute. Add
+// carries almost nothing, which makes their readings theirs.
+
+await p.getByText(u, { exact: true }).click({ timeout: 2000 }).catch(() => {});
+await p.waitForTimeout(300);
+await p.getByText('Settings', { exact: true }).click({ timeout: 2000 }).catch(() => {});
+await p.waitForTimeout(700);
+const setIn = await p.getByTestId('open-share').isVisible().catch(() => false);
+console.log('settings         :', setIn);
+if (setIn) {
+  await measure('Settings');
+  await deadBands('Settings');
+  await p.getByTestId('open-share').click();
+  await p.waitForTimeout(700);
+  const shareIn = await p.getByTestId('share-add-partner').isVisible().catch(() => false);
+  console.log('sharing sheet    :', shareIn);
+  if (shareIn) { await measure('Sharing'); await deadBands('Sharing'); }
+}
 
 console.log('\nswept.');
 await b.close();
