@@ -69,7 +69,7 @@ is between real tradeoffs, not because the answer is unclear.
 
 ### The watch app stops launching on 2026-08-16 — four days from now
 Not a decision so much as a clock. Free Personal Team profiles last 7 days,
-the last device install was build 22 on 2026-08-11, and the apps stop
+the last device install was build 25 on 2026-08-12, and the apps stop
 launching when their profiles expire. Read out of the profiles themselves on
 2026-08-12 rather than counted forward from the build:
 
@@ -783,6 +783,17 @@ then the watch needs the direct install and the build number is the proof.
 
 ### Shipped 2026-08-12 — one line each
 
+- The sync status dot moved to the FAR RIGHT of the top bar, past the account
+  pill, and stopped moving: the warning word now grows away from it instead of
+  shoving it sideways when it turns red, and the note editor's copy sits at
+  the same height as the bar's rather than eight pixels above it. Both read
+  one constant now — `e2e/dotfixed.spec.ts` measures the real boxes.
+- A weekdays habit's WEEKEND is faint rather than absent, and still tickable.
+  A weekend tick counts in the month charts; an untouched weekend enters
+  neither side of the sum, so it can only help and never reads as a day you
+  failed. Tick cells announce themselves as checkboxes on the way past.
+- The home widget's header names the weekday — "Wed Aug 12" — and
+  `check-watch-format.sh` runs that formatter, proven by breaking it twice.
 - **The Scriptable widget was removed ENTIRELY**, on Sean's word. Gone: the
   script, its setup page and the Settings button that opened it, the server's
   `widget_token` action and read-only GET feed with their token store, and the
