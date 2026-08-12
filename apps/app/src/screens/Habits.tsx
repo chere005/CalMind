@@ -379,7 +379,7 @@ export function Habits() {
                 >
                   <View
                     testID={`hsec-grip-${sec.payload.name}`}
-                    {...(edit ? secDrag.gripFor(sec.id, HFOLDER) : {})}
+                    {...(edit ? secDrag.gripFor(sec.id) : {})}
                     style={[s.rowGrip, !edit && s.gripGone]}
                     pointerEvents={edit ? 'auto' : 'none'}
                     hitSlop={6}

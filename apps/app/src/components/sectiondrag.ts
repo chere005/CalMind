@@ -14,7 +14,7 @@ export function useSectionDrag(
   onDrop: (sectionId: string, slot: SectionSlot) => void,
 ): {
   registerHeader: (sectionId: string, folderId: string) => (ref: View | null) => void;
-  gripFor: (sectionId: string, folderId: string) => PanResponderInstance['panHandlers'];
+  gripFor: (sectionId: string) => PanResponderInstance['panHandlers'];
   dragging: string | null;
   lineKey: string | null;
 } {
@@ -56,7 +56,7 @@ export function useSectionDrag(
     slots.current = list;
   };
 
-  const gripFor = (sectionId: string, folderId: string) => {
+  const gripFor = (sectionId: string) => {
     const key = sectionId;
     if (!responders.current.has(key)) {
       responders.current.set(

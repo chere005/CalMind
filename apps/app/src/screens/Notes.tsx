@@ -712,7 +712,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
                   ref={secDrag.registerHeader(sec.id, f.id)}
                   style={[s.secHead, secDrag.dragging === sec.id && { opacity: 0.55 }]}
                 >
-                  <View testID={`nsec-grip-${sec.payload.name}`} {...(pageEdit ? secDrag.gripFor(sec.id, f.id) : {})} style={[s.rowGrip, !pageEdit && s.gripHidden]} pointerEvents={pageEdit ? 'auto' : 'none'} hitSlop={6}>
+                  <View testID={`nsec-grip-${sec.payload.name}`} {...(pageEdit ? secDrag.gripFor(sec.id) : {})} style={[s.rowGrip, !pageEdit && s.gripHidden]} pointerEvents={pageEdit ? 'auto' : 'none'} hitSlop={6}>
                     <WebHitSlop slop={6} />
                     <Text style={s.rowGripText}>≡</Text>
                   </View>

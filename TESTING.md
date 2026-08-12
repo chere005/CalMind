@@ -414,6 +414,33 @@ Nothing was found wrong. That is the point of writing it down: "the checker
 works" is a claim, and until the subject has been broken under it, it is an
 untested one.
 
+### The freshness gate asked about mtimes, not code, 2026-08-12
+
+`e2e/freshness.ts` refuses to run against a stale export, and it is one of the
+most valuable guards here — a suite that tests code which is not there gives
+"the worst kind of green". It compared MTIMES.
+
+Two sessions share this repo. An ordinary git operation in the other one — a
+pull with autostash, a checkout, a stash pop — rewrites files it restores to
+IDENTICAL content. The mtime moves; nothing about the code changes. That read
+as STALE three times in one session, every time naming
+`packages/core/src/order.ts`, which had no diff against HEAD at all. Three
+needless re-exports, and each one teaches whoever hit it that the gate is
+noise. `deploy-test.sh` already says the same thing about hiding a gate's
+reason: the first person it blocks unfairly is the one who deletes it.
+
+It asks by CONTENT now. `npm run export:web` writes a hash per source file
+into `apps/app/dist/.sources.json` (tools/source-digest.mjs, shared by the
+writer and the reader so they cannot disagree about what a source is), and
+freshness compares hashes. A touched file is fresh. A changed one is not, and
+gets NAMED — better than the old message, which could only point at whichever
+file was touched most recently.
+
+Broken on purpose, all four ways: fresh export passes; a `touch` with no edit
+passes; a real one-line change is caught and named; and with the manifest
+removed the old mtime rule still fires, which is what an export made before
+this existed will fall back to.
+
 ### A neutered copy has to live where the original lived, 2026-08-12
 
 `apps/app` joined the deploy gate's typecheck. Proving a gate fires means

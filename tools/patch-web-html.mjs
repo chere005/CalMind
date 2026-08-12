@@ -28,6 +28,7 @@
  * icon keeps the old status-bar style until it is REMOVED and re-added.
  */
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { sourceHashes } from './source-digest.mjs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -228,3 +229,9 @@ if (html !== before) {
 } else {
   console.log(`${file} already carries the web-app head`);
 }
+
+// What this export was built FROM, by content, for e2e/freshness.ts. Written
+// last, so it only appears once the export has actually completed — a
+// half-finished export leaves no manifest and freshness falls back to mtimes.
+writeFileSync(join(dirname(file), '.sources.json'), JSON.stringify(sourceHashes(), null, 1) + '\n');
+

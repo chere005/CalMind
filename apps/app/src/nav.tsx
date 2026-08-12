@@ -20,19 +20,22 @@ const TAB_LABEL: Record<Tab, string> = {
   reminders: 'Reminders', calendar: 'Calendar', add: 'Add', notes: 'Notes', habits: 'Habits',
 };
 
-const TABS: { key: Tab; icon: string }[] = [
-  { key: 'reminders', icon: '✅' },
-  { key: 'calendar', icon: '📅' },
-  { key: 'add', icon: '+' },
-  { key: 'notes', icon: '📝' },
-  { key: 'habits', icon: '🔥' },
+// No icon field: the bar draws its own SVG glyphs by key (see below), and
+// these carried emoji that nothing has rendered since. Removed 2026-08-12 —
+// a list of icons beside a bar that draws none is a thing to be misread.
+const TABS: { key: Tab }[] = [
+  { key: 'reminders' },
+  { key: 'calendar' },
+  { key: 'add' },
+  { key: 'notes' },
+  { key: 'habits' },
 ];
 
 export function TabBar({ tab, onTab }: { tab: Tab; onTab: (t: Tab) => void }) {
   return (
     <View style={s.barOuter}>
       <View style={s.bar}>
-        {TABS.map(({ key, icon }) =>
+        {TABS.map(({ key }) =>
           key === 'add' ? (
             <Pressable key={key} testID={`tab-${key}`} accessibilityRole="button" accessibilityLabel={TAB_LABEL[key]} onPress={() => onTab(key)} style={s.addBtn} hitSlop={6}>
               {/* Drawn, not typed. As a Text this '+' sat 2.56px BELOW the
