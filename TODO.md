@@ -584,6 +584,33 @@ holding a tunnel. Why the companion path does not update it is unknown; until
 then the watch needs the direct install and the build number is the proof.
 ## 3 · Work, not decisions
 
+- **A shared calendar cannot be isolated; a shared folder can.** Found
+  2026-08-12, and left alone because the fix needs one visual decision that
+  is Sean's.
+
+  Every other row in every picker isolates on a tap — press a folder, a
+  shared folder, a calendar, or (since today) a habit section, and you see
+  only that one. `CalendarPick`'s shared row is a plain `<View>`
+  (CalendarPick.tsx ~133) where `FolderPick`'s is a `Pressable`
+  (FolderPick.tsx ~130). Pressing a partner's calendar does nothing.
+
+  The suite isolates it too, by a different route: `cal_vis_only` builds its
+  hidden list from `array_merge($calList ids, $sharedIds)` — mine AND theirs
+  — and the row is an ordinary link to `?cal=<id>`. Worth knowing that the
+  MODELS diverge here rather than assuming a straight port: the suite gives a
+  shared calendar no show/hide box at all (it renders a `cvis-pad` in its
+  place), while CalMind gives it one backed by `hiddenShared`. So CalMind has
+  more than the suite in one direction and less in the other.
+
+  Why it is not a one-line fix, and the part that needs deciding: the
+  calendar's `lastView` can only ever name one of MY calendars
+  (`ids.has(prefs.lastView)`), so isolating a partner's has to be expressed
+  as hidden + hiddenShared instead. That works — but the picker's button
+  draws `visible.map(colors)`, my visible calendars only, so a view holding
+  nothing but a partner's calendar would leave the button blank. Either the
+  pie learns to include visible shared calendars, or isolating a shared one
+  stays out. That is a call about what his own top bar shows.
+
 - **`clear_done` was never ported, and nothing was tracking that.** Found
   2026-08-12 by listing the reference suite's POST actions and checking each
   against CalMind: reminders has `add`, `add_subtask`, `clear_done`,
