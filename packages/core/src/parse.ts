@@ -93,9 +93,24 @@ const SPAN_UNIT = (raw: string): 'day' | 'week' | 'month' | 'year' => {
 };
 const countOf = (raw: string): number => (/^an?$/i.test(raw) ? 1 : parseInt(raw, 10));
 
-/** 'YYYY-MM-DD' shifted. Days anchor at NOON so a DST jump moves the clock and
- *  never the date; months and years clamp the day, as repeats already do —
- *  Jan 31 plus a month is the 28th, not the 3rd of March. */
+/**
+ * 'YYYY-MM-DD' shifted. Days anchor at NOON so a DST jump moves the clock and
+ * never the date; months and years clamp the day, as repeats already do — Jan
+ * 31 plus a month is the 28th, not the 3rd of March.
+ *
+ * `n` IS SIGNED, and the backwards direction is pinned in
+ * test/shiftback.test.ts. Nothing reaches it today — the parser's span regex
+ * takes no minus and "yesterday" is a day — but the two lines that make it
+ * work are easy to write plausibly and wrongly: `Math.trunc` for `Math.floor`
+ * leaves the year where it was, and dropping the `+12` normalisation gives a
+ * month of 0 or less. Both were mutation-tested and neither was watched.
+ *
+ * The NOON anchor stays untested and deliberately so. It matters only where
+ * local midnight does not exist — a few zones shift the clock at 00:00 — and
+ * the suite runs in America/Chicago, where midnight always exists, so no
+ * assertion here can tell the two apart. Removing it changes nothing that can
+ * be observed from this machine; it is still right.
+ */
 export function shiftDate(ymd: string, n: number, unit: 'day' | 'week' | 'month' | 'year'): string {
   const [y, m, d] = ymd.split('-').map(Number) as [number, number, number];
   if (unit === 'day' || unit === 'week') {
