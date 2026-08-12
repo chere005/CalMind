@@ -102,13 +102,22 @@ echo "==> typecheck"
 #
 # Output is captured and printed rather than sent to /dev/null: a gate whose
 # reason is hidden gets deleted by whoever it blocks first.
+#
+# apps/app joined on 2026-08-12, for the same reason one step further out: it
+# is the larger half of the code and the half this script actually SHIPS, and
+# nothing was checking it either. It happens to be clean today, which is the
+# cheapest possible moment to gate it — waiting until it has drifted turns a
+# free check into a day's work, which is how core got its six errors.
+# Three seconds.
 TSLOG=$(mktemp)
-if ! npx tsc --noEmit -p packages/core >"$TSLOG" 2>&1; then
-  cat "$TSLOG" >&2
-  rm -f "$TSLOG"
-  echo "core typecheck failed — not deploying" >&2
-  exit 1
-fi
+for P in packages/core apps/app; do
+  if ! npx tsc --noEmit -p "$P" >"$TSLOG" 2>&1; then
+    cat "$TSLOG" >&2
+    rm -f "$TSLOG"
+    echo "$P typecheck failed — not deploying" >&2
+    exit 1
+  fi
+done
 rm -f "$TSLOG"
 
 echo "==> tests"
