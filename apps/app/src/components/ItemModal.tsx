@@ -7,7 +7,7 @@
  * it was an instruction, not part of the name.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import {
   byRecOrd,
   REPEAT_UNITS,
@@ -29,7 +29,7 @@ import {
 } from '@calmind/core';
 import { useStore } from '../store';
 import { themed, T } from '../theme';
-import { CircleBtn, ConfirmDelete, Field, Pill } from '../ui';
+import { CircleBtn, ConfirmDelete, Field, Pill, Scroll } from '../ui';
 import { Dropdown } from './Dropdown';
 
 export type ItemKind = 'event' | 'reminder' | 'note';
@@ -270,7 +270,7 @@ export function ItemModal({
     <Modal transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={s.backdrop} onPress={onClose}>
         <Pressable style={s.card} onPress={() => {}}>
-          <ScrollView contentContainerStyle={s.scroll}>
+          <Scroll contentContainerStyle={s.scroll}>
             <Text style={s.h2}>{mode === 'create' ? 'New' : 'Edit'}</Text>
             {(mode === 'create' || rec?.type !== 'note') && (
               <View style={s.rowWrap}>
@@ -363,7 +363,7 @@ export function ItemModal({
                 <Pill label="Save" primary onPress={save} />
               </View>
             </View>
-          </ScrollView>
+          </Scroll>
         </Pressable>
       </Pressable>
     </Modal>

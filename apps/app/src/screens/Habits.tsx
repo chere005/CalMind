@@ -8,7 +8,7 @@
  * the username) filters sections and opens Manage sections.
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { PanResponder, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { PanResponder, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { byRecOrd, dayShares, habitOnScheduleOn, monthGrid, moveHabit, moveHabitSection, newId, ordBetween, prefsOf, prefsPut, tickId, todayStr, type Frequency, type Rec } from '@calmind/core';
@@ -20,7 +20,7 @@ import { SectionPick, useHabitSections } from '../components/SectionPick';
 import { EditExit } from '../components/EditExit';
 import { useRowDrag } from '../components/rowdrag';
 import { useSectionDrag } from '../components/sectiondrag';
-import { CircleBtn, CollapseAllBtn, ConfirmDelete, WebHitSlop } from '../ui';
+import { CircleBtn, CollapseAllBtn, ConfirmDelete, Scroll, WebHitSlop } from '../ui';
 import { HabitEditor } from '../components/HabitEditor';
 
 // Habit sections sit in one flat list with no folder above them, so the
@@ -381,7 +381,7 @@ export function Habits() {
       {/* A live drag holds the scroll still. Refusing the responder hand-over
           is what keeps the gesture, but on a touch device a list that also
           scrolls under the finger fights the drop line for the same pixels. */}
-      <ScrollView contentContainerStyle={s.scroll} scrollEnabled={drag.dragIdx === null && secDrag.dragging === null}>
+      <Scroll contentContainerStyle={s.scroll} scrollEnabled={drag.dragIdx === null && secDrag.dragging === null}>
         {/* On a PHONE this wrapper is what makes a tap outside leave edit
             mode. The two exits above it — Escape and the document
             pointerdown listener — both sit behind `typeof document ===
@@ -616,7 +616,7 @@ export function Habits() {
         )}
         </View>
         </EditExit>
-      </ScrollView>
+      </Scroll>
       {editor && (
         <HabitEditor
           habit={editor.habit}

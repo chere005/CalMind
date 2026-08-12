@@ -8,7 +8,7 @@
  * items" as folder·section pills. All rules come from core/manage.
  */
 import { useMemo, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import {
   byRecOrd,
   deleteFolder,
@@ -23,7 +23,7 @@ import {
 import { useStore } from '../store';
 import { themed, APP_PALETTES, APP_PALETTES_SHARED, T } from '../theme';
 import { SwatchTray } from './SwatchTray';
-import { CircleBtn, ConfirmDelete, Field, Pill, WebHitSlop } from '../ui';
+import { CircleBtn, ConfirmDelete, Field, Pill, Scroll, WebHitSlop } from '../ui';
 import { Dropdown } from './Dropdown';
 import { ordForMove, useRowDrag } from './rowdrag';
 
@@ -108,7 +108,7 @@ export function FolderManager({ app, onClose }: { app: 'reminders' | 'notes'; on
     <Modal transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={s.backdrop} onPress={onClose}>
         <Pressable style={s.card} onPress={() => {}}>
-          <ScrollView contentContainerStyle={s.scroll}>
+          <Scroll contentContainerStyle={s.scroll}>
             <Text style={s.h2}>Folders</Text>
             <View style={s.addRow}>
               <Field value={newName} onChangeText={setNewName} placeholder="New folder" style={s.addField} onSubmitEditing={add} />
@@ -177,7 +177,7 @@ export function FolderManager({ app, onClose }: { app: 'reminders' | 'notes'; on
             <View style={s.doneRow}>
               <Pill label="Done" primary onPress={onClose} />
             </View>
-          </ScrollView>
+          </Scroll>
         </Pressable>
       </Pressable>
     </Modal>

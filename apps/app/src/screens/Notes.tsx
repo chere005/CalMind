@@ -5,14 +5,14 @@
  */
 import React, { useEffect, useMemo, useState, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { defaultNoteTitle, looksLikeDefaultNoteTitle, deleteSection, renameSection, sectionNameTaken, byRecOrd, richLines, scaleRecipeBody, duplicateItem, prefsPut, moveNote, moveSection, moveSectionEmptyingFolder, newId, nowStr, ordBetween, parseDateField, parseWhenFromText, todayStr, type Rec } from '@calmind/core';
 import { useStore } from '../store';
 import { useNav } from '../nav';
 import { themed, T } from '../theme';
 import { TopBar } from '../chrome';
 import { FolderPick, useFolderView } from '../components/FolderPick';
-import { CircleBtn, CollapseAllBtn, ConfirmDelete, Field, Pill, TOPBAR_DOT_TOP, WebHitSlop } from '../ui';
+import { CircleBtn, CollapseAllBtn, ConfirmDelete, Field, Pill, Scroll, TOPBAR_DOT_TOP, WebHitSlop } from '../ui';
 import { Dropdown } from '../components/Dropdown';
 import { useRowDrag } from '../components/rowdrag';
 import { useSectionDrag, type SectionSlot } from '../components/sectiondrag';
@@ -490,7 +490,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
         <View style={s.edStatus} pointerEvents="none">
           <SyncDot testID="editor-sync" withText />
         </View>
-        <ScrollView contentContainerStyle={s.editor}>
+        <Scroll contentContainerStyle={s.editor}>
           <View style={s.titleRow}>
             <TextInput
               ref={titleRef}
@@ -699,7 +699,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
               <Text style={[s.delText, delArmed && s.delArmed]}>Delete</Text>
             </Pressable>
           </View>
-        </ScrollView>
+        </Scroll>
 
       </View>
     );
@@ -714,7 +714,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
         picker={<FolderPick app="notes" />}
       />
       {/* A live drag holds the scroll still — see Habits for the why. */}
-      <ScrollView contentContainerStyle={s.scroll} scrollEnabled={drag.dragIdx === null && secDrag.dragging === null}>
+      <Scroll contentContainerStyle={s.scroll} scrollEnabled={drag.dragIdx === null && secDrag.dragging === null}>
         {/* The phone's tap-to-exit; the web keeps its document listener. */}
         <EditExit active={pageEdit} onExit={() => setPageEdit(false)}>
         {folders.map((f) => (
@@ -934,7 +934,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
             ))}
         {pageEdit && <Pressable style={s.editBackdropFill} onPress={() => setPageEdit(false)} />}
         </EditExit>
-      </ScrollView>
+      </Scroll>
       {/* The mini date/time editor: exactly the three controls Sean named —
           remove the date, set it to today, done. Nothing else, because a
           fourth control here is a second date picker nobody asked for and
@@ -1070,7 +1070,7 @@ function SharedNotes({ viewKey, partner }: { viewKey: string; partner: string })
             <Text style={s.backText}>← @{shown}: {folder?.payload.name ?? ''}</Text>
           </Pressable>
         </View>
-        <ScrollView contentContainerStyle={s.editor}>
+        <Scroll contentContainerStyle={s.editor}>
           <Text style={s.sharedTitle}>{openShared.payload.title}</Text>
           {openShared.payload.date && <Text style={s.sharedDate}>{openShared.payload.date}</Text>}
           {/^\*\*Ingredients\*\*$/im.test(openShared.payload.body) && (
@@ -1124,7 +1124,7 @@ function SharedNotes({ viewKey, partner }: { viewKey: string; partner: string })
               ))}
             </Pressable>
           )}
-        </ScrollView>
+        </Scroll>
       </View>
     );
   }
@@ -1132,7 +1132,7 @@ function SharedNotes({ viewKey, partner }: { viewKey: string; partner: string })
   return (
     <View style={s.page}>
       <TopBar title="Notes" picker={<FolderPick app="notes" />} />
-      <ScrollView contentContainerStyle={s.scroll}>
+      <Scroll contentContainerStyle={s.scroll}>
         <View style={s.folderHead}>
           <Text style={s.sharedFolderChip}>@{shown}: {folder?.payload.name ?? '…'}</Text>
         </View>
@@ -1151,7 +1151,7 @@ function SharedNotes({ viewKey, partner }: { viewKey: string; partner: string })
             ))}
           </View>
         ))}
-      </ScrollView>
+      </Scroll>
     </View>
   );
 }

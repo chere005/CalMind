@@ -5,11 +5,11 @@
  * refusals (the last section stays) surface from core.
  */
 import { useMemo, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { byRecOrd, deleteHabitSection, newId, ordBetween, type Rec } from '@calmind/core';
 import { useStore } from '../store';
 import { themed, APP_PALETTES, T } from '../theme';
-import { CircleBtn, ConfirmDelete, Field, Pill, WebHitSlop } from '../ui';
+import { CircleBtn, ConfirmDelete, Field, Pill, Scroll, WebHitSlop } from '../ui';
 import { ordForMove, useRowDrag } from './rowdrag';
 
 export function HabitSectionManager({ onClose }: { onClose: () => void }) {
@@ -69,7 +69,7 @@ export function HabitSectionManager({ onClose }: { onClose: () => void }) {
     <Modal transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={s.backdrop} onPress={onClose}>
         <Pressable style={s.card} onPress={() => {}}>
-          <ScrollView contentContainerStyle={s.scroll}>
+          <Scroll contentContainerStyle={s.scroll}>
             <Text style={s.h2}>Sections</Text>
             <View style={s.addRow}>
               <Field value={newName} onChangeText={setNewName} placeholder="New section" style={s.addField} onSubmitEditing={add} />
@@ -121,7 +121,7 @@ export function HabitSectionManager({ onClose }: { onClose: () => void }) {
             <View style={s.doneRow}>
               <Pill label="Done" primary onPress={onClose} />
             </View>
-          </ScrollView>
+          </Scroll>
         </Pressable>
       </Pressable>
     </Modal>

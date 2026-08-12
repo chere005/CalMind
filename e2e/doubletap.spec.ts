@@ -27,6 +27,11 @@ async function signup(page: Page): Promise<string> {
 test('a double-tapped Done files one reminder, not two', async ({ page }) => {
   await signup(page);
   await page.getByTestId('tab-add').click();
+  // Reminder is CHOSEN, not assumed: the + button opens on Event since
+  // 2026-08-12 (Sean's), and this test is about the double-tap guard rather
+  // than about which card is default — leaning on the default is what made it
+  // fail when the default moved.
+  await page.getByTestId('add-kind-reminder').click();
   await page.getByPlaceholder(/Dentist/).fill('call the vet');
   // THREE presses as fast as the harness can manage, no awaiting between.
   // This used to rest on the screen navigating away and the field clearing,
@@ -58,10 +63,16 @@ test('the guard is about a thumb, not a ban on repeating yourself', async ({ pag
   // 'pay the sitter' reminders a minute apart is an ordinary thing to want.
   await signup(page);
   await page.getByTestId('tab-add').click();
+  // Reminder is CHOSEN, not assumed: the + button opens on Event since
+  // 2026-08-12 (Sean's), and this test is about the double-tap guard rather
+  // than about which card is default — leaning on the default is what made it
+  // fail when the default moved.
+  await page.getByTestId('add-kind-reminder').click();
   await page.getByPlaceholder(/Dentist/).fill('pay the sitter');
   await page.getByText('Done', { exact: true }).click();
   await page.waitForTimeout(1_600);
   await page.getByTestId('tab-add').click();
+  await page.getByTestId('add-kind-reminder').click();
   await page.getByPlaceholder(/Dentist/).fill('pay the sitter');
   await page.getByText('Done', { exact: true }).click();
   await page.waitForTimeout(500);

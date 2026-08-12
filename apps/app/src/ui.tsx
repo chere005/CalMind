@@ -4,7 +4,7 @@
  * default here), and the two-press delete that replaces every confirm box.
  */
 import { useRef, useState } from 'react';
-import { Platform, Pressable, StyleSheet, Text, TextInput, type TextInputProps, View } from 'react-native';
+import { Platform, Pressable, ScrollView, type ScrollViewProps, StyleSheet, Text, TextInput, type TextInputProps, View } from 'react-native';
 import Svg, { Polyline } from 'react-native-svg';
 import { themed, T } from './theme';
 import { Chevron } from './components/Chevron';
@@ -116,6 +116,29 @@ const noSteal =
  * pixels apart overlap slightly at the edges; that is already true on native
  * and is the behaviour being matched.
  */
+/**
+ * A ScrollView that does not scroll when there is nothing to scroll.
+ *
+ * Sean, 2026-08-12: "don't scroll if there's nothing to scroll on all of the
+ * app". On iOS a ScrollView rubber-bands whether or not its content overflows,
+ * so a half-empty screen still slides under the thumb and springs back — which
+ * reads as the app being loose rather than as a feature.
+ *
+ * `alwaysBounceVertical={false}` is the exact rule: no bounce when everything
+ * fits, ordinary scrolling AND ordinary bounce the moment it does not.
+ * `bounces={false}` would have been the blunter version and is wrong — it
+ * would kill the bounce on a long list too, where it is the platform telling
+ * you that you have reached the end.
+ *
+ * It lives here, wrapped, rather than as a prop added to 21 call sites, for
+ * the reason the collapse-all button was extracted after existing four times:
+ * the twenty-second ScrollView would not have it. Props spread AFTER the
+ * defaults, so any screen that needs the other behaviour can still say so.
+ */
+export function Scroll(props: ScrollViewProps) {
+  return <ScrollView alwaysBounceVertical={false} alwaysBounceHorizontal={false} {...props} />;
+}
+
 export function WebHitSlop({ slop = 8 }: { slop?: number }) {
   if (Platform.OS !== 'web') return null;
   return <View style={{ position: 'absolute', top: -slop, left: -slop, right: -slop, bottom: -slop }} />;

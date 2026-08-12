@@ -4,7 +4,8 @@
  * section pickers, matching the suite's gold section titles.
  */
 import { useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text } from 'react-native';
+import { Modal, Pressable, StyleSheet, Text } from 'react-native';
+import { Scroll } from '../ui';
 import { themed, T } from '../theme';
 
 export type DropdownOption = { id: string; label: string };
@@ -38,7 +39,7 @@ export function Dropdown({
         <Modal transparent animationType="fade" onRequestClose={() => setOpen(false)}>
           <Pressable style={s.backdrop} onPress={() => setOpen(false)}>
             <Pressable style={s.menu} onPress={() => {}}>
-              <ScrollView>
+              <Scroll>
                 {options.map((o) => (
                   <Pressable
                     key={o.id}
@@ -51,7 +52,7 @@ export function Dropdown({
                     <Text style={[s.rowText, o.id === value && s.rowActive]}>{o.label}</Text>
                   </Pressable>
                 ))}
-              </ScrollView>
+              </Scroll>
             </Pressable>
           </Pressable>
         </Modal>

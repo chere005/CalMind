@@ -9,7 +9,7 @@
  * note (any non-recipe text rides along after it, still editable there).
  */
 import { useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 // A Modal renders in its own window, OUTSIDE the app root's SafeAreaView — so
 // its content starts at y=0, under the clock and the Dynamic Island. On the
 // phone that put "← Note" beneath the time and left the 📷 unreachable behind
@@ -18,7 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ingredientParts, parseIngredient, recipeBody, recipeFromHtml, recipeFromPages, type Rec } from '@calmind/core';
 import { useStore } from '../store';
 import { themed, T } from '../theme';
-import { CircleBtn, ConfirmDelete, Field, Pill, WebHitSlop } from '../ui';
+import { CircleBtn, ConfirmDelete, Field, Pill, Scroll, WebHitSlop } from '../ui';
 import { OCR_UNSUPPORTED, ocrImages, ocrSupported } from '../components/ocr';
 import { apiPost } from '../api';
 import { useRowDrag } from '../components/rowdrag';
@@ -244,7 +244,7 @@ export function RecipeEditor({ note, onClose }: { note: Rec<'note'>; onClose: ()
 
   return (
     <Modal animationType="slide" onRequestClose={onClose}>
-      <ScrollView style={[s.page, { paddingTop: insets.top }]} contentContainerStyle={s.inner} scrollEnabled={ingDrag.dragIdx === null && stepDrag.dragIdx === null}>
+      <Scroll style={[s.page, { paddingTop: insets.top }]} contentContainerStyle={s.inner} scrollEnabled={ingDrag.dragIdx === null && stepDrag.dragIdx === null}>
         <View style={s.headRow}>
           <Pressable onPress={onClose} hitSlop={8}><Text style={s.back}>← Note</Text></Pressable>
           <CircleBtn testID="recipe-link" glyph="🔗" label="Import from a link" size={32} onPress={() => setUrlOpen((v) => !v)} />
@@ -412,7 +412,7 @@ export function RecipeEditor({ note, onClose }: { note: Rec<'note'>; onClose: ()
           <Pill label="Cancel" onPress={onClose} />
           <Pill testID="recipe-save" label="Save" primary onPress={save} />
         </View>
-      </ScrollView>
+      </Scroll>
     </Modal>
   );
 }

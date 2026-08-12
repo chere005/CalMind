@@ -5,7 +5,7 @@
  * core) and the default calendar for new events.
  */
 import { useMemo, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import {
   byRecOrd,
   calendarNameTaken,
@@ -23,7 +23,7 @@ import {
 import { CalGlyph } from './KindIcons';
 import { useStore } from '../store';
 import { themed, APP_PALETTES, T , APP_PALETTES_SHARED } from '../theme';
-import { CircleBtn, ConfirmDelete, Field, pickHit, Pill, WebHitSlop } from '../ui';
+import { CircleBtn, ConfirmDelete, Field, pickHit, Pill, Scroll, WebHitSlop } from '../ui';
 import { Dropdown } from './Dropdown';
 import { ordForMove, useRowDrag } from './rowdrag';
 import { SwatchTray } from './SwatchTray';
@@ -75,7 +75,7 @@ export function CalendarPick() {
         <Modal transparent animationType="fade" onRequestClose={() => setOpen(false)}>
           <Pressable style={s.backdrop} onPress={() => setOpen(false)}>
             <Pressable style={s.menu} onPress={() => {}}>
-              <ScrollView>
+              <Scroll>
                 {(() => {
                   // All is the MASTER: ticked only when everything shows; one
                   // tap shows the lot, a second (all already on) hides the lot.
@@ -144,7 +144,7 @@ export function CalendarPick() {
                 <Pressable testID="manage-reminders-row" style={[s.row, s.manageRow2]} onPress={() => { setOpen(false); setManageRem(true); }}>
                   <Text style={s.manageText}>Manage reminders</Text>
                 </Pressable>
-              </ScrollView>
+              </Scroll>
             </Pressable>
           </Pressable>
         </Modal>
@@ -209,11 +209,11 @@ function ReminderFoldersManager({ onClose }: { onClose: () => void }) {
         <Pressable style={[s.card, { padding: 16 }]} onPress={() => setOpenFor(null)}>
           <Text style={s.h2}>Reminder folders</Text>
           <Text style={s.subhead}>Which folders' reminders show up on the calendar.</Text>
-          <ScrollView style={{ maxHeight: 420 }}>
+          <Scroll style={{ maxHeight: 420 }}>
             {own.map(row)}
             {shared.length > 0 && <Text style={s.groupHead}>{sharedPartnerLabel}'s folders</Text>}
             {shared.map(row)}
-          </ScrollView>
+          </Scroll>
           <View style={s.doneRow}>
             <Pill testID="remfolders-done" label="Done" primary onPress={onClose} />
           </View>
@@ -287,7 +287,7 @@ function CalendarManager({ onClose }: { onClose: () => void }) {
     <Modal transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={s.backdrop2} onPress={onClose}>
         <Pressable style={s.card} onPress={() => {}}>
-          <ScrollView contentContainerStyle={s.scroll}>
+          <Scroll contentContainerStyle={s.scroll}>
             <Text style={s.h2}>Calendars</Text>
             <View style={s.addRow}>
               <Field value={newName} onChangeText={setNewName} placeholder="New calendar" style={s.addField} onSubmitEditing={add} />
@@ -343,7 +343,7 @@ function CalendarManager({ onClose }: { onClose: () => void }) {
             <View style={s.doneRow}>
               <Pill label="Done" primary onPress={onClose} />
             </View>
-          </ScrollView>
+          </Scroll>
         </Pressable>
       </Pressable>
     </Modal>

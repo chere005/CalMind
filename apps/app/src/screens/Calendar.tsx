@@ -7,7 +7,7 @@
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { PanResponder, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { PanResponder, Pressable, StyleSheet, Text, View } from 'react-native';
 import { prefsOf, duplicateItem,
   timeLabel,
   addDays,
@@ -33,7 +33,7 @@ import { BalancedRow } from '../components/BalancedRow';
 import { Chevron } from '../components/Chevron';
 import { useSharedTick, useTickGrace } from '../components/tickgrace';
 import { EditExit } from '../components/EditExit';
-import { CircleBtn, CollapseAllBtn, ConfirmDelete, Pill, Rule, WebHitSlop } from '../ui';
+import { CircleBtn, CollapseAllBtn, ConfirmDelete, Pill, Rule, Scroll, WebHitSlop } from '../ui';
 
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
@@ -494,7 +494,7 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
           legend drawing in week mode with no line under it. */}
       {(legend.length > 0 || sharedLegend.length > 0) && <Rule />}
 
-      <ScrollView style={s.panel} contentContainerStyle={s.panelInner}>
+      <Scroll style={s.panel} contentContainerStyle={s.panelInner}>
         {/* The phone's tap-to-exit; the web keeps its document listener. */}
         <EditExit active={panelEdit} onExit={() => setPanelEdit(false)}>
         <View style={s.panelHead}>
@@ -646,7 +646,7 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
           <Text style={s.empty}>Nothing on this day</Text>
         )}
         </EditExit>
-      </ScrollView>
+      </Scroll>
       {modal?.mode === 'create' && (
         <ItemModal
           mode="create"

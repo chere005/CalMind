@@ -7,11 +7,11 @@
  * record, so the choice follows the account across devices.
  */
 import { useMemo, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { byRecOrd, prefsOf, prefsPut, type Rec } from '@calmind/core';
 import { useStore } from '../store';
 import { themed, T } from '../theme';
-import { pickHit, WebHitSlop } from '../ui';
+import { pickHit, Scroll, WebHitSlop } from '../ui';
 import { FolderManager } from './FolderManager';
 import { PieDot } from './PieDot';
 
@@ -71,7 +71,7 @@ export function FolderPick({ app }: { app: 'reminders' | 'notes' }) {
         <Modal transparent animationType="fade" onRequestClose={() => setOpen(false)}>
           <Pressable style={s.backdrop} onPress={() => setOpen(false)}>
             <Pressable style={s.menu} onPress={() => {}}>
-              <ScrollView>
+              <Scroll>
                 {(() => {
                   const allOn = hidden.length === 0 && hiddenShared.length === 0;
                   return (
@@ -138,7 +138,7 @@ export function FolderPick({ app }: { app: 'reminders' | 'notes' }) {
                 <Pressable style={[s.row, s.manageRow]} onPress={() => { setOpen(false); setManage(true); }}>
                   <Text style={s.manageText}>Manage folders…</Text>
                 </Pressable>
-              </ScrollView>
+              </Scroll>
             </Pressable>
           </Pressable>
         </Modal>

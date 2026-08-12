@@ -11,10 +11,10 @@
  * had anywhere to put a second field.
  */
 import { useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { FREQUENCIES, frequencyOf, type Frequency, type Rec } from '@calmind/core';
 import { themed, T } from '../theme';
-import { Field, Pill } from '../ui';
+import { Field, Pill, Scroll } from '../ui';
 
 export function HabitEditor({
   habit,
@@ -47,7 +47,7 @@ export function HabitEditor({
       <Pressable style={s.backdrop} onPress={onClose}>
         {/* The card swallows presses so a tap inside it does not close. */}
         <Pressable style={s.card} onPress={() => {}}>
-          <ScrollView keyboardShouldPersistTaps="handled">
+          <Scroll keyboardShouldPersistTaps="handled">
             <Text style={s.title}>{habit ? 'Edit habit' : 'New habit'}</Text>
             <Text style={s.where}>in {sectionName}</Text>
 
@@ -106,7 +106,7 @@ export function HabitEditor({
               <Pill label="Cancel" onPress={onClose} />
               <Pill label="Save" primary testID="habit-save" onPress={save} />
             </View>
-          </ScrollView>
+          </Scroll>
         </Pressable>
       </Pressable>
     </Modal>

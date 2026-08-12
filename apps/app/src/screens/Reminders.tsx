@@ -7,7 +7,7 @@
  * gestures.
  */
 import React, { useEffect, useMemo, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { REPEAT_UNITS, byRecOrd, ordGap, deleteSection, duplicateItem, moveReminderBlock, moveSection, moveSectionEmptyingFolder, newId, nowStr, ordBetween, parseWhenFromText, reminderToggle, remindersMarkdown, renameSection, repeatLabel, sectionNameTaken, sortByDate, timeLabel, todayStr, type Rec, type Repeat } from '@calmind/core';
 import * as Clipboard from 'expo-clipboard';
@@ -23,7 +23,7 @@ import { Chevron } from '../components/Chevron';
 import { EditExit } from '../components/EditExit';
 import { useSectionDrag, type SectionSlot } from '../components/sectiondrag';
 import { ItemModal } from '../components/ItemModal';
-import { CircleBtn, CollapseAllBtn, ConfirmDelete, Field, Pill, WebHitSlop } from '../ui';
+import { CircleBtn, CollapseAllBtn, ConfirmDelete, Field, Pill, Scroll, WebHitSlop } from '../ui';
 
 type FolderRec = Rec<'folder'>;
 type SectionRec = Rec<'section'>;
@@ -473,7 +473,7 @@ export function Reminders() {
       </View>
 
       {/* A live drag holds the scroll still — see Habits for the why. */}
-      <ScrollView contentContainerStyle={s.scroll} scrollEnabled={drag.dragIdx === null && secDrag.dragging === null}>
+      <Scroll contentContainerStyle={s.scroll} scrollEnabled={drag.dragIdx === null && secDrag.dragging === null}>
         {/* On a PHONE this wrapper is what makes a tap outside leave edit
             mode: the web's document listener needs a document, so until now
             the only way out on iOS was the Done button. See EditExit for why
@@ -780,7 +780,7 @@ export function Reminders() {
             ))}
         {pageEdit && <Pressable style={s.editBackdropFill} onPress={exitEdit} />}
         </EditExit>
-      </ScrollView>
+      </Scroll>
 
       {modalRec && <ItemModal mode="edit" kind="reminder" rec={modalRec} onClose={() => setModalRec(null)} />}
       {emptyAsk && (
@@ -840,7 +840,7 @@ function SharedReminders({ viewKey, partner }: { viewKey: string; partner: strin
   return (
     <View style={s.page}>
       <TopBar title="Reminders" picker={<FolderPick app="reminders" />} />
-      <ScrollView contentContainerStyle={s.scroll}>
+      <Scroll contentContainerStyle={s.scroll}>
         <View style={s.folderHead}>
           <Text style={[s.folderName, { backgroundColor: (folder?.payload.color ?? '#888888') + '33' }]}>@{shown}: {folder?.payload.name ?? '…'}</Text>
         </View>
@@ -885,7 +885,7 @@ function SharedReminders({ viewKey, partner }: { viewKey: string; partner: strin
             ))}
           </View>
         ))}
-      </ScrollView>
+      </Scroll>
     </View>
   );
 }

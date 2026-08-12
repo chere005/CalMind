@@ -148,6 +148,25 @@ if (!/id="calmind-vh"/.test(html)) {
 }
 
 /**
+ * THE PAGE'S OWN RUBBER-BAND IS LEFT ALONE, deliberately, and this is here so
+ * nobody adds it again.
+ *
+ * Sean's "don't scroll if there's nothing to scroll" is answered inside the
+ * app by ui.tsx's `Scroll`, which the native builds honour. The web half
+ * looked like a one-liner — `overscroll-behavior: none` on html,body, which
+ * stops iOS Safari dragging the whole document — and it was written, and it
+ * BROKE THE END KEY in the note body: e2e/notesswitch.spec.ts went red 3 runs
+ * out of 3, typing its character at position 0 instead of at the end, and
+ * green the moment the style came out again.
+ *
+ * That is not a harness problem. The macOS desktop shell is this same web
+ * build, so it is Sean's own keyboard, and losing End in a text field to stop
+ * a cosmetic bounce is the wrong trade. react-native-web does not bounce a
+ * div that has nothing to scroll anyway; what remains is only the document
+ * springing in the installed PWA.
+ */
+
+/**
  * The service worker, copied in beside index.html and registered from it.
  *
  * Its cache name carries the entry bundle's content hash, so every deploy is

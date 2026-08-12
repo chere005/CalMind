@@ -7,11 +7,11 @@
  * handshake from both stores on every shared read and write.
  */
 import { useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { byRecOrd, SHARE_ID, shareOf, type AnyRec, type Rec, type Share } from '@calmind/core';
 import { useStore } from '../store';
 import { themed, T } from '../theme';
-import { CircleBtn, ConfirmDelete, Field, Pill } from '../ui';
+import { CircleBtn, ConfirmDelete, Field, Pill, Scroll } from '../ui';
 
 export function ShareModal({ onClose }: { onClose: () => void }) {
   const { recs, mutate, partners, syncNow } = useStore();
@@ -55,7 +55,7 @@ export function ShareModal({ onClose }: { onClose: () => void }) {
       <Pressable style={s.backdrop} onPress={onClose}>
         <Pressable style={s.card} onPress={() => {}}>
           <Text style={s.h2}>Sharing</Text>
-          <ScrollView style={s.scroll}>
+          <Scroll style={s.scroll}>
             {share.partners.length === 0 && (
               <Text style={s.empty}>
                 Sharing is a handshake: add someone below, and it starts only once they add you back.
@@ -113,7 +113,7 @@ export function ShareModal({ onClose }: { onClose: () => void }) {
             {foldersOf('reminders').map((f) => tickRow(f.id, f.payload.name, f.payload.color, 'folders'))}
             <Text style={s.group}>Note folders</Text>
             {foldersOf('notes').map((f) => tickRow(f.id, f.payload.name, f.payload.color, 'notefolders'))}
-          </ScrollView>
+          </Scroll>
           <View style={s.footRow}>
             <Pill label="Done" primary onPress={onClose} />
           </View>

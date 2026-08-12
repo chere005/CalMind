@@ -5,7 +5,7 @@
  * adds and returns, and the typed-pattern help block underneath.
  */
 import React, { useMemo, useRef, useState } from 'react';
-import { ScrollView, StyleSheet, Text, Pressable, View } from 'react-native';
+import { StyleSheet, Text, Pressable, View } from 'react-native';
 import { showAgain,
   byRecOrd,
   newId,
@@ -24,14 +24,17 @@ import { useStore } from '../store';
 import { themed, T } from '../theme';
 import { TopBar } from '../chrome';
 import { CalendarIcon, PageIcon, TickCircleIcon } from '../components/KindIcons';
-import { CircleBtn, Field, Pill } from '../ui';
+import { CircleBtn, Field, Pill, Scroll } from '../ui';
 import { Dropdown } from '../components/Dropdown';
 
 type Kind = 'reminder' | 'event' | 'note';
 
 export function Add({ done, onNoteCreated }: { done: () => void; onNoteCreated?: (id: string) => void }) {
   const { recs, mutate } = useStore();
-  const [kind, setKind] = useState<Kind>('reminder');
+  // EVENT first, on Sean's word (2026-08-12). The + used to open on Reminder
+  // — the suite's order, kept because it was the suite's — and he asked for
+  // the card that is actually reached for from this button.
+  const [kind, setKind] = useState<Kind>('event');
   const [text, setText] = useState('');
   const [destId, setDestId] = useState<string | null>(null);
   const [showDest, setShowDest] = useState(false);
@@ -99,7 +102,11 @@ export function Add({ done, onNoteCreated }: { done: () => void; onNoteCreated?:
         const widen = showAgain(recs, kind === 'reminder' ? 'reminders' : 'notes', folderId);
         if (widen) e.put(widen);
         if (kind === 'reminder') {
-          e.put({ id: newId(), type: 'reminder', updated: 0, payload: { text: title, due: date, time, done: false, repeat, folderId, sectionId: pick.sec.id, indent: 0, ord: ordBetween(null, null) } });
+          // `date ?? today`, matching what the event above has always done.
+          // A reminder filed from here with no date landed undated, which puts
+          // it in the all-view and on no day — Sean asked for today, which is
+          // also the only day this button can mean.
+          e.put({ id: newId(), type: 'reminder', updated: 0, payload: { text: title, due: date ?? today, time, done: false, repeat, folderId, sectionId: pick.sec.id, indent: 0, ord: ordBetween(null, null) } });
         } else {
           const noteId = newId();
           e.put({ id: noteId, type: 'note', updated: 0, payload: { title, body: '', date, folderId, sectionId: pick.sec.id, ord: ordBetween(null, null) } });
@@ -116,7 +123,19 @@ export function Add({ done, onNoteCreated }: { done: () => void; onNoteCreated?:
   };
 
   const kindCard = (k: Kind, label: string, icon: React.ReactNode) => (
-    <Pressable key={k} onPress={() => { setKind(k); setDestId(null); }} style={[s.card, kind === k && s.cardOn]}>
+    // The three cards are a radio group and said so to nobody: bare
+    // Pressables with an icon and a word, so which one is CHOSEN existed only
+    // as a background colour. Same fault the account pill had, and the same
+    // fix — it is also the only way a spec can read which card is selected.
+    <Pressable
+      key={k}
+      testID={`add-kind-${k}`}
+      accessibilityRole="radio"
+      aria-checked={kind === k}
+      accessibilityLabel={label}
+      onPress={() => { setKind(k); setDestId(null); }}
+      style={[s.card, kind === k && s.cardOn]}
+    >
       {icon}
       <Text style={[s.cardLabel, kind === k && s.cardLabelOn]}>{label}</Text>
     </Pressable>
@@ -125,9 +144,9 @@ export function Add({ done, onNoteCreated }: { done: () => void; onNoteCreated?:
   return (
     <View style={s.page}>
       <TopBar title="Add" />
-      <ScrollView contentContainerStyle={s.scroll}>
+      <Scroll contentContainerStyle={s.scroll}>
         <Text style={s.dateLine}>{todayLabel}</Text>
-        <Field value={text} onChangeText={(t) => { setText(t); setErr(''); }} placeholder="e.g. Dentist 8/3 2pm…" autoFocus onSubmitEditing={() => add() && done()} />
+        <Field testID="add-text" value={text} onChangeText={(t) => { setText(t); setErr(''); }} placeholder="e.g. Dentist 8/3 2pm…" autoFocus onSubmitEditing={() => add() && done()} />
 
         <View style={s.cards}>
           {kindCard('reminder', 'Reminder', <TickCircleIcon size={24} color={kind === 'reminder' ? T.accent : T.dim} />)}
@@ -199,7 +218,7 @@ export function Add({ done, onNoteCreated }: { done: () => void; onNoteCreated?:
           <Text style={s.helpRow}>·  e.g. <Text style={s.helpBold}>Vet 8/3 2pm</Text> → “Vet”, Aug 3, 2:00pm</Text>
           <Text style={s.helpNote}>A time on its own lands on today — or tomorrow, if it has already gone by.</Text>
         </View>
-      </ScrollView>
+      </Scroll>
     </View>
   );
 }
