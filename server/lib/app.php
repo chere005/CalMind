@@ -511,7 +511,24 @@ function handle_shared_put(array $cfg, array $in): never
         if ($cur === null && $payload === null) {
             fail(400, 'nothing to write');
         }
-        if ($cur === null || $updated > (int) $cur['updated']) {
+        // THE SAME TIE-BREAK AS sync, and it was missing here.
+        //
+        // Sean's call, 2026-08-11: on an equal stamp the server arbitrates,
+        // because it is the one thing both devices agree on. That went into
+        // the sync handler and not into this one, so the identical tie
+        // resolved two different ways depending on whose store was being
+        // written. A tick on a partner's row that stamped equal to their own
+        // last edit was dropped while this replied ok, and the reconcile then
+        // pulled back their untouched copy — a tap that did nothing, said
+        // nothing, and looked like the app ignoring you.
+        //
+        // Compared against what would actually be STORED ($payload, already
+        // sanitised) rather than against the raw request, so the answer cannot
+        // depend on a shape that is about to be thrown away.
+        $tie = $cur !== null
+            && $updated === (int) $cur['updated']
+            && !rec_same($cur, ['deleted' => !empty($c['deleted']), 'payload' => $payload]);
+        if ($cur === null || $updated > (int) $cur['updated'] || $tie) {
             $seq       = (int) ($db['seq'] ?? 0) + 1;
             $recs[$id] = ['id' => $id, 'type' => $type, 'updated' => $updated,
                           'deleted' => !empty($c['deleted']), 'payload' => $payload, 'seq' => $seq];

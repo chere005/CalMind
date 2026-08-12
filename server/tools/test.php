@@ -435,6 +435,35 @@ t('shared_put ticks their row, refuses structure and private rows', function () 
     eq(403, api(['action' => 'shared_put', 'partner' => 'pat', 'record' =>
         ['id' => 'rnew', 'type' => 'reminder', 'updated' => 6, 'payload' => ['text' => 'sneak', 'due' => null, 'time' => null, 'done' => false, 'repeat' => null, 'folderId' => 'fp', 'sectionId' => 'x', 'indent' => 0, 'ord' => 'a']]], $tokQ)['status'], 'add outside the buckets');
 });
+t('a shared write breaks an equal-stamp tie the same way sync does', function () use (&$tokP, &$tokQ) {
+    // Sean's call, 2026-08-11: the server arbitrates, because it is the one
+    // thing both devices agree on. That went into the sync handler and NOT
+    // into this one, so the same tie resolved two different ways depending on
+    // whose store was being written — quinn's tick on pat's row was dropped on
+    // an equal stamp while the API answered ok, and the reconcile pulled back
+    // the untouched copy so the tap simply did nothing.
+    $row = fn(int $u, bool $done) => ['id' => 'rs', 'type' => 'reminder', 'updated' => $u,
+        'payload' => ['text' => 'peel garlic', 'due' => null, 'time' => null, 'done' => $done,
+                      'repeat' => null, 'folderId' => 'fs', 'sectionId' => 'ss', 'indent' => 0, 'ord' => 'a']];
+    api(['action' => 'shared_put', 'partner' => 'pat', 'record' => $row(8, false)], $tokQ);
+    $r = api(['action' => 'shared_put', 'partner' => 'pat', 'record' => $row(8, true)], $tokQ);
+    eq(200, $r['status'], 'the equal-stamped write is answered ok');
+    $sy = api(['action' => 'sync', 'cursor' => 0, 'changes' => []], $tokP);
+    $rs = array_values(array_filter($sy['body']['changes'], fn($c) => $c['id'] === 'rs'))[0];
+    eq(true, $rs['payload']['done'], 'and it actually landed');
+});
+t('…but an equal stamp with the SAME content still changes nothing', function () use (&$tokP, &$tokQ) {
+    // The other half, and the reason the tie is on CONTENT rather than on the
+    // stamp alone: an echo that bumped the sequence would re-broadcast itself
+    // to every device on every sync.
+    $same = ['id' => 'rs', 'type' => 'reminder', 'updated' => 8,
+        'payload' => ['text' => 'peel garlic', 'due' => null, 'time' => null, 'done' => true,
+                      'repeat' => null, 'folderId' => 'fs', 'sectionId' => 'ss', 'indent' => 0, 'ord' => 'a']];
+    $before = api(['action' => 'sync', 'cursor' => 0, 'changes' => []], $tokP)['body']['cursor'];
+    api(['action' => 'shared_put', 'partner' => 'pat', 'record' => $same], $tokQ);
+    $after = api(['action' => 'sync', 'cursor' => 0, 'changes' => []], $tokP)['body']['cursor'];
+    eq($before, $after, 'an identical re-push does not advance their sequence');
+});
 t('removal on either side ends sharing instantly, both ways', function () use ($shareRec, &$tokP, &$tokQ) {
     api(['action' => 'sync', 'cursor' => 0, 'changes' => [
         $shareRec(['partners' => [], 'calendars' => [], 'folders' => [], 'notefolders' => []], 9),

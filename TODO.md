@@ -14,7 +14,7 @@ Standing rules live in `CLAUDE.md`, not here.
 
 ## Suite counts, as of this commit
 
-core **401** · gesture **156** (+1 skipped) · WebKit **16** · server **44** ·
+core **401** · gesture **156** (+1 skipped) · WebKit **16** · server **46** ·
 live **19** with the API · desktop **7** (+3 in `npm run test:desktop`) · deploy guards **9** · plus the four
 native seam checkers no browser can reach: `npm run test:watch`,
 `npm run test:widget`, `npm run test:deploy`.
@@ -410,6 +410,27 @@ then the watch needs the direct install and the build number is the proof.
   Both halves were broken and watched going red. `superseded` is deliberately
   NOT part of content in `sameContent` or `rec_same`: it says why a record
   went, not what it holds, and never changes after the tombstone is written.
+
+- **The shared write path never got the equal-stamp tie-break.** Sean decided
+  on 2026-08-11 that the server arbitrates a tie, because it is the one thing
+  both devices agree on. That went into the sync handler; `shared_put` kept
+  strictly-newer, so the identical tie resolved two different ways depending on
+  whose store was being written. A tick on a partner's row that stamped equal
+  to their own last edit was DROPPED while the API replied ok, and the
+  reconcile pulled their untouched copy straight back — a tap that did nothing
+  and said nothing.
+
+  Same rule now, and compared against what would actually be stored (the
+  sanitised `$payload`) rather than the raw request, so the answer cannot turn
+  on a shape that is about to be discarded. Both halves broken and watched
+  going red: without the tie the write is lost, and without the CONTENT half an
+  echo bumps the partner's sequence and re-broadcasts itself to every device on
+  every sync.
+
+  The third sibling of that decision is fine and was checked: a conversion can
+  never reach `shared_put`, because ItemModal's shared branch returns early
+  with a freshly built record and never touches convertToNote and friends. So
+  `superseded` does not need to travel this path.
 
 ## 4 · Steady state, every iteration
 
