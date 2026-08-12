@@ -591,6 +591,40 @@ Redone from `server/`, both directions hold: with a type error in
 `apps/app/src/watch.ts` the script refuses and names `apps/app`; clean, it
 passes typecheck and goes on to the tests, echoing test destinations only.
 
+### The APP layer, mutation-audited, 2026-08-12
+
+Core was audited on 2026-08-11. The screens never had been, and they are the
+half where the gesture suite is the only guard — so a survivor there is a
+behaviour that could stop working with every suite still green.
+
+Seven mutations, chosen where a survivor would mean something rather than
+where one was easy to make:
+
+| mutation | result |
+|---|---|
+| `GRACE_MS` 2000 → 0, the uncheck grace gone | caught, all four grace specs |
+| `GRACE_MS` → 60000, the grace never ending | caught, by the test whose name says exactly that |
+| the sync debounce 800ms → 5 minutes | caught by `toolong.spec` |
+| both drags yielding to the ScrollView (`onPanResponderTerminationRequest` → true) | caught by three specs |
+| the calendar's `delayLongPress` 350 → 5000 | caught by "the CALENDAR day panel leaves edit mode by tapping out" |
+| `justSwiped()` → false, so a swipe also opens the row it swiped | caught by three specs |
+| **the calendar's double-tap window → 0** | **SURVIVED — see `caldbltap.spec.ts`** |
+
+Two things are worth taking from the survivor beyond the fix. The gesture
+exists FIVE times (a habit name, a reminder row, a reminders section head, a
+notes section head, a calendar day-panel row) and four had a `dblclick`
+somewhere — so the gap was one copy of something otherwise well covered,
+which is the hardest kind to notice by reading. And `doubletap.spec.ts`
+exists and is about something else entirely: a double tap not filing TWO
+reminders. A name can look like coverage.
+
+The drag result is the interesting near-miss. Five drag specs PASSED with
+both drags yielding — they drag in short lists, where the enclosing
+ScrollView never asks for the responder. Only the three in scrollable
+contexts failed. A mutation that is caught by a minority of the tests that
+look relevant is still caught, but it says which of them are actually
+exercising the guard.
+
 ### Mutation-audited, 2026-08-11
 
 Coverage says a line ran. It does not say anything would have noticed if the
