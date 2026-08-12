@@ -9,7 +9,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { REPEAT_UNITS, byOrd, byRecOrd, deleteSection, duplicateItem, moveReminderBlock, moveSection, moveSectionEmptyingFolder, newId, nowStr, ordBetween, parseWhenFromText, reminderToggle, remindersMarkdown, renameSection, repeatLabel, sectionNameTaken, sortByDate, timeLabel, todayStr, type Rec, type Repeat } from '@calmind/core';
+import { REPEAT_UNITS, byOrd, byRecOrd, ordGap, deleteSection, duplicateItem, moveReminderBlock, moveSection, moveSectionEmptyingFolder, newId, nowStr, ordBetween, parseWhenFromText, reminderToggle, remindersMarkdown, renameSection, repeatLabel, sectionNameTaken, sortByDate, timeLabel, todayStr, type Rec, type Repeat } from '@calmind/core';
 import * as Clipboard from 'expo-clipboard';
 import { useStore } from '../store';
 import { useClock24 } from '../useClock24';
@@ -303,7 +303,8 @@ export function Reminders() {
         payload: {
           text: '', due: null, time: null, done: false, repeat: null,
           folderId: parent.payload.folderId, sectionId: parent.payload.sectionId,
-          indent: 1, ord: ordBetween(parent.payload.ord, next?.payload.ord ?? null),
+          // ordGap: parent and the row after it can share a key — see order.ts.
+          indent: 1, ord: ordBetween(...ordGap(siblings.map((x) => x.payload.ord), at + 1)),
         },
       }),
     );

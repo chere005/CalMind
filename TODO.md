@@ -14,7 +14,7 @@ Standing rules live in `CLAUDE.md`, not here.
 
 ## Suite counts, as of this commit
 
-core **424** · gesture **159** (+1 skipped) · WebKit **16** · server **48** ·
+core **425** · gesture **159** (+1 skipped) · WebKit **16** · server **48** ·
 live **19** with the API · desktop **7** (+3 in `npm run test:desktop`) · deploy guards **9** · plus the four
 native seam checkers no browser can reach: `npm run test:watch`,
 `npm run test:widget`, `npm run test:deploy`.
@@ -640,6 +640,15 @@ then the watch needs the direct install and the build number is the proof.
 
   Proven by reproducing it: two engines, the same two records, opposite arrival
   order. Dropping the id fallback turns that test red on its own.
+
+  AND THE FIX WAS INCOMPLETE for a round: `manage.ts`'s ten sites were done and
+  the SCREENS' two were not. `ordForMove` in rowdrag.ts — which backs the
+  folder, habit-section and calendar drags — and the subtask insert in
+  Reminders both take BOTH bounds from real rows, so both threw on exactly the
+  same input. Found by re-checking a claim made with a grep, which is the habit
+  that has paid every time this session: the first pass looked at
+  `ordBetween(` calls and read most of them as "one bound is null, so safe"
+  without separating out the two that are not.
 
 - **One bad HTML entity refused the whole recipe.** `String.fromCodePoint`
   throws on anything outside 0..0x10FFFF and on the NaN a malformed '&#abc;'

@@ -70,6 +70,21 @@ describe('a duplicate order key does not break the drag', () => {
     expect(moved.payload.ord > '1' && moved.payload.ord < '3', `${moved.payload.ord} between 1 and 3`).toBe(true);
   });
 
+  it('ordGap covers the shape the SCREENS use too, not just manage', () => {
+    // ordForMove (rowdrag.ts) and the subtask insert in Reminders both take
+    // BOTH bounds from real rows, so both had the identical exposure and both
+    // were missed when manage.ts's ten sites were fixed. The arithmetic they
+    // do is this; pinning it here is what makes the two call sites safe.
+    //
+    // ordForMove: the row is pulled OUT first, so `to` indexes the remainder.
+    const rest = ['V', 'V', 'z'];
+    expect(() => ordBetween(...ordGap(rest, 1))).not.toThrow();
+    expect(() => ordBetween(...ordGap(rest, 2))).not.toThrow();
+    expect(() => ordBetween(...ordGap(rest, 3))).not.toThrow();
+    // The subtask: parent at `at`, the row after it at `at + 1`.
+    expect(() => ordBetween(...ordGap(['V', 'V'], 1))).not.toThrow();
+  });
+
   it('a whole run of equal keys is stepped over, not just one', () => {
     expect(ordGap(['V', 'V', 'V', 'z'], 1)).toEqual(['V', 'z']);
     expect(ordGap(['V', 'V', 'V'], 1)).toEqual(['V', null]);

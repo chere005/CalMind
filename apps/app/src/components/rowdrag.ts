@@ -16,7 +16,7 @@
  */
 import { useRef, useState } from 'react';
 import { PanResponder, type PanResponderInstance, type View } from 'react-native';
-import { ordBetween } from '@calmind/core';
+import { ordBetween, ordGap } from '@calmind/core';
 
 export type RowDrag = {
   /** Attach to flat entry `i`'s View so the grant can measure it. */
@@ -128,11 +128,18 @@ export function useRowDrag(count: number, onDrop: (from: number, to: number) => 
   return { ...ui, registerRow, handleFor };
 }
 
-/** The ord key a row takes when it moves from index `from` to `to` in a list
- *  already sorted by ord. */
+/**
+ * The ord key a row takes when it moves from index `from` to `to` in a list
+ * already sorted by ord.
+ *
+ * ordGap rather than the raw neighbours, for the reason set out in order.ts:
+ * two rows can carry the SAME key — ordBetween(null, null) is deterministic,
+ * so two devices adding the first row to a list while offline both write 'V' —
+ * and asking for a key between two equal ones threw, mid-drag, with nothing
+ * catching it. manage.ts's movers were fixed first; this one backs the folder,
+ * habit-section and calendar drags and had exactly the same exposure.
+ */
 export function ordForMove<T extends { payload: { ord: string } }>(arr: T[], from: number, to: number): string {
   const rest = arr.filter((_x, i) => i !== from);
-  const lo = rest[to - 1]?.payload.ord ?? null;
-  const hi = rest[to]?.payload.ord ?? null;
-  return ordBetween(lo, hi);
+  return ordBetween(...ordGap(rest.map((x) => x.payload.ord), to));
 }
