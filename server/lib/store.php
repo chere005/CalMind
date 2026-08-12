@@ -60,8 +60,39 @@ function store_read(array $cfg, string $file): array
 function store_write(array $cfg, string $file, array $data): void
 {
     @mkdir(dirname($file), 0700, true);
+    // json_encode returns FALSE — it does not throw — on invalid UTF-8, on
+    // nesting past 512, and on INF/NAN. Passing that straight to
+    // openssl_encrypt encrypts the empty string, and the result is a file
+    // that is structurally PERFECT: it announces ENC1, it base64-decodes, it
+    // decrypts, and json_decode('') gives null, which store_read reads as an
+    // account with no records. Proven on 2026-08-12 with a deliberately
+    // invalid byte: one write, no error anywhere, and the whole store gone.
+    //
+    // That is precisely the "damaged file becomes a deleted one" that the
+    // guard in store_read exists to refuse, arriving from the write side
+    // where nothing was looking — and store_read cannot catch it, because
+    // there is nothing wrong with the file.
+    //
+    // Not reachable through the API today, and worth being exact about why:
+    // the request body goes through json_decode first, which rejects invalid
+    // UTF-8 outright and refuses a nesting deep enough to matter (the request
+    // wrapper is deeper than the store's, so anything that decodes re-encodes
+    // — checked, 495 through 510). So this guards against the day data
+    // reaches a store from somewhere that is NOT a validated request body: a
+    // migration, an import, a server-side field, a future binary payload.
+    //
+    // Throwing here rather than writing is what saves the account: the write
+    // is a temp file plus a rename, so failing before the rename leaves the
+    // last good file exactly where it was.
+    $json = json_encode($data, JSON_UNESCAPED_SLASHES);
+    if ($json === false) {
+        throw new RuntimeException('store: could not encode ' . basename($file) . ' — ' . json_last_error_msg());
+    }
     $iv  = random_bytes(16);
-    $enc = openssl_encrypt(json_encode($data, JSON_UNESCAPED_SLASHES), 'aes-256-cbc', store_key($cfg), OPENSSL_RAW_DATA, $iv);
+    $enc = openssl_encrypt($json, 'aes-256-cbc', store_key($cfg), OPENSSL_RAW_DATA, $iv);
+    if ($enc === false) {
+        throw new RuntimeException('store: could not encrypt ' . basename($file));
+    }
     $tmp = $file . '.' . getmypid() . '.tmp';
     if (file_put_contents($tmp, 'ENC1:' . base64_encode($iv . $enc)) === false || !rename($tmp, $file)) {
         @unlink($tmp);

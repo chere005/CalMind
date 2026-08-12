@@ -735,6 +735,39 @@ t('the URL fetcher refuses the addresses a server must never be asked for', func
     ok(str_contains(fetch_url('file:///etc/passwd')['error'], 'only http'), 'and says which schemes it speaks');
 });
 
+t('a store write that cannot be encoded REFUSES, instead of wiping the account', function () use ($scratch) {
+    // json_encode returns false rather than throwing, and the old code handed
+    // that straight to openssl_encrypt: the empty string was encrypted and
+    // written, producing a file that announces ENC1, base64-decodes,
+    // decrypts, and json_decodes to null — which store_read answers as an
+    // account with no records. Every layer says fine and the data is gone.
+    //
+    // store_read cannot catch this and it is not its fault: there is nothing
+    // wrong with the file. The refusal has to be at the write.
+    $dir  = $scratch . '/encodefail';
+    @mkdir($dir, 0700, true);
+    $cfg  = ['data_dir' => $dir, 'store_key' => str_repeat('k', 32)];
+    $file = $dir . '/store.json';
+
+    store_write($cfg, $file, ['records' => [['id' => 'a', 'text' => 'a real note']]]);
+    eq(1, count(store_read($cfg, $file)['records']), 'the good write lands');
+    $goodBytes = file_get_contents($file);
+
+    // An invalid UTF-8 byte: json_encode's commonest refusal.
+    $threw = false;
+    try {
+        store_write($cfg, $file, ['records' => [['id' => 'a', 'text' => "bad \xB1\x31 byte"]]]);
+    } catch (Throwable $e) {
+        $threw = true;
+    }
+    ok($threw, 'store_write must refuse a payload it cannot encode');
+
+    // The point of refusing: the previous file is untouched, because the
+    // write is a temp file plus a rename and we never reached the rename.
+    eq($goodBytes, file_get_contents($file), 'the last good file is still on disk, byte for byte');
+    eq(1, count(store_read($cfg, $file)['records']), 'and still reads back as one record');
+});
+
 t('with_lock actually serialises writers', function () use ($scratch, $root) {
     // Dropping flock(LOCK_EX) failed nothing — found by mutation, 2026-08-11.
     // Nothing here had ever run two writers at once, and it cannot be done
