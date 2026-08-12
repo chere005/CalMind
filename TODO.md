@@ -93,6 +93,14 @@ BEFORE the 16th rather than on it: Xcode → Settings → Accounts.
 This was written down on 2026-08-09 as "both device profiles expire
 2026-08-16" and the rewrite dropped it the next day.
 
+**Build 23 was installed on 2026-08-12 and the dates above did NOT move.**
+Checked by re-reading the profiles after the build: a rebuild only renews
+when the profile it needs is invalid, and these are still good, so
+`-allowProvisioningUpdates` reused them and bought nothing. So installing
+again before the 16th does not help — the renewal is a rebuild ON or AFTER
+the expiry, and that is the one that needs the Apple ID session in Xcode.
+Do not read a fresh install as a reset clock.
+
 ### Passkeys from the native iOS app — INCONCLUSIVE, and two asks
 RESTORED 2026-08-12; the probe key is still reverted from `app.json`, which
 matches what the dropped entry said. Passkeys are web-only by design today —
@@ -524,12 +532,19 @@ add `apple-touch-icon` (deploy-test.sh:235) and iOS was not using it.
 Cosmetic.
 
 ### The new-note focus is a 50ms race (WebKit only)
-STILL LIVE, and the count is 6 in ~45 full runs: it recurred on
-2026-08-11 and three times on 2026-08-12, all at `app.spec.ts:359` ("note body
+STILL LIVE, and the count is 7 in ~46 full runs: it recurred on
+2026-08-11 and four times on 2026-08-12, all at `app.spec.ts:359` ("note body
 renders its markers as styled text when you tap away"), each time passing
-3/3 in isolation and clean on the very next full run. Consistent with
+in isolation and clean on the very next full run. Consistent with
 everything below — and worth knowing that the line number moved, so anyone
 searching for :353 will not find it.
+
+The seventh is the best example yet of why the protocol exists: it failed the
+WebKit gate of a REAL deploy, in the same session that changed the note
+editor's focus and title handling — the one change most likely to have caused
+it. It had not. Five isolation runs and a clean 16/16 WebKit suite said so,
+and the deploy went through on the retry. Four minutes to tell a flake from a
+regression, spent at exactly the moment it is tempting to skip.
 
 The 2026-08-12 recurrences are the useful ones: the first landed in the same
 run as a sweep that touched every screen, which is exactly when a flake is
