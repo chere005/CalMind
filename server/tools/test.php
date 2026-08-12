@@ -778,6 +778,33 @@ for ($i = 0; $i < 40; $i++) {
     eq(160, (int) (store_read($cfg, $file)['n'] ?? 0), 'every increment survived — four writers, forty each');
 });
 
+t('the origin check gives its exception to localhost ONLY', function () {
+    // webauthn_origin_ok had no direct test, and the passkey spec above cannot
+    // stand in for one: this harness EXPECTS http://127.0.0.1:$port, and the
+    // foreign origin it tries differs in port as well as host, so the port
+    // comparison refuses it and the host restriction is never exercised.
+    // Widening the localhost test to `fn($h) => true` therefore passed the
+    // whole suite while accepting https://evil.example as
+    // https://calmind.example — found by mutation, 2026-08-11.
+    //
+    // The exception exists because a browser at http://localhost:8081 and one
+    // at http://127.0.0.1:8081 are the same place, and dev moves between them.
+    // Everything about that is narrow on purpose: same port, and both ends
+    // one of those two names.
+    ok(webauthn_origin_ok('https://calmind.example', 'https://calmind.example'), 'an exact match is fine');
+    ok(!webauthn_origin_ok('https://evil.example', 'https://calmind.example'), 'a different host is not, ports or no ports');
+    ok(!webauthn_origin_ok('https://calmind.example.evil', 'https://calmind.example'), 'nor a suffix of the real one');
+    ok(!webauthn_origin_ok('http://calmind.example', 'https://calmind.example'), 'nor the same host over http');
+
+    ok(webauthn_origin_ok('http://127.0.0.1:8081', 'http://localhost:8081'), 'localhost and 127.0.0.1 are the same place');
+    ok(webauthn_origin_ok('http://localhost:8081', 'http://127.0.0.1:8081'), 'in either direction');
+    ok(!webauthn_origin_ok('http://localhost:3000', 'http://localhost:8081'), 'but not across ports');
+    ok(!webauthn_origin_ok('http://evil.example:8081', 'http://localhost:8081'), 'and the exception is for those two names only');
+
+    ok(!webauthn_origin_ok('', 'https://calmind.example'), 'an empty origin is refused');
+    ok(!webauthn_origin_ok('not a url', 'https://calmind.example'), 'and so is nonsense');
+});
+
 t('a redirect resolves to the address it actually means', function () {
     // The redirect branch had NO cover: mutation replaced the recursive call
     // with a function that does not exist and every spec still passed, because

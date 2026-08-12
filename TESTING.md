@@ -299,6 +299,7 @@ branch in seven modules was deleted or inverted in turn and the suite re-run.
 | `server/lib/app.php` — sharing scope, auth, caps, passkeys | 22 | **2** |
 | `server/lib/fetchurl.php` — the SSRF guards and redirects | 7 | **4** |
 | `server/lib/store.php` — encryption, corrupt-file handling, the lock | 3 | **1** |
+| `server/lib/webauthn.php` — the origin check | 4 | **2** |
 | the SWIFT the checkers extract — widget and watch | 6 | 0 |
 | `parse.ts`, `undo.ts`, `rules.ts`, `recipe.ts`, `markdown.ts`, `layout.ts` | 30 | **5** |
 
@@ -363,6 +364,15 @@ reported); `check-watch-feed.sh` sees `capped()` dropping its limit, counting
 within days instead of across them, and a Codable field renamed on the wrist,
 which is the cross-language drift it exists for. `check-watch-format.sh` had
 already recorded its own proof.
+
+webauthn.php's survivors were both in `webauthn_origin_ok`, and the reason the
+passkey specs could not stand in for a direct test is worth keeping: this
+harness EXPECTS `http://127.0.0.1:$port`, and the foreign origin it tries
+differs in PORT as well as host, so the port comparison refuses it and the host
+restriction is never exercised. Widening the localhost test to `fn($h) => true`
+passed the entire suite while accepting `https://evil.example` as
+`https://calmind.example` — verified by calling the function directly, not
+inferred from the mutation surviving.
 
   · store.php's one survivor was `flock(LOCK_EX)`, and the reason it had no
     cover is worth knowing: it CANNOT be tested through the API, because
