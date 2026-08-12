@@ -283,28 +283,43 @@ than a red run, because it looks like an answer.
 ### Mutation-audited, 2026-08-11
 
 Coverage says a line ran. It does not say anything would have noticed if the
-line were wrong, which is the only question worth asking about a guard. So two
-modules were audited by deleting or inverting each branch in turn and watching
-whether the suite went red.
+line were wrong, which is the only question worth asking about a guard. So each
+branch in seven modules was deleted or inverted in turn and the suite re-run.
+**83 mutations.** One module was weak; the rest hold.
 
-`update.ts` — `shouldReload`'s six early returns: no-idea (either bundle name
-null), same-bundle, unsent work, half-typed field, already reloaded this page
-life, and already tried this build. Each removed in turn; each turns a test
-red. None is decoration.
+| module | mutations | survived |
+|---|---|---|
+| `update.ts` — shouldReload's six early returns | 6 | 0 |
+| `sync.ts` — LWW, the tie-break's three clauses, rejected ids, dirty clearing | 6 | 0 |
+| `day.ts` — folder tri-state, riders, overdue | 7 | 0 |
+| `watch.ts` — feed filters, widget picker, empty groups, strays | 6 | 0 |
+| `habit.ts` — dayShares counting | 1 | 0 |
+| `normalize.ts` — every seed, every re-home, the edited report | 9 | 0 |
+| `manage.ts` — all 48 single-line error guards | 48 | **33** |
 
-`sync.ts` — six mutations: accepting every incoming record regardless of stamp;
-dropping the equal-stamp tie-break; the tie-break ignoring the dirty check;
-the tie-break ignoring `sameContent`; no longer skipping rejected ids; and
-clearing a dirty id regardless of its stamp. All six caught, the first by two
-separate tests.
+manage.ts is written up in TODO; the short version is that 27 of the 33 were
+bad-id defences that now share one table, five were rules (two of them the
+sibling-asymmetry this repo keeps producing), and the last three are
+unreachable behind an earlier guard and are deliberately left alone.
 
-Twelve mutations, twelve reds. Worth writing down because a clean mutation
-result is real evidence and an unrecorded one gets re-earned; and worth
-repeating on anything new here, since it is the cheapest way to find a branch
-nothing is watching. The technique also has to be watched itself: a mutation
-that fails to APPLY prints a green suite and reads exactly like a guard that
-works — the script above checks the file actually changed and says so when it
-did not.
+TWO THINGS THE TECHNIQUE NEEDS, both learned the hard way here:
+
+  · **A mutation that fails to APPLY prints a green suite** and reads exactly
+    like a guard that works. It happened twice in this session's other work —
+    a regex that missed its target — so every sweep above checks the file
+    actually changed and says `DID NOT APPLY` when it did not. Without that,
+    83 green results would have been 83 confident lies.
+  · **A fixture can mask the guard under test.** With one calendar in the
+    store, manage's 'no such calendar' guard was shadowed by 'the last calendar
+    stays' on the very next line: neutering it changed nothing observable, so
+    the mutation survived a test written specifically to catch it. Two tests
+    were dead on arrival until the fixture grew a second calendar and a second
+    habit section. Re-running the sweep AFTER writing the tests is what found
+    that; writing them was not enough.
+
+Worth repeating on anything new here. It is the cheapest way to find a branch
+nothing is watching, and a clean result is real evidence — but only once both
+of the above are ruled out.
 
 ## server/ — the API contract (PHP over real HTTP)
 
