@@ -14,7 +14,7 @@ Standing rules live in `CLAUDE.md`, not here.
 
 ## Suite counts, as of this commit
 
-core **401** · gesture **156** (+1 skipped) · WebKit **16** · server **47** ·
+core **401** · gesture **156** (+1 skipped) · WebKit **16** · server **48** ·
 live **19** with the API · desktop **7** (+3 in `npm run test:desktop`) · deploy guards **9** · plus the four
 native seam checkers no browser can reach: `npm run test:watch`,
 `npm run test:widget`, `npm run test:deploy`.
@@ -144,6 +144,36 @@ every watch page uses `WatchFormat.clockFull`/`whenFull` (`3:30pm`) and only
 the complication uses the compact `clock12` (`3:30`). check-watch-format.sh
 pins both, and pins that the two DISAGREE below 8pm so one cannot become the
 other. This entry described a state that is not the case.
+
+### Which rule should the SCRIPTABLE widget's feed obey? — needs one word
+Two widgets, two folder rules, and they disagree. Found 2026-08-11.
+
+- The NATIVE widget (`widgetDays` → `dayItems`) obeys the calendar's tri-state
+  from `prefs_calendar.folderModes`: a folder is 'all' (its undated items ride
+  along on today), 'dated' (only items carrying a date) or 'none' (never
+  appears). It was changed to that deliberately, because a folder you had
+  switched off for the calendar still filled the home screen — your report.
+- The SCRIPTABLE widget's feed (`handle_feed`) still reads
+  `prefs_reminders.hidden`, which is the ALL VIEW's switch, a different
+  preference entirely, and takes riders from the folder's raw `rideAlong` flag
+  rather than from its mode.
+
+So today: a folder set to 'none' for the calendar still feeds that widget; a
+folder set to 'dated' still drops its undated items onto today there if it
+carries `rideAlong`; and a folder merely hidden in the All view vanishes from
+it while the calendar still shows it.
+
+The feed's own comment says "the widget follows what the calendar shows",
+which is the intent and no longer the code — CLAUDE.md's drifted-comment trap,
+found by reading the two rules side by side.
+
+NOT CHANGED, because either answer contradicts something already written down:
+the server test 'the feed follows the suite … hidden folders drop out' pins
+`hidden`, ported from the old suite's feed.php, and CLAUDE.md says where the
+suite's code and its intent disagree that is a question for you rather than a
+side to pick. One word settles it — "match the native widget" (port
+folderModes into the feed and rewrite that test) or "leave the feed on the
+suite's rule" (and fix the comment instead).
 
 ### Smaller, still his
 - A FINISHED item greys out rather than keeping its folder colour. That is
@@ -456,6 +486,24 @@ then the watch needs the direct install and the build number is the proof.
   and the watch both reach it through `dayItems`, so they were always guarded.
   PHP had the second. Swift has none — its only date arithmetic is the month
   grid's layout.
+
+- **The widget feed always spoke 12-hour, whatever the account had set.**
+  Every other surface reads `prefs_suite.clock24` — the app through
+  `useClock24`, the watch and the complication through `watchFeed`, which
+  carries the flag out to Swift. The feed formats times itself, in PHP, and
+  ignored it. That is the straggler that makes a per-account preference feel
+  unreliable: you set 24-hour and one surface in four keeps disagreeing.
+
+  It follows core's `timeLabel` exactly now, including the part that looks
+  like an inconsistency: 24-hour keeps the leading zero and the minutes ALWAYS
+  ('09:00'), because dropping ':00' is a 12-hour habit and '9' on a 24-hour
+  clock reads as a number rather than a time. Both halves broken and watched
+  going red — removing the branch, and forcing it always-on.
+
+  Found by finishing the audit of `handle_feed` instead of stopping at the
+  repeat expansion. That function re-implements THREE things core also does:
+  repeats (fixed), time formatting (fixed) and the folder gate — see §1, which
+  is a decision rather than a bug.
 
 ## 4 · Steady state, every iteration
 

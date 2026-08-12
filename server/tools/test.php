@@ -385,6 +385,48 @@ t('the cals= pin narrows the feed to the calendars baked at copy time', function
     $stale = $texts('&cals=ghost1,ghost2');
     ok(in_array('work thing', $stale, true), 'a fully-stale pin falls back to prefs');
 });
+t('the feed speaks the account\'s clock, not always a 12-hour one', function () {
+    global $port;
+    // Every other surface reads prefs_suite.clock24 — the app through
+    // useClock24, the watch and the complication through watchFeed, which
+    // carries the flag out to Swift. The widget feed formats times itself, in
+    // PHP, and always spoke 12-hour whatever the setting said. That is the
+    // straggler that makes a per-account preference feel unreliable: you set
+    // 24-hour and one surface out of four ignores you.
+    //
+    // A fresh account so the setting is the only thing under test.
+    $r = api(['action' => 'signup', 'username' => 'clockw', 'email' => 'clockw@example.com', 'password' => 'clockwpass']);
+    eq(200, $r['status'], 'fresh account');
+    $tok = $r['body']['token'];
+    $today = date('Y-m-d');
+    api(['action' => 'sync', 'cursor' => 0, 'changes' => [
+        ['id' => 'ev24', 'type' => 'reminder', 'updated' => 9300,
+         'payload' => ['text' => 'standup', 'due' => $today, 'time' => '15:30', 'done' => false,
+                       'repeat' => null, 'folderId' => 'f', 'sectionId' => 's', 'indent' => 0, 'ord' => 'A']],
+        ['id' => 'ev00', 'type' => 'reminder', 'updated' => 9300,
+         'payload' => ['text' => 'sharp', 'due' => $today, 'time' => '09:00', 'done' => false,
+                       'repeat' => null, 'folderId' => 'f', 'sectionId' => 's', 'indent' => 0, 'ord' => 'B']],
+    ]], $tok);
+    $wt = api(['action' => 'widget_token', 'rotate' => true], $tok)['body']['token'];
+    $read = function () use ($port, $wt, $today) {
+        $feed = json_decode((string) @file_get_contents("http://127.0.0.1:$port/api/index.php?feed=1&t=$wt"), true);
+        $out = [];
+        foreach (($feed['days'][$today] ?? []) as $r0) { $out[$r0['text']] = $r0['time']; }
+        return $out;
+    };
+    $twelve = $read();
+    eq('3:30pm', $twelve['standup'] ?? null, 'the default is still the suite 12-hour style');
+    eq('9am', $twelve['sharp'] ?? null, 'and still drops :00 there');
+
+    api(['action' => 'sync', 'cursor' => 0, 'changes' => [
+        ['id' => 'prefs_suite', 'type' => 'pref', 'updated' => 9400, 'payload' => ['clock24' => true]],
+    ]], $tok);
+    $t24 = $read();
+    // core's timeLabel keeps the leading zero and the minutes ALWAYS on a
+    // 24-hour clock: '09:00', never '9' — which reads as a number, not a time.
+    eq('15:30', $t24['standup'] ?? null, 'the account asked for 24-hour');
+    eq('09:00', $t24['sharp'] ?? null, 'leading zero and minutes kept, as core does it');
+});
 t('a bad feed token is a 401 and a bearer token does not work as one', function () use ($tokenA) {
     global $port;
     $r1 = json_decode((string) @file_get_contents("http://127.0.0.1:$port/api/index.php?feed=1&t=" . str_repeat('0', 48)), true);

@@ -700,10 +700,26 @@ function handle_feed(array $cfg): never
     foreach ($days as $d => &$rows) {
         usort($rows, fn($a, $b) => ($a['kind'] === $b['kind']) ? strcmp((string) ($a['time'] ?? ''), (string) ($b['time'] ?? '')) : ($a['kind'] === 'reminder' ? -1 : 1));
     }
-    // Stored times are HH:MM; the widget speaks the suite's style (3pm, 2:30pm).
-    $spoken = function (?string $t): ?string {
+    // Stored times are HH:MM; the widget speaks the suite's style (3pm, 2:30pm)
+    // — or the account's 24-hour clock, which this used to ignore.
+    //
+    // Every other surface reads prefs_suite.clock24: the app through
+    // useClock24, the watch and the complication through watchFeed, which
+    // carries the flag out to Swift. This one formats times itself, in PHP, and
+    // always spoke 12-hour whatever the setting said. That is the straggler
+    // that makes a per-account preference feel unreliable — you set 24-hour and
+    // one surface in four keeps disagreeing with you.
+    //
+    // The twin of timeLabel() in packages/core/src/parse.ts, and it follows
+    // that rule exactly, including the part that looks like an inconsistency:
+    // 24-hour keeps the leading zero and the minutes ALWAYS ('09:00'), because
+    // dropping ':00' is a 12-hour habit and '9' on a 24-hour clock reads as a
+    // number rather than a time.
+    $clock24 = ($prefs('suite')['clock24'] ?? null) === true;
+    $spoken = function (?string $t) use ($clock24): ?string {
         if (!$t) { return $t; }
         [$h, $m] = array_map('intval', explode(':', $t));
+        if ($clock24) { return sprintf('%02d:%02d', $h, $m); }
         $ap = $h >= 12 ? 'pm' : 'am';
         $h12 = $h % 12 === 0 ? 12 : $h % 12;
         return $m ? sprintf('%d:%02d%s', $h12, $m, $ap) : $h12 . $ap;
