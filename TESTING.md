@@ -414,6 +414,28 @@ Nothing was found wrong. That is the point of writing it down: "the checker
 works" is a claim, and until the subject has been broken under it, it is an
 untested one.
 
+### A neutered copy has to live where the original lived, 2026-08-12
+
+`apps/app` joined the deploy gate's typecheck. Proving a gate fires means
+running the script with the fault present, and CLAUDE.md's rule is that any
+such run neuters `ssh` and `rsync` in its copy first.
+
+The copy was written to the scratchpad. `deploy-test.sh` opens with
+`cd "$(dirname "$0")/.."`, so from there it walked out of the repo: `find`
+could not see `server/`, `npx` picked up a stranger's `tsc`, and both runs —
+the deliberately broken tree AND the clean one — failed identically at
+`packages/core typecheck failed`.
+
+Both failing is what gave it away. Had the script exited 0 for its own reasons
+it would have read as a pass, and the gate would have been recorded as proven
+without ever having run. `tools/check-deploy-guards.sh` writes its copies to
+`server/_guardcheck-$$.sh` for precisely this reason, which is a detail worth
+copying rather than rediscovering.
+
+Redone from `server/`, both directions hold: with a type error in
+`apps/app/src/watch.ts` the script refuses and names `apps/app`; clean, it
+passes typecheck and goes on to the tests, echoing test destinations only.
+
 ### Mutation-audited, 2026-08-11
 
 Coverage says a line ran. It does not say anything would have noticed if the
