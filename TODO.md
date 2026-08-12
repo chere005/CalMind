@@ -687,6 +687,27 @@ then the watch needs the direct install and the build number is the proof.
   binding constraint and probably forces IndexedDB there. Worth its own
   design pass before any of it is written.
 
+  MEASURED 2026-08-12, so the argument stops being qualitative. Snapshot cost
+  per record, real records through the real engine:
+
+  | record | bytes in the snapshot | fit in 5MB |
+  |---|---|---|
+  | reminder, short text | 229 | ~22,900 |
+  | reminder, typical text | 279 | ~18,800 |
+  | note, a small recipe | 265 | ~19,800 |
+  | note, a long recipe with method prose | 1,427 | ~3,675 |
+
+  Halve those if the browser counts its quota in UTF-16 units rather than
+  bytes, which several do. So the TEXT headroom is comfortable — thousands of
+  recipes either way — and this entry is not about running out of room today.
+
+  It is about what ONE image costs. A 200KB photo, base64'd into a record,
+  is about 267KB of snapshot: **the same room as 187 long recipes, or 950
+  typical reminders**, re-serialised on every save and re-sent on every sync,
+  on every device. Ten of them is the entire budget. That is the number that
+  makes "just inline it" a non-starter, and it is worth having in hand before
+  the design pass rather than after.
+
 - **The two-second uncheck grace reaches the WATCH now; the widget still has
   none.** On the wrist what is deferred is the SEND, which is the opposite of
   the phone's grace and deliberately so: in the app the write happens at once
