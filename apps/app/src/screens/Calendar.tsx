@@ -720,7 +720,10 @@ const s = themed(() => StyleSheet.create({
   rowDot: { width: 10, height: 10, borderRadius: 5 },
   markGlyph: { fontSize: 10, color: T.dim },
   panel: { flex: 1 },
-  panelInner: { padding: 16, gap: 8 },
+  // flexGrow: the day panel's EditExit is flexGrow: 1 inside this, and needs
+  // height to grow into or the tap-out stops at the last row. Same fix as
+  // Habits, same day.
+  panelInner: { padding: 16, gap: 8, flexGrow: 1 },
   // The same box the other three tabs use for collapse-all — the bar has to
   // look identical, not merely similar.
   panelHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },

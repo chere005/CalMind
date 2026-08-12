@@ -656,7 +656,13 @@ const s = themed(() => StyleSheet.create({
   // Reminders, 9 on Habits, 11 on Calendar, 16 on Notes. Sean named Habits as
   // closest and a hair tall, so 8 is the target and every screen is tuned to
   // land there rather than to carry the same number in its own style.
-  scroll: { padding: 16, paddingTop: 13, paddingBottom: 48, gap: 16 },
+  // flexGrow so the content fills the viewport even when the list is short.
+  // EditExit's Pressable is flexGrow: 1 INSIDE this, and flexGrow needs a
+  // parent with height to grow into — without it the tap-out area ended at
+  // the last habit, and a tap on the empty space below did nothing. Verified
+  // on a simulator: edit mode would not close. Reminders and Notes have
+  // carried this all along; this screen and the calendar panel had not.
+  scroll: { padding: 16, paddingTop: 13, paddingBottom: 48, gap: 16, flexGrow: 1 },
   headRow: { flexDirection: 'row', alignItems: 'flex-end' },
   nameCol: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, paddingRight: 8 },
   // The same box Reminders and Notes draw. Habits had a text '⌃' in a
