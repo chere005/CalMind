@@ -710,6 +710,29 @@ software: the editor closing to the notes list with the tab unchanged.
   eaten by the try?), and sim pairs drift to 'active, disconnected' —
   bounce the WATCH sim and re-check `xcrun simctl list pairs`.
 - Scriptable on a real phone (the widget itself, tick links, the PWA hop).
+
+**A pass was actually done on 2026-08-11**, at 390px and 1160px, through
+Playwright screenshots rather than the in-app browser (whose clicks kept timing
+out). Reminders at rest and in edit mode, the calendar grid and day panel, the
+notes list, the note editor, habits at five and seven columns, the add page,
+the user menu, Settings and the sharing sheet.
+
+It found ONE bug, and it was one nothing else could have found: the note
+editor's footer printed the literal string `'Saved'` whatever had happened. A
+hardcoded string is exactly as green as a correct one, and mutating it changes
+nothing any test asserts. Fixed; see TODO.
+
+TWO THINGS LOOKED WRONG AND WERE NOT, both worth writing down because the
+temptation to report them was real:
+
+  · The desktop column looked off-centre in the screenshot. Measured: 260/260
+    at 1160px, 400/400 at 1440, 130/130 at 900, a fixed 640px column. The
+    screenshot is 2320px shown at 2000 and the arithmetic was done against the
+    wrong basis — the same trap that made an earlier click land on the wrong
+    button. MEASURE the element; never read a position off a resized image.
+  · Habits' pager says "This week" at seven columns and a date range at five.
+    That is `w === 0 && cols === 7` in the source, deliberate, and the dates
+    are on screen directly beneath it either way.
   The script's FORMATTING is pinned by the widget spec (header row, uppercase
   day headings, the rules, the right-aligned time) because two copies of it
   drifted apart once and the flat one shipped.
