@@ -419,6 +419,33 @@ Nothing was found wrong. That is the point of writing it down: "the checker
 works" is a claim, and until the subject has been broken under it, it is an
 untested one.
 
+### The 36-use workaround nothing tested, 2026-08-12
+
+`hitSlop` is a no-op under react-native-web — CLAUDE.md carries it as a trap
+that has cost real time, because it fails in the direction that hurts: the
+native builds get the bigger target and the web silently does not.
+`WebHitSlop` is the answer, and it is used in 36 places across 13 files.
+
+Nothing tested that it did anything. It could have been deleted, had its
+`Platform.OS !== 'web'` inverted, or lost its negative offsets, and every
+existing spec would have stayed green — Playwright clicks element CENTRES,
+which land inside the drawn box whether the pad is there or not. Found by
+measuring every control in the exported app and asking which are small enough
+to depend on it.
+
+`e2e/webhitslop.spec.ts` drives the habit section's colour swatch: 11×11
+drawn, `slop={10}`, and the one control whose own source comment says the slop
+is what makes it tappable. Distances are taken from the CENTRE outward, since
+an offset from an element's own edge lands inside it at any size: 13px out is
+7.5px past the drawn edge and must press; 20px out is 14.5px past it and must
+not. Vertically, because `hsec-name` sits immediately to the right — checked
+with elementFromPoint, not assumed.
+
+Broken four ways, each caught: the pad returning null, the platform test
+inverted, the offsets made positive so the pad sits inside, and — for the
+upper bound, which would otherwise be an assertion that cannot fail — the pad
+made four times too big.
+
 ### The freshness gate asked about mtimes, not code, 2026-08-12
 
 `e2e/freshness.ts` refuses to run against a stale export, and it is one of the
