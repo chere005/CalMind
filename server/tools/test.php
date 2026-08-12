@@ -735,6 +735,38 @@ t('the URL fetcher refuses the addresses a server must never be asked for', func
     ok(str_contains(fetch_url('file:///etc/passwd')['error'], 'only http'), 'and says which schemes it speaks');
 });
 
+t('an empty or unwritable data key REFUSES, instead of encrypting with a public one', function () use ($scratch) {
+    // store_key used to fall through to hash('sha256', '') whenever the key
+    // file could not be read — the hash of the empty string, a constant
+    // anybody can compute. Two ways in, both silent: a data dir that cannot
+    // be written to, and a .datakey left empty by an interrupted write.
+    //
+    // It costs the data as well as the secrecy. Once a real key is written
+    // later, everything encrypted under the empty-string one stops
+    // decrypting, and store_read refuses it for ever — correctly.
+    $public = hash('sha256', '', true);
+
+    // A working directory still mints a real, stable key.
+    $ok = $scratch . '/keyok';
+    @mkdir($ok, 0700, true);
+    $k1 = store_key(['data_dir' => $ok]);
+    eq($k1, store_key(['data_dir' => $ok]), 'the key is stable across calls');
+    ok($k1 !== $public, 'and is not the empty-string hash');
+
+    // An EMPTY .datakey — the truncated-write case.
+    $empty = $scratch . '/keyempty';
+    @mkdir($empty, 0700, true);
+    file_put_contents($empty . '/.datakey', '');
+    $threw = false;
+    try { store_key(['data_dir' => $empty]); } catch (Throwable $e) { $threw = true; }
+    ok($threw, 'an empty data key must be refused, not silently replaced by a public one');
+
+    // An explicit key in the config is unaffected — that path never touches
+    // the file, and breaking it would break every deployment that sets one.
+    $viaCfg = store_key(['data_dir' => $empty, 'data_key' => 'a real configured secret']);
+    ok($viaCfg !== $public, 'a configured data_key still works and is not the public hash');
+});
+
 t('a store write that cannot be encoded REFUSES, instead of wiping the account', function () use ($scratch) {
     // json_encode returns false rather than throwing, and the old code handed
     // that straight to openssl_encrypt: the empty string was encrypted and

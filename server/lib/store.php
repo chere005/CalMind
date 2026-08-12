@@ -15,10 +15,37 @@ function store_key(array $cfg): string
     $file = $cfg['data_dir'] . '/.datakey';
     if (!is_file($file)) {
         @mkdir($cfg['data_dir'], 0700, true);
-        file_put_contents($file, bin2hex(random_bytes(32)), LOCK_EX);
+        if (file_put_contents($file, bin2hex(random_bytes(32)), LOCK_EX) === false) {
+            throw new RuntimeException('store: could not create the data key');
+        }
         @chmod($file, 0600);
     }
-    return hash('sha256', trim((string) file_get_contents($file)), true);
+    // An empty or unreadable key file used to fall through to
+    // hash('sha256', '') — the hash of the empty string, which is a constant
+    // anybody can compute. Proven both ways on 2026-08-12: a data dir that
+    // cannot be written to, and a .datakey left empty by an interrupted
+    // write. Neither threw, neither logged, and both encrypted every store
+    // afterwards with a key that is effectively public.
+    //
+    // It costs the data as well as the secrecy: once a real key is written
+    // later, everything encrypted under the empty-string one stops
+    // decrypting, and store_read rightly refuses it for ever.
+    //
+    // Refusing here is the same trade store_read already makes a few lines
+    // down — a 500 is recoverable, and this is not.
+    //
+    // Length is deliberately NOT checked. What is minted here is always 64
+    // hex characters, but an operator may reasonably have written their own
+    // key by hand, and rejecting a short one would break an install that is
+    // merely unusual rather than broken. Empty is the case that is provably
+    // wrong.
+    $raw = trim((string) @file_get_contents($file));
+    if ($raw === '') {
+        throw new RuntimeException(
+            'store: the data key is missing or empty — refusing to encrypt with a fixed, public key'
+        );
+    }
+    return hash('sha256', $raw, true);
 }
 
 function store_read(array $cfg, string $file): array
