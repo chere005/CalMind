@@ -280,6 +280,28 @@ than a red run, because it looks like an answer.
   inlining the time the way the rewrite did turns two of these red. The
   gesture suite's string-matching catches a rewrite; only this catches a typo.
 
+### Every checker broken on purpose, 2026-08-11
+
+The eight shell checkers are the only cover some of this code has, and most of
+them had never been pointed at a broken subject — they were trusted to catch
+things without anyone checking that they do. Each was driven with a failure it
+is supposed to see, by EXIT CODE rather than by reading its output:
+
+| checker | broken with | result |
+|---|---|---|
+| `check-widget-feed` | `toggledTicks` losing its remove branch; appending a duplicate; `packed()` ignoring the height it is given | caught ×3 |
+| `check-watch-feed` | `capped()` dropping its limit; counting within days not across; a Codable field renamed on the wrist | caught ×3 |
+| `check-watch-format` | (already carried its own proof — the drop-the-':00' rule) | — |
+| `check-appgroup` | the phone's writer of `watchlist.json` deleted — the original bug | caught |
+| `check-assets` | the window pointed at an unstaged path; an asset removed from the bundle | caught ×2 |
+| `check-feed-format` | the 24-hour leading zero; `$h % 12` without the `=== 0 ? 12` | caught ×2 |
+| `check-suite-counts` | a stale gesture count; a wrong core count | caught ×2 |
+| `check-deploy-guards` | (is itself a suite of nine) | — |
+
+Nothing was found wrong. That is the point of writing it down: "the checker
+works" is a claim, and until the subject has been broken under it, it is an
+untested one.
+
 ### Mutation-audited, 2026-08-11
 
 Coverage says a line ran. It does not say anything would have noticed if the
