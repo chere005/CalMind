@@ -289,17 +289,27 @@ export function Reminders() {
     }
   };
 
-  const saveEdit = (r: ReminderRec) => {
+  /**
+   * Saves, and RETURNS what it wrote.
+   *
+   * The return is the fix for a real bug, not a convenience. mutate() applies
+   * to the engine synchronously but `recs` and `r` are this render's props —
+   * stale until React re-renders. Every cluster button saves first and then
+   * acted on that stale copy, so duplicating a row you had just retyped made
+   * a copy of the text you had REPLACED (proven in clusterhold.spec.ts), and
+   * outdenting one wrote the pre-edit payload straight back over the save.
+   */
+  const saveEdit = (r: ReminderRec): ReminderRec => {
     const raw = editText.trim();
-    if (!raw || raw === r.payload.text) return;
+    if (!raw || raw === r.payload.text) return r;
     // Editing re-reads the text the same way adding does, so retyping a date moves it.
     const [text, due, time] = parseWhenFromText(raw, todayStr(), nowStr());
-    mutate((e) =>
-      e.put({
-        ...r,
-        payload: { ...r.payload, text: text || raw, due: due ?? r.payload.due, time: time ?? r.payload.time },
-      }),
-    );
+    const next: ReminderRec = {
+      ...r,
+      payload: { ...r.payload, text: text || raw, due: due ?? r.payload.due, time: time ?? r.payload.time },
+    };
+    mutate((e) => e.put(next));
+    return next;
   };
 
   /** A blank subtask directly under its parent, opened for typing — the + on a task. */
@@ -669,19 +679,23 @@ export function Reminders() {
                               not shown. */}
                           {pageEdit && (
                             <View style={s.editCluster}>
-                              <CircleBtn testID="rem-pencil" glyph="✎" label="Edit" size={24} onPressIn={() => { holdCluster.current = true; }} onPress={() => { if (editing === r.id) saveEdit(r); setEditing(null); setModalRec(r); }} />
+                              <CircleBtn testID="rem-pencil" glyph="✎" label="Edit" size={24} onPressIn={() => { holdCluster.current = true; }} onPress={() => { const saved = editing === r.id ? saveEdit(r) : r; setEditing(null); setModalRec(saved); }} />
                               {r.payload.indent === 0 && (
                                 <CircleBtn testID="rem-dup" glyph="⧉" label="Duplicate" size={24} onPressIn={() => { holdCluster.current = true; }} onPress={() => {
                                   if (editing === r.id) saveEdit(r);
                                   setEditing(null);
-                                  const res = duplicateItem(recs, r.id, newId);
-                                  if (!('error' in res)) mutate((e) => res.put.forEach((p) => e.put(p)));
+                                  // e.all(), not recs: the save above has already
+                                  // landed in the engine and not yet in this render.
+                                  mutate((e) => {
+                                    const res = duplicateItem(e.all(), r.id, newId);
+                                    if (!('error' in res)) res.put.forEach((p) => e.put(p));
+                                  });
                                 }} />
                               )}
                               {r.payload.indent === 0 ? (
                                 <CircleBtn glyph="+" label="Add" size={24} onPressIn={() => { holdCluster.current = true; }} onPress={() => { if (editing === r.id) saveEdit(r); addSubtask(r); }} />
                               ) : (
-                                <CircleBtn glyph="‹" label="Previous" size={24} onPressIn={() => { holdCluster.current = true; }} onPress={() => { if (editing === r.id) saveEdit(r); setEditing(null); outdent(r); }} />
+                                <CircleBtn glyph="‹" label="Previous" size={24} onPressIn={() => { holdCluster.current = true; }} onPress={() => { const saved = editing === r.id ? saveEdit(r) : r; setEditing(null); outdent(saved); }} />
                               )}
                               <ConfirmDelete onPressIn={() => { holdCluster.current = true; }} onDelete={() => { setEditing(null); mutate((e) => e.del(r.id)); }} />
                             </View>
