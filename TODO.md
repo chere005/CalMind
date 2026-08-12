@@ -10,6 +10,23 @@ import, the watch's month grid), and 68 of its "open" checkboxes were prose
 rather than tasks. The old file is in git at `29686f2` if you want the
 story. Everything below was checked against the source on the day.
 
+**The rewrite was LOSSY, and not only of narrative.** Five open items were
+dropped whole and have been recovered since — login throttling (recovered
+earlier), calendar integrations with three unanswered questions, the blocked
+ssh key, the native-passkey probe with its two asks, the widget/watch
+one-push-behind bug, and the unverified PWA bottom gap. The device-profile
+expiry went with them, which is why nobody noticed the apps were four days
+from not launching.
+
+They were found by diffing the pre-rewrite file's UNCHECKED items against
+this one rather than by reading it, and 68 of them is more than anyone
+re-reads. If something you remember asking about is not here, it may not have
+been answered — check before assuming:
+
+```sh
+git show 29686f2:TODO.md | grep -n "^\s*- \[ \]"
+```
+
 Standing rules live in `CLAUDE.md`, not here.
 
 ## Suite counts, as of this commit
@@ -33,6 +50,117 @@ own numbers, precisely because its own "145 tests" went stale unnoticed.
 
 Each is blocked on a call, not on work. Options are given because the choice
 is between real tradeoffs, not because the answer is unclear.
+
+### The watch app stops launching on 2026-08-16 — four days from now
+Not a decision so much as a clock. Free Personal Team profiles last 7 days,
+the last device install was build 22 on 2026-08-11, and the apps stop
+launching when their profiles expire. Read out of the profiles themselves on
+2026-08-12 rather than counted forward from the build:
+
+| profile | expires (UTC) |
+|---|---|
+| `com.seancheren.calmind.watchkitapp` | **2026-08-16 19:29** |
+| `com.seancheren.calmind.watchkitapp.widget` | 2026-08-16 19:31 |
+| `com.seancheren.calmind` (phone) | 2026-08-17 02:37 |
+| `com.seancheren.calmind.appwidget` | 2026-08-17 18:41 |
+
+So the WRIST goes first, complication with it, and the phone follows about
+seven hours later. Renewal is a rebuild and reinstall of both.
+
+The catch, and the reason this is here rather than filed as routine: the
+rebuild needs an Apple ID session in Xcode, and the last recorded state of
+that was `No Accounts` — xcodebuild had lost it, which is what stopped the
+native passkey probe on 2026-08-09 (below). If that is still true, the
+renewal hits the same wall on the day the apps stop working. Worth checking
+BEFORE the 16th rather than on it: Xcode → Settings → Accounts.
+
+This was written down on 2026-08-09 as "both device profiles expire
+2026-08-16" and the rewrite dropped it the next day.
+
+### Passkeys from the native iOS app — INCONCLUSIVE, and two asks
+RESTORED 2026-08-12; the probe key is still reverted from `app.json`, which
+matches what the dropped entry said. Passkeys are web-only by design today —
+the screens hide the button rather than offer something that throws.
+
+What the probing established, in order, and both halves are worth keeping:
+
+- `ios.entitlements` SILENTLY IGNORES an associated-domains key. The first
+  probe "succeeded" while testing nothing: the signed app, read back with
+  codesign, carried no such entitlement. The supported key is
+  `ios.associatedDomains` (checked against the SDK 57 docs), and with that
+  the entitlement verifiably lands.
+- The real probe then failed with `No Accounts` — xcodebuild had lost the
+  Apple ID session, so nothing could mint a profile and the capability
+  question never actually reached Apple. That is NOT a refusal, and reading
+  it as one would abandon the feature on no evidence.
+
+Asks for Sean: (1) re-add his Apple ID in Xcode → Settings → Accounts —
+needed for the profile renewal above regardless; (2) the AASA file needs the
+PROD domain root, prepared in `server/prod-only/` with instructions, and
+ships only on his word. Then the probe is one build away, and if Apple signs
+it the rest is the Swift credential bridge.
+
+### Deploys are still blocked on an ssh key only Sean can load
+CHECKED 2026-08-12, read-only: `ssh-add -l` answers **"The agent has no
+identities."** That is the same condition recorded on 2026-08-09 in an entry
+the rewrite then dropped, so the blocker has been live and unwritten-down
+since. Nobody has tried to deploy in the meantime — this session is under a
+standing "do not deploy" — but the next one asked to will hit it, and what it
+looks like is `./server/deploy-test.sh` failing at the SSH step with
+"Permission denied" and then "Too many authentication failures".
+
+What IS in place, so the diagnosis does not start from scratch:
+
+- `server/deploy.conf` exists (gitignored, so it survives no clone but this
+  one) and `~/.ssh/id_ed25519_nfs` is still there, 419 bytes.
+- The agent is running — `SSH_AUTH_SOCK` is set — it simply holds nothing.
+
+Almost certainly `ssh-add ~/.ssh/id_ed25519_nfs` and the passphrase; the key
+is named for that host in `~/.ssh/config`. If the agent takes it and the
+server still refuses, the key needs re-authorising in the NearlyFreeSpeech
+panel. **Sean's to do.** I have not touched the key, the agent or the
+passphrase, and will not: the 2026-08-09 note stopped at exactly this line for
+the same reason, and working around an auth block is not a thing to do on
+someone's behalf.
+
+### Calendar integrations — three questions, and code already waiting on them
+RESTORED 2026-08-12. This was §3d and the rewrite on 2026-08-10 dropped it
+whole, questions and all. That is the SECOND entry the rewrite lost — the
+login-throttling one was recovered earlier the same way — so if something you
+remember asking is not here, `git show dfac36d -- TODO.md` and its neighbours
+are where to look, not memory.
+
+It matters more than the average dropped entry because one of the questions
+says outright that it should be answered *before any code is written against
+it*, and because two pieces of code are already sitting finished and unwired
+waiting for the answers:
+
+- `packages/core/src/ical.ts` — 234 lines, 13 tests. Folding, quoted TZID
+  params, TEXT escaping, and the three kinds of moment a calendar carries: a
+  date with no time, a UTC instant, and a wall clock in a named zone. Zone
+  maths probes Intl rather than carrying a table; the tests pin both US DST
+  changeovers. Driven with real-world shapes on 2026-08-12 — exclusive all-day
+  DTEND, escaped commas, folded lines, TZID and floating times, LF-only line
+  endings, lowercase keys — and it was right on every one.
+- `packages/core/src/rrule.ts` — 19 tests. `parseRrule` and `expandRrule`,
+  covering FREQ/INTERVAL/COUNT/UNTIL/BYDAY and EXDATE, monthly-on-the-31st
+  skipping short months, and yearly on Feb 29. The old entry listed this as
+  "not yet expanded"; it has been done since, which is another reason not to
+  trust a dropped entry's status.
+
+Neither has a single consumer anywhere in the app or the server — deliberately,
+since both routes into a calendar hand back the same VEVENTs and neither file
+commits to an auth decision. What is blocked:
+
+- **Gmail needs a Google Cloud project Sean creates himself.** On a personal
+  gmail.com account, an app left in Testing mode expires its refresh token
+  roughly weekly; escaping that means Google verification, which is onerous
+  for mail scopes, and there is no Workspace "Internal" shortcut on a personal
+  account. Worth confirming before any code is written against it. CalDAV
+  calendars carry no equivalent problem and could go first.
+- **Subscribe-by-link vs full CalDAV first?**
+- **Do imported events stay read-only forever?** This one changes the record
+  model, so it is cheaper to answer now than after.
 
 ### The oversized record — option (a) SHIPPED; what is left is smaller
 This entry claimed "the protocol is unchanged". It was already wrong when
@@ -305,6 +433,57 @@ It was then dropped entirely when §3 was cut back — recovered from git.)
   call; they should not stay different.
 
 ## 2 · Open bugs
+
+### The watch mirrors the widget's selection ONE PUSH BEHIND
+RESTORED 2026-08-12 and confirmed still live in the source. Sean reported
+shared events on the widget and missing from the watch's first tab. The
+four-day-window explanation given at the time was wrong — the events had
+reached the wrist and were on the Events tab all along.
+
+The actual cause, and `apps/app/src/watch.ts:63` states it plainly: the
+widget's calendar selection rides along with each push, "read fresh on every
+push: the widget rewrites it whenever its configuration changes, **and
+nothing notifies the app when that happens**." So changing the widget's
+selection leaves the watch mirroring the old one until the app pushes again
+for some unrelated reason — at which point it corrects itself, which is
+exactly what gets a bug reported as intermittent and then not believed.
+
+Left as a decision rather than fixed on the spot because it changes sync
+timing. PARITY.md:1412 says it was "written down in TODO"; it was, and the
+rewrite dropped it, which is how a known bug becomes a mystery twice.
+
+### The installed PWA's bottom gap is still UNVERIFIED
+RESTORED 2026-08-12. Sean reported a black gap below the tab bar in the
+installed home-screen app. It was never reproduced: on the simulator in real
+standalone the tab icons centre at ~96.7% of screen height, against ~85.9%
+in his screenshot, so his layout was sized to a shorter screen and the
+likeliest reason was his install running old code — an installed iOS web app
+keeps the page it has.
+
+Two things have changed since, and neither closes it:
+
+- A `dvh` fix DID ship (`tools/patch-web-html.mjs` — `@supports
+  (height:100dvh)` on html, body and #root). Nobody has confirmed it against
+  the device that showed the gap. It is the fix for the symptom, unverified.
+- The viewport read-out that was supposed to settle it is GONE. Sean saw it
+  in Settings, called it spurious, and it was removed (`bd59af7`) — rightly,
+  since the numbers it showed him said `standalone no` and `safe area bottom
+  0`, so it was not even capturing the case it existed for. That commit says
+  it plainly: "The bottom gap stays unverified either way."
+
+So the settling step written down in the old entry — re-add the icon and
+screenshot the three grey lines — cannot be followed: there are no lines to
+screenshot. What is needed now is one look at the installed app after a
+deploy carrying the dvh fix, and deploys are blocked (§1).
+
+Also never explained, and not to be guessed at: his 393x852 against the
+simulator's 402x874 is a different device size, and it cannot be ruled out
+that the gap only appears at his.
+
+Separate and still unfixed, noticed in the same investigation: the installed
+web-app icon is the site-wide "SC" mark rather than CalMind's. The deploy DOES
+add `apple-touch-icon` (deploy-test.sh:235) and iOS was not using it.
+Cosmetic.
 
 ### The new-note focus is a 50ms race (WebKit only)
 STILL LIVE, and the count is 5 in ~43 full runs: it recurred on
