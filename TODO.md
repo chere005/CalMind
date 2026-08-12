@@ -713,6 +713,25 @@ then the watch needs the direct install and the build number is the proof.
   lockout on a personal app is also a way to be locked out of it. One word
   settles it.
 
+- **A spec that proved nothing one day in seven.** `habitfreq`'s weekday test
+  derives its expectation from the clock rather than hardcoding it — the right
+  instinct, and its own comment says "a literal date would pass today and fail
+  on Thursday for no reason". Thursday is exactly the day it stops checking
+  anything: the phone shows five columns and the window ends tomorrow, so it
+  spans today-3..today+1, which on a Thursday is Mon..Fri. No weekend column,
+  `weekendCols` is 0, and both assertions read `toBe(0)` — which a completely
+  broken frequency rule satisfies just as well. Wednesday and Friday give one
+  column; the other four give two.
+
+  Seven consecutive days always hold exactly one Saturday and one Sunday, so
+  the test now also runs at desktop width where the count is provably 2 every
+  day of the week.
+
+  Proven the hard way rather than by argument: with the frequency rule broken
+  the phone assertion catches it TODAY (a Tuesday), so the two phone
+  assertions were neutralised to simulate a Thursday, and the new block caught
+  it on its own.
+
 ## 4 · Steady state, every iteration
 
 - `git pull --autostash` first; stage explicit paths; never `git add -A`.

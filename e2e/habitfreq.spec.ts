@@ -114,4 +114,31 @@ test('a weekdays habit has no tick cell on a weekend column', async ({ page }) =
   await addHabit(page, 'Water', 'always');
   const offAfter = await page.getByTestId('habit-cell-off').count();
   expect(offAfter, 'the always habit adds no blank cells').toBe(weekendCols);
+
+  // ONE DAY IN SEVEN THE ABOVE PROVES NOTHING, which is why the rest of this
+  // test exists. The phone shows five columns and the window ends tomorrow, so
+  // it spans today-3..today+1 — and on a THURSDAY that is Mon..Fri, no weekend
+  // column at all. Both assertions then read `toBe(0)`, which a completely
+  // broken frequency rule satisfies just as well. (Wednesday and Friday give
+  // one column; the other four days give two.)
+  //
+  // Seven consecutive days always hold exactly one Saturday and one Sunday, so
+  // the wide layout has teeth every day of the week. WIDE_AT is 700 in
+  // Habits.tsx; 900 is comfortably past it.
+  await page.setViewportSize({ width: 900, height: 844 });
+  await expect(page.getByTestId('habit-daycol')).toHaveCount(7);
+  const wideWeekend = await page.evaluate(() => {
+    const now = new Date();
+    let count = 0;
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1 - i);
+      if (d.getDay() === 0 || d.getDay() === 6) count++;
+    }
+    return count;
+  });
+  expect(wideWeekend, 'seven days always hold exactly one Saturday and one Sunday').toBe(2);
+  expect(
+    await page.getByTestId('habit-cell-off').count(),
+    'the weekdays habit is out of the list on both weekend columns',
+  ).toBe(2);
 });
