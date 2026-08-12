@@ -303,6 +303,29 @@ then the watch needs the direct install and the build number is the proof.
   `.catch(() => {})` — a pass that never arrives measures the resting screen a
   second time and reports it clean.
 
+- **Half of every note and reminder row did not answer a tap.** Notes draws a
+  row 44pt tall and Reminders 36; the Pressable inside each — `note-row`,
+  `rem-body` — is a flex child with no height of its own, so it collapsed to
+  its single line of text at 18pt and sat centred. The 26pt (Notes) and 18pt
+  (Reminders) around it look exactly like the row because they ARE the row,
+  and they did nothing.
+
+  Invisible to every test in the suite, and it would have stayed invisible: a
+  test clicks the centre of what it means to click, and the centre always
+  worked. It came out of the same sweep run as the grips above.
+
+  Notes takes `alignSelf: 'stretch'`. Reminders needed the row's
+  `paddingVertical: 8` moved INTO rowBody as well — on the row it was space
+  the row owned and would not answer. Both rows still measure 36 and 44
+  resting, the reminder row still measures 36 while its inline editor is open
+  (`editField` sets its own `height: 20`), and a wrapped two-line row still
+  comes out where it did.
+
+  `e2e/rowdead.spec.ts` clicks 15pt (Notes) and 12pt (Reminders) from the row's
+  own CENTRE — outside the 9pt half-height of a collapsed press box, inside
+  the row's — never as an offset from an edge, which lands inside the element
+  whatever size it is. Both were watched failing before the fix.
+
 ## 4 · Steady state, every iteration
 
 - `git pull --autostash` first; stage explicit paths; never `git add -A`.

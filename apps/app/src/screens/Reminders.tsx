@@ -913,7 +913,13 @@ const s = themed(() => StyleSheet.create({
   secRename: { flex: 1, paddingVertical: 4 },
   // …and the same for a ROW, whose text swaps for an inline field two
   // points taller.
-  row: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, minHeight: 36, borderBottomWidth: 1, borderBottomColor: T.lineSoft },
+  // The vertical padding lives on rowBody, not here. On the row it was space
+  // the row OWNED and did not answer: rowBody is what a tap goes to, and as a
+  // centred flex child inside 8pt of parent padding it was 18pt tall in a 36pt
+  // row. Moved inward, the same 8pt is inside the press box, the row is still
+  // 36 (minHeight) and everything in it is still centred — the layout is
+  // unchanged and the dead half of the row is gone.
+  row: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 36, borderBottomWidth: 1, borderBottomColor: T.lineSoft },
   rowLast: { borderBottomWidth: 0, paddingBottom: 2 },
   // Pinned to the row's right edge and OUT of the flex flow, so turning
   // edit mode on cannot change a single measurement in the row. The
@@ -941,7 +947,7 @@ const s = themed(() => StyleSheet.create({
   editBackdropFill: { flexGrow: 1, minHeight: 160 },
   editDone: { marginLeft: 'auto' },
   rowIndented: { paddingLeft: 28 },
-  rowBody: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
+  rowBody: { flex: 1, alignSelf: 'stretch', paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   rowText: { color: T.text, fontSize: 16, flexShrink: 1 },
   rowTextDone: { color: T.muted, textDecorationLine: 'line-through' },
   // Sized to the ROW it replaces, so opening the inline editor does not make

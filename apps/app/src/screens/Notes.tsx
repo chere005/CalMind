@@ -1158,7 +1158,12 @@ const s = themed(() => StyleSheet.create({
   // as "the notes gap is huge" — the divider spacing was 8 here, the smallest
   // of the five screens, and this row was hiding above everything.
   row: { flexDirection: 'row', alignItems: 'center', gap: 8, height: 44 },
-  rowBody: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  // alignSelf STRETCH, not the parent's default 'center'. The row is 44pt and
+  // this Pressable is what answers a tap in it; as a centred flex child it
+  // collapsed to its one line of text — about 18pt — and the 26pt around it
+  // looked exactly like the row while doing nothing, because it IS the row.
+  // Its own alignItems:'center' still centres the title inside the taller box.
+  rowBody: { flex: 1, alignSelf: 'stretch', flexDirection: 'row', alignItems: 'center', gap: 8 },
   rowNoSelect: { userSelect: 'none' } as import('react-native').ViewStyle,
   sharedTitle: { color: T.text, fontSize: 22, fontWeight: '800' },
   sharedDate: { color: T.dim, fontSize: 13, marginTop: 2 },
