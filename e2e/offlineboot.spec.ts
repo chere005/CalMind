@@ -114,3 +114,53 @@ test('the API is never served from cache', async ({ page }) => {
   expect(shipped, 'and the entry bundle is in it').toMatch(/const CRITICAL = \[[^\]]*_expo\/static\/js\/web\/index-[a-f0-9]+\.js/);
   expect(shipped, 'cached with addAll, which fails loudly').toContain('cache.addAll(CRITICAL)');
 });
+
+test('a new build takes its old caches with it', async ({ page }) => {
+  test.setTimeout(120_000);
+  // The cache is named for the bundle — `calmind-<index-hash>.js` — so every
+  // export makes a new one and the activate handler deletes the rest:
+  //
+  //     keys.filter((k) => k.startsWith('calmind-') && k !== CACHE)
+  //         .map((k) => caches.delete(k))
+  //
+  // Nothing was checking that. If the filter ever went, every deploy would
+  // leave its predecessor's whole shell behind for ever, and the symptom is
+  // not a broken app — it is storage quietly filling until a snapshot write
+  // fails, which the app reports as persistFailed and a person reports as
+  // "it lost my note". A leak with someone else's error message on it.
+  await signedIn(page);
+  await controlled(page);
+
+  const current = await page.evaluate(async () => {
+    const keys = await caches.keys();
+    return keys.filter((k) => k.startsWith('calmind-'));
+  });
+  expect(current.length, 'exactly one calmind cache after a clean install').toBe(1);
+
+  // A leftover from an imaginary earlier build, with something in it so it
+  // cannot be dismissed as an empty shell the browser tidied itself.
+  await page.evaluate(async () => {
+    const c = await caches.open('calmind-oldbuild');
+    await c.put('./stale.txt', new Response('old'));
+  });
+  expect(await page.evaluate(() => caches.keys())).toContain('calmind-oldbuild');
+
+  // The sweep runs on ACTIVATE, so it needs a genuinely new worker. A
+  // different script URL is what produces one; unregistering and registering
+  // the same URL does not — tried, and the old registration simply carries
+  // on, which reads exactly like a broken sweep. sw.js calls skipWaiting and
+  // clients.claim, so the new one takes over without waiting for tabs.
+  await page.evaluate(async () => {
+    await navigator.serviceWorker.register('sw.js?v=2');
+    await navigator.serviceWorker.ready;
+  });
+
+  await expect
+    .poll(async () => page.evaluate(async () => (await caches.keys()).filter((k) => k.startsWith('calmind-'))),
+      { message: 'the previous build\'s cache is swept and the current one kept', timeout: 20_000 })
+    .toEqual(current);
+
+  // And the app still works from it, so the sweep did not take the live one.
+  await page.reload();
+  await expect(page.getByTestId('tab-reminders')).toBeVisible({ timeout: 20_000 });
+});
