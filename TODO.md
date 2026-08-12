@@ -14,7 +14,7 @@ Standing rules live in `CLAUDE.md`, not here.
 
 ## Suite counts, as of this commit
 
-core **407** · gesture **156** (+1 skipped) · WebKit **16** · server **48** ·
+core **412** · gesture **156** (+1 skipped) · WebKit **16** · server **48** ·
 live **19** with the API · desktop **7** (+3 in `npm run test:desktop`) · deploy guards **9** · plus the four
 native seam checkers no browser can reach: `npm run test:watch`,
 `npm run test:widget`, `npm run test:deploy`.
@@ -577,6 +577,18 @@ then the watch needs the direct install and the build number is the proof.
   of a consumed '*', which concatenate into a '__' that was never in the input.
   It is per-run now — inside one run two adjacent underscores cannot both be
   literal, because the parser would have eaten them.
+
+- **b64u is CLEAN — fuzzed both directions, and it found nothing.** Also
+  recorded as a result. 3000 random byte strings at every length 0..64, so all
+  three tail cases recur and the accumulator shifts well past 32 bits, which is
+  where a hand-rolled codec usually goes wrong; plus decode-and-re-encode for
+  canonicality, the two refusals, and the padding a strict encoder would add.
+
+  The check worth copying is the last one: every alphabet character must decode
+  to its own index. A TRANSPOSED alphabet round-trips perfectly against itself
+  and agrees with nobody else on earth, so the round-trip fuzz cannot see it —
+  proven by swapping A and B, which turned that test red and left the other
+  four green.
 
 ## 4 · Steady state, every iteration
 
