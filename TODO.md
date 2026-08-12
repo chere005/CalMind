@@ -252,6 +252,20 @@ Not chosen here: inventing merge semantics for someone's notes is not a
 tidy-up, and this repo has already paid once for a remote edit landing on a
 sentence being typed.
 
+### Login has no throttling of any kind — needs a policy, not a patch
+Read rather than grepped, 2026-08-11: `handle_login` does a `password_verify`
+and a `login_fail` log on every attempt, with no counter, no delay and no
+lockout. `handle_recover` has `RECOVER_TRIES = 5`, so there is precedent in the
+same file for limiting something.
+
+NOT changed, because the policy IS the question — how many attempts, over what
+window, per IP or per account, a delay or a lockout — and a lockout on a
+personal app is also a way to be locked out of your own. Bcrypt makes each
+guess slow, which buys time but is not an answer. One word settles it.
+
+(Filed under §3 when it was found, which was wrong: it is a decision, not work.
+It was then dropped entirely when §3 was cut back — recovered from git.)
+
 ### Smaller, still his
 - A FINISHED item greys out rather than keeping its folder colour. That is
   the suite's rule; it can go.
@@ -307,23 +321,7 @@ Across four installs the wrist sat on build 1 while the phone carried 6. A
 direct `devicectl` install fixes it, and only while the watch is awake and
 holding a tunnel. Why the companion path does not update it is unknown; until
 then the watch needs the direct install and the build number is the proof.
-
 ## 3 · Work, not decisions
-
-- ~~**`Pill` announces itself as nothing**~~ — FIXED 2026-08-11, and it was
-  never this line's fault. The role is one line and had been added and
-  reverted THREE times because `copymd.spec` failed with it. The cause was in
-  the spec: it decided whether signup had worked the instant after clicking,
-  while the request was still in flight, so it took the "name taken" branch on
-  a form that was about to be replaced. That race passed for as long as a bare
-  div let Playwright click a control it should have refused — the role only
-  made an existing bug visible. Waiting for the outcome first fixes it, and
-  the role then lands with the whole suite green. Proven by putting the race
-  back with the role on and watching it fail again.
-
-  The lesson is worth more than the fix: three reverts, and each time the
-  evidence said "the change broke the test" when it was "the change stopped
-  the test getting away with something".
 
 - **Larger notes, with images** (Sean asked, 2026-08-11). Not a bigger cap:
   the shape cannot carry it. The client persists the WHOLE snapshot as one
@@ -388,621 +386,61 @@ then the watch needs the direct install and the build number is the proof.
   race a fact rather than a hope, and both breaks — no grace at all, and the
   near-miss that re-toggles from the stale copy — were watched going red.
 
-- **Three drag grips were 16pt wide on the web; they are 28 now.** Found by
-  extending `tools/sweep-tap-targets.mjs` to EDIT MODE, which it had never
-  entered — everything it measured before was what the screens draw at rest,
-  so every grip, the habit pencil and the note row's buttons were invisible to
-  it. Reminders' `row-grip` sat at 16×16 while `sec-grip` two hundred lines
-  above it measured 28×28, in the same file, off the same `rowGrip` style: the
-  difference was one `<WebHitSlop slop={6} />`. Both of Habits' grips were the
-  same, which matters because dragging between sections is what Sean asked
-  habits for.
-
-  This is CLAUDE.md's `hitSlop` trap exactly. All three carried `hitSlop={6}`
-  and read as fixed; it is a no-op under react-native-web, so the handle was
-  as big as the `≡` and no bigger. Reading the source would have said they
-  were fine — measuring said otherwise.
-
-  The four new passes each print whether they actually got in. They all
-  reported false at first: chained on from the recipe editor the tab clicks
-  were landing on the open editor, and Reminders had no row to hold on a fresh
-  account. Both were silent, because every click in the sweep is
-  `.catch(() => {})` — a pass that never arrives measures the resting screen a
-  second time and reports it clean.
-
-- **Half of every note and reminder row did not answer a tap.** Notes draws a
-  row 44pt tall and Reminders 36; the Pressable inside each — `note-row`,
-  `rem-body` — is a flex child with no height of its own, so it collapsed to
-  its single line of text at 18pt and sat centred. The 26pt (Notes) and 18pt
-  (Reminders) around it look exactly like the row because they ARE the row,
-  and they did nothing.
-
-  Invisible to every test in the suite, and it would have stayed invisible: a
-  test clicks the centre of what it means to click, and the centre always
-  worked. It came out of the same sweep run as the grips above.
-
-  Notes takes `alignSelf: 'stretch'`. Reminders needed the row's
-  `paddingVertical: 8` moved INTO rowBody as well — on the row it was space
-  the row owned and would not answer. Both rows still measure 36 and 44
-  resting, the reminder row still measures 36 while its inline editor is open
-  (`editField` sets its own `height: 20`), and a wrapped two-line row still
-  comes out where it did.
-
-  `e2e/rowdead.spec.ts` clicks 15pt (Notes) and 12pt (Reminders) from the row's
-  own CENTRE — outside the 9pt half-height of a collapsed press box, inside
-  the row's — never as an offset from an edge, which lands inside the element
-  whatever size it is. Both were watched failing before the fix.
-
-  Calendar's day panel had it too and got the stretch only, measured 18 -> 22
-  in a 30pt row. Its remaining 8pt is the row's own `paddingVertical: 4`, and
-  that is left alone DELIBERATELY: not every row in the panel has a body
-  Pressable — a partner's reminder is a tick and some text — so moving the
-  padding inward the way Reminders did would shorten those and leave the panel
-  with two row heights.
-
-- **The sweep now detects the dead-band CLASS, not just the three instances.**
-  Notes, Reminders and Calendar each grew the same bug independently, which is
-  the argument for a detector: it reports any element materially shorter than
-  the centring flex row it sits in. It REPORTS rather than flags, because the
-  DOM cannot say which divs are Pressables — react-native-web only sets
-  `role="button"` when `accessibilityRole` is given, and a row body does not —
-  so a padded heading looks identical from there. Two survivors were triaged
-  and are both fine: `cal-day-title` is a `<Text>`, and `rem-edit` is the
-  inline field, whose 20pt height and blur-to-save are deliberate.
-
-  It also reaches the Add page, Settings and the sharing sheet now, none of
-  which it had ever opened — every earlier measurement was a list screen. That
-  found the 12h/24h toggle at 28pt; it is 34 now, by real padding rather than
-  a `WebHitSlop`, because `clockSeg` sets `overflow: 'hidden'` (which clips an
-  overlay) and the two segments sit edge to edge (so overlapping slop would
-  blur the boundary in the one control that must not be ambiguous).
-
-  Two things learned about the tool itself. Settings and the sharing sheet open
-  OVER the current screen and it stays in the DOM, so opening them from a list
-  re-measures that entire list and buries whatever they contribute — they are
-  opened from the near-empty Add page for that reason. And **the Add page
-  carries no testIDs at all**, so it cannot be probed and no spec can pin it;
-  its Pills are measured through the role selector, but its three kind cards
-  and its Done are plain Pressables and stay invisible. Measured by hand off
-  their styles they are ~86pt and ~50pt, which is why that gap is recorded
-  rather than closed.
-
-- **A non-advancing repeat could never be ticked off.** `repeatDates()` grew a
-  guard for `{ n: 0 }` and for units this build has never met; `repeatNext()`,
-  its sibling and the function a TICK goes through, did not. So such a record
-  DREW correctly as a one-off while `reminderToggle` rolled it to the day it
-  was already on and left it undone — a row that absorbed taps for ever, in the
-  app, the widget and on the wrist.
-
-  The guard is one exported predicate now, `repeatAdvances()`, asked by both
-  walkers so they cannot silently disagree again — which is exactly how this
-  happened. `reminderToggle` finishes such a reminder like any one-off.
-
-  The shared vectors gained the two `next` cases they were missing; `window`
-  had three from the earlier fix and `next` had none, which is the divergence
-  written down. Note what those vectors do NOT cover: `repeatNext`'s own early
-  return changes no result for any input — with it or without it the answer is
-  `start` — so nothing can distinguish it and the code says so rather than
-  implying it is guarded. The behaviour that IS guarded is `reminderToggle`'s,
-  and removing its check turns two tests red.
-
-  **THAT CLAIM WAS WRONG, and the correction is the interesting part.** It was
-  made by grepping for a named function (`repeat_next|repeat_step|function
-  repeat`) and the feed's expansion is an inline CLOSURE — `$expand`/`$step` in
-  `handle_feed` — so the grep could not have found it however carefully it was
-  read. See the entry below for what it cost.
-
-- **"Undo last delete" offered to resurrect a CONVERSION.** Undo is defined as
-  the newest tombstone, which is a good definition and why it needs no
-  bookkeeping — but a tombstone is not always a deletion. `convertToNote`,
-  `convertReminderToEvent` and `convertEventToReminder` each write the new
-  record and tombstone the old one, so any conversion left the freshest
-  tombstone in the account. Undo took it, brought back the thing that had been
-  converted AWAY while the converted copy was still there, and named the
-  original in the message as though the user had deleted it. One item asked
-  for, two received.
-
-  Those tombstones carry `superseded` now and `lastDeleted` skips them.
-
-  THE SERVER HAD TO CHANGE TOO, and this is the part worth remembering: the
-  sync handler REBUILDS each record from a fixed list of keys, so any other
-  top-level field a client sends is dropped without a word. A client-only fix
-  would have worked on one device and silently stopped working on the first
-  round trip. `app.php` names the field now, writes it only when true (so
-  older records are untouched byte for byte), and still drops everything it
-  does not recognise — there is a server test for each of those three
-  statements, because "the flag comes back" passes just as well against a
-  server that stamps EVERY record superseded.
-
-  Any future record-level field needs the same server change. The wire shape is
-  closed at the top level; only `payload` is opaque.
-
-  Both halves were broken and watched going red. `superseded` is deliberately
-  NOT part of content in `sameContent` or `rec_same`: it says why a record
-  went, not what it holds, and never changes after the tombstone is written.
-
-- **The shared write path never got the equal-stamp tie-break.** Sean decided
-  on 2026-08-11 that the server arbitrates a tie, because it is the one thing
-  both devices agree on. That went into the sync handler; `shared_put` kept
-  strictly-newer, so the identical tie resolved two different ways depending on
-  whose store was being written. A tick on a partner's row that stamped equal
-  to their own last edit was DROPPED while the API replied ok, and the
-  reconcile pulled their untouched copy straight back — a tap that did nothing
-  and said nothing.
-
-  Same rule now, and compared against what would actually be stored (the
-  sanitised `$payload`) rather than the raw request, so the answer cannot turn
-  on a shape that is about to be discarded. Both halves broken and watched
-  going red: without the tie the write is lost, and without the CONTENT half an
-  echo bumps the partner's sequence and re-broadcasts itself to every device on
-  every sync.
-
-  The third sibling of that decision is fine and was checked: a conversion can
-  never reach `shared_put`, because ItemModal's shared branch returns early
-  with a freshly built record and never touches convertToNote and friends. So
-  `superseded` does not need to travel this path.
-
-- **The widget feed had its own copy of the expansion, and its own version of
-  the same bug.** `handle_feed` expands repeats in PHP rather than reading
-  core, so core's non-advancing guard never reached it: every step returned the
-  start, `$d > $to` never tripped, and the same day was pushed 400 times.
-
-  The 12-row cap is NOT a defence, which is the part that makes this bad. The
-  cap is spent day by day from today forward, so one such record took all
-  twelve and every later day got none — twelve copies of one row for three
-  weeks, and nothing else in the widget at all. Proven: the row listed 12
-  times and the reminder three days out never appeared.
-
-  Both non-advancing shapes are covered, including the one where the port
-  could have differed: PHP reaches an unknown unit through `match()`'s
-  `default`, where the TypeScript falls through to its month/year branch. A
-  missing `n` or `unit` lands there too.
-
-  THE SWEEP, done properly this time rather than by grepping for a name:
-  TypeScript has exactly one expansion (`repeatDates`), and the native widget
-  and the watch both reach it through `dayItems`, so they were always guarded.
-  PHP had the second. Swift has none — its only date arithmetic is the month
-  grid's layout.
-
-- **The widget feed always spoke 12-hour, whatever the account had set.**
-  Every other surface reads `prefs_suite.clock24` — the app through
-  `useClock24`, the watch and the complication through `watchFeed`, which
-  carries the flag out to Swift. The feed formats times itself, in PHP, and
-  ignored it. That is the straggler that makes a per-account preference feel
-  unreliable: you set 24-hour and one surface in four keeps disagreeing.
-
-  It follows core's `timeLabel` exactly now, including the part that looks
-  like an inconsistency: 24-hour keeps the leading zero and the minutes ALWAYS
-  ('09:00'), because dropping ':00' is a 12-hour habit and '9' on a 24-hour
-  clock reads as a number rather than a time. Both halves broken and watched
-  going red — removing the branch, and forcing it always-on.
-
-  Found by finishing the audit of `handle_feed` instead of stopping at the
-  repeat expansion. That function re-implements THREE things core also does:
-  repeats (fixed), time formatting (fixed) and the folder gate — see §1, which
-  is a decision rather than a bug.
-
-- **The feed's clock is gated now — it was the FOURTH copy of that rule and
-  the only ungated one.** The watch app's `WatchFormat` and the complication's
-  twin check each other in `npm run test:watch`; core's `timeLabel` is the
-  TypeScript one; `handle_feed` has a fourth, in PHP, because it formats its
-  own rows rather than reading core. Nothing ran it against anything, and it
-  was found already diverged (see the clock24 entry above) — which is
-  TESTING.md's own rule catching up with a copy nobody had noticed:
-  duplication that nothing checks is duplication that drifts, and this drift
-  reads as a time showing one way on the home screen and another in the app,
-  which nobody reports as a bug.
-
-  `tools/check-feed-format.sh` extracts the REAL closure out of app.php —
-  nothing re-typed, so a change to the implementation is what gets run — and
-  puts it through the same cases `check-watch-format.sh` gives
-  `WatchFormat.clockFull`, plus the 24-hour rule from core. It also asserts
-  the two branches DISAGREE at 15:30, since one quietly becoming the other
-  passes every case otherwise.
-
-  Broken two ways and watched going red: dropping the 24-hour leading zero,
-  and `$h % 12` without the `=== 0 ? 12` — the classic that turns midnight
-  into '0am' and noon into '0pm', which is exactly the case TESTING.md calls
-  out as catching 12-hour clocks out.
-
-  It runs in `npm run test:feed` AND in the deploy gate, unlike the Swift
-  checkers: those guard code this script does not ship, and this guards code
-  it does.
-
-- **`ordBetween` answered wrongly instead of refusing, for a bound it cannot
-  fit under.** Its header says generated keys never end on DIGITS[0], "which is
-  what keeps the descent from ever needing to squeeze below an exhausted upper
-  bound". True — of keys IT made, and that is now fuzzed rather than asserted.
-  Not true of a key arriving over sync from a client this build has never met.
-
-  Given `('A', 'A0')` there is no answer at all: no string over this alphabet
-  lies between them, brute-forced to be sure, because 'A0' is already the
-  smallest thing after 'A'. It returned 'A0V' — which sorts AFTER the bound it
-  was told to stay below. A row dragged above such a neighbour landed somewhere
-  else, and that wrong order was written and synced to every device, for good.
-
-  It throws now, as it already did for `lo >= hi`. A drag that visibly fails
-  writes nothing and can be retried; a silently wrong order cannot be undone
-  and does not look like a bug, it looks like the app moving things by itself.
-  49 call sites, none of them catching — deliberate, since the existing throw
-  was never caught either and there is nothing sensible to swallow here.
-
-  `test/ordfuzz.test.ts` pins BOTH halves, which is the point: 4000 random
-  inserts and 500 squeezes of one gap all keep the invariant, and a second
-  3000-insert pass asserts the new refusal NEVER fires for a key this module
-  made — a guard that rejected a legitimate gap would be a worse bug than the
-  one it fixes. Removing the guard turns the refusal test red; the app's only
-  hand-written ord, manage.ts's `'zzzz'` ghost, cannot reach it.
-
-- **richLines is CLEAN — fuzzed, and it found nothing.** Worth writing down as
-  a result rather than as work: 10,000 random bodies over an alphabet of the
-  markers, a newline, an accent and an emoji, and the note's text is never
-  eaten, invented or reordered. The parser handles a surrogate pair correctly
-  because a marker is ASCII and cannot sit between its halves.
-
-  Three checks, none redundant, each proven by breaking richLines a different
-  way: the runs are a SUBSEQUENCE of the line (catches invented or reordered
-  text), everything removed is a marker (catches a dropped character), and the
-  markers really were removed (catches a parser that returns the line
-  untouched, which sails through the other two).
-
-  BOTH apparent failures on the way were faults in the CHECKING, and both are
-  the kind worth remembering. The subsequence helper walked the line by code
-  POINT while indexing the runs by code UNIT, so every body with an emoji read
-  as text loss. And the marker check ran on the runs JOINED: ">>é_*_-" parses
-  to [">>é_", "_-"], two runs each holding one literal underscore either side
-  of a consumed '*', which concatenate into a '__' that was never in the input.
-  It is per-run now — inside one run two adjacent underscores cannot both be
-  literal, because the parser would have eaten them.
-
-- **b64u is CLEAN — fuzzed both directions, and it found nothing.** Also
-  recorded as a result. 3000 random byte strings at every length 0..64, so all
-  three tail cases recur and the accumulator shifts well past 32 bits, which is
-  where a hand-rolled codec usually goes wrong; plus decode-and-re-encode for
-  canonicality, the two refusals, and the padding a strict encoder would add.
-
-  The check worth copying is the last one: every alphabet character must decode
-  to its own index. A TRANSPOSED alphabet round-trips perfectly against itself
-  and agrees with nobody else on earth, so the round-trip fuzz cannot see it —
-  proven by swapping A and B, which turned that test red and left the other
-  four green.
-
-- **A drag between two rows sharing an order key THREW, unhandled.** And the
-  duplicate is not a corrupted record: `ordBetween(null, null)` is
-  deterministic and always answers 'V', so two devices that each add the FIRST
-  row to a section while offline both write 'V'. After a sync that section
-  holds two rows with one key between them — and Sean runs a phone, a watch
-  and the web against one account, so this is his setup, not a hypothetical.
-
-  Dropping anything there asked for a key between 'V' and 'V'. There is none,
-  so `ordBetween` threw mid-gesture with nothing catching it anywhere. Ten
-  sites computed the bounds the same way and every one was exposed:
-  `moveReminderBlock`, `moveNote`, `moveHabit`, `moveHabitSection`,
-  `moveSection` and both halves of `duplicateItem`.
-
-  `ordGap()` is the one rule now, in order.ts beside the generator: it widens
-  past a run of equal keys, so the row lands AFTER them. That is the only
-  representable answer — rows sharing a key have no order between them to
-  respect — and with no duplicates it returns exactly the neighbours it always
-  did.
-
-  Both halves proven. Removing the widening turns four tests red; making it
-  always append to the end turns two OTHER tests red, and that second break is
-  the one that matters: "it no longer throws" passes for a version that has
-  quietly stopped landing rows where they were dropped.
-
-- **Two devices drew the SAME account in different orders, permanently.** The
-  follow-on from the duplicate key above, and the worse half of it: `byOrd`
-  answers 0 for two rows sharing a key, `Array.sort` is stable, so the tie was
-  settled by whatever order each engine happened to hold them in — which is the
-  order that device first SAW them. Device A made a row and later received its
-  twin; device B saw them the other way about; and neither had anything on
-  screen to explain why one list read a-then-b and the other b-then-a. It
-  survived reloads too, since the snapshot preserves that order.
-
-  `byRecOrd` makes the order TOTAL by falling back to the record id: the one
-  thing every device already agrees on, unique by construction, never changing.
-  Where keys differ it is `byOrd` exactly and the fallback is unreachable, so
-  no existing order moves.
-
-  All 66 sort sites went over to it — they were one identical shape,
-  `sort((a, b) => byOrd(a.payload, b.payload))`, which is why this was
-  mechanical — plus the two compound comparators whose tiebreak was the same
-  call (day.ts's by-time-then-order, and Habits' by-section-then-order).
-  `byOrd` stays for the payload-only callers.
-
-  Proven by reproducing it: two engines, the same two records, opposite arrival
-  order. Dropping the id fallback turns that test red on its own.
-
-  AND THE FIX WAS INCOMPLETE for a round: `manage.ts`'s ten sites were done and
-  the SCREENS' two were not. `ordForMove` in rowdrag.ts — which backs the
-  folder, habit-section and calendar drags — and the subtask insert in
-  Reminders both take BOTH bounds from real rows, so both threw on exactly the
-  same input. Found by re-checking a claim made with a grep, which is the habit
-  that has paid every time this session: the first pass looked at
-  `ordBetween(` calls and read most of them as "one bound is null, so safe"
-  without separating out the two that are not.
-
-- **One bad HTML entity refused the whole recipe.** `String.fromCodePoint`
-  throws on anything outside 0..0x10FFFF and on the NaN a malformed '&#abc;'
-  parses to, and that RangeError came out of the entire parse.
-  `recipeFromHtml` reads arbitrary pages fetched from a URL somebody typed, so
-  malformed input is the ordinary case, not the exception.
-
-  RecipeEditor's try/catch is why the app never fell over — and why this was
-  invisible. What it did instead was show the catch's `err.message`, so an
-  import died with **"Invalid code point 1114112"** written across the box and
-  the recipe thrown away over one character.
-
-  The numeric branch is total now: anything it cannot turn into a character it
-  leaves exactly as written, per this repo's own rule about tolerating what it
-  cannot interpret. Dropping it silently would leave a measurement quietly
-  missing its number, which is worse than a visible '&#1114112;'. NUL goes with
-  them — '&#0;' put a real NUL in the note body.
-
-  Both halves broken and watched: restoring the throw turns three tests red,
-  and giving up on ALL numeric entities turns the fourth red, which is the one
-  that keeps the guard from swallowing the fractions it exists to protect.
-
-  Named entities beyond the measurement set ('&eacute;', '&deg;', '&mdash;')
-  are still left as written. Visible, harmless, and not worth a full table for
-  pages that overwhelmingly serve UTF-8 — recorded rather than fixed.
-
-- **A test docstring that overstated its own fixture, corrected.**
-  `realpage.test.ts` claimed to prove the parser survives "578KB of a live
-  site — analytics blobs, several JSON-LD blocks, entity-encoded fractions, a
-  @graph wrapper". The capture is 5.7KB, trimmed to the JSON-LD (which the
-  FIXTURE's own first line said and the test did not), the analytics are gone,
-  and it contains **not one entity** — so a third of what it claimed to cover
-  was covered by nothing at all. That is the same shape as a check that cannot
-  fail, and it is how the entity bug above stayed hidden. Both headers now say
-  what is actually in the file.
-
-- **The calendar grids are CLEAN, and the core suite now pins its timezone.**
-  `monthGridFilled`, `monthGrid`, `twoWeeksFrom` and `weekOf` fuzzed over
-  1900-2100: whole weeks, Sunday-aligned, consecutive with no gap or repeat,
-  every day of the month exactly once, and no extra row. Nothing wrong found.
-
-  The interesting part is a break that did NOT fail. Swapping
-  `twoWeeksFrom`'s noon anchor for `new Date(date)` changes nothing anywhere —
-  a date-only ISO string already parses as UTC midnight and `getUTCDay()` reads
-  the same either way. The real trap needs both halves gone,
-  `new Date(date).getDay()`, and even then the code is CORRECT under TZ=UTC;
-  under America/Chicago local midnight falls on the previous day and the
-  fortnight starts on a Monday.
-
-  So `npm test` in core now runs `TZ=America/Chicago`, which is what app.php
-  already defaults its own clock to. Otherwise that regression ships green on
-  any UTC runner while being broken for the only person who uses the app. The
-  suite passes identically under UTC and Asia/Kathmandu, checked, so pinning
-  hides nothing — and the docstring says exactly what it catches rather than
-  claiming DST-immunity it cannot demonstrate.
-
-- **Login has no throttling of any kind** — read, not grepped: `handle_login`
-  does a `password_verify` and a `login_fail` log on every attempt, with no
-  counter, delay or lockout. `handle_recover` has RECOVER_TRIES = 5, so there
-  is precedent in the file. NOT changed, because the policy is the whole
-  question — attempts, window, per-IP or per-account, delay or lockout — and a
-  lockout on a personal app is also a way to be locked out of it. One word
-  settles it.
-
-- **A spec that proved nothing one day in seven.** `habitfreq`'s weekday test
-  derives its expectation from the clock rather than hardcoding it — the right
-  instinct, and its own comment says "a literal date would pass today and fail
-  on Thursday for no reason". Thursday is exactly the day it stops checking
-  anything: the phone shows five columns and the window ends tomorrow, so it
-  spans today-3..today+1, which on a Thursday is Mon..Fri. No weekend column,
-  `weekendCols` is 0, and both assertions read `toBe(0)` — which a completely
-  broken frequency rule satisfies just as well. Wednesday and Friday give one
-  column; the other four give two.
-
-  Seven consecutive days always hold exactly one Saturday and one Sunday, so
-  the test now also runs at desktop width where the count is provably 2 every
-  day of the week.
-
-  Proven the hard way rather than by argument: with the frequency rule broken
-  the phone assertion catches it TODAY (a Tuesday), so the two phone
-  assertions were neutralised to simulate a Thursday, and the new block caught
-  it on its own.
-
-- **`hitarea`'s two scans passed clean on a screen that never rendered.** Both
-  report VIOLATIONS, and an empty report is also what an empty page produces.
-  `chevrons.spec` and `labels.spec` each guard theirs with "the scan found
-  candidates at all — without this it can pass on nothing"; this one, which is
-  the tap-target guard and runs over five tabs, had no such floor. A tab click
-  that silently did nothing passed five times over.
-
-  Each iteration now proves WHICH screen it is on (a landmark testid per tab)
-  and that the screen had something to measure (buttons ran 10-14 across the
-  tabs, absolutely positioned children 1-15 — the Add page has the one — so
-  the floors are 8 and 1, deliberately loose since the landmark carries the
-  real weight).
-
-  Proven by making the habits tab ignore its own press: the landmark goes red.
-  The first attempt at that break did not apply — the regex missed — and "4
-  passed" was very nearly read as verification. A break that did not happen
-  looks exactly like a guard that works.
-
-  The rest of the audit came out clean and is worth recording so it is not
-  redone: all nine `getByText(...)` absence assertions are capable of failing
-  ('Edit habit' is the editor's own title, 'Online — synced' is in syncLook,
-  '✓' is the tick mark, and recipeurl's 'grandmother' and '400 kcal' really are
-  in the mocked page it filters). `testids.spec` cannot see regex or
-  `locator('[data-testid…]')` forms, but every one of those is a positive use
-  where a typo fails loudly. `longPress` throws on a missing element rather
-  than skipping.
-
-- **33 of manage.ts's 48 error guards were watched by nothing.** Found by
-  mutation: each single-line `if (…) return { error: … }` neutered in turn and
-  the suite re-run. Coverage would have called every one of those lines
-  exercised — they are reached constantly, just never with the argument that
-  makes them fire.
-
-  Two of the five that were RULES are the sibling asymmetry this repo keeps
-  producing: 'a folder needs a name' was pinned and 'a section needs a name'
-  was not; 'an app keeps at least one folder' was pinned in
-  moveSectionEmptyingFolder and not in `deleteFolder`, which is the function
-  anyone actually reaches it through. The other three: a block cannot land
-  inside itself, renaming a calendar to its own name, and a folder is not
-  duplicable.
-
-  The other 27 are bad-id defences, and they got ONE table instead of 27 tests,
-  because what matters is the property they share: an id that is gone comes
-  back as an error and never as a crash. Not hypothetical — a row deleted on
-  the phone while the web is mid-drag arrives here as exactly that.
-
-  33 survivors down to 3. Two of the fixes were in the FIXTURE, not the tests:
-  with one calendar and one habit section, the 'no such calendar' guard was
-  masked by 'the last calendar stays' on the very next line, so neutering it
-  changed nothing observable. A fixture that hides the thing under test is its
-  own kind of check that cannot fail.
-
-  The last three are unreachable behind an earlier guard — no argument makes
-  them fire — and are left untested deliberately, with the reasoning written
-  where the next person will find it. A test that fakes an impossible store to
-  reach one pins the fake, not the rule.
-
-  One assumption of mine was wrong and the test caught it: the rideAlong
-  Calendar folder DOES count toward an app's one-folder minimum, so deleting
-  the last ordinary reminders folder is allowed and everything lands in
-  Calendar. Coherent, surprising enough to pin, and now pinned rather than
-  changed on a guess.
-
-- **A redirect could change the PORT out from under the fetch.** Mutating
-  `fetchurl.php` showed the redirect branch had no cover at all: replacing the
-  recursive call with a function that does not exist broke nothing. Nothing
-  local can drive a redirect — every server the harness can reach is on
-  127.0.0.1, which the address guard refuses first — so the branch had never
-  run in a test.
-
-  Extracting the part that IS testable, `fetch_next_url`, turned up two bugs
-  in it. `https://example.com:8443/a` redirecting to `/c` resolved to
-  `https://example.com/c`: port 443, a different service on the same host,
-  fetched with nobody the wiser. And a protocol-relative `//other.example/x`
-  is not matched by `^https?://` so it was pasted on as a path, giving
-  `https://example.com//other.example/x` — safe, since it stayed on a host
-  already checked, and quietly not what the server asked for.
-
-  Both fixed and pinned by their own old behaviour. The address re-check stays
-  structural: it re-enters `fetch_url`, so a redirect to a private host is
-  refused exactly like a direct one, and the test says that is why rather than
-  claiming to have proved it.
-
-  Two other survivors there are REDUNDANT rather than uncovered — the explicit
-  `127.`/`169.254.`/`0.0.0.0` shortcut and the metadata line sit below a
-  `filter_var` that already refuses every one of them, checked address by
-  address. No test can tell them apart. Left alone as defence in depth.
-
-- **The store's exclusive lock had no test at all.** Removing
-  `flock($h, LOCK_EX)` from `with_lock` failed nothing — mutation, 2026-08-11.
-  Encryption and the corrupt-file path were both well covered (writing
-  plaintext turns 2 red; a decrypt that always fails turns 43 red); the lock
-  was the one nothing watched.
-
-  It cannot be tested through the API, which is why it had escaped: `php -S`
-  serialises requests all by itself, so a parallel HTTP test would prove the
-  dev server's behaviour rather than the lock's. Four real processes calling
-  `with_lock` directly is what makes the race happen, on the shape that loses
-  data — read, add one, write, with the window held open long enough that the
-  unlocked version fails every time instead of occasionally.
-
-  Unlocked, 119 of 160 increments vanish, on every run of three. Locked, none
-  do. A guard that only fires under concurrency needs a test that creates some.
-
-- **The service worker's CRITICAL list could quietly lose the entry bundle.**
-  `patch-web-html.mjs` read the bundle name with
-  `(/index-[a-f0-9]+\.js/.exec(html) || ['nohash'])[0]` — a silent fallback,
-  and everything downstream kept working while meaning something else.
-
-  Measured rather than argued. Feed it a bundle name the pattern does not
-  match and the export exits **0**, with `CACHE = 'calmind-nohash'` — a name
-  that never changes between deploys — and `CRITICAL = ["./index.html"]`. The
-  entry bundle drops out of the one list whose entire job is to make a bad
-  install FAIL instead of pretend: `cache.addAll` would have nothing left to
-  fail on, the worker would install, report itself healthy, and leave the app
-  unable to open on a train. That is the exact shape sw.js's own header warns
-  about, one file upstream of it.
-
-  It throws now, naming the file and the fix. Reachable on an Expo upgrade
-  rather than in theory: `apps/app/AGENTS.md` exists precisely because that
-  export has changed before, and the hash case or the path is all it would
-  take.
-
-  Verified both ways — the guard exits 1 on an unmatched name, the fallback
-  exits 0 and writes the hollow worker — and the offline-boot spec still
-  passes on the regenerated one.
-
-- **The note editor's footer said "Saved" whatever had happened.** Not a
-  state — the literal string `'Saved'`, printed unconditionally. It said so
-  while the device could not write its own snapshot, while a note was refused
-  for being too long, and while the app was offline.
-
-  Worse after this session than before it: the editor grew an honest status dot
-  in its top right, so the two sat three inches apart contradicting each other,
-  the red one telling the truth. That is the exact fault Settings had and had
-  already fixed — "it used to carry its own copy beside a dot that read the
-  shared one, so the two could disagree, and did" — reproduced on another
-  screen by adding the dot without noticing the label.
-
-  One rule now: `syncWord()` beside `syncLook()`, used by the footer AND by the
-  dot's own short form, which had a third copy of the same if-chain. Saved,
-  Saving…, Offline, Not saved — and red when it is not saved, since a grey
-  "Not saved" reads as furniture.
-
-  Found by LOOKING at the screen, not by testing it. Nothing could have caught
-  it: a hardcoded string is exactly as green as a correct one.
-
-- **A claim of mine that carried a 66-site change, tested at last.** The
-  `byRecOrd` sweep rested on "no existing order can move, because the id
-  fallback is unreachable unless two keys are equal". Sound, and asserted in a
-  commit message rather than anywhere a machine could check it — which is the
-  shape this session spent all day finding in other people's work.
-
-  Pinned now: two thousand shuffled lists of unique keys sort identically under
-  both comparators, every distinct pair agrees, and the two differ only when
-  the keys are equal. The ids are deliberately built in the OPPOSITE order to
-  the keys, so a fallback that fired would reverse the list rather than agree
-  by luck. Both breaks watched — the fallback firing on distinct keys, and the
-  tiebreak reversed.
-
-  Had it been wrong the damage would have been quiet and everywhere: every list
-  in the app reordered slightly, with nothing to point at.
-
-- **A sync that HANGS stacked another one every thirty seconds, for ever.**
-  Not a refused connection — that rejects at once, is caught, and says Offline.
-  A stalled one: accepted and never answered, which is what a captive portal or
-  a dead middlebox gives you. `fetch` has no timeout of its own on the web and
-  `syncNow` had no in-flight guard, so the poll started a fresh request on top
-  of each stuck one. **Four in ninety-five seconds, measured**, each holding a
-  socket, none of them ever recovering — and an hour of that is a hundred and
-  twenty.
-
-  Two halves, and only one of them needed a judgement call. The in-flight guard
-  is unambiguous: two concurrent syncs of one engine are no use even on a
-  healthy network, since they race the same dirty set. The timeout is 60s
-  because that is NSURLSession's own default, which the native builds have
-  always had — the web catching up with the platform rather than a number
-  invented here, and comfortably above a slow first sync.
-
-  The guard is released in a `finally` wrapped around the whole body, because
-  the 401 path returns early: a flag released on some exits and not others
-  wedges syncing for the life of the page, which is worse than the pile-up.
-  Same care on the timer, cleared in its own `finally` so a failed request
-  does not leave one holding the event loop.
-
-  AND THE GUARD ALONE WAS HALF A FIX. Dropping a request that arrives during a
-  sync trades a pile-up for a delay: the running sync carries only what was
-  dirty when it STARTED, so an edit made mid-flight is not in it and its own
-  debounced push is thrown away — the next chance being the thirty-second poll.
-  On a slow link that is half a minute of a reminder living on one device while
-  the app says nothing is wrong. The request is remembered now and one more
-  pass runs when the current one finishes, guarded on the session still
-  existing so a 401 does not sync after signing out.
-
-  Removing the guard turns the spec back to four. What the spec does NOT claim
-  is that the state reaches Offline — Settings already said "Syncing…" rather
-  than "Online — synced" throughout, so that half was never broken, and the
-  first draft of this entry said it was.
+### Shipped 2026-08-11 — one line each, on purpose
+
+This section was 696 lines of finished work before it was cut back. The file's
+own header explains why that matters: it was rewritten once from 2140 lines
+because "that is not a list you can act on", and a list of what is DONE is not
+a list at all. The reasoning is not lost — each line below is the subject of a
+commit whose message carries the whole argument (`git log --grep`), the code
+carries the why beside the code, and the testing lessons are in TESTING.md
+where someone writing a test will meet them.
+
+**Bugs found and fixed**
+
+- A non-advancing repeat could never be ticked off — `repeatDates` had the
+  guard, `repeatNext` did not.
+- The widget feed had its own copy of the repeat expansion, and the same bug;
+  the 12-row cap made it twelve identical rows for three weeks.
+- The widget feed always spoke 12-hour, ignoring `prefs_suite.clock24`.
+- The shared write path never got the equal-stamp tie-break sync had.
+- "Undo last delete" offered to resurrect a CONVERSION, not a deletion.
+- A drag between two rows sharing an order key threw, unhandled — in
+  manage.ts's ten sites and, one round later, the app's two.
+- Two devices drew the same account in different orders, permanently.
+- `ordBetween` answered wrongly instead of refusing a bound it cannot fit under.
+- One bad HTML entity refused a whole recipe import.
+- Three drag grips were 16pt wide on the web; half of every note and reminder
+  row did not answer a tap at all.
+- The note editor's footer said "Saved" whatever had happened.
+- A sync that HANGS stacked another every thirty seconds, for ever — and the
+  in-flight guard that fixed it was itself half a fix until requests coalesced.
+- The service worker's CRITICAL list could silently lose the entry bundle.
+- A redirect could change the port out from under a fetch.
+
+**Tests and guards that were not doing their job**
+
+- 33 of manage.ts's 48 error guards were watched by nothing.
+- The store's exclusive lock had no test; the passkey UV flag and
+  require_auth's anchors had none either.
+- `hitarea`'s scans passed clean on a screen that never rendered.
+- `habitfreq` proved nothing on Thursdays.
+- A test docstring overstated its own fixture by 572KB.
+- The WebKit suite was not in the deploy gate.
+- The desktop check passed over an eight-hour-old stage and never looked at
+  relative asset references.
+- The core suite's timezone was the machine's; it is pinned now.
+- New checkers: suite counts, feed clock, simulator freshness — and one shared
+  `spec/clock.json` for cases that had been typed out twice.
+
+**Audited and found clean** (recorded so it is not re-derived)
+
+- richLines, b64u, the calendar grids, day.ts, watch.ts, habit.ts, normalize.ts,
+  sync.ts, update.ts — 151 mutations across core, the server and the Swift the
+  checkers extract.
+- The per-keystroke watch-feed cost: 4.9ms at 1800 records.
+- All eighteen Modals for the safe-area trap; one assumption remains unverified
+  and is named in TESTING.md.
 
 ## 4 · Steady state, every iteration
 
