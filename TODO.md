@@ -509,8 +509,23 @@ The NINTH came an hour later still, after the status-dot fix, which is a
 change INSIDE the note editor — so it was cleared with the same care and the
 same result (5/5, 16/16).
 
-**A rate question is now open, and it should be measured rather than
-argued.** Today's tally is 3 failures in roughly 9 full WebKit runs. The
+**The TENTH blocked a second deploy**, minutes after the ninth was cleared
+with 5/5 isolated and a clean 16/16. Two of today's four cost a deploy run
+each.
+
+**A NARROWING, and it argues against this entry's own title.** The failure is
+`locator.fill` timing out after 30 SECONDS waiting for `note-body-edit`. That
+field renders on `bodyEditing`, which the creation effect sets immediately —
+only the FOCUS is on the 50ms timer. A thirty-second wait is not a race being
+lost by milliseconds; it is `bodyEditing` never becoming true at all, and
+staying false. So "a 50ms race" is probably the wrong model, and the thing to
+look at is what could reset or skip that effect — `useNoteScoped` resets
+state when `openId` changes, and `freshEdit.current` is nulled on first run,
+so an openId that settles twice would leave the editor stuck in view mode
+for ever. That is a testable hypothesis and nobody has tested it.
+
+**A rate question is also open, and it should be measured rather than
+argued.** Today's tally is 4 failures in roughly 10 full WebKit runs. The
 standing figure is about 1 in 6, and 3-in-9 is higher — but nine runs is a
 small sample and clustering is exactly what this flake has always done (the
 2026-08-12 pair earlier was itself called a cluster). I am NOT claiming the
