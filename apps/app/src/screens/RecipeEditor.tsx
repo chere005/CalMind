@@ -91,15 +91,28 @@ export function RecipeEditor({ note, onClose }: { note: Rec<'note'>; onClose: ()
   // page whose rows are now also tappable to edit and draggable to reorder —
   // three things competing for one line. The swipe reveals it already armed.
   const swipe = useSwipeLeft();
-  const ingDrag = useRowDrag(ingredients.length, (from, to) => setIngredients((rows) => moveAt(rows, from, to)));
-  const stepDrag = useRowDrag(steps.length, (from, to) => setSteps((rows) => moveAt(rows, from, to)));
+  // Reordering moves the list under a parked × exactly as adding does.
+  const ingDrag = useRowDrag(ingredients.length, (from, to) => { swipe.clear(); setIngredients((rows) => moveAt(rows, from, to)); });
+  const stepDrag = useRowDrag(steps.length, (from, to) => { swipe.clear(); setSteps((rows) => moveAt(rows, from, to)); });
 
+  // A parked delete belongs to the ROW that was swiped, but the swipe is
+  // keyed by INDEX — `ing-2`, not an id, because these lines are plain
+  // strings with no identity of their own. So anything that moves the list
+  // under a parked × leaves it sitting on somebody else: swipe milk, add an
+  // ingredient (they land at the TOP), press the × and FLOUR goes. Proven
+  // 2026-08-12 before this was here.
+  //
+  // Dropping the swipe is the honest answer rather than trying to follow the
+  // row: the × belongs to a gesture the list has just invalidated, and the
+  // delete handlers already clear it for the same reason.
   const addIngredient = () => {
+    swipe.clear();
     const t = parseIngredient(ingField);
     if (t) setIngredients([t, ...ingredients]); // new ones land at the TOP
     setIngField('');
   };
   const addStep = () => {
+    swipe.clear();
     const t = stepField.trim();
     if (t) setSteps([...steps, t]); // steps number down the BOTTOM
     setStepField('');
