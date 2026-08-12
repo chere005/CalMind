@@ -171,6 +171,7 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
     setYm(`${y}-${String(m).padStart(2, '0')}`);
   };
 
+
   // Swipes on the grid: up folds to a week, down opens the month back up,
   // a firm sideways one pages. Taking the responder past 10px of travel is
   // also what keeps a swipe from selecting the cell it ends on — a day is
@@ -209,6 +210,42 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
   setWeekRef.current = setWeek;
   const pageRef = useRef(page);
   pageRef.current = page;
+
+  // Left/right arrows page the calendar, which is the suite's behaviour and
+  // was the only one of its four keyboard bindings missing here (the other
+  // three are Enter and Escape, which this app already has). It matters more
+  // than it looks: the macOS desktop shell is this same web build, and there
+  // the keyboard is the obvious way to move.
+  //
+  // The suite's two guards, kept exactly: not while a modal is open, and not
+  // while a field has focus.
+  //
+  // `aria-modal` is what react-native-web puts on an open Modal; checked in a
+  // browser rather than assumed, because the whole guard rests on it.
+  //
+  // THE FIELD GUARD CANNOT FIRE TODAY and is kept anyway. This screen has no
+  // TextInput of its own — everything you can type into is inside a modal, so
+  // the check above has already returned by the time focus could matter. It
+  // stays because it is the guard that stops arrowing through text from
+  // sliding the month behind it, and the day this screen gains an inline add
+  // row (Reminders and Notes both have one) it becomes the only thing
+  // standing between the two. Deliberately not given a test: nothing on this
+  // screen can reach it, and a test that opened a modal to "exercise" it
+  // would be pinning the modal guard while claiming to pin this one.
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const onKey = (ev: KeyboardEvent) => {
+      if (ev.key !== 'ArrowLeft' && ev.key !== 'ArrowRight') return;
+      if (ev.metaKey || ev.ctrlKey || ev.altKey) return;
+      if (document.querySelector('[aria-modal="true"]')) return;
+      const el = document.activeElement as HTMLElement | null;
+      if (el && (/^(INPUT|SELECT|TEXTAREA)$/.test(el.tagName) || el.isContentEditable)) return;
+      ev.preventDefault();
+      pageRef.current(ev.key === 'ArrowLeft' ? -1 : 1);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, []);
 
   // The suite's two-step: a long-press or double-tap only turns edit mode
   // on, revealing each own row's icon cluster; tap away or Escape leaves.
