@@ -581,6 +581,27 @@ holding a tunnel. Why the companion path does not update it is unknown; until
 then the watch needs the direct install and the build number is the proof.
 ## 3 · Work, not decisions
 
+- **`clear_done` was never ported, and nothing was tracking that.** Found
+  2026-08-12 by listing the reference suite's POST actions and checking each
+  against CalMind: reminders has `add`, `add_subtask`, `clear_done`,
+  `delete`, `duplicate`, `edit_full`, `toggle`. Six are here. `clear_done`
+  appears nowhere in the app, core, PARITY.md or this file.
+
+  What the suite does (`reminders/index.php`, the `clear_done` case and the
+  footer at ~1942): a footer appears ONLY when something is done, its button
+  reads "Clear N completed", it confirms with "Clear completed reminders?",
+  and it removes done reminders **in the folder being viewed — or in every
+  folder when the view is All**. Sections are never touched.
+
+  CalMind hides done rows instead: `showDone` starts false and the ☑ in the
+  header toggles them. That is why the gap is easy to miss — they are out of
+  sight rather than gone. They still accumulate for ever, still sync on every
+  round trip, and there is no way to remove them but one at a time.
+
+  Worth deciding before building: hiding them may be the better answer and
+  the suite's footer may simply not be wanted. But the choice should be made,
+  not arrived at by nobody noticing.
+
 - **Larger notes, with images** (Sean asked, 2026-08-11). Not a bigger cap:
   the shape cannot carry it. The client persists the WHOLE snapshot as one
   JSON string through AsyncStorage — localStorage on the web, ~5MB for the
