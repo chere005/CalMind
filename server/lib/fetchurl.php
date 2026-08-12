@@ -42,6 +42,39 @@ function fetch_ip_is_private(string $ip): bool
 }
 
 /**
+ * The absolute URL a Location header means, given the request it answers.
+ *
+ * Pulled out of the redirect branch so it can be tested: a redirect cannot be
+ * exercised locally (every reachable test server is on 127.0.0.1, which the
+ * address guard refuses before any of this runs), so this arithmetic was the
+ * part with no cover at all. Mutation found it — replacing the recursive call
+ * outright broke nothing.
+ *
+ * Two things it got wrong, both found by writing the cases down:
+ *
+ *  · THE PORT WAS DROPPED. 'https://example.com:8443/a' redirecting to '/c'
+ *    resolved to 'https://example.com/c' — port 443, a different service on
+ *    the same host, fetched without anyone saying so.
+ *  · A PROTOCOL-RELATIVE Location ('//other.example/x') is not matched by
+ *    ^https?:// so it was treated as a path, giving
+ *    'https://example.com//other.example/x'. Safe — it stays on the host
+ *    already checked — and wrong: it silently fetched something nobody meant.
+ *    It takes the current scheme now, and the host it names is re-checked by
+ *    fetch_url like any other.
+ */
+function fetch_next_url(array $u, string $location): string
+{
+    if (preg_match('#^https?://#i', $location)) {
+        return $location;
+    }
+    if (str_starts_with($location, '//')) {
+        return $u['scheme'] . ':' . $location;
+    }
+    $authority = $u['host'] . (isset($u['port']) ? ':' . $u['port'] : '');
+    return $u['scheme'] . '://' . $authority . (str_starts_with($location, '/') ? '' : '/') . $location;
+}
+
+/**
  * Resolves the host and refuses if any address it answers with is private.
  * Every address, not the first: a name that answers with one public and one
  * loopback address is a way through otherwise.
@@ -129,12 +162,13 @@ function fetch_url(string $url, int $hops = 0): array
     $body    = substr((string) $raw, $hdrSize);
 
     if ($status >= 300 && $status < 400 && preg_match('/^Location:\s*(\S+)/mi', $headers, $m)) {
-        $next = $m[1];
-        // A relative Location is resolved against the host we already checked.
-        if (!preg_match('#^https?://#i', $next)) {
-            $next = $u['scheme'] . '://' . $u['host'] . (str_starts_with($next, '/') ? '' : '/') . $next;
-        }
-        return fetch_url($next, $hops + 1);
+        // Re-entering fetch_url is what re-checks the address, so a redirect
+        // to a private host is refused exactly like a direct one. That is
+        // structural rather than tested: every server this harness can reach
+        // lives on 127.0.0.1, which the first guard refuses, so no local test
+        // can drive a real redirect at all. What CAN be tested is the address
+        // this hands it, which is why that is now its own function.
+        return fetch_url(fetch_next_url($u, $m[1]), $hops + 1);
     }
     if (strlen($body) > FETCH_MAX_BYTES) {
         return $no('that file is too big');

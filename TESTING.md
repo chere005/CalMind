@@ -297,6 +297,7 @@ branch in seven modules was deleted or inverted in turn and the suite re-run.
 | `normalize.ts` — every seed, every re-home, the edited report | 9 | 0 |
 | `manage.ts` — all 48 single-line error guards | 48 | **33** |
 | `server/lib/app.php` — sharing scope, auth, caps, passkeys | 22 | **2** |
+| `server/lib/fetchurl.php` — the SSRF guards and redirects | 7 | **4** |
 
 manage.ts is written up in TODO; the short version is that 27 of the 33 were
 bad-id defences that now share one table, five were rules (two of them the
@@ -316,6 +317,24 @@ cover, since the server is the only thing enforcing either:
     passed everything, because no spec had ever sent a header of the wrong
     shape carrying a real token. Low stakes on its own — you still need the
     secret — and a line's worth of test.
+
+fetchurl.php's four survivors are two different things, and telling them apart
+was the work:
+
+  · TWO ARE REDUNDANT, not uncovered. The explicit `127.` / `169.254.` /
+    `0.0.0.0` shortcut and the metadata-address line sit BELOW a `filter_var`
+    with NO_PRIV_RANGE|NO_RES_RANGE, which already refuses every one of those —
+    checked address by address rather than assumed. They cannot change an
+    answer, so no test can distinguish them. Defence in depth, left alone.
+  · TWO ARE A GENUINE BLIND SPOT: redirects had no cover at all. Replacing the
+    recursive call with a function that does not exist broke nothing, and
+    neither did removing the hop limit. Nothing local can drive a redirect —
+    every server this harness can reach is on 127.0.0.1, which the address
+    guard refuses before the redirect branch is reached. The re-check itself
+    stays structural (it re-enters fetch_url, so a redirect to a private host
+    is refused like a direct one); what was extractable was the arithmetic
+    that decides WHERE it goes, and pulling `fetch_next_url` out found two
+    bugs in it — see TODO.
 
 TWO THINGS THE TECHNIQUE NEEDS, both learned the hard way here:
 

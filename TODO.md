@@ -14,7 +14,7 @@ Standing rules live in `CLAUDE.md`, not here.
 
 ## Suite counts, as of this commit
 
-core **464** · gesture **159** (+1 skipped) · WebKit **16** · server **50** ·
+core **464** · gesture **159** (+1 skipped) · WebKit **16** · server **51** ·
 live **19** with the API · desktop **7** (+3 in `npm run test:desktop`) · deploy guards **9** · plus the four
 native seam checkers no browser can reach: `npm run test:watch`,
 `npm run test:widget`, `npm run test:deploy`.
@@ -794,6 +794,31 @@ then the watch needs the direct install and the build number is the proof.
   the last ordinary reminders folder is allowed and everything lands in
   Calendar. Coherent, surprising enough to pin, and now pinned rather than
   changed on a guess.
+
+- **A redirect could change the PORT out from under the fetch.** Mutating
+  `fetchurl.php` showed the redirect branch had no cover at all: replacing the
+  recursive call with a function that does not exist broke nothing. Nothing
+  local can drive a redirect — every server the harness can reach is on
+  127.0.0.1, which the address guard refuses first — so the branch had never
+  run in a test.
+
+  Extracting the part that IS testable, `fetch_next_url`, turned up two bugs
+  in it. `https://example.com:8443/a` redirecting to `/c` resolved to
+  `https://example.com/c`: port 443, a different service on the same host,
+  fetched with nobody the wiser. And a protocol-relative `//other.example/x`
+  is not matched by `^https?://` so it was pasted on as a path, giving
+  `https://example.com//other.example/x` — safe, since it stayed on a host
+  already checked, and quietly not what the server asked for.
+
+  Both fixed and pinned by their own old behaviour. The address re-check stays
+  structural: it re-enters `fetch_url`, so a redirect to a private host is
+  refused exactly like a direct one, and the test says that is why rather than
+  claiming to have proved it.
+
+  Two other survivors there are REDUNDANT rather than uncovered — the explicit
+  `127.`/`169.254.`/`0.0.0.0` shortcut and the metadata line sit below a
+  `filter_var` that already refuses every one of them, checked address by
+  address. No test can tell them apart. Left alone as defence in depth.
 
 ## 4 · Steady state, every iteration
 

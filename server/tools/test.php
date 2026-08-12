@@ -735,6 +735,39 @@ t('the URL fetcher refuses the addresses a server must never be asked for', func
     ok(str_contains(fetch_url('file:///etc/passwd')['error'], 'only http'), 'and says which schemes it speaks');
 });
 
+t('a redirect resolves to the address it actually means', function () {
+    // The redirect branch had NO cover: mutation replaced the recursive call
+    // with a function that does not exist and every spec still passed, because
+    // a redirect cannot be driven locally — every server this harness can
+    // reach is on 127.0.0.1, which the address guard refuses first. The
+    // resolution arithmetic is testable on its own, so it is its own function
+    // now and this is it.
+    $u = parse_url('https://example.com:8443/a/b');
+
+    eq('https://other.example/x', fetch_next_url($u, 'https://other.example/x'), 'an absolute Location is taken as it stands');
+    eq('http://other.example/x', fetch_next_url($u, 'http://other.example/x'), 'including one that drops to http');
+
+    // THE PORT. 'https://example.com:8443/a/b' -> '/c' used to answer
+    // 'https://example.com/c': port 443, a different service on the same host,
+    // fetched with nobody the wiser.
+    eq('https://example.com:8443/c', fetch_next_url($u, '/c'), 'a rooted Location keeps the port');
+    eq('https://example.com:8443/c', fetch_next_url($u, 'c'), 'and so does a bare one, which also gains its slash');
+
+    // Protocol-relative: '//host/x' means "same scheme, that host". It is not
+    // matched by ^https?:// so it used to be pasted on as a path, giving
+    // 'https://example.com//other.example/x' — safe, since it stayed on a host
+    // already checked, and quietly not what the server asked for.
+    eq('https://other.example/x', fetch_next_url($u, '//other.example/x'), 'protocol-relative takes the scheme and the host it names');
+
+    // A host with no port keeps the shape it had.
+    eq('https://example.com/c', fetch_next_url(parse_url('https://example.com/a'), '/c'), 'no port, none invented');
+
+    // And whatever it resolves to still goes back through fetch_url, so a
+    // redirect aimed at a private address is refused like a direct one.
+    eq('http://127.0.0.1/x', fetch_next_url($u, 'http://127.0.0.1/x'), 'a private target resolves…');
+    eq(false, fetch_url('http://127.0.0.1/x')['ok'], '…and is then refused by the same guard as any other');
+});
+
 t('recipe_fetch: the ENDPOINT is behind auth and behind the address guard', function () {
     // The tests above drive fetch_url() directly, and the browser specs mock
     // this action out entirely — so between them, nothing ran the actual
