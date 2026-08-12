@@ -359,9 +359,24 @@ function handle_sync(array $cfg, array $in): never
                 && $updated === (int) $cur['updated']
                 && !rec_same($cur, $c);
             if ($cur === null || $updated > (int) $cur['updated'] || $tie) {
-                $recs[$id] = ['id' => $id, 'type' => $type, 'updated' => $updated,
-                              'deleted' => !empty($c['deleted']), 'payload' => $c['payload'] ?? null,
-                              'seq' => ++$seq];
+                $row = ['id' => $id, 'type' => $type, 'updated' => $updated,
+                        'deleted' => !empty($c['deleted']), 'payload' => $c['payload'] ?? null,
+                        'seq' => ++$seq];
+                // A record is REBUILT from this fixed list of keys, so anything
+                // else a client sends is dropped here without a word. That is
+                // the right default — it is what keeps a malformed row from
+                // becoming stored state — but it means a new record-level
+                // field has to be named here or it will work on one device and
+                // vanish on the round trip.
+                //
+                // `superseded` marks a tombstone left by a CONVERSION rather
+                // than a deletion, so "undo last delete" does not offer to
+                // resurrect something the user never deleted. Written only
+                // when true, so records that predate it are untouched byte for
+                // byte, and left out of rec_same() above because it says why a
+                // record went, not what it holds.
+                if (!empty($c['superseded'])) { $row['superseded'] = true; }
+                $recs[$id] = $row;
             }
         }
         store_write($cfg, records_file($cfg, $user), ['seq' => $seq, 'recs' => $recs]);

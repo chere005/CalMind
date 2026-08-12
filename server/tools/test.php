@@ -155,6 +155,44 @@ t('an EQUAL stamp with the SAME content is ignored, so echoes do not churn the s
     $c2 = api(['action' => 'sync', 'cursor' => 0, 'changes' => [$rec('echo1', 7100, 'same')]], $tokenA)['body']['cursor'];
     eq($c1, $c2, 'an identical re-push does not advance the sequence');
 });
+t('a superseded tombstone keeps its flag across the round trip', function () use ($tokenA) {
+    // The record is REBUILT from a fixed list of keys, so a top-level field
+    // that is not named there is dropped without a word. `superseded` marks a
+    // tombstone left by a CONVERSION rather than a deletion, so undo does not
+    // offer to resurrect something the user never deleted — and it is useless
+    // unless it survives a sync. Without the server half this test fails and
+    // the client half would have worked on one device and quietly stopped
+    // working the moment it synced.
+    $conv = ['id' => 'sup1', 'type' => 'reminder', 'updated' => 7300, 'deleted' => true,
+             'superseded' => true, 'payload' => ['text' => 'converted away']];
+    $r = api(['action' => 'sync', 'cursor' => 0, 'changes' => [$conv]], $tokenA);
+    $byId = [];
+    foreach ($r['body']['changes'] as $c) { $byId[$c['id']] = $c; }
+    ok(!empty($byId['sup1']['superseded']), 'the flag comes back');
+});
+t('…and an ordinary tombstone does not grow one', function () use ($tokenA) {
+    // The other half. Without it the test above passes just as well against a
+    // server that stamps every record superseded, which would hide every
+    // deletion from undo instead of only the conversions.
+    $del = ['id' => 'sup2', 'type' => 'reminder', 'updated' => 7310, 'deleted' => true,
+            'payload' => ['text' => 'really deleted']];
+    $r = api(['action' => 'sync', 'cursor' => 0, 'changes' => [$del]], $tokenA);
+    $byId = [];
+    foreach ($r['body']['changes'] as $c) { $byId[$c['id']] = $c; }
+    ok(!empty($byId['sup2']['deleted']), 'it is a tombstone');
+    ok(empty($byId['sup2']['superseded']), 'but not a superseded one');
+});
+t('an unrecognised top-level field is still dropped', function () use ($tokenA) {
+    // The default has to STAY the default: naming superseded must not turn the
+    // rebuild into a pass-through, or a malformed row becomes stored state.
+    $odd = ['id' => 'sup3', 'type' => 'reminder', 'updated' => 7320,
+            'nonsense' => 'do not store me', 'payload' => ['text' => 'x']];
+    $r = api(['action' => 'sync', 'cursor' => 0, 'changes' => [$odd]], $tokenA);
+    $byId = [];
+    foreach ($r['body']['changes'] as $c) { $byId[$c['id']] = $c; }
+    ok(isset($byId['sup3']), 'the record landed');
+    ok(!isset($byId['sup3']['nonsense']), 'the stray field did not');
+});
 t('key ORDER is not content — a reordered payload is still an echo', function () use ($tokenA) {
     // The canonicalisation, checked rather than assumed: a client that
     // serialises the same object in a different order must not read as a

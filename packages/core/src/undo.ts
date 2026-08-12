@@ -38,11 +38,19 @@ export type UndoableType = (typeof UNDOABLE)[number];
  * `all()` filters them out, so this wants `toSnapshot().recs`. Passing the
  * filtered list finds nothing and the menu would simply never offer anything,
  * which is the failure that looks like a feature nobody asked for.
+ *
+ * NOT EVERY TOMBSTONE IS A DELETION. convertToNote, convertReminderToEvent and
+ * convertEventToReminder each write the new record and tombstone the old one,
+ * so any conversion leaves the freshest tombstone in the account. Undo took it
+ * and resurrected the thing that had been converted AWAY, while the converted
+ * copy was still there: the user asked for one item back and got two, named
+ * after an original they had not deleted. Those tombstones carry `superseded`
+ * and are skipped here.
  */
 export function lastDeleted(recs: AnyRec[]): AnyRec | null {
   let best: AnyRec | null = null;
   for (const r of recs) {
-    if (!r.deleted) continue;
+    if (!r.deleted || r.superseded) continue;
     if (!(UNDOABLE as readonly string[]).includes(r.type)) continue;
     if (!best || r.updated > best.updated) best = r;
   }

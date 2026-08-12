@@ -447,7 +447,8 @@ export function convertToNote(recs: AnyRec[], sourceId: string, destSectionId: s
     },
   ];
   const keepHome = src.type === 'reminder' && reminderBlock(recs, sourceId).length > 1;
-  if (!keepHome) put.push({ ...src, deleted: true } as AnyRec);
+  // superseded: a conversion, not a deletion — see Rec.superseded.
+  if (!keepHome) put.push({ ...src, deleted: true, superseded: true } as AnyRec);
   return { put };
 }
 
@@ -469,7 +470,8 @@ export function convertReminderToEvent(recs: AnyRec[], reminderId: string, calen
     },
   ];
   const keepHome = reminderBlock(recs, reminderId).length > 1;
-  if (!keepHome) put.push({ ...r, deleted: true });
+  // superseded: a conversion, not a deletion — see Rec.superseded.
+  if (!keepHome) put.push({ ...r, deleted: true, superseded: true });
   return { put };
 }
 
@@ -491,7 +493,8 @@ export function convertEventToReminder(recs: AnyRec[], eventId: string, destSect
           indent: 0, ord: ordBetween(null, first?.payload.ord ?? null),
         },
       },
-      { ...ev, deleted: true },
+      // superseded: a conversion, not a deletion — see Rec.superseded.
+      { ...ev, deleted: true, superseded: true },
     ],
   };
 }

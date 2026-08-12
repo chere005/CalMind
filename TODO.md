@@ -14,7 +14,7 @@ Standing rules live in `CLAUDE.md`, not here.
 
 ## Suite counts, as of this commit
 
-core **400** · gesture **156** (+1 skipped) · WebKit **16** · server **41** ·
+core **401** · gesture **156** (+1 skipped) · WebKit **16** · server **44** ·
 live **19** with the API · desktop **7** (+3 in `npm run test:desktop`) · deploy guards **9** · plus the four
 native seam checkers no browser can reach: `npm run test:watch`,
 `npm run test:widget`, `npm run test:deploy`.
@@ -381,6 +381,35 @@ then the watch needs the direct install and the build number is the proof.
 
   Nothing outside core reimplements this: no Swift, no PHP. Checked, because
   the wrist and the widget would each need the same guard if they did.
+
+- **"Undo last delete" offered to resurrect a CONVERSION.** Undo is defined as
+  the newest tombstone, which is a good definition and why it needs no
+  bookkeeping — but a tombstone is not always a deletion. `convertToNote`,
+  `convertReminderToEvent` and `convertEventToReminder` each write the new
+  record and tombstone the old one, so any conversion left the freshest
+  tombstone in the account. Undo took it, brought back the thing that had been
+  converted AWAY while the converted copy was still there, and named the
+  original in the message as though the user had deleted it. One item asked
+  for, two received.
+
+  Those tombstones carry `superseded` now and `lastDeleted` skips them.
+
+  THE SERVER HAD TO CHANGE TOO, and this is the part worth remembering: the
+  sync handler REBUILDS each record from a fixed list of keys, so any other
+  top-level field a client sends is dropped without a word. A client-only fix
+  would have worked on one device and silently stopped working on the first
+  round trip. `app.php` names the field now, writes it only when true (so
+  older records are untouched byte for byte), and still drops everything it
+  does not recognise — there is a server test for each of those three
+  statements, because "the flag comes back" passes just as well against a
+  server that stamps EVERY record superseded.
+
+  Any future record-level field needs the same server change. The wire shape is
+  closed at the top level; only `payload` is opaque.
+
+  Both halves were broken and watched going red. `superseded` is deliberately
+  NOT part of content in `sameContent` or `rec_same`: it says why a record
+  went, not what it holds, and never changes after the tombstone is written.
 
 ## 4 · Steady state, every iteration
 

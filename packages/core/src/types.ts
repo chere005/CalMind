@@ -156,6 +156,24 @@ export type Rec<T extends RecType = RecType> = {
   type: T;
   updated: number; // ms epoch of the last edit — the last-write-wins vote
   deleted?: boolean; // tombstone: synced so every device learns of the delete
+  /**
+   * This tombstone is a CONVERSION, not a deletion — the record was replaced
+   * by one of another kind (manage.ts's convertToNote and friends) rather than
+   * thrown away. Only `lastDeleted` reads it, and only so that "Undo last
+   * delete" does not offer to resurrect something the user never deleted,
+   * which would leave them holding both copies.
+   *
+   * Deliberately NOT part of content: neither `sameContent` here nor
+   * `rec_same` on the server counts it, because it says why a record went, not
+   * what it holds, and it never changes after the tombstone is written.
+   *
+   * It is a TOP-LEVEL field, so the server has to know it: the sync handler
+   * rebuilds each record from a fixed list of keys and silently drops anything
+   * else, which would have made this work locally and quietly stop working
+   * after a round trip. app.php carries it now. Any future record-level field
+   * needs the same change — the wire shape is closed up there, unlike payload.
+   */
+  superseded?: boolean;
   payload: PayloadOf[T];
 };
 
