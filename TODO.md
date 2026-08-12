@@ -601,6 +601,30 @@ then the watch needs the direct install and the build number is the proof.
   now pinned in `check-watch-format.sh`, including this case, so whichever
   way he decides the change is deliberate rather than drift.
 
+- **The desktop shell ships with `"csp": null`.** `desktop/src-tauri/tauri.conf.json`
+  sets no Content Security Policy, which Tauri treats as "inject nothing".
+
+  The blast radius is small and worth stating so nobody panics or ignores it:
+  the Rust side is `tauri::Builder::default().run(...)` with no commands, no
+  plugins and no features, so a webview here reaches no filesystem, no shell
+  and no IPC — it is about as capable as a browser tab. The app also loads its
+  JavaScript from the bundled export rather than the network, and the API
+  returns JSON, not scripts.
+
+  Not done because it cannot be verified from here. A strict policy has to
+  allow what react-native-web actually does — it injects styles at runtime,
+  and the patched index.html carries an inline `<script id="calmind-sw">` —
+  so getting it wrong shows up as a blank window, and proving it right needs a
+  Tauri build (Rust, minutes) rather than a re-export. Whoever does it should
+  build and open the window, not read the config and assume.
+
+  Checked at the same time and clean: the deploy publishes nothing it should
+  not (no source maps, and Expo's metadata.json is 49 bytes of empty
+  fileMetadata), web.htaccess gets index.html, the manifest and sw.js
+  no-cache while the hashed bundles are immutable, and the api directory ships
+  its own .htaccess carrying `CGIPassAuth On`, without which every bearer
+  token would arrive empty.
+
 - **A shared calendar cannot be isolated; a shared folder can.** Found
   2026-08-12, and left alone because the fix needs one visual decision that
   is Sean's.
