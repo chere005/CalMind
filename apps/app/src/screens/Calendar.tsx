@@ -674,7 +674,17 @@ const s = themed(() => StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 4 },
   rowNoSelect: { userSelect: 'none' } as import('react-native').ViewStyle,
   rowRolled: { backgroundColor: T.accentSoft, borderRadius: 8 },
-  rowBodyFlex: { flex: 1 },
+  // STRETCH for the same reason as Notes' and Reminders' row bodies: this is
+  // the Pressable that opens an item and long-presses into edit mode, and as a
+  // centred flex child it was only as tall as its one line of text while the
+  // row around it looked entirely tappable.
+  //
+  // The row's own paddingVertical is left where it is, unlike Reminders'. Not
+  // every row in this panel has a body — a partner's reminder is a tick and
+  // some text — so moving the padding inward would shorten those and leave the
+  // day panel with two row heights. What remains dead is the 4pt above and
+  // below, shared with the neighbouring row.
+  rowBodyFlex: { flex: 1, alignSelf: 'stretch' },
   editBackdropFill: { minHeight: 120 },
   rowText: { color: T.text, fontSize: 15, flex: 1 },
   rowDone: { color: T.muted, textDecorationLine: 'line-through' },

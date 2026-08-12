@@ -326,6 +326,13 @@ then the watch needs the direct install and the build number is the proof.
   the row's — never as an offset from an edge, which lands inside the element
   whatever size it is. Both were watched failing before the fix.
 
+  Calendar's day panel had it too and got the stretch only, measured 18 -> 22
+  in a 30pt row. Its remaining 8pt is the row's own `paddingVertical: 4`, and
+  that is left alone DELIBERATELY: not every row in the panel has a body
+  Pressable — a partner's reminder is a tick and some text — so moving the
+  padding inward the way Reminders did would shorten those and leave the panel
+  with two row heights.
+
 ## 4 · Steady state, every iteration
 
 - `git pull --autostash` first; stage explicit paths; never `git add -A`.
