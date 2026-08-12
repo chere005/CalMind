@@ -711,6 +711,31 @@ software: the editor closing to the notes list with the tab unchanged.
   bounce the WATCH sim and re-check `xcrun simctl list pairs`.
 - Scriptable on a real phone (the widget itself, tick links, the PWA hop).
 
+- **The Modal safe-area trap** — CLAUDE.md's most expensive recurring one: a
+  Modal is its own window, so anything absolutely positioned in it is measured
+  from the top of the SCREEN and sits under the clock. Three such bugs were
+  invisible in every browser test.
+
+  All eighteen Modals were read for that shape on 2026-08-11 and only three
+  files position anything absolutely at all. None is the dangerous case:
+  Reminders' `editCluster` floats over a ROW, and Notes' `edStatus` and
+  `goesMenu` live in the note editor, which is a screen rather than a Modal —
+  and `App.tsx` wraps every screen in a SafeAreaView on all four edges, so a
+  screen-level `top` is already measured from below the notch.
+
+  The one that depends on an assumption is chrome.tsx's user menu: it hangs off
+  a `measureInWindow` of the pill, inside a Modal, with no inset added — on the
+  reasoning that measureInWindow returns window coordinates which already
+  include the SafeAreaView's padding, so they are the same space the Modal lays
+  out in. The fallback path beside it DOES add `insets.top`, because it has no
+  measurement to work from.
+
+  THAT REASONING IS NOT A SIGHTING. It is consistent and it matches the
+  comment, and this exact class has been reasoned wrong here three times
+  before. The e2e cover is web only, where a Modal is a div in the same
+  document and the question does not arise. If the menu ever hangs level with
+  the status bar on a phone, this is the line to look at.
+
 **A pass was actually done on 2026-08-11**, at 390px and 1160px, through
 Playwright screenshots rather than the in-app browser (whose clicks kept timing
 out). Reminders at rest and in edit mode, the calendar grid and day panel, the
