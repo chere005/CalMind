@@ -211,6 +211,19 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
   // fires on a device; on web it is a harmless no-op over autoFocus.
   const bodyRef = React.useRef<TextInput | null>(null);
   const titleRef = React.useRef<TextInput | null>(null);
+  // The pending focus above, so leaving the note can call it off. It is NOT
+  // cancelled when the title takes focus, though that was tried: the window is
+  // 50ms, no hand is that fast, and `secadd` → fill the title → expect the body
+  // focused is Sean's requirement said twice ("making a note should end with
+  // the cursor in it"). The first-letter bug it was reached through turned out
+  // to be the title's select-all, not this.
+  const freshFocus = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cancelFreshFocus = () => {
+    if (freshFocus.current) {
+      clearTimeout(freshFocus.current);
+      freshFocus.current = null;
+    }
+  };
   React.useEffect(() => {
     if (openId && freshEdit.current === openId) {
       freshEdit.current = null;
@@ -223,8 +236,14 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
       // The field does not exist until this has rendered, so the focus call
       // waits a tick rather than racing the mount.
       setBodyEditing(true);
-      setTimeout(() => bodyRef.current?.focus(), 50);
+      freshFocus.current = setTimeout(() => {
+        freshFocus.current = null;
+        bodyRef.current?.focus();
+      }, 50);
     }
+    // Leaving the note before the tick is up must not hand the caret to
+    // whatever body is on screen by then.
+    return cancelFreshFocus;
   }, [openId, setBodyEditing]);
   // Another screen (the Add tab) created a note — land in its editor, as prod does.
   React.useEffect(() => {
@@ -313,6 +332,8 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
   });
 
   const open = openId ? (recs.find((r) => r.id === openId) as Rec<'note'> | undefined) : undefined;
+  /** Nobody has named this note yet — it still wears the date it was born with. */
+  const generatedTitle = !!open && looksLikeDefaultNoteTitle(open.payload.title);
   // Only OUR bodies scale — the markers are what say the ingredients have
   // been read and separated from the prose around them.
   const isRecipe = open ? /^\*\*Ingredients\*\*$/im.test(open.payload.body) : false;
@@ -475,16 +496,34 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
               ref={titleRef}
               testID="note-title"
               style={s.title}
-              value={titleDraft ?? open.payload.title}
-              placeholder="Title"
+              // A note is born titled "Aug 12, 2026 at 10:17am" so it is not
+              // blank in the list, and tapping the title to type over it is
+              // deliberate. That was done with select-all, and select-all is a
+              // RACE: the click places its own caret AFTER onFocus runs, so the
+              // selection was overwritten and then re-applied one keystroke
+              // late. Traced key by key, which is the only reason this was ever
+              // explicable:
+              //
+              //   after click  "Aug 12, 2026 at 10:17am"  sel 14-14
+              //   after 'P'    "Aug 12, 2026 aPt 10:17am" sel 0-24
+              //   after 'a'    "a"
+              //
+              // The P landed mid-title, the belated select-all covered
+              // everything, and the next key replaced the lot — one letter
+              // gone, blamed on the typist. A frame-delayed select fixed the
+              // 50ms case and still lost the zero-gap one, and RNW's own
+              // selectTextOnFocus fires late with no handle to cancel.
+              //
+              // So: do not select what is not there. A title nobody has
+              // written yet is a PLACEHOLDER — the record keeps the generated
+              // one for the list, the field is empty, and typing over it is
+              // just typing. No selection, no ordering, nothing to lose a
+              // letter to.
+              value={titleDraft ?? (generatedTitle ? '' : open.payload.title)}
+              placeholder={generatedTitle ? open.payload.title : 'Title'}
               placeholderTextColor={T.muted}
-              selectTextOnFocus
               onFocus={() => {
-                setTitleDraft(open.payload.title);
-                // selectTextOnFocus is a no-op under react-native-web, so the
-                // web needs the selection made by hand. Native honours the prop.
-                const el = titleRef.current as unknown as { setSelection?: (a: number, b: number) => void } | null;
-                el?.setSelection?.(0, open.payload.title.length);
+                setTitleDraft(generatedTitle ? '' : open.payload.title);
               }}
               onBlur={() => {
                 // The inline add field used to do this on the way in. It is

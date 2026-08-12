@@ -47,7 +47,7 @@ Standing rules live in `CLAUDE.md`, not here.
 
 ## Suite counts, as of this commit
 
-core **505** · gesture **194** (+3 skipped) · WebKit **16** · server **55** ·
+core **505** · gesture **195** (+2 skipped) · WebKit **16** · server **55** ·
 live **19** with the API · desktop **7** (+3 in `npm run test:desktop`) · deploy guards **9** · plus the four
 native seam checkers no browser can reach: `npm run test:watch`,
 `npm run test:widget`, `npm run test:deploy`.
@@ -116,28 +116,16 @@ PROD domain root, prepared in `server/prod-only/` with instructions, and
 ships only on his word. Then the probe is one build away, and if Apple signs
 it the rest is the Swift credential bridge.
 
-### Deploys are still blocked on an ssh key only Sean can load
-CHECKED 2026-08-12, read-only: `ssh-add -l` answers **"The agent has no
-identities."** That is the same condition recorded on 2026-08-09 in an entry
-the rewrite then dropped, so the blocker has been live and unwritten-down
-since. Nobody has tried to deploy in the meantime — this session is under a
-standing "do not deploy" — but the next one asked to will hit it, and what it
-looks like is `./server/deploy-test.sh` failing at the SSH step with
-"Permission denied" and then "Too many authentication failures".
+### ~~Deploys are blocked on an ssh key~~ — CLEARED 2026-08-12
+Sean loaded the key. Verified read-only, not by asking the agent but by using
+it: `ssh -o BatchMode=yes <dest> hostname` answers `seancheren.nfshost.com`
+with no prompt, so the deploy's own transport works.
 
-What IS in place, so the diagnosis does not start from scratch:
-
-- `server/deploy.conf` exists (gitignored, so it survives no clone but this
-  one) and `~/.ssh/id_ed25519_nfs` is still there, 419 bytes.
-- The agent is running — `SSH_AUTH_SOCK` is set — it simply holds nothing.
-
-Almost certainly `ssh-add ~/.ssh/id_ed25519_nfs` and the passphrase; the key
-is named for that host in `~/.ssh/config`. If the agent takes it and the
-server still refuses, the key needs re-authorising in the NearlyFreeSpeech
-panel. **Sean's to do.** I have not touched the key, the agent or the
-passphrase, and will not: the 2026-08-09 note stopped at exactly this line for
-the same reason, and working around an auth block is not a thing to do on
-someone's behalf.
+Worth keeping for the next time it looks blocked: `ssh-add -l` said "The agent
+has no identities" in one shell while the key worked in another, so the agent
+listing is not the test — the connection is. The blocker had been live and
+unwritten-down since 2026-08-09, because the entry recording it was lost in a
+rewrite.
 
 ### Calendar integrations — three questions, and code already waiting on them
 RESTORED 2026-08-12. This was §3d and the rewrite on 2026-08-10 dropped it
@@ -484,54 +472,6 @@ distrust what the current simulator would show, and the Metro serving it
 started 2026-08-08 and may be the other session's — restarting it is not
 mine to do.
 
-### Typing a NEW note's title loses the first letter
-Found 2026-08-12. Make a note, tap its title, type: the first keystroke is
-gone. Type immediately and the default title is still in the field with the
-letters landing inside it.
-
-Measured, clicking a brand-new note's title then typing "Pancakes" at 80ms a
-key — slow, deliberate speed:
-
-| pause after the click | what the field ends up holding |
-|---|---|
-| 0ms | `Aug 12, 2026 aPt` |
-| 50ms | `ancakes` |
-| 100ms | `ancakes` |
-| 200ms | `ancakes` |
-| 400ms | `Pancakes` |
-
-So the hazard is about the first 300ms of the field's life and it costs the
-first letter. It is the sort of papercut a person blames on themselves.
-
-Why nothing caught it: every spec sets a title with `fill()`, one change
-event for the whole value. Nothing in the suite had ever typed a title key by
-key. `e2e/titlerace.spec.ts` now carries it as a `test.fixme`, beside a
-passing control test showing the note BODY types perfectly at the same speed
-— so this is not "typing is broken", it is this field.
-
-**NARROWED 2026-08-12, and the narrowing matters.** Six other text fields
-were typed key by key at the same 80ms: the reminder add field, the reminder
-inline edit, the recipe editor's ingredient and step fields, "New section",
-and the item sheet's What? field. All six are perfect. So is the note BODY —
-and the body writes through the same `mutate → refresh → re-render` on every
-keystroke that the title does.
-
-That rules the per-keystroke write OUT as the cause. What the title does and
-nothing else does is `selectTextOnFocus` plus an imperative
-`setSelection(0, len)` in `onFocus`, alongside two state updates. The lost
-letter is a re-render landing between that selection and the first key.
-
-So the choice is narrower than it first looked:
-
-- drop `selectTextOnFocus` on this field — the race goes, and so does "tap
-  the title and type over it", which is deliberate behaviour Sean has;
-- keep the select-all but stop it being re-applied or fought by the
-  re-render — make the draft authoritative while focused, never re-reading
-  the record, with care around the blur that parses a date out of the title.
-
-Debouncing the write is NOT one of them any more; the body proves it is not
-the problem.
-
 ### The watch mirrors the widget's selection ONE PUSH BEHIND
 RESTORED 2026-08-12 and confirmed still live in the source. Sean reported
 shared events on the widget and missing from the watch's first tab. The
@@ -838,6 +778,20 @@ then the watch needs the direct install and the build number is the proof.
   opened. It now holds `shared_pull` for 1.5s inside the grace, which makes the
   race a fact rather than a hope, and both breaks — no grace at all, and the
   near-miss that re-toggles from the stale copy — were watched going red.
+
+### Shipped 2026-08-12 — one line each
+
+- The item sheet PUT BACK a record deleted on another device. It was handed a
+  snapshot rather than an id, so the 30s pull took the row away underneath it
+  and Save wrote the snapshot back with a fresh stamp, beating the tombstone
+  on LWW. It now leaves when its record does, which is what the note editor
+  already did — `e2e/zombiesheet.spec.ts`.
+- Typing a NEW note's title lost the first letter. The select-all raced the
+  click's own caret placement and arrived a keystroke late, so the letter
+  landed mid-title and the next key replaced everything. A title nobody has
+  written is a PLACEHOLDER now: nothing to select, nothing to race.
+  `e2e/titlerace.spec.ts` is no longer a fixme, and it still goes red against
+  the old field.
 
 ### Shipped 2026-08-11 — one line each, on purpose
 

@@ -1,10 +1,5 @@
 /**
- * KNOWN BUG, kept visible rather than deleted or left red — the same way
- * twotab.spec.ts carries its own.
- *
- * Make a note, tap its title, start typing: the first keystroke is lost.
- * Type fast enough and the default title is still in the field and the
- * letters land inside it.
+ * Make a note, tap its title, start typing: the first keystroke was lost.
  *
  * MEASURED 2026-08-12, clicking the title of a brand-new note and then typing
  * "Pancakes" at 80ms a key — a slow, deliberate speed:
@@ -15,29 +10,36 @@
  *   wait 200ms                 -> "ancakes"
  *   wait 400ms                 -> "Pancakes"
  *
- * So the hazard is roughly the first 300ms of the field's life, and what it
- * costs is the first letter. That is a papercut people blame on themselves —
- * "I must have missed the key" — which is why it wants a test rather than a
- * memory.
+ * A papercut people blame on themselves — "I must have missed the key" —
+ * which is why it wanted a test rather than a memory.
  *
- * WHY NO SPEC SAW IT: every existing one sets a title with `fill()`, which
- * puts the whole value in through a single change event. Nothing in the suite
- * ever typed a title key by key. The body IS fine at the same speed, checked,
- * and so is an existing note's title — it is specific to a note that has just
- * been created and is still settling.
+ * WHY NO SPEC SAW IT: every existing one sets a title with `fill()`, a single
+ * change event for the whole value. Nothing in the suite had ever typed a
+ * title key by key. The body is fine at the same speed (the control test
+ * below), and so are six other fields — the reminder add field, the reminder
+ * inline edit, the recipe editor's ingredient and step fields, "New section",
+ * and the item sheet's What? field — which ruled out the per-keystroke write
+ * that was the first suspect.
  *
- * NOT FIXED HERE, deliberately, and the cause is narrower than it looks.
- * SIX other fields were typed key by key at the same speed and are all
- * perfect: the reminder add field, the reminder inline edit, the recipe
- * editor's ingredient and step fields, "New section", and the item sheet's
- * What? field. So is the note BODY, in the control test below — and the body
- * writes through the same mutate → refresh → re-render on every keystroke.
+ * THE CAUSE was the title's select-all, and it is worth the detail because
+ * two plausible fixes failed first. A click places its own caret AFTER
+ * onFocus runs, so the selection made there is overwritten — and then
+ * re-applied one keystroke late. Traced key by key:
  *
- * That rules out the per-keystroke write. What this field alone does is
- * selectTextOnFocus plus an imperative setSelection(0, len) in onFocus, and
- * the lost letter is a re-render landing between that selection and the first
- * key. Which way to fix it is a decision about behaviour Sean asked for —
- * tap the title and type over it — so TODO §2 carries it.
+ *   after click  "Aug 12, 2026 at 10:17am"  sel 14-14
+ *   after 'P'    "Aug 12, 2026 aPt 10:17am" sel 0-24
+ *   after 'a'    "a"
+ *
+ * The P lands mid-title, the belated select-all covers everything, the next
+ * key replaces the lot. Selecting a frame later fixed the 50ms case and still
+ * lost the zero-gap one; hanging it off onSelectionChange did nothing at all,
+ * because a plain caret placement fires no `select` event. RNW's own
+ * selectTextOnFocus also fires late, with no handle to cancel.
+ *
+ * So the fix stopped racing and removed the thing being raced: a title nobody
+ * has written is a PLACEHOLDER. The record still holds the generated title so
+ * the list is not blank, the field is empty, and typing over it is just
+ * typing — no selection, no ordering, nothing to lose a letter to.
  */
 import { test, expect, type Page } from '@playwright/test';
 
@@ -56,12 +58,16 @@ async function signup(page: Page): Promise<string> {
 }
 
 test('a new note keeps every letter of a title typed into it', async ({ page }) => {
-  test.fixme(true, 'the first keystroke is lost for ~300ms after the field opens — see TODO §2');
-
   await signup(page);
   await page.getByTestId('tab-notes').click();
   await page.getByTestId('secadd-General').first().click();
   await expect(page.getByTestId('note-title')).toBeVisible();
+  // Creating a note puts the caret in the BODY 50ms later, deliberately, and
+  // that is the app's own signal that creation has settled. Waiting for it is
+  // what a hand does anyway — nobody reaches the title inside 50ms — and
+  // without it this spec and app.spec's "lands in the editor TYPING" fight
+  // over the same window from opposite sides, one of them always losing.
+  await expect(page.getByTestId('note-body-edit')).toBeFocused();
 
   await page.getByTestId('note-title').click();
   await page.getByTestId('note-title').pressSequentially('Pancakes', { delay: 80 });
