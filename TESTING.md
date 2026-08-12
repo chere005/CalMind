@@ -692,6 +692,23 @@ opt-in because it touches the network and leaves an account behind:
 It asserts the URL contains /test/ before it creates anything, and prints the
 account it leaves. There is no delete-account endpoint, so the residue is real.
 
+SIGNING OUT is checked against a storage that will not delete —
+`e2e/signout.spec.ts`, added 2026-08-12. The two tests there are deliberately
+unequal, and it is worth knowing which is which. The online one passes with
+the fix and without it: it exists to pin the REASON the leftover token is
+normally harmless, which is that the server revokes it, and that reason was
+being assumed rather than tested. The offline one is the test with teeth —
+with no server to revoke anything, the device is the only authority left, and
+before the fix it restored the session and showed the account's cached
+snapshot on a device where Log out had been pressed.
+
+Both drive the failure by making `Storage.prototype.removeItem` throw for the
+session key alone. Not a dead store: the snapshot still writes, which is what
+leaves the data there to be shown. Found by taking CLAUDE.md's own instruction
+literally — search for the silent catches and triage each by what is lost.
+Nineteen of them; eighteen lose fold state, which costs a re-open. The
+nineteenth was this.
+
 The DESKTOP has its own smoke, `./desktop/smoke.sh`, and one of its five
 checks is the only one that says anything hard. Tauri compiles the frontend
 into the binary and compresses it, so neither the html nor the app's own

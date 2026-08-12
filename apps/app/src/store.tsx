@@ -17,6 +17,35 @@ import { applyTheme, type ThemeName } from './theme';
 const SESSION_KEY = 'calmind.session';
 const snapKey = (user: string) => `calmind.snapshot.${user}`;
 
+/**
+ * Forget the stored session — and if storage refuses to delete it, leave
+ * something behind that cannot be read as one.
+ *
+ * Both callers already treat the removal as allowed to fail, and say why:
+ * clearing memory is what signs you out, so a refusing store must never take
+ * the sign-out with it. That is right, and normally the leftover is harmless
+ * because the server revokes the token on logout — proven, not assumed: with
+ * removeItem throwing, the token stays on disk and the next launch still
+ * lands on the login page, because the server rejects it.
+ *
+ * OFFLINE it does not. There is no server to reject anything, so the launch
+ * path restores the session and shows that account's cached snapshot on a
+ * device where Log out was pressed. Narrow — it needs a storage failure AND
+ * no network — but the whole point of the rule about silent write failures
+ * is that this is the shape they take.
+ *
+ * The launch path already drops a session that will not parse, so a value
+ * that cannot parse is the answer. If the store refuses this write too we
+ * are exactly where we were, which is why it is best-effort in turn.
+ */
+async function forgetSession(): Promise<void> {
+  try {
+    await AsyncStorage.removeItem(SESSION_KEY);
+  } catch {
+    await AsyncStorage.setItem(SESSION_KEY, 'signed out').catch(() => {});
+  }
+}
+
 // 'refused' is not a kind of offline: the connection is fine and the server
 // answered. One record is simply too big to store, and it is still sitting
 // on this device only.
@@ -200,7 +229,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         // syncNow()`) AND left the dead session on disk to be restored on the
         // next launch. Clearing memory is what actually signs you out; the
         // disk copy is a cache.
-        await AsyncStorage.removeItem(SESSION_KEY).catch(() => {});
+        await forgetSession();
         clearSession();
         return;
       }
@@ -397,7 +426,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     // before clearSession, so nothing happened and you stayed signed in with
     // no error at all. The disk copy is a cache; clearing memory is the
     // sign-out. Do that regardless.
-    await AsyncStorage.removeItem(SESSION_KEY).catch(() => {});
+    await forgetSession();
     clearSession();
   }, [clearSession]);
 
