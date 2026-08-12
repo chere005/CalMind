@@ -665,11 +665,18 @@ Core was audited on 2026-08-11. The screens never had been, and they are the
 half where the gesture suite is the only guard — so a survivor there is a
 behaviour that could stop working with every suite still green.
 
-Ten mutations, chosen where a survivor would mean something rather than where
-one was easy to make. THREE survived, and all three had the same shape: a
+Seventeen mutations, chosen where a survivor would mean something rather than
+where one was easy to make. FOUR survived, and all four had the same shape: a
 guard governing a path no spec walks. Two of them had real bugs sitting
 behind them, which is the argument for chasing a survivor rather than
 shrugging at it.
+
+The paths, spelled out, because the pattern is the useful part: pressing a
+cluster button WHILE a row is being edited; signing IN rather than up;
+double-tapping a day-panel row; and a sharing call failing while the network
+is otherwise fine. Every existing spec drove the ordinary version of each —
+press the button on a row you are not editing, sign up, tap once, share while
+online — so the guard was never the thing under test.
 
 | mutation | result |
 |---|---|
@@ -683,6 +690,11 @@ shrugging at it.
 | **the `holdCluster` guard removed** | **SURVIVED — see `clusterhold.spec.ts`, and two real bugs were behind it** |
 | **`if (hydratedRef.current)` → `if (true)`** | **SURVIVED — see `seconddevice.spec.ts`** |
 | `persistNow` debounced by 2s | caught by six, including the two "survives a reload" drag specs its own comment names — the claim was true |
+| `useNoteScoped`'s per-note reset removed | caught by four, two named for it |
+| the sync coalescing drops a mid-flight request | caught by `synccoalesce.spec.ts` |
+| undo stops skipping `superseded` tombstones | caught in core |
+| the SERVER drops `superseded` on rebuild | caught by the server suite |
+| **`sharedPut`'s both-failed signal removed** | **SURVIVED — see `sharedoffline.spec.ts`** |
 
 Two things are worth taking from the survivor beyond the fix. The gesture
 exists FIVE times (a habit name, a reminder row, a reminders section head, a
