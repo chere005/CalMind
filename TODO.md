@@ -14,7 +14,7 @@ Standing rules live in `CLAUDE.md`, not here.
 
 ## Suite counts, as of this commit
 
-core **425** · gesture **159** (+1 skipped) · WebKit **16** · server **48** ·
+core **428** · gesture **159** (+1 skipped) · WebKit **16** · server **48** ·
 live **19** with the API · desktop **7** (+3 in `npm run test:desktop`) · deploy guards **9** · plus the four
 native seam checkers no browser can reach: `npm run test:watch`,
 `npm run test:widget`, `npm run test:deploy`.
@@ -684,6 +684,34 @@ then the watch needs the direct install and the build number is the proof.
   was covered by nothing at all. That is the same shape as a check that cannot
   fail, and it is how the entity bug above stayed hidden. Both headers now say
   what is actually in the file.
+
+- **The calendar grids are CLEAN, and the core suite now pins its timezone.**
+  `monthGridFilled`, `monthGrid`, `twoWeeksFrom` and `weekOf` fuzzed over
+  1900-2100: whole weeks, Sunday-aligned, consecutive with no gap or repeat,
+  every day of the month exactly once, and no extra row. Nothing wrong found.
+
+  The interesting part is a break that did NOT fail. Swapping
+  `twoWeeksFrom`'s noon anchor for `new Date(date)` changes nothing anywhere —
+  a date-only ISO string already parses as UTC midnight and `getUTCDay()` reads
+  the same either way. The real trap needs both halves gone,
+  `new Date(date).getDay()`, and even then the code is CORRECT under TZ=UTC;
+  under America/Chicago local midnight falls on the previous day and the
+  fortnight starts on a Monday.
+
+  So `npm test` in core now runs `TZ=America/Chicago`, which is what app.php
+  already defaults its own clock to. Otherwise that regression ships green on
+  any UTC runner while being broken for the only person who uses the app. The
+  suite passes identically under UTC and Asia/Kathmandu, checked, so pinning
+  hides nothing — and the docstring says exactly what it catches rather than
+  claiming DST-immunity it cannot demonstrate.
+
+- **Login has no throttling of any kind** — read, not grepped: `handle_login`
+  does a `password_verify` and a `login_fail` log on every attempt, with no
+  counter, delay or lockout. `handle_recover` has RECOVER_TRIES = 5, so there
+  is precedent in the file. NOT changed, because the policy is the whole
+  question — attempts, window, per-IP or per-account, delay or lockout — and a
+  lockout on a personal app is also a way to be locked out of it. One word
+  settles it.
 
 ## 4 · Steady state, every iteration
 
