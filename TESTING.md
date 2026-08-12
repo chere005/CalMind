@@ -745,9 +745,17 @@ software: the editor closing to the notes list with the tab unchanged.
   ours to restart. Nothing about the screen said any of this; it rendered
   perfectly, just a version behind.
 
-  So "open it on the simulator and look" is a trap in its current state. Check
-  WHAT IS RUNNING first: a marker that exists in today's source and not in
-  yesterday's is the cheapest way, and the two above are free.
+  So "open it on the simulator and look" is a trap in its current state.
+  `npm run test:simfresh` now answers the first half of the question — it
+  compares the installed .app on every booted simulator, and the Metro on 8081,
+  against the newest source file, and says which is behind and by how long. On
+  the day it was written it reported all three: two stale .apps and a
+  three-day-old dev server.
+
+  It cannot see which bundle the app has already CACHED, so the second half is
+  still a MARKER: something today's source renders and yesterday's did not,
+  looked for on the screen. The two that caught this were free — the "Undo last
+  delete" row in the user menu and the sync dot in the top bar.
 
   THAT REASONING IS NOT A SIGHTING. It is consistent and it matches the
   comment, and this exact class has been reasoned wrong here three times
