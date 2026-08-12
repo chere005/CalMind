@@ -730,6 +730,25 @@ software: the editor closing to the notes list with the tab unchanged.
   out in. The fallback path beside it DOES add `insets.top`, because it has no
   measurement to work from.
 
+  ATTEMPTED ON THE SIMULATOR, 2026-08-11, AND THE ATTEMPT WAS INVALID —
+  which is worth more than the check would have been. The app launched, the
+  menu hung neatly under the pill, and it looked like a clean confirmation.
+  It was not: the running JS was older than the source. Two independent markers
+  said so — the menu had no "Undo last delete" row, which chrome.tsx renders
+  UNCONDITIONALLY, and the top bar had no sync dot, which is in every web
+  screenshot of the same code.
+
+  The cause is worth knowing before anyone repeats it. The installed .app dates
+  from 2026-08-10 and is a Debug build, so it takes its JavaScript from Metro
+  rather than from itself — and the Metro on 8081 has been up since 2026-08-08
+  and belongs to another session. Two sessions share this repo, so it is not
+  ours to restart. Nothing about the screen said any of this; it rendered
+  perfectly, just a version behind.
+
+  So "open it on the simulator and look" is a trap in its current state. Check
+  WHAT IS RUNNING first: a marker that exists in today's source and not in
+  yesterday's is the cheapest way, and the two above are free.
+
   THAT REASONING IS NOT A SIGHTING. It is consistent and it matches the
   comment, and this exact class has been reasoned wrong here three times
   before. The e2e cover is web only, where a Modal is a div in the same
