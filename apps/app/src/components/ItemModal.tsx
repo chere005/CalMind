@@ -170,7 +170,28 @@ export function ItemModal({
         setErr(res.error);
         return;
       }
-      mutate((e) => res.put.forEach((r) => e.put(r)));
+      // The conversion works from the STORED record, so anything retyped in
+      // this sheet before the kind was changed was thrown away with it —
+      // change a reminder's text and make it a note in one visit, and the note
+      // arrived with the words you had replaced. The fields below are the same
+      // ones the ordinary save applies a few lines down; the new record gets
+      // them too rather than only the ones core carried across.
+      const edited = res.put.map((r) => {
+        if (r.id !== freshId) return r;
+        if (r.type === 'note') {
+          return { ...r, payload: { ...r.payload, title, date: finalDate } };
+        }
+        if (r.type === 'event') {
+          return { ...r, payload: { ...r.payload, text: title, date: finalDate ?? today, time: finalTime, repeat: finalRepeat } };
+        }
+        if (r.type === 'reminder') {
+          return { ...r, payload: { ...r.payload, text: title, due: finalDate, time: finalTime, repeat: finalRepeat } };
+        }
+        // Anything else core produced (the tombstone, a re-homed sibling) is
+        // not the converted record and is passed through untouched.
+        return r;
+      });
+      mutate((e) => edited.forEach((r) => e.put(r)));
       onSaved?.(freshId, kind);
       onClose();
       return;
