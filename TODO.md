@@ -14,7 +14,7 @@ Standing rules live in `CLAUDE.md`, not here.
 
 ## Suite counts, as of this commit
 
-core **474** · gesture **160** (+1 skipped) · WebKit **16** · server **53** ·
+core **477** · gesture **160** (+1 skipped) · WebKit **16** · server **53** ·
 live **19** with the API · desktop **7** (+3 in `npm run test:desktop`) · deploy guards **9** · plus the four
 native seam checkers no browser can reach: `npm run test:watch`,
 `npm run test:widget`, `npm run test:deploy`.
@@ -919,6 +919,22 @@ then the watch needs the direct install and the build number is the proof.
 
   Found by LOOKING at the screen, not by testing it. Nothing could have caught
   it: a hardcoded string is exactly as green as a correct one.
+
+- **A claim of mine that carried a 66-site change, tested at last.** The
+  `byRecOrd` sweep rested on "no existing order can move, because the id
+  fallback is unreachable unless two keys are equal". Sound, and asserted in a
+  commit message rather than anywhere a machine could check it — which is the
+  shape this session spent all day finding in other people's work.
+
+  Pinned now: two thousand shuffled lists of unique keys sort identically under
+  both comparators, every distinct pair agrees, and the two differ only when
+  the keys are equal. The ids are deliberately built in the OPPOSITE order to
+  the keys, so a fallback that fired would reverse the list rather than agree
+  by luck. Both breaks watched — the fallback firing on distinct keys, and the
+  tiebreak reversed.
+
+  Had it been wrong the damage would have been quiet and everywhere: every list
+  in the app reordered slightly, with nothing to point at.
 
 ## 4 · Steady state, every iteration
 
