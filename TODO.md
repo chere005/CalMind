@@ -603,28 +603,36 @@ Which means the comment in Notes.tsx — "the window is 50ms, no hand is that
 fast" — is true of a hand and false of Playwright, and being slow makes the
 test MORE likely to fail, not less.
 
-**THE SEQUENCING IS THE TRIGGER — and it REPRODUCES, which this entry has
-spent eleven occurrences saying nobody could do.** Counted at one commit, on
-one machine, in one evening:
+**A SEQUENCING CLAIM WAS MADE HERE AND IS RETRACTED — by data collected two
+hours later the same evening, which is the only reason it is worth reading.**
 
-- **8 of 8 standalone full WebKit runs PASSED**, all ~25s.
-- **3 of 3 in-script runs FAILED** — three consecutive `deploy-test.sh`
-  invocations, blocking all three deploys.
+What was written, on this evidence: 8 of 8 standalone full WebKit runs passed at
+~25s, while 3 of 3 runs inside `deploy-test.sh` failed and blocked three
+deploys. The conclusion drawn was that the trigger is WebKit running
+immediately after the nine-minute gesture suite in the same script, and that
+this was the reproduction nobody had managed.
 
-The condition is not load in general and not a busy machine: it is WebKit
-running immediately after the nine-minute gesture suite, in the same script,
-which is what `deploy-test.sh` does BY CONSTRUCTION. That is why this thing
-blocks deploys and almost never a hand-run suite — and why "every deliberate
-reproduction has failed" was true: every attempt reproduced the wrong
-condition. It also means anyone measuring the "true rate" with 25 standalone
-runs will measure the wrong thing, and the ~1-in-6 standing figure is a
-mixture of two populations rather than one rate.
+**Then standalone runs started failing too.** Later the same evening, five more
+standalone runs went fail, fail, pass, fail, pass — 3 in 5, with no gesture
+suite in front of them. Tonight's full tally is roughly 6 failures in about 20
+runs across both conditions. So:
 
-Next step for whoever takes this: `deploy-test.sh --no-gestures` followed by a
-bare `npx playwright test && npx playwright test -c playwright.webkit.config.ts`
-should reproduce it outside the deploy path, which would separate "runs after a
-long suite" from "runs inside that script". If it does, the 50ms timer is the
-thing to change and the design question in §1 has to be answered first.
+- The in-script observation was real but is NOT a clean discriminator. 3-of-3
+  and 8-of-8 looked decisive and were two small samples of a thing that
+  CLUSTERS, which is exactly what this entry has always said it does.
+- This is the SECOND time a rate claim has been made about this flake and
+  withdrawn — the first was "the rate moved", refuted by 15 clean runs. The
+  pattern is now the finding: a dozen runs is not enough to say anything about
+  a ~1-in-4-to-1-in-6 event, and every confident claim here has come from
+  reading a cluster as a cause.
+- What DOES survive: the flake blocks deploys often enough to matter, because
+  `deploy-test.sh` runs WebKit on every invocation. That is a real operational
+  cost regardless of what triggers it.
+
+Still worth doing, and now for a better reason than sequencing: the mechanism is
+no longer in doubt (the artifact below settles it), so the fix is a question
+about the 50ms timer and the design question in §1, not about more counting. Do
+not spend another evening measuring the rate — it has been tried twice.
 
 Also cleared here, so it is not re-litigated: an A/B against the note-editor
 change in the same session (Copy moved to the footer, its notice became a
@@ -1012,6 +1020,25 @@ where someone writing a test will meet them.
   and is named in TESTING.md.
 
 ## 4 · Steady state, every iteration
+
+- **A device build eats GIGABYTES of derived data, and three of them filled the
+  disk (2026-08-13).** `xcodebuild -derivedDataPath build/ddNN` per build number
+  means `dd31`, `dd32`, `dd33` all sitting there at several GB each, plus
+  `ios/simbuild` for the simulator. The volume hit 0 bytes free, and the failure
+  mode is worse than a build error: EVERY shell command started failing, because
+  the harness could not write its own output file, so nothing could be run —
+  including the cleanup. Sean had to free the space by hand.
+
+  Two things to do. Delete the previous `ddNN` after an install lands, keeping
+  only the current one:
+
+      rm -rf apps/app/ios/build/dd<previous>
+
+  And do not trust a write that reported success while the disk was filling: a
+  `cat >> PARITY.md` echoed "appended" and the bytes did not survive, which was
+  only caught by grepping for the text afterwards. If a session has been near
+  full, re-read what you wrote.
+
 
 - `git pull --autostash` first; stage explicit paths; never `git add -A`.
 - Keep every suite in the counts above green, including the native four.

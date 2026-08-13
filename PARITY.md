@@ -1816,3 +1816,41 @@ and all three are now pinned by `panelhead.spec.ts`:
   button heights.
 
 All three were reverted together and all three specs went red, then restored.
+
+### …and the head row took two more rounds
+
+Written twice, because the first attempt at this section was lost: the machine
+filled its disk mid-session and the append reported success but did not survive.
+See the entry in TODO — a `cat >>` that echoes "appended" is not evidence the
+bytes landed when the volume is full.
+
+Of the three changes above, ONE stood unchanged and two went back and forth:
+
+- **The gap survived.** 10pt of panel padding, not 16. He objected to the
+  button, never to the spacing.
+- **Aligned tops is gone.** `alignItems` is back to `center` — "looks
+  terrible.. make the add button the same height and center aligned vertically
+  with the section". Worth recording as a decision rather than a silent revert:
+  `flex-start` was not a misreading of "top of date and add button should be
+  aligned", it was that ask implemented exactly, and it lost to how it looked.
+- **The height went 32 → 26 → 32 → 26**, and the middle step is the mistake
+  worth keeping. "Make the add button the same height" was read as "the same
+  height as every other Pill", so the compact variant was deleted and the button
+  went back to 32 — and the next message was "the add button should be less
+  tall, it looks bad still". Two things had changed together in round one (short
+  AND top-aligned); when that was rejected, reverting BOTH threw away the half
+  that was right. It was the alignment he disliked. Short and centred — the
+  combination nobody had tried — is where it landed, and "the same height" most
+  likely meant the same height as the section row it sits in.
+
+THE PROCESS LESSON, which cost three device builds: spacing asks were
+implemented from description and shipped, and the screenshot came afterwards.
+The measuring was all correct and measured the wrong thing. On anything Sean
+judges by eye, build it, LOOK at it on the simulator, and SHOW him before the
+deploy — a screenshot costs one message and a device build costs fifteen
+minutes plus a flaky watch install. The third round was done that way.
+
+`panelhead.spec.ts` has now asserted a claim and its opposite within the hour;
+each direction was mutation-checked when it landed. The height test is
+relational — shorter than a real Pill, measured via getByRole, because
+getByText finds the 17pt line of type inside the 32pt button.

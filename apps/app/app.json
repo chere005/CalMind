@@ -14,7 +14,7 @@
       "entitlements": {
         "com.apple.security.application-groups": ["group.com.seancheren.calmind"]
       },
-      "buildNumber": "32"
+      "buildNumber": "34"
     },
     "android": {
       "package": "com.seancheren.calmind",

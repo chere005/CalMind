@@ -1,27 +1,35 @@
 /**
  * The day panel's head row: the date and the "+ Add" beside it.
  *
- * Three things Sean asked for on 2026-08-13, walking the calendar:
+ * THIS FILE HAS ARGUED BOTH WAYS, and the history is the useful part.
  *
- *   · "top of date and add button should be aligned" — the row was
- *     `alignItems: center`, which centres an 18pt line of text against a taller
- *     button and leaves the date sitting low against it;
- *   · "there shouldn't be so much space between the legend and the top of the
- *     add button" — the panel's paddingTop was 16, on top of the legend's own
- *     rule;
- *   · the add button "shouldn't be quite so tall" — a Pill is 32.
+ * Sean, 2026-08-13, walking the calendar, asked for three things: "top of date
+ * and add button should be aligned", "there shouldn't be so much space between
+ * the legend and the top of the add button", and the button "shouldn't be quite
+ * so tall". All three shipped — aligned tops via `flex-start`, a 10pt panel
+ * padding, and a 26pt-drawn pill that kept its 32pt tap target.
  *
- * The third one is the interesting one to test, because the obvious way to do it
- * is also a silent regression: hitSlop is a NO-OP under react-native-web, so
- * taking 6pt off the drawn box takes 6pt off the real tap target in the one
- * engine Sean reads the app in. So the button is 26 DRAWN and still 32 to a
- * press, and this file measures both numbers rather than one.
+ * Then he saw it: "looks terrible.. make the add button the same height and
+ * center aligned vertically with the section". So two of the three are reverted
+ * and this file now pins the opposite of what it pinned an hour earlier.
  *
- * Everything here is measured off the rendered page. An offset from an
- * element's own edge would not do: CLAUDE.md's rule is that a check three
- * pixels in from an edge lands inside the element whatever size it is, so the
- * clickable extent is probed with elementFromPoint walking outward from the
- * drawn edge, and the alignment is an equality between two independent boxes.
+ * Both of those are still real claims worth holding, which is why the tests
+ * remain rather than being deleted with the change:
+ *
+ *   · centred is a CHOICE now, made against the alternative, not a default
+ *     nobody examined — a future `flex-start` here would be re-treading ground;
+ *   · "the same height" means the shared Pill's height, so a second pill height
+ *     appearing on this screen is a regression, and that is the drift Pill was
+ *     extracted to prevent.
+ *
+ * The gap under the legend SURVIVED the reversal — he objected to the button's
+ * height and its alignment, not to the tighter spacing — so that one stands as
+ * originally asked.
+ *
+ * Everything is measured off the rendered page, and the alignment checks are
+ * equalities between two independent boxes rather than offsets from one box's
+ * own edge: CLAUDE.md's rule is that an offset from an element's own edge lands
+ * inside it whatever its size, so it passes with the bug present and absent.
  */
 import { expect, test, type Page } from '@playwright/test';
 
@@ -48,28 +56,84 @@ async function anEvent(page: Page) {
   await expect(page.getByTestId('cal-legend')).toBeVisible({ timeout: 10_000 });
 }
 
-test('the date and the + Add share a top edge', async ({ page }) => {
+test('the + Add is centred against the date, not hung from its top', async ({ page }) => {
   test.setTimeout(120_000);
   await signup(page);
   await anEvent(page);
 
-  const tops = await page.evaluate(() => {
+  const m = await page.evaluate(() => {
     const title = document.querySelector('[data-testid="cal-day-title"]')!;
     const add = document.querySelector('[data-testid="cal-add"]')!;
-    // The TEXT's own line box, via a Range over the text node — not the
-    // element box, which can carry padding the glyphs never use.
+    // The TEXT's own line box, via a Range over the text node — not the element
+    // box, which can carry padding the glyphs never use. That distinction cost
+    // a round when this file was asserting aligned tops.
     const r = document.createRange();
     r.selectNodeContents(title.firstChild!);
+    const t = r.getBoundingClientRect();
+    const a = add.getBoundingClientRect();
     return {
-      text: +r.getBoundingClientRect().top.toFixed(1),
-      add: +add.getBoundingClientRect().top.toFixed(1),
+      textMid: +(t.top + t.height / 2).toFixed(1),
+      addMid: +(a.top + a.height / 2).toFixed(1),
+      textTop: +t.top.toFixed(1),
+      addTop: +a.top.toFixed(1),
     };
   });
-  // THE ONE THAT FAILED: `alignItems: center` put these 3pt apart, the date
-  // low. Exact equality rather than a tolerance, because flex-start makes them
-  // the same edge — there is nothing to round.
-  expect(tops.text, `the date's text starts level with the button (text ${tops.text}, button ${tops.add})`)
-    .toBe(tops.add);
+  // Centres, within a pixel of rounding.
+  expect(Math.abs(m.textMid - m.addMid), `text mid ${m.textMid} vs button mid ${m.addMid}`)
+    .toBeLessThanOrEqual(1);
+  // And NOT top-aligned, which is what this asserted before he saw it. Without
+  // this the test would pass under `flex-start` too — the centres of a short
+  // text and a tall button only coincide when something centres them, but a
+  // tolerance of 1 is loose enough to want the negative stated outright.
+  expect(m.textTop, 'the date does not start on the button’s top edge')
+    .toBeGreaterThan(m.addTop + 1);
+});
+
+test('the + Add is drawn shorter than a Pill, WITHOUT losing tap area', async ({ page }) => {
+  test.setTimeout(120_000);
+  await signup(page);
+  await anEvent(page);
+
+  // Measured against a REAL Pill rather than the number 32, so "shorter" is
+  // relative to the thing it is shorter than. The item sheet's Cancel is an
+  // ordinary Pill; open it, measure, close it.
+  //
+  // getByROLE, not getByText: a Pill renders its label in a Text INSIDE the
+  // pressable, so `getByText('Cancel')` measures the 17pt line of type rather
+  // than the 32pt button around it — which is how an earlier version of this
+  // test failed, comparing a button against a word.
+  const addH = (await page.getByTestId('cal-add').boundingBox())!.height;
+  await page.getByTestId('cal-add').click();
+  const cancel = page.getByRole('button', { name: 'Cancel' });
+  await expect(cancel).toBeVisible();
+  const pillH = (await cancel.boundingBox())!.height;
+  await cancel.click();
+
+  expect(addH, `+ Add ${addH} is shorter than an ordinary Pill ${pillH}`).toBeLessThan(pillH);
+  expect(addH, 'but still a button, not a sliver').toBeGreaterThanOrEqual(24);
+
+  // AND THE TARGET DID NOT SHRINK WITH THE PAINT. This is the half that would
+  // rot silently: hitSlop is a no-op under react-native-web, so 6pt off the box
+  // is 6pt off the real target in the engine Sean reads the app in. The reach is
+  // PROBED outward from the drawn edge — an offset from the element's own edge
+  // would land inside it whatever its size and could never fail.
+  const reach = await page.evaluate(() => {
+    const add = document.querySelector('[data-testid="cal-add"]') as HTMLElement;
+    const b = add.getBoundingClientRect();
+    const x = b.x + b.width / 2;
+    const walk = (dir: -1 | 1) => {
+      let n = 0;
+      for (let d = 1; d <= 14; d++) {
+        const el = document.elementFromPoint(x, dir < 0 ? b.top - d : b.bottom + d);
+        if (el && (el === add || add.contains(el))) n = d;
+        else break;
+      }
+      return n;
+    };
+    return { above: walk(-1), below: walk(1) };
+  });
+  expect(addH + reach.above + reach.below, `reach ${reach.above} above and ${reach.below} below a ${addH} box`)
+    .toBeGreaterThanOrEqual(pillH);
 });
 
 test('the + Add sits close under the legend', async ({ page }) => {
@@ -82,41 +146,10 @@ test('the + Add sits close under the legend', async ({ page }) => {
     const add = document.querySelector('[data-testid="cal-add"]')!;
     return +(add.getBoundingClientRect().top - legend.getBoundingClientRect().bottom).toFixed(1);
   });
-  // 11 = the legend's closing 1pt rule plus the panel's 10pt paddingTop, which
-  // is the gap Sean chose for the top bar's own divider. It was 17.
+  // 5 = the legend's closing 1pt rule, the panel's 10pt paddingTop, and the 3pt
+  // the taller button reclaims by being centred in a row it now defines. It was
+  // 17 before the padding came down. The bound is on the PADDING's contribution,
+  // so it holds whatever height the button is.
   expect(gap, 'the legend’s rule and the panel’s padding, and nothing else').toBeLessThanOrEqual(12);
-  // …and not zero: a button welded to the rule would be a different complaint.
-  expect(gap, 'still a gap, not a collision').toBeGreaterThanOrEqual(8);
-});
-
-test('the + Add is drawn shorter WITHOUT losing tap area', async ({ page }) => {
-  test.setTimeout(120_000);
-  await signup(page);
-  await anEvent(page);
-
-  const m = await page.evaluate(() => {
-    const add = document.querySelector('[data-testid="cal-add"]') as HTMLElement;
-    const b = add.getBoundingClientRect();
-    const x = b.x + b.width / 2;
-    // Walk outward from the drawn edge and ask the document what is there.
-    // This is what makes the check honest: it measures the button's REACH
-    // rather than a point known to be inside it.
-    const reach = (dir: -1 | 1) => {
-      let n = 0;
-      for (let d = 1; d <= 14; d++) {
-        const el = document.elementFromPoint(x, (dir < 0 ? b.top - d : b.bottom + d));
-        if (el && (el === add || add.contains(el))) n = d;
-        else break;
-      }
-      return n;
-    };
-    return { drawn: +b.height.toFixed(1), above: reach(-1), below: reach(1) };
-  });
-
-  expect(m.drawn, 'drawn shorter than a full-height Pill').toBeLessThan(32);
-  expect(m.drawn, 'but still a button, not a sliver').toBeGreaterThanOrEqual(24);
-  // The whole point: the target did not shrink with the paint. 32 is what a
-  // Pill has always been, and hitSlop alone would have bought nothing here.
-  expect(m.drawn + m.above + m.below, `reach ${m.above} above and ${m.below} below a ${m.drawn} box`)
-    .toBeGreaterThanOrEqual(32);
+  expect(gap, 'still a gap, not a collision').toBeGreaterThanOrEqual(3);
 });

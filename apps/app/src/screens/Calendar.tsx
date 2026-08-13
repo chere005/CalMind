@@ -749,18 +749,24 @@ const s = themed(() => StyleSheet.create({
    */
   panelInner: { paddingTop: 10, paddingHorizontal: 16, paddingBottom: 16, gap: 8, flexGrow: 1 },
   /**
-   * flex-start, so the date and the + Add button share a TOP edge.
+   * CENTRE, and it is centre because Sean looked at the alternative.
    *
-   * Sean, 2026-08-13: "top of date and add button should be aligned". It was
-   * `center`, which centres an 18pt line of text against a taller button and
-   * left the date sitting a few points low — the kind of misalignment you see
-   * without being able to name. The title's paddingTop is what makes the two
-   * agree OPTICALLY rather than by box edge: a Text's box starts above its
-   * cap-height by the line box's leading, while the pill's box starts at its
-   * border, so aligning the boxes alone still reads as the date sitting high.
-   * Measured, not guessed — see the spec.
+   * He asked for aligned TOPS on 2026-08-13 — "top of date and add button
+   * should be aligned" — and that shipped as `flex-start`, which does exactly
+   * what it says: the date's line box starts on the same pixel as the button's
+   * box. Seeing it built: "looks terrible.. make the add button the same height
+   * and center aligned vertically with the section".
+   *
+   * Written down rather than quietly reverted, because the aligned-tops version
+   * was not a misreading of the ask — it was the ask, and it lost to how it
+   * looked. A future reader tempted by flex-start here should know it has been
+   * tried and rejected on sight, not merely never considered.
+   *
+   * The button's HEIGHT is a separate axis and went back and forth once more
+   * after this; see Pill's `compact` for that story. Short and centred is where
+   * it landed.
    */
-  panelHead: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
+  panelHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   panelTitle: { color: T.gold, fontSize: 15, fontWeight: '700' },
   row: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 4 },
   rowNoSelect: { userSelect: 'none' } as import('react-native').ViewStyle,

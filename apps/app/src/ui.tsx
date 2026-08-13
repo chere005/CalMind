@@ -164,22 +164,29 @@ export function Pill({
   /**
    * A shorter pill — 26 drawn instead of 32, WITHOUT a smaller tap target.
    *
-   * Sean, 2026-08-13, of the calendar's "+ Add": it "shouldn't be quite so
-   * tall". A prop rather than a bespoke Pressable on that screen, because the
-   * whole reason Pill exists is that four screens had each invented their own
-   * button and the row came to look ragged; and a prop rather than editing
-   * `pill` itself, because this pill is in 45 places and the other 44 were not
-   * complained about.
+   * The calendar's "+ Add", and it took three rounds to land, which is why the
+   * whole path is written down rather than just the answer. Sean, 2026-08-13:
    *
-   * The slop is the point. Losing 6pt of height would have cost 6pt of real
-   * TARGET on the web, where hitSlop is a no-op — the trap CLAUDE.md keeps and
-   * the reason WebHitSlop exists. So the drawn box shrinks and the touchable
-   * area does not: 26 drawn plus 5 above and below measures back past the 32
-   * it always was. Probed with elementFromPoint rather than assumed, and the
-   * probing is why it is 5 and not 3: the box lands on a half pixel, so slop 3
-   * measured 30 and slop 4 measured 31 (3 above, 2 below). Rounding eats about
-   * a pixel a side, and a target must not be a pixel short because the
-   * arithmetic was done on paper.
+   *   1. "add button shouldn't be quite so tall"  → 26, and top-aligned with
+   *      the date, because he had also asked for aligned tops;
+   *   2. "looks terrible.. make the add button the same height and center
+   *      aligned vertically with the section" → read as "the same height as
+   *      every other Pill", so back to 32, centred. Both were changed at once,
+   *      which is the mistake: it threw away the height with the alignment;
+   *   3. "the add button should be less tall, it looks bad still" → 26 again,
+   *      centred. It was the TOP ALIGNMENT he disliked in (1), not the height.
+   *
+   * The lesson for the next reader is about the second step: when two things
+   * change together and the result is rejected, reverting both discards the
+   * half that was right. "The same height" most likely meant the same height as
+   * the section row it sits in — which is this, not 32.
+   *
+   * THE SLOP IS THE POINT, and it is measured rather than reasoned. Losing 6pt
+   * of drawn height would cost 6pt of real TARGET on the web, where hitSlop is
+   * a no-op — the trap CLAUDE.md keeps and the reason WebHitSlop exists. Probed
+   * with elementFromPoint walking out from the drawn edge: at slop 3 the target
+   * came back 30 and at slop 4 it came back 31, because the box lands on a half
+   * pixel. At 5 it measures back past the 32 a Pill has always been.
    */
   compact?: boolean;
   testID?: string;
