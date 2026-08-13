@@ -67,30 +67,54 @@ function weekDates(offset: number, count: number): string[] {
   return out;
 }
 
-/** One day's pie: contiguous arcs — each section's ticked share in its colour,
- *  packed from 12 o'clock, the rest an outline. Solid when everything's done. */
-function DayPie({ shares, future, size = 30 }: { shares: { color: string; frac: number }[]; future: boolean; size?: number }) {
+/**
+ * One day's pie: contiguous arcs packed from 12 o'clock, an outline behind.
+ *
+ * Each section contributes TWO adjacent arcs in its own colour — what it got
+ * done, solid, and what the day still owed it, very transparent (Sean,
+ * 2026-08-12: "very transparent fill for items required-but-unchecked that
+ * day"). So a section is one wedge the size of everything it asked for, and how
+ * much of that wedge is solid is how much of it happened.
+ *
+ * The pair sums to the whole circle on any day that counted anything, which is
+ * the point: an empty ring used to mean either "nothing done" or "nothing
+ * asked", and those are opposite readings of the same picture. A ring that is
+ * all ghost owes you the day; a ring that is bare asked nothing.
+ *
+ * A FUTURE day draws neither — nothing is owed by a day that has not arrived,
+ * and a month of ghost circles ahead of today would read as a month of failure.
+ */
+const OWED_OPACITY = 0.15;
+
+function DayPie({ shares, future, size = 30 }: { shares: { color: string; frac: number; open: number }[]; future: boolean; size?: number }) {
   const r = size / 2 - 1.5;
   const c = size / 2;
   let a0 = -Math.PI / 2;
-  const arcs: { d: string; color: string }[] = [];
+  const arcs: { d: string; color: string; owed: boolean }[] = [];
+  // Done then owed, per section, so a section's own two arcs are adjacent and
+  // the sections stay in the order the key lists them.
   for (const sh of shares) {
-    if (sh.frac <= 0) continue;
-    const a1 = a0 + sh.frac * 2 * Math.PI;
-    const large = a1 - a0 > Math.PI ? 1 : 0;
-    const full = sh.frac >= 0.9999;
-    arcs.push({
-      color: sh.color,
-      d: full
-        ? `M ${c} ${c - r} A ${r} ${r} 0 1 1 ${c - 0.01} ${c - r} Z`
-        : `M ${c} ${c} L ${c + r * Math.cos(a0)} ${c + r * Math.sin(a0)} A ${r} ${r} 0 ${large} 1 ${c + r * Math.cos(a1)} ${c + r * Math.sin(a1)} Z`,
-    });
-    a0 = a1;
+    for (const [frac, owed] of [[sh.frac, false], [sh.open, true]] as const) {
+      if (frac <= 0) continue;
+      const a1 = a0 + frac * 2 * Math.PI;
+      const large = a1 - a0 > Math.PI ? 1 : 0;
+      const full = frac >= 0.9999;
+      arcs.push({
+        color: sh.color,
+        owed,
+        d: full
+          ? `M ${c} ${c - r} A ${r} ${r} 0 1 1 ${c - 0.01} ${c - r} Z`
+          : `M ${c} ${c} L ${c + r * Math.cos(a0)} ${c + r * Math.sin(a0)} A ${r} ${r} 0 ${large} 1 ${c + r * Math.cos(a1)} ${c + r * Math.sin(a1)} Z`,
+      });
+      a0 = a1;
+    }
   }
   return (
     <Svg width={size} height={size}>
       <Circle cx={c} cy={c} r={r} fill="none" stroke={future ? T.lineSoft : T.line} strokeWidth={1.5} />
-      {!future && arcs.map((a, i) => <Path key={i} d={a.d} fill={a.color} />)}
+      {!future && arcs.map((a, i) => (
+        <Path key={i} d={a.d} fill={a.color} fillOpacity={a.owed ? OWED_OPACITY : 1} />
+      ))}
     </Svg>
   );
 }
@@ -513,15 +537,26 @@ export function Habits() {
                             instead, which its own comment already argued for:
                             an absolutely positioned cluster over an opaque
                             background, so nothing reflows and the text it
-                            covers is simply not shown. */}
+                            covers is simply not shown.
+
+                            OPAQUE MEANS OPAQUE — Sean, 2026-08-12, asked for
+                            these "more opaque". The background was the name
+                            box's own `tint(color, '14')`, and that is 8% alpha:
+                            the habit's name read straight through the icons
+                            sitting on top of it, so the one thing the pattern
+                            promised was the one thing it was not doing. It is
+                            T.bg with the same wash laid over it now, which is
+                            exactly what the name box is made of — same colour
+                            to the eye, and nothing behind it shows. */}
                         {edit && (
                           <View
                             testID="habit-grip"
                             {...drag.handleFor(flatIdxOf(h.id))}
-                            style={[s.gripFloat, { backgroundColor: tint(sec.payload.color, '14') }]}
+                            style={s.gripFloat}
                             hitSlop={6}
                           >
                             <WebHitSlop slop={6} />
+                            <View style={[s.washLeft, { backgroundColor: tint(sec.payload.color, '14') }]} />
                             <Text style={s.rowGripText}>≡</Text>
                           </View>
                         )}
@@ -561,7 +596,8 @@ export function Habits() {
                           <Text testID="habit-name" style={[s.habitName, { color: tint(sec.payload.color, 'ee') }]} numberOfLines={1}>{h.payload.name}</Text>
                         </Pressable>
                         {edit && (
-                          <View style={[s.ctrlFloat, { backgroundColor: tint(sec.payload.color, '14') }]}>
+                          <View style={s.ctrlFloat}>
+                            <View style={[s.washRight, { backgroundColor: tint(sec.payload.color, '14') }]} />
                             <CircleBtn
                               testID="habit-edit"
                               glyph="✎"
@@ -719,44 +755,52 @@ const s = themed(() => StyleSheet.create({
   secPillText: { color: T.text, fontSize: 16, fontWeight: '700' },
   secRule: { flex: 1, height: 1, backgroundColor: T.lineSoft },
   habitRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 4 },
-  // Out of edit mode the grip leaves the flow entirely rather than hiding, so
-  // the name box hugs its label instead of sitting pushed off by an invisible
-  // handle — the suite's rule, and the reason it uses display over visibility.
-  rowGrip: { width: 16, alignItems: 'center', justifyContent: 'center' },
-  gripGone: { display: 'none' },
-  /**
-   * A control's slot, held open while the control is not there.
-   *
-   * Entering edit mode used to widen nameCol's contents — a grip, a pencil
-   * and a delete appearing where nothing had been — and nameBox CENTRES its
-   * text, so every habit name slid sideways as you entered. Measured before
-   * the fix: the name at x=68 out of edit mode and x=48 in it.
-   *
-   * A spacer rather than the hidden control itself, deliberately: an
-   * opacity-0 button is still an element a screen reader reads out and still
-   * something `toBeHidden()` calls visible, so the controls stay genuinely
-   * absent and only their space is kept.
-   */
   /**
    * The floating edit controls.
    *
    * They sit ON TOP of the habit's own name box rather than beside it, so the
    * name keeps its full width whether or not edit mode is open and nothing in
-   * the row moves as it opens. The background is the name box's own tint, so
-   * the cluster reads as part of the box rather than as a hole punched in it.
+   * the row moves as it opens.
    *
    * The first fix reserved slots for these instead. It held the row still —
    * which was the ask — but shrank every habit name permanently to do it, and
    * Sean said so: "the sizes shouldn't have shrunk".
+   *
+   * THE BACKGROUND IS TWO LAYERS, and that is the whole point of it: T.bg,
+   * which is opaque and is what the page is made of, with the name box's own
+   * `tint(color, '14')` laid over the top. The second layer is what makes the
+   * cluster read as part of the box rather than as a hole punched in it; the
+   * first is what actually hides the name underneath. It was the wash ALONE
+   * before — 8% alpha, so the text showed straight through the icons and Sean
+   * asked for them "more opaque" (2026-08-12). One layer could not do both
+   * jobs, so there are two, and the pair composites to exactly the colour the
+   * name box already is.
+   *
+   * The wash is a filled child rather than a second backgroundColor because a
+   * View has only one; it is not clipped with `overflow: 'hidden'` because
+   * that would also clip the WebHitSlop expanders inside, which are the only
+   * thing giving these controls a real tap target on the web at all.
    */
   gripFloat: {
     position: 'absolute', left: 0, top: 0, bottom: 0, zIndex: 2,
     width: 26, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: T.bg,
     borderTopLeftRadius: 10, borderBottomLeftRadius: 10,
   },
   ctrlFloat: {
     position: 'absolute', right: 8, top: 0, bottom: 0, zIndex: 2,
     flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 6,
+    backgroundColor: T.bg,
+    borderTopRightRadius: 10, borderBottomRightRadius: 10,
+  },
+  // Each wash carries the radii of the corner it fills, since it covers its
+  // parent's own rounded background rather than being clipped by it.
+  washLeft: {
+    position: 'absolute', left: 0, right: 0, top: 0, bottom: 0,
+    borderTopLeftRadius: 10, borderBottomLeftRadius: 10,
+  },
+  washRight: {
+    position: 'absolute', left: 0, right: 0, top: 0, bottom: 0,
     borderTopRightRadius: 10, borderBottomRightRadius: 10,
   },
   rowGripText: { color: T.muted, fontSize: 14 },

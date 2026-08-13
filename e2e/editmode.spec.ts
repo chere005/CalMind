@@ -78,11 +78,11 @@ async function makeHabit(page: Page) {
   await page.waitForTimeout(500);
 }
 
-async function makeDayRow(page: Page) {
+async function makeDayRow(page: Page, text = 'vet visit') {
   await page.getByTestId('tab-calendar').click();
   await page.getByText('+ Add', { exact: true }).click();
   await page.getByTestId('kind-reminder').click();
-  await page.getByPlaceholder(/What\?/).fill('vet visit');
+  await page.getByPlaceholder(/What\?/).fill(text);
   await page.getByText('Save', { exact: true }).click();
   await expect(page.getByTestId('day-tick').first()).toBeVisible({ timeout: 10_000 });
 }
@@ -165,4 +165,45 @@ test('entering edit mode does not move anything', async ({ page }) => {
   // over the box now, so its width is the same in edit mode and out of it.
   expect(Math.round(boxAfter.width), 'the name box keeps its width in edit mode')
     .toBe(Math.round(boxBefore.width));
+});
+
+test("entering the calendar day panel's edit mode does not move anything", async ({ page }) => {
+  test.setTimeout(180_000);
+  await signup(page);
+
+  // TWO rows, because this screen had TWO shifts and one row can only show
+  // one of them. Sean, 2026-08-12: "things jump on the calendar entering edit
+  // mode (same class as the habits fix)".
+  //
+  //   SIDEWAYS — three 24pt controls and two 10pt gaps entered the row as
+  //   ordinary flex children, and the body is `flex: 1`, so it surrendered 92pt
+  //   and every chip to its right slid left by that much.
+  //   DOWNWARD — the tallest thing in a row was the 22pt tick, so a 24pt
+  //   control made each row 2pt taller and every row below it moved down.
+  //
+  // The body's WIDTH catches the first and the second row's TICK catches the
+  // second. Measuring only the first row's tick would prove nothing: it is the
+  // first child of the first row, so it holds still under both bugs.
+  await makeDayRow(page, 'vet visit');
+  await makeDayRow(page, 'water the plants');
+  const bodies = page.getByTestId('dp-rem-body');
+  const ticks = page.getByTestId('day-tick');
+  await expect(bodies).toHaveCount(2);
+
+  const bodyBefore = (await bodies.first().boundingBox())!;
+  const tickBefore = (await ticks.nth(1).boundingBox())!;
+
+  // A double-click is this panel's way in — see caldbltap.spec.ts. It arms edit
+  // mode and opens nothing, so there is no sheet over what is being measured.
+  await page.getByText('vet visit').first().dblclick();
+  await expect(page.getByRole('button', { name: 'Duplicate' }).first(), 'the panel is in edit mode')
+    .toBeVisible({ timeout: 5_000 });
+
+  const bodyAfter = (await bodies.first().boundingBox())!;
+  const tickAfter = (await ticks.nth(1).boundingBox())!;
+
+  expect(Math.round(bodyAfter.width), 'the row body keeps its width — nothing squeezed it')
+    .toBe(Math.round(bodyBefore.width));
+  expect(Math.round(tickAfter.y), 'and the row below does not move down')
+    .toBe(Math.round(tickBefore.y));
 });

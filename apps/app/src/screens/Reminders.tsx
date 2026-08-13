@@ -1,15 +1,29 @@
 /**
  * The Reminders list. Folder blocks, gold section titles with collapse
  * chevrons, the section-header "+", tick circles that roll a repeat instead of
- * finishing it, inline edit that re-parses dates out of the text, subtasks
- * (one level — a + on a task, a ‹ on a subtask), a repeat mini-editor, and the
+ * finishing it, subtasks (one level — a + on a task, a ‹ on a subtask), and the
  * two-press ×. All behavior comes from @calmind/core; this file is layout and
  * gestures.
+ *
+ * NOTHING IS EDITED IN PLACE HERE. Sean, 2026-08-12: "no inline name editing
+ * from the main screen; no frequency tabs in edit mode". Both were the same
+ * piece of state — a row held open as a focused field, with the repeat pills
+ * unfolded beneath it — and the whole apparatus is gone. A name and a repeat
+ * are changed in the item window, which the pencil and a tap in edit mode both
+ * open, so this screen and the Calendar's day panel now agree about what
+ * editing a reminder means.
+ *
+ * That took a fair amount of machinery with it, and this is the list, because
+ * the absence is the point rather than an oversight: the blur-time save, the
+ * held-open cluster that let a button outlive the field's blur
+ * (clusterhold.spec.ts, retired with it), the re-parse of dates out of retyped
+ * text, and the reason this screen's tap-out listener had to run on the bubble
+ * phase rather than capture.
  */
 import React, { useEffect, useMemo, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { REPEAT_UNITS, byRecOrd, ordGap, deleteSection, duplicateItem, moveReminderBlock, moveSection, moveSectionEmptyingFolder, newId, nowStr, ordBetween, parseWhenFromText, reminderToggle, remindersMarkdown, renameSection, repeatLabel, sectionNameTaken, sortByDate, timeLabel, todayStr, type Rec, type Repeat } from '@calmind/core';
+import { byRecOrd, ordGap, deleteSection, duplicateItem, moveReminderBlock, moveSection, moveSectionEmptyingFolder, newId, nowStr, ordBetween, parseWhenFromText, reminderToggle, remindersMarkdown, renameSection, repeatLabel, sectionNameTaken, sortByDate, timeLabel, todayStr, type Rec } from '@calmind/core';
 import { useStore } from '../store';
 import { useClock24 } from '../useClock24';
 import { themed, T } from '../theme';
@@ -49,9 +63,6 @@ export function Reminders() {
   };
   const [adding, setAdding] = useState<string | null>(null); // sectionId with the open add row
   const [addText, setAddText] = useState('');
-  const [editing, setEditing] = useState<string | null>(null); // reminder id in inline edit
-  const [editText, setEditText] = useState('');
-  const holdCluster = React.useRef(false);
   const swipe = useSwipeLeft();
   const grace = useTickGrace();
   // The All view draws a partner's rows too, and they tick through their own
@@ -59,7 +70,7 @@ export function Reminders() {
   const shTick = useSharedTick();
   const clock24 = useClock24();
   const [pageEdit, setPageEdit] = useState(false);
-  const exitEdit = () => { setPageEdit(false); setEditing(null); };
+  const exitEdit = () => setPageEdit(false);
   useEffect(() => {
     if (!pageEdit || typeof document === 'undefined') return;
     const onKey = (ev: KeyboardEvent) => { if (ev.key === 'Escape') exitEdit(); };
@@ -121,10 +132,13 @@ export function Reminders() {
     //
     // Capture was tried here and reverted the same hour: it makes MORE clicks
     // reach this listener — every one react-native-web was stopping at a
-    // Pressable — and on this screen that closes the inline editor mid-edit.
-    // Two repeat-editor specs went red immediately. Habits has no inline
-    // editing and a grid of Pressables that swallowed the taps meant to
-    // leave, which is why the same change is right there and wrong here.
+    // Pressable — and on this screen that closed the inline editor mid-edit,
+    // taking two repeat-editor specs red with it. THAT REASON IS NOW GONE:
+    // there is no inline editor to close (2026-08-12). Left on bubble anyway,
+    // because it works and the argument for changing it was only ever "habits
+    // does it the other way" — which is not a reason to touch a listener whose
+    // failure mode is edit mode shutting on the gesture that opened it. If
+    // capture is ever wanted here, the allow-list is what needs the attention.
     document.addEventListener('click', onClick);
     return () => {
       document.removeEventListener('keydown', onKey, true);
@@ -132,7 +146,8 @@ export function Reminders() {
       document.removeEventListener('pointerdown', onDown, true);
     };
   }, [pageEdit]);
-  const enterEdit = (r: ReminderRec) => { setPageEdit(true); setEditing(r.id); setEditText(r.payload.text); };
+  /** The long-press and the double-tap both do only this now: arm the page. */
+  const enterEdit = () => setPageEdit(true);
   const [addingSection, setAddingSection] = useState<string | null>(null); // folderId
   const [newName, setNewName] = useState('');
   const [renamingSec, setRenamingSec] = useState<string | null>(null);
@@ -160,6 +175,29 @@ export function Reminders() {
   };
   const lastTap = React.useRef<{ id: string; at: number }>({ id: '', at: 0 });
   const [modalRec, setModalRec] = useState<ReminderRec | null>(null); // the full-edit window
+  /**
+   * A subtask the + has just made and nobody has named yet.
+   *
+   * The inline field used to drop a blank row on blur — `if (editText.trim()
+   * === '' && r.payload.text === '') mutate((e) => e.del(r.id))` — and that
+   * cleanup has to survive the field's removal, or the + leaves an empty row
+   * behind every time its window is cancelled. The window itself REFUSES to
+   * save a blank ("it needs a name"), so a row that is still blank when the
+   * window closes was abandoned, and abandoning it means dropping it.
+   */
+  const pendingSub = React.useRef<string | null>(null);
+  const closeModal = () => {
+    const id = pendingSub.current;
+    pendingSub.current = null;
+    setModalRec(null);
+    if (id === null) return;
+    // e.all(), not recs: the save that may just have named this row has landed
+    // in the engine and not yet in this render.
+    mutate((e) => {
+      const row = e.all().find((x) => x.id === id);
+      if (row?.type === 'reminder' && row.payload.text.trim() === '') e.del(id);
+    });
+  };
 
   // Collapse state survives visits, per the suite's localStorage habit.
   useEffect(() => {
@@ -289,54 +327,39 @@ export function Reminders() {
   };
 
   /**
-   * Saves, and RETURNS what it wrote.
+   * A blank subtask directly under its parent — the + on a task.
    *
-   * The return is the fix for a real bug, not a convenience. mutate() applies
-   * to the engine synchronously but `recs` and `r` are this render's props —
-   * stale until React re-renders. Every cluster button saves first and then
-   * acted on that stale copy, so duplicating a row you had just retyped made
-   * a copy of the text you had REPLACED (proven in clusterhold.spec.ts), and
-   * outdenting one wrote the pre-edit payload straight back over the save.
+   * It used to make the row and open it for TYPING, which is the one thing on
+   * this screen the inline field was genuinely needed for: a row with no text
+   * and no way to give it any is not a subtask, it is litter. So the item window
+   * opens on it instead, which is where a name is typed now.
+   *
+   * The record is built here rather than read back out of `recs` afterwards,
+   * because mutate() lands in the engine synchronously while `recs` is this
+   * render's array — stale until React comes round again. Handing the modal a
+   * record it can already see is the same trick saveEdit's return value was.
    */
-  const saveEdit = (r: ReminderRec): ReminderRec => {
-    const raw = editText.trim();
-    if (!raw || raw === r.payload.text) return r;
-    // Editing re-reads the text the same way adding does, so retyping a date moves it.
-    const [text, due, time] = parseWhenFromText(raw, todayStr(), nowStr());
-    const next: ReminderRec = {
-      ...r,
-      payload: { ...r.payload, text: text || raw, due: due ?? r.payload.due, time: time ?? r.payload.time },
-    };
-    mutate((e) => e.put(next));
-    return next;
-  };
-
-  /** A blank subtask directly under its parent, opened for typing — the + on a task. */
   const addSubtask = (parent: ReminderRec) => {
     const siblings = recs
       .filter((x): x is ReminderRec => x.type === 'reminder' && x.payload.sectionId === parent.payload.sectionId)
       .sort(byRecOrd);
     const at = siblings.findIndex((x) => x.id === parent.id);
-    const id = newId();
-    mutate((e) =>
-      e.put({
-        id, type: 'reminder', updated: 0,
-        payload: {
-          text: '', due: null, time: null, done: false, repeat: null,
-          folderId: parent.payload.folderId, sectionId: parent.payload.sectionId,
-          // ordGap: parent and the row after it can share a key — see order.ts.
-          indent: 1, ord: ordBetween(...ordGap(siblings.map((x) => x.payload.ord), at + 1)),
-        },
-      }),
-    );
-    setEditing(id);
-    setEditText('');
+    const sub: ReminderRec = {
+      id: newId(), type: 'reminder', updated: 0,
+      payload: {
+        text: '', due: null, time: null, done: false, repeat: null,
+        folderId: parent.payload.folderId, sectionId: parent.payload.sectionId,
+        // ordGap: parent and the row after it can share a key — see order.ts.
+        indent: 1, ord: ordBetween(...ordGap(siblings.map((x) => x.payload.ord), at + 1)),
+      },
+    };
+    mutate((e) => e.put(sub));
+    pendingSub.current = sub.id;
+    setModalRec(sub);
   };
 
   /** The ‹ on a subtask: lift it back out to a task of its own. */
   const outdent = (r: ReminderRec) => mutate((e) => e.put({ ...r, payload: { ...r.payload, indent: 0 } }));
-
-  const setRepeat = (r: ReminderRec, rep: Repeat | null) => mutate((e) => e.put({ ...r, payload: { ...r.payload, repeat: rep } }));
 
   const addSection = (folder: FolderRec) => {
     const name = newName.trim();
@@ -416,24 +439,12 @@ export function Reminders() {
     return <Text style={[s.chip, overdue && s.chipOverdue, rolledId === r.id && s.chipRolled]}>{bits.join(' · ')}</Text>;
   };
 
-  const repeatEditor = (r: ReminderRec) => {
-    const rep = r.payload.repeat;
-    return (
-      <View style={s.repRow}>
-        <Pill label="Once" primary={!rep} onPress={() => setRepeat(r, null)} />
-        {REPEAT_UNITS.map((u) => (
-          <Pill key={u} label={u} primary={rep?.unit === u} onPress={() => setRepeat(r, { n: rep?.unit === u ? rep.n : 1, unit: u })} />
-        ))}
-        {rep && (
-          <View style={s.repCount}>
-            <CircleBtn glyph="−" label="Fewer" size={22} onPress={() => setRepeat(r, { ...rep, n: Math.max(1, rep.n - 1) })} />
-            <Text style={s.repN}>{rep.n}</Text>
-            <CircleBtn glyph="+" label="Add" size={22} onPress={() => setRepeat(r, { ...rep, n: Math.min(999, rep.n + 1) })} />
-          </View>
-        )}
-      </View>
-    );
-  };
+  // NO repeatEditor. The frequency pills — Once / day / week / month / year and
+  // the ± count — used to unfold under whichever row was being edited, and Sean
+  // asked for them out of edit mode (2026-08-12). A repeat is set in the item
+  // window, which is the only place it can sit beside the date it interacts
+  // with. This was also the third copy of core's REPEAT_UNITS on screen; two
+  // remain, and testids.spec.ts is what stops a fourth.
 
   if (sharedView && sharedPartner) {
     return <SharedReminders viewKey={sharedView} partner={sharedPartner} />;
@@ -589,7 +600,7 @@ export function Reminders() {
                             s.row,
                             rolledId === r.id && s.rowRolled,
                             ri === rows.length - 1 && s.rowLast,
-                            editing !== r.id && s.rowNoSelect,
+                            s.rowNoSelect,
                             r.payload.indent > 0 && s.rowIndented,
                             drag.dragIdx !== null && flatIdxOf(r.id) === drag.dragIdx && { opacity: 0.55, transform: [{ translateY: drag.dragDy }] },
                           ]}
@@ -608,44 +619,29 @@ export function Reminders() {
                             <WebHitSlop />
                             {r.payload.done && <Text style={s.tickMark}>✓</Text>}
                           </Pressable>
-                          {editing === r.id ? (
-                            <Field
-                              testID="rem-edit"
-                              value={editText}
-                              onChangeText={setEditText}
-                              autoFocus
-                              style={s.editField}
-                              onBlur={() => {
-                                saveEdit(r);
-                                // A pointer already down on a cluster button: keep the
-                                // cluster mounted so its press can land (blur fires between
-                                // pointerdown and click, and unmounting kills the tap).
-                                if (holdCluster.current) { holdCluster.current = false; return; }
-                                if (editText.trim() === '' && r.payload.text === '') mutate((e) => e.del(r.id));
-                                setEditing(null);
-                              }}
-                              onSubmitEditing={() => { saveEdit(r); setEditing(null); }}
-                            />
-                          ) : (
-                            <Pressable
-                              testID="rem-body"
-                              style={s.rowBody}
-                              onPress={() => {
-                                if (swipe.justSwiped()) return;
-                                if (swipe.swiped) { swipe.clear(); return; }
-                                if (pageEdit) { setEditing(r.id); setEditText(r.payload.text); return; }
-                                // Double-click on desktop, as prod: two taps inside 300ms.
-                                const now = Date.now();
-                                if (lastTap.current.id === r.id && now - lastTap.current.at < 300) enterEdit(r);
-                                lastTap.current = { id: r.id, at: now };
-                              }}
-                              onLongPress={() => enterEdit(r)}
-                              delayLongPress={350}
-                            >
-                              <Text style={[s.rowText, r.payload.done && s.rowTextDone]}>{r.payload.text || '…'}</Text>
-                            </Pressable>
-                          )}
-                          {editing !== r.id && dueChip(r)}
+                          {/* One body, always. It used to swap itself for a
+                              focused Field in edit mode; a tap in edit mode
+                              opens the item window now, which is what the
+                              pencil beside it does and what a tap on a habit
+                              does. The row is never a text input. */}
+                          <Pressable
+                            testID="rem-body"
+                            style={s.rowBody}
+                            onPress={() => {
+                              if (swipe.justSwiped()) return;
+                              if (swipe.swiped) { swipe.clear(); return; }
+                              if (pageEdit) { setModalRec(r); return; }
+                              // Double-click on desktop, as prod: two taps inside 300ms.
+                              const now = Date.now();
+                              if (lastTap.current.id === r.id && now - lastTap.current.at < 300) enterEdit();
+                              lastTap.current = { id: r.id, at: now };
+                            }}
+                            onLongPress={enterEdit}
+                            delayLongPress={350}
+                          >
+                            <Text style={[s.rowText, r.payload.done && s.rowTextDone]}>{r.payload.text || '…'}</Text>
+                          </Pressable>
+                          {dueChip(r)}
                           {/* The edit cluster FLOATS over the row's right edge
                               rather than taking layout space in it.
 
@@ -658,15 +654,17 @@ export function Reminders() {
                               positioned cluster with an opaque background does:
                               nothing reflows, and the text it covers is simply
                               not shown. */}
+                          {/* No onPressIn on any of these any more. Each one
+                              carried `holdCluster.current = true` so its press
+                              could outlive the field's blur, and each saved the
+                              in-flight text before acting on it — machinery that
+                              existed entirely for the inline editor and went
+                              with it. `r` is just the row now. */}
                           {pageEdit && (
                             <View style={s.editCluster}>
-                              <CircleBtn testID="rem-pencil" glyph="✎" label="Edit" size={24} onPressIn={() => { holdCluster.current = true; }} onPress={() => { const saved = editing === r.id ? saveEdit(r) : r; setEditing(null); setModalRec(saved); }} />
+                              <CircleBtn testID="rem-pencil" glyph="✎" label="Edit" size={24} onPress={() => setModalRec(r)} />
                               {r.payload.indent === 0 && (
-                                <CircleBtn testID="rem-dup" glyph="⧉" label="Duplicate" size={24} onPressIn={() => { holdCluster.current = true; }} onPress={() => {
-                                  if (editing === r.id) saveEdit(r);
-                                  setEditing(null);
-                                  // e.all(), not recs: the save above has already
-                                  // landed in the engine and not yet in this render.
+                                <CircleBtn testID="rem-dup" glyph="⧉" label="Duplicate" size={24} onPress={() => {
                                   mutate((e) => {
                                     const res = duplicateItem(e.all(), r.id, newId);
                                     if (!('error' in res)) res.put.forEach((p) => e.put(p));
@@ -674,11 +672,11 @@ export function Reminders() {
                                 }} />
                               )}
                               {r.payload.indent === 0 ? (
-                                <CircleBtn glyph="+" label="Add" size={24} onPressIn={() => { holdCluster.current = true; }} onPress={() => { if (editing === r.id) saveEdit(r); addSubtask(r); }} />
+                                <CircleBtn glyph="+" label="Add" size={24} onPress={() => addSubtask(r)} />
                               ) : (
-                                <CircleBtn glyph="‹" label="Previous" size={24} onPressIn={() => { holdCluster.current = true; }} onPress={() => { const saved = editing === r.id ? saveEdit(r) : r; setEditing(null); outdent(saved); }} />
+                                <CircleBtn glyph="‹" label="Previous" size={24} onPress={() => outdent(r)} />
                               )}
-                              <ConfirmDelete onPressIn={() => { holdCluster.current = true; }} onDelete={() => { setEditing(null); mutate((e) => e.del(r.id)); }} />
+                              <ConfirmDelete onDelete={() => mutate((e) => e.del(r.id))} />
                             </View>
                           )}
                           {swipe.swiped === r.id && !pageEdit && (
@@ -689,7 +687,6 @@ export function Reminders() {
                             />
                           )}
                         </View>
-                        {editing === r.id && repeatEditor(r)}
                       </View>
                     ))}
                 </View>
@@ -763,7 +760,7 @@ export function Reminders() {
         </EditExit>
       </Scroll>
 
-      {modalRec && <ItemModal mode="edit" kind="reminder" rec={modalRec} onClose={() => setModalRec(null)} />}
+      {modalRec && <ItemModal mode="edit" kind="reminder" rec={modalRec} onClose={closeModal} />}
       {emptyAsk && (
         <Modal transparent animationType="fade" onRequestClose={() => setEmptyAsk(null)}>
           <Pressable style={s.askBackdrop} onPress={() => setEmptyAsk(null)}>
@@ -966,11 +963,6 @@ const s = themed(() => StyleSheet.create({
   rowBody: { flex: 1, alignSelf: 'stretch', paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   rowText: { color: T.text, fontSize: 16, flexShrink: 1 },
   rowTextDone: { color: T.muted, textDecorationLine: 'line-through' },
-  // Sized to the ROW it replaces, so opening the inline editor does not make
-  // the row taller and push everything below it down. The Field's own
-  // paddingVertical is 10 against a 16pt line — 36 total, which is exactly
-  // the row's minHeight. Measured: 36 -> 50 before this, 36 -> 36 after.
-  editField: { flex: 1, height: 20, paddingVertical: 0, paddingHorizontal: 6, borderRadius: 6 },
   tick: {
     width: 24,
     height: 24,
@@ -986,8 +978,6 @@ const s = themed(() => StyleSheet.create({
   chipOverdue: { color: T.overdue, fontWeight: '600' },
   rowRolled: { backgroundColor: T.accentSoft, borderRadius: 8 },
   chipRolled: { color: T.accent, fontWeight: '700' },
-  repRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingLeft: 34, paddingBottom: 6, alignItems: 'center' },
-  repCount: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   // minHeight 32 — a Pill's height — so the Done button appearing in edit
   // mode cannot make this row taller. It could, and did: the toolbar grew by
   // 6 and pushed the entire list down with it. The control Sean asked for to
@@ -1008,5 +998,4 @@ const s = themed(() => StyleSheet.create({
   // scroll's paddingTop is 0 by design (see the divider note above), and
   // putting it back there would space every OTHER screen too.
   toolbar: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingTop: 0, paddingBottom: 10 },
-  repN: { color: T.text, fontSize: 14, minWidth: 20, textAlign: 'center' },
 }));

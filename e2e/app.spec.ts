@@ -103,7 +103,10 @@ test('deleting takes two presses, never one', async ({ page }) => {
   await expect(doomed).toBeHidden();
 });
 
-test('a long-press opens the inline edit', async ({ page }) => {
+test('a long-press opens edit mode, and a tap in it opens the item window', async ({ page }) => {
+  // It used to open an inline field over the row's text. Sean removed that,
+  // 2026-08-12 — the row is never a text input now, and the two ways to edit a
+  // name (the pencil, and a tap on the row) both reach the same window.
   await signup(page);
   await page.getByTestId('tab-reminders').click();
   await page.getByTestId('secadd-General').first().click();
@@ -115,7 +118,11 @@ test('a long-press opens the inline edit', async ({ page }) => {
   await page.mouse.down();
   await page.waitForTimeout(500);
   await page.mouse.up();
-  await expect(page.getByTestId('rem-edit')).toHaveValue('hold me');
+  await expect(page.getByTestId('rem-pencil').first(), 'edit mode is armed').toBeVisible();
+
+  await body.click();
+  await expect(page.getByPlaceholder(/What\?/), 'and a tap opens the window on that row')
+    .toHaveValue('hold me', { timeout: 10_000 });
 });
 
 test('a reminder row drags to a new spot and the order survives a reload', async ({ page }) => {
@@ -255,13 +262,13 @@ test('editing a reminder into a Note converts one-way', async ({ page }) => {
   await page.getByTestId('rem-add-field').fill('becomes a note');
   await page.getByTestId('rem-add-field').press('Enter');
   const body = page.getByTestId('rem-body').filter({ hasText: 'becomes a note' });
-  // Long-press into inline edit, then the ✎ opens the full window.
+  // Long-press into edit mode, then the ✎ opens the full window.
   const box = (await body.boundingBox())!;
   await page.mouse.move(box.x + 20, box.y + box.height / 2);
   await page.mouse.down();
   await page.waitForTimeout(500);
   await page.mouse.up();
-  await expect(page.getByTestId('rem-edit')).toBeVisible();
+  await expect(page.getByTestId('rem-pencil')).toBeVisible();
   await page.getByTestId('rem-pencil').click();
   await page.getByTestId('kind-note').click();
   await page.getByText('Save', { exact: true }).click();
@@ -283,7 +290,7 @@ test('the ⧉ copies a reminder directly under itself', async ({ page }) => {
   await page.mouse.down();
   await page.waitForTimeout(500);
   await page.mouse.up();
-  await expect(page.getByTestId('rem-edit')).toBeVisible();
+  await expect(page.getByTestId('rem-dup')).toBeVisible();
   await page.getByTestId('rem-dup').click();
   await expect(page.getByTestId('rem-row').filter({ hasText: 'twin me' })).toHaveCount(2);
 });
@@ -464,13 +471,19 @@ test('edit mode is left by tapping out — there is no Done button', async ({ pa
   await page.mouse.click(vp.width / 2, vp.height - 120);
   await expect(page.getByTestId('rem-dup')).toBeHidden();
 
-  // The row's own inline field must NOT close it — that is the thing being
-  // edited, and it is a real <input>, which is what reaches the rule at all.
+  // A row's own EDIT CONTROL must not close it. This was the inline field
+  // until 2026-08-12, when Sean took inline editing off this screen; the claim
+  // it was making belongs to the pencil now, and it is the same claim about the
+  // same rule — a click on something whose testID starts `rem-` is a click that
+  // MEANS "stay in edit mode", and without that entry in the allow-list this
+  // press would bubble to document and shut edit mode on its way past.
   await longPress(page, page.getByTestId('rem-body').filter({ hasText: 'escape me' }));
-  await expect(page.getByTestId('rem-edit')).toBeVisible();
-  await page.getByTestId('rem-edit').click();
-  await expect(page.getByTestId('rem-edit')).toBeVisible();
-  await expect(page.getByTestId('rem-dup').first()).toBeVisible();
+  await expect(page.getByTestId('rem-pencil').first()).toBeVisible();
+  await page.getByTestId('rem-pencil').first().click();
+  await expect(page.getByPlaceholder(/What\?/), 'the pencil opened the window').toBeVisible();
+  await page.getByText('Cancel', { exact: true }).click();
+  await expect(page.getByTestId('rem-dup').first(), 'and edit mode was still there behind it')
+    .toBeVisible();
 });
 
 test("the calendar panel's edit mode can be left at all", async ({ page }) => {
@@ -1635,12 +1648,18 @@ test("the tri-state silences a folder's riders on the calendar", async ({ page }
   await expect(page.getByText('ride me', { exact: true })).toBeHidden();
 });
 
-test('every repeat editor draws core’s unit list — Add and the inline row, not just the modal', async ({ page }) => {
-  // There are THREE repeat editors and only ItemModal's had a test, reached
-  // through rem-pencil. The other two read the same REPEAT_UNITS now, and a
-  // source sweep in testids.spec stops a literal copy coming back — but that
-  // guards the source, not the screen. Nothing until now had opened these two
-  // and looked.
+test('every repeat editor draws core’s unit list — the Add screen and the item window', async ({ page }) => {
+  // There were THREE repeat editors and only ItemModal's had a test. They read
+  // the same REPEAT_UNITS, and a source sweep in testids.spec stops a literal
+  // copy coming back — but that guards the source, not the screen. Nothing had
+  // opened these and looked.
+  //
+  // TWO now, not three. The third was the one that unfolded under a Reminders
+  // row while it was being edited inline, and Sean asked for it gone on
+  // 2026-08-12 — "no frequency tabs in edit mode". Setting a repeat is the item
+  // window's job, which is where it can sit beside the date it interacts with.
+  // Both survivors are enumerated here rather than one being trusted to stand
+  // for the other, which is the whole reason this spec exists.
   await signup(page);
   const bgOf = (t: string) =>
     page.getByText(t, { exact: true }).first()
@@ -1655,16 +1674,21 @@ test('every repeat editor draws core’s unit list — Add and the inline row, n
   await page.getByText('month', { exact: true }).first().click();
   expect(await bgOf('month'), 'Add: the picked unit is the selected one').not.toBe(await bgOf('day'));
 
-  // 2 — the inline editor on a Reminders row, which opens with the row itself.
+  // 2 — the item window's, reached the way a Reminders row reaches it: hold to
+  // arm edit mode, then the pencil. This is where the retired inline editor's
+  // job went, so it is the one that has to still offer every unit.
   await page.getByTestId('tab-reminders').click();
   await page.getByTestId('secadd-General').first().click();
   await page.getByTestId('rem-add-field').fill('repeat me');
   await page.getByTestId('rem-add-field').press('Enter');
   await page.keyboard.press('Escape');
   await longPress(page, page.getByTestId('rem-body').filter({ hasText: 'repeat me' }));
+  await page.getByTestId('rem-pencil').first().click();
+  await expect(page.getByPlaceholder(/What\?/)).toBeVisible();
+  await page.getByText('+ Repeat', { exact: true }).click();
   for (const u of ['day', 'week', 'month', 'year']) {
     await expect(page.getByText(u, { exact: true }).first()).toBeVisible();
   }
   await page.getByText('month', { exact: true }).first().click();
-  expect(await bgOf('month'), 'inline row: the picked unit is the selected one').not.toBe(await bgOf('day'));
+  expect(await bgOf('month'), 'the window: the picked unit is the selected one').not.toBe(await bgOf('day'));
 });

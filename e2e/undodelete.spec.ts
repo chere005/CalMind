@@ -87,7 +87,7 @@ test('with nothing deleted it says so rather than doing something', async ({ pag
   await addNote(page, 'still here');
 
   await undo(page, user);
-  await expect(page.getByTestId('undo-note')).toHaveText('Nothing to undo');
+  await expect(page.getByTestId('toast')).toHaveText('Nothing to undo');
   await expect(
     page.getByTestId('note-row').filter({ hasText: 'still here' }),
     'and it touched nothing',

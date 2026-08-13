@@ -5,7 +5,7 @@
  * yellow offline), then the folder picker slot, then the username — whose tap
  * opens Settings. Every screen gets Settings for free.
  */
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { logout } from './api';
@@ -14,6 +14,7 @@ import { themed, T } from './theme';
 import { CircleBtn, Rule, TOPBAR_CTRL, TOPBAR_MARGIN_TOP } from './ui';
 import { Settings } from './screens/Settings';
 import { syncLook } from './components/SyncDot';
+import { useToast } from './components/Toast';
 import { useNav } from './nav';
 // A Modal is its own window, so an absolute `top` inside one is measured from
 // the top of the SCREEN, not from where the app's content begins. Without the
@@ -51,9 +52,16 @@ export function TopBar({
   const { session, signOut, undoLastDelete, syncState, persistFailed, refusedLabels } = useStore();
   const [menuOpen, setMenuOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  /** What the last undo brought back, shown briefly under the bar. */
-  const [undone, setUndone] = useState<string | null>(null);
-  const undoTimer = React.useRef<ReturnType<typeof setTimeout>>(undefined);
+  /**
+   * What just happened, said in a popup in the middle of the screen.
+   *
+   * It used to be a `<Text>` under the bar, which Sean named exactly right —
+   * "text that randomly inserts itself", 2026-08-12. It was a laid-out child,
+   * so it pushed the whole list down when it appeared and pulled it back up
+   * two seconds later: copying something moved the thing you were reading.
+   * See components/Toast for why the host is at the root rather than here.
+   */
+  const toast = useToast();
   /**
    * Where the username pill actually is on screen.
    *
@@ -86,7 +94,6 @@ export function TopBar({
   // One rule, one place: the dot, Settings, the note editor and this border
   // all read the same function.
   const look = syncLook(syncState, persistFailed, refusedLabels);
-  useEffect(() => () => clearTimeout(undoTimer.current), []);
   return (
     <>
       <View style={s.topbar}>
@@ -150,15 +157,6 @@ export function TopBar({
           lib/chrome.php, at its 16px root — so this is a deliberate
           departure from the spec, not an oversight in reading it. */}
       <View testID="top-rule" style={s.ruleWrap}><Rule /></View>
-      {undone !== null && (
-        <Text testID="undo-note" style={s.undoNote}>
-          {/* Only a RESTORE gets the quotes — the copy messages are whole
-              sentences of their own. */}
-          {undone === 'Nothing to undo' || undone.startsWith('Copied') || undone.startsWith('Could not')
-            ? undone
-            : `Restored “${undone}”`}
-        </Text>
-      )}
       {/* The username's own dropdown — the same two rows in every app. */}
       {menuOpen && (
         <Modal transparent animationType="fade" onRequestClose={() => setMenuOpen(false)}>
@@ -184,12 +182,8 @@ export function TopBar({
                     // unfocused — used to be swallowed whole, and a button
                     // with no answer is a button you press twice.
                     Clipboard.setStringAsync(copyMarkdown())
-                      .then(() => setUndone('Copied as Markdown'))
-                      .catch(() => setUndone('Could not copy'))
-                      .finally(() => {
-                        clearTimeout(undoTimer.current);
-                        undoTimer.current = setTimeout(() => setUndone(null), 2000);
-                      });
+                      .then(() => toast('Copied as Markdown'))
+                      .catch(() => toast('Could not copy'));
                   }}
                 >
                   <Text style={s.menuText}>Copy as Markdown</Text>
@@ -209,9 +203,9 @@ export function TopBar({
                 onPress={() => {
                   const back = undoLastDelete();
                   setMenuOpen(false);
-                  setUndone(back ?? 'Nothing to undo');
-                  clearTimeout(undoTimer.current);
-                  undoTimer.current = setTimeout(() => setUndone(null), 2600);
+                  // Only a RESTORE gets the quotes — the other messages are
+                  // whole sentences of their own.
+                  toast(back === null ? 'Nothing to undo' : `Restored “${back}”`, 2600);
                 }}
               >
                 <Text style={s.menuText}>Undo last delete</Text>
@@ -285,7 +279,6 @@ const s = themed(() => StyleSheet.create({
     borderRadius: 12,
     paddingVertical: 4,
   },
-  undoNote: { color: T.muted, fontSize: 12, marginHorizontal: 16, marginTop: -4, marginBottom: 6 },
   menuRow: { paddingHorizontal: 16, paddingVertical: 11 },
   menuText: { color: T.text, fontSize: 15 },
 }));

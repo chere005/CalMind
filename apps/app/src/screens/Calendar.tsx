@@ -528,15 +528,15 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
               <Text style={s.rowText}>{e.payload.text}</Text>
             </Pressable>
             {e.payload.time && <Text style={s.chip}>{timeLabel(e.payload.time, clock24)}</Text>}
-            {panelEdit && (
-              <>
+            {panelEdit ? (
+              <View style={s.editCluster}>
                 <CircleBtn glyph="✎" label="Edit" size={24} onPress={() => setModal({ mode: 'edit', kind: 'event', rec: e })} />
                 <CircleBtn glyph="⧉" label="Duplicate" size={24} onPress={() => { const res = duplicateItem(recs, e.id, newId); if (!('error' in res)) mutate((en) => res.put.forEach((p) => en.put(p))); }} />
-              </>
-            )}
-            {(panelEdit || swipe.swiped === e.id) && (
-              <ConfirmDelete forceArmed={swipe.swiped === e.id} onDelete={() => { swipe.clear(); mutate((en) => en.del(e.id)); }} />
-            )}
+                <ConfirmDelete onDelete={() => { swipe.clear(); mutate((en) => en.del(e.id)); }} />
+              </View>
+            ) : swipe.swiped === e.id ? (
+              <ConfirmDelete forceArmed onDelete={() => { swipe.clear(); mutate((en) => en.del(e.id)); }} />
+            ) : null}
           </View>
         ))}
         {sharedItems.events.length > 0 && (
@@ -564,7 +564,10 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
               <WebHitSlop />
               {r.payload.done && <Text style={s.tickMark}>✓</Text>}
             </Pressable>
-            <Pressable style={s.rowBodyFlex} onPress={() => rowPress(r.id)} onLongPress={() => setPanelEdit(true)} delayLongPress={350}>
+            {/* testID for the no-shift spec: this is the flex child the edit
+                cluster used to squeeze, so its width is the measurement that
+                tells the two arrangements apart. */}
+            <Pressable testID="dp-rem-body" style={s.rowBodyFlex} onPress={() => rowPress(r.id)} onLongPress={() => setPanelEdit(true)} delayLongPress={350}>
               <Text style={[s.rowText, r.payload.done && s.rowDone]}>{r.payload.text}</Text>
             </Pressable>
             {overdue && <Text style={[s.chip, { color: T.overdue }]}>{dueLabel(r.payload.due!)}</Text>}
@@ -575,11 +578,11 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
             {rider && <Text testID="rider-chip" style={s.chip}>today</Text>}
             {r.payload.time && <Text style={s.chip}>{timeLabel(r.payload.time, clock24)}</Text>}
             {panelEdit && (
-              <>
+              <View style={s.editCluster}>
                 <CircleBtn glyph="✎" label="Edit" size={24} onPress={() => setModal({ mode: 'edit', kind: 'reminder', rec: r })} />
                 <CircleBtn glyph="⧉" label="Duplicate" size={24} onPress={() => { const res = duplicateItem(recs, r.id, newId); if (!('error' in res)) mutate((en) => res.put.forEach((p) => en.put(p))); }} />
                 <ConfirmDelete onDelete={() => mutate((en) => en.del(r.id))} />
-              </>
+              </View>
             )}
             {swipe.swiped === r.id && <ConfirmDelete forceArmed onDelete={() => { swipe.clear(); mutate((en) => en.del(r.id)); }} />}
           </View>
@@ -628,11 +631,11 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
               <Text style={s.rowText}>{n.payload.title}</Text>
             </Pressable>
             {panelEdit && (
-              <>
+              <View style={s.editCluster}>
                 <CircleBtn glyph="✎" label="Edit" size={24} onPress={() => setModal({ mode: 'edit', kind: 'note', rec: n })} />
                 <CircleBtn glyph="⧉" label="Duplicate" size={24} onPress={() => { const res = duplicateItem(recs, n.id, newId); if (!('error' in res)) mutate((en) => res.put.forEach((p) => en.put(p))); }} />
                 <ConfirmDelete onDelete={() => mutate((en) => en.del(n.id))} />
-              </>
+              </View>
             )}
             {swipe.swiped === n.id && <ConfirmDelete forceArmed onDelete={() => { swipe.clear(); mutate((en) => en.del(n.id)); }} />}
           </View>
@@ -739,6 +742,30 @@ const s = themed(() => StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 4 },
   rowNoSelect: { userSelect: 'none' } as import('react-native').ViewStyle,
   rowRolled: { backgroundColor: T.accentSoft, borderRadius: 8 },
+  /**
+   * The edit controls, pinned to the row's right edge and OUT of the flex flow.
+   *
+   * Sean, 2026-08-12: "things jump on the calendar entering edit mode". They
+   * did, twice over, and as ordinary flex children they could not not:
+   *
+   *   - SIDEWAYS. Three 24pt controls plus two 10pt gaps entered the row, and
+   *     rowBodyFlex is `flex: 1`, so the body gave up 92pt and every chip to
+   *     its right — the time, the `today` rider, an overdue date — slid left by
+   *     that much.
+   *   - DOWNWARD. The tallest thing in a row was the 22pt tick; a 24pt control
+   *     made the row 2pt taller, so every row BELOW it moved down, and the
+   *     panel with it.
+   *
+   * This is the same fix as Reminders' cluster and Habits' floating icons, for
+   * the same reason each of them gives: an absolutely positioned cluster over
+   * an opaque background reflows nothing, and the text it covers is simply not
+   * shown. T.bg is what the panel sits on, so the cover is invisible.
+   */
+  editCluster: {
+    position: 'absolute', right: 0, top: 0, bottom: 0,
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    paddingLeft: 10, backgroundColor: T.bg,
+  },
   // STRETCH for the same reason as Notes' and Reminders' row bodies: this is
   // the Pressable that opens an item and long-presses into edit mode, and as a
   // centred flex child it was only as tall as its one line of text while the

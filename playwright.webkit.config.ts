@@ -25,10 +25,17 @@ export default defineConfig({
   ],
   // The spine, not the whole suite: gesture specs lean on synthetic mouse
   // behaviour that differs between engines, and a red run full of harness
-  // noise teaches nobody anything. Plus the interruption cases — whether blur
+  // noise teaches nobody anything. Plus the interruption case — whether blur
   // fires when a focused field is torn out from under it is exactly the sort
-  // of thing two engines answer differently, and an inline edit that survives
-  // in Chromium and vanishes in WebKit would vanish on Sean's phone only.
+  // of thing two engines answer differently, and text that survives in
+  // Chromium and vanishes in WebKit would vanish on Sean's phone only.
+  //
+  // There were TWO interruption tests here and there is one. The other drove
+  // the Reminders row's inline edit, which Sean removed on 2026-08-12, so the
+  // field it was tearing focus away from no longer exists. The note BODY is
+  // still a focused multiline input being abandoned mid-word, which is the same
+  // engine question and the reason this class of test earns a WebKit run at
+  // all — so the class is still covered, by the half that still applies.
   //
   // The header rules joined this list the day Sean said "all the button
   // placement is broken": they are what he actually looks at, and until now
@@ -41,7 +48,7 @@ export default defineConfig({
   // browser than on the phone apps, and the browser in question is this one.
   // Verifying that fix in Chromium alone would have been checking it
   // everywhere except where it matters.
-  grep: /signing up lands on the calendar|a reminder adds into its section|note body renders its markers|the page carries the web-app head|interrupted by switching tabs|interrupted mid-sentence|back sits left of the title|picker and the username survive|scaling reads the recipe|arming delete on one note|legend with many calendars|over-long note says so|answers a press outside its drawn edge|extra tap area stays near its control|answers a press on its ring|a drag starts from the widened part of a grip/,
+  grep: /signing up lands on the calendar|a reminder adds into its section|note body renders its markers|the page carries the web-app head|interrupted mid-sentence|back sits left of the title|picker and the username survive|scaling reads the recipe|arming delete on one note|legend with many calendars|over-long note says so|answers a press outside its drawn edge|extra tap area stays near its control|answers a press on its ring|a drag starts from the widened part of a grip/,
   timeout: 30_000,
   retries: 0,
   workers: 1,

@@ -96,3 +96,50 @@ test('editing a habit from the pencil does not turn edit mode off behind the she
   await page.getByText('Cancel', { exact: true }).click();
   await expect(page.getByTestId('habit-edit').first(), 'Cancel too').toBeVisible();
 });
+
+test('the floating edit controls actually hide the name under them', async ({ page }) => {
+  /*
+   * Sean, 2026-08-12: the habits edit icons should be "more opaque".
+   *
+   * They float over the habit's own name box so that entering edit mode moves
+   * nothing — and the whole bargain of that arrangement is that the text they
+   * cover is HIDDEN rather than showing through. Their background was the name
+   * box's own `tint(color, '14')`, which is 8% alpha, so it was not hiding
+   * anything: the icons sat over legible text.
+   *
+   * The check is on the ALPHA of the cluster's own background, not on the
+   * colour, because the colour is the section's and changes with the palette.
+   * An opaque base with the wash laid over it is what makes the pair read as
+   * part of the box AND cover what is behind it; a single translucent layer
+   * cannot do both, which is how this went wrong in the first place.
+   */
+  test.setTimeout(90_000);
+  await page.setViewportSize({ width: 1160, height: 800 });
+  await habitsScreen(page);
+  await page.getByTestId('habit-name').first().dblclick();
+  await expect(page.getByTestId('habit-edit').first()).toBeVisible();
+
+  // The cluster is the pencil's parent — the positioned View the two controls
+  // sit in. Its computed background is what has to be solid.
+  const alphaOf = (loc: ReturnType<Page['getByTestId']>) =>
+    loc.evaluate((el) => {
+      const bg = getComputedStyle(el.parentElement!).backgroundColor;
+      const m = /^rgba?\(([^)]+)\)$/.exec(bg);
+      if (!m) return { bg, alpha: -1 };
+      const parts = m[1]!.split(',').map((x) => Number(x.trim()));
+      return { bg, alpha: parts.length > 3 ? parts[3]! : 1 };
+    });
+
+  const cluster = await alphaOf(page.getByTestId('habit-edit').first());
+  expect(cluster.alpha, `the pencil's cluster is opaque, not an 8% wash (${cluster.bg})`).toBe(1);
+
+  // The grip on the left of the row is the same arrangement and had the same
+  // bug, so it gets the same assertion rather than being assumed to follow.
+  const grip = await page.getByTestId('habit-grip').first().evaluate((el) => {
+    const bg = getComputedStyle(el).backgroundColor;
+    const m = /^rgba?\(([^)]+)\)$/.exec(bg);
+    const parts = m ? m[1]!.split(',').map((x) => Number(x.trim())) : [];
+    return { bg, alpha: parts.length > 3 ? parts[3]! : 1 };
+  });
+  expect(grip.alpha, `the grip is opaque too (${grip.bg})`).toBe(1);
+});

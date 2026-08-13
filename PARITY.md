@@ -20,9 +20,14 @@ honest — the next iteration trusts it.
   (max(due,today) roll), sectionNameTaken, ord keys, LWW sync engine.
   94 core + 15 server tests.
 - Reminders: folder blocks (wash chips), gold sections, chevron collapse
-  (persisted), undated-first block sort, subtasks (+/‹), repeat mini-editor,
-  inline edit (re-parses dates), full-edit ✎ → ItemModal, toolbar row under
-  divider (collapse-all ⌄, completed ☑ icon, sean-only ⧉ markdown), FolderPick.
+  (persisted), undated-first block sort, subtasks (+/‹), full-edit ✎ →
+  ItemModal, toolbar row under divider (collapse-all ⌄, completed ☑ icon,
+  sean-only ⧉ markdown), FolderPick.
+  RETIRED 2026-08-12, and corrected here rather than left to be found: this
+  line claimed a "repeat mini-editor" and "inline edit (re-parses dates)", and
+  Sean removed both from this screen — see the five-nits iteration at the foot
+  of this file. That makes a FIFTH stale §1 entry, and the first one caught by
+  the person who staled it rather than by a question of Sean's.
 - Calendar: month grid + day panel, centred pager + ◉ today, CalendarPick with
   visibility filtering, ItemModal add/edit (kind row, +Time/+Repeat reveals,
   Goes-in pickers), overdue/rider rows on today.
@@ -1647,11 +1652,16 @@ place — a note is the only record the server can refuse for being too long.
 
 ### The ledger's own reliability
 
-Four §1 entries have now been found stale — the oversized record, the widget
-key, the wrist's clock and the complication tint — and every one was caught by
-a question of Sean's rather than by re-reading. Each is corrected in place, but
-§1 as a whole has not been re-verified against source end to end, and until it
-is, it should be read with suspicion. That is a job worth doing on its own.
+FIVE §1 entries have now been found stale — the oversized record, the widget
+key, the wrist's clock, the complication tint, and Reminders' inline edit and
+repeat mini-editor. The first four were each caught by a question of Sean's
+rather than by re-reading; the fifth was caught at the moment it went stale, by
+whoever made it so, which is the only cheap way to catch one. Each is corrected
+in place, but §1 as a whole has not been re-verified against source end to end,
+and until it is, it should be read with suspicion. That is a job worth doing on
+its own — and the fifth is the argument for it, since a line describing a
+feature that had been deleted read as perfectly plausible for as long as nobody
+checked.
 
 ### Still open
 
@@ -1662,3 +1672,99 @@ is, it should be read with suspicion. That is a job worth doing on its own.
   different design (defer the SEND, since a second toggle rolls a repeat twice).
 - put()'s clock clamp is still sticky, and is the likelier of the two sync
   problems to bite now that ties resolve.
+
+## Iteration — five nits from a walk through the app, 2026-08-12
+
+Sean's list, in his order. Four of the five are the same shape as things already
+argued for elsewhere in this ledger, which is the interesting part: the argument
+was written down and the screens had not all been brought into line with it.
+
+**1. The calendar's day panel stopped jumping.** Its `✎ ⧉ ×` were ordinary flex
+children appended to each row, and that cost two separate shifts. SIDEWAYS: the
+body is `flex: 1`, so three 24pt controls and two 10pt gaps took 92pt off it and
+every chip to its right — the time, the `today` rider, an overdue date — slid
+left. Measured at 356pt → 242pt. DOWNWARD: the tallest thing in a row was the
+22pt tick, so a 24pt control made each row 2pt taller and every row below moved
+down. It is an absolutely positioned cluster over `T.bg` now, the third screen
+to arrive at the arrangement Reminders' own comment argued for first. The spec
+measures the body's WIDTH and the SECOND row's tick — the first row's tick holds
+still under both bugs, so measuring it would have proved nothing.
+
+**2. The habits edit icons are opaque.** Their background was the name box's own
+`tint(color, '14')` — 8% alpha — so the habit's name read straight through the
+icons sitting on top of it. The whole bargain of floating them is that what they
+cover is hidden, and the one thing the pattern promised was the one thing it was
+not doing. Two layers now: `T.bg` for the hiding, the same wash over it so the
+cluster still reads as part of the box. One translucent layer cannot do both
+jobs, which is how it went wrong. The spec asserts the ALPHA, not the colour,
+since the colour is the section's.
+
+**3. Reminders lost inline name editing and its frequency tabs.** Both were one
+piece of state and the whole apparatus is gone: the blur-time save, the
+re-parsing of dates out of retyped text, the held-open cluster that let a button
+outlive the field's blur, and the third on-screen copy of core's `REPEAT_UNITS`.
+A name and a repeat are the item window's business, which is where the date they
+interact with already lives, and the screen now agrees with the day panel and
+with Habits about what editing a reminder means.
+
+That retired `clusterhold.spec.ts` — three tests of a guard whose mechanism no
+longer exists — and the reminders half of `interrupted.spec.ts`, whose claim
+("an interrupted edit survives") is now the opposite of correct: the window
+writes on Save and on nothing else, so an abandoned edit is DISCARDED by design.
+A test asserting the old survival would have been asserting a bug. It also
+un-obsoleted the comment explaining why this screen's tap-out listener runs on
+the bubble phase — the reason was the inline editor; the listener stays on bubble
+anyway, because "habits does it the other way" is not a reason to touch it.
+
+What that deletion nearly took with it is worth naming: `clusterhold` was the
+only cover for the row's `+` and `‹`. They are tested on their own terms now
+(`subtask.spec.ts`), and the `+` opens the item window rather than a field, since
+a row with no text and no way to give it any is litter rather than a subtask. The
+blank-row cleanup the inline field did on blur had to be rebuilt to outlive it,
+or every cancelled `+` left an empty row behind.
+
+**4. The note editor's Copy moved next to Delete**, out of the pinned top-right
+corner it had spent a few hours in beside the sync dot — which put a button
+nobody was looking for in the one place on that screen that is not a button. The
+footer already held the things you do to the whole note.
+
+And the confirmation became a POPUP. Sean: "copied as markdown should be a popup
+in the middle of the screen, not text that randomly inserts itself" — which names
+the defect exactly. It was a laid-out `<Text>`, in two places, so appearing
+pushed the page down by its own height and vanishing pulled it back up: copying
+something moved the thing you were reading. There is one `ToastProvider` at the
+root now, and the two reasons it lives there rather than in TopBar are both
+load-bearing: a sibling laid out before the page content is painted UNDER it on
+the native builds, and `pointerEvents: 'none'` on a plain fill costs no layout
+and eats no taps — where a transparent RN Modal is its own window and swallows
+touches over its whole area whatever its children say, which would have made the
+second of two consecutive undos land on the first one's toast.
+
+**5. The monthly pies show what a day OWED.** Each section now contributes two
+adjacent arcs in its colour: what got done, solid, and what was required and not
+done, at 15% — so a section is one contiguous wedge the size of everything it
+asked for, and how much of that wedge is solid is how much happened. The reading
+this fixes is a real ambiguity rather than a decoration: an empty ring used to
+mean either "nothing done" or "nothing asked", which are opposite readings of the
+same picture. A ring that is all ghost owes you the day; a bare ring asked
+nothing. Future days draw neither — a month of ghost circles ahead of today would
+read as a month of failure.
+
+The maths went into core beside the rest of the pie's, and `open` needed no rule
+of its own: an off-schedule day only enters `counted` when it is ticked, so an
+untouched Saturday on a weekdays habit contributes to neither share.
+
+### Two checks that could not fail, caught by mutation
+
+Both were mine, in this iteration, and both looked exactly like passing checks.
+
+The first: `owes nothing for an untouched OFF-schedule day`, written with a lone
+weekdays habit. With nothing counted, `dayShares` returns early on `total === 0`
+and never reaches the arithmetic the test is about — so it stayed green under the
+obvious wrong implementation while two OLDER tests went red. It carries an
+always habit in a second section now, so the assertion is on a section that
+genuinely owes nothing on a day that genuinely counted something.
+
+The second is the reason the calendar spec measures the second row's tick and not
+the first, noted above. Both were found by making the wrong change on purpose and
+watching, which is the only thing that finds this class.

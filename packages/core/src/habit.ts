@@ -90,12 +90,31 @@ export function habitCountedOn(h: Rec<'habit'>, date: string, ticked: boolean): 
 
 /**
  * One day's pie, as contiguous shares: each section's ticked share of
- * everything that counts THAT DAY.
+ * everything that counts THAT DAY, and beside it the share that day still
+ * OWES — counted, and not ticked.
  *
- * The denominator is per-day now, which is the point of the feature — a
+ * The denominator is per-day, which is the point of the feature — a
  * weekday-only habit must not make Sunday's circle unfillable, and a 'never'
  * habit must not dilute any day. Before this it was the flat count of every
  * visible habit, on every day, whatever the day was.
+ *
+ * `open` is Sean's 2026-08-12 ask: "very transparent fill for items
+ * required-but-unchecked that day". A section's two shares are adjacent in the
+ * drawing, so each section owns ONE contiguous wedge the size of everything it
+ * asked of that day, of which the solid part is what got done. That makes the
+ * circle always full on a day with anything counted, and the reading of a
+ * half-empty day becomes "this much was owed" rather than a gap that could
+ * equally mean nothing was asked.
+ *
+ * The two are separately useful and neither is derivable from the other, which
+ * is why both are returned: `frac` sums to 1 only when everything is done, and
+ * `frac + open` sums to 1 whenever anything counts at all.
+ *
+ * `open` is exactly "required that day and not done", with no extra rule of its
+ * own — an OFF-schedule day only enters `counted` when it is ticked (a weekend
+ * tick is a bonus; see habitCountedOn), so an untouched Saturday on a weekdays
+ * habit contributes to neither share. That is what keeps a faint arc from
+ * appearing on a day the habit never asked for.
  *
  * Sections are returned in the order given, and a day with nothing countable
  * returns every share at zero rather than dividing by nothing.
@@ -105,13 +124,14 @@ export function dayShares(
   habits: Rec<'habit'>[],
   isTicked: (habitId: string, date: string) => boolean,
   date: string,
-): { color: string; frac: number }[] {
+): { color: string; frac: number; open: number }[] {
   const counted = habits.filter((h) => habitCountedOn(h, date, isTicked(h.id, date)));
   const total = counted.length;
   return sections.map((sec) => {
-    if (total === 0) return { color: sec.payload.color, frac: 0 };
-    const mine = counted.filter((h) => h.payload.sectionId === sec.id && isTicked(h.id, date));
-    return { color: sec.payload.color, frac: mine.length / total };
+    if (total === 0) return { color: sec.payload.color, frac: 0, open: 0 };
+    const mine = counted.filter((h) => h.payload.sectionId === sec.id);
+    const done = mine.filter((h) => isTicked(h.id, date)).length;
+    return { color: sec.payload.color, frac: done / total, open: (mine.length - done) / total };
   });
 }
 

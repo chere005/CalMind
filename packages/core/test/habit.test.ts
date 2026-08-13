@@ -86,8 +86,8 @@ describe('the day’s pie', () => {
     // Saturday: the weekdays habit is off schedule and untouched, so only 'a'
     // counts, and it is ticked — a full circle.
     expect(dayShares(secs, hs, ticked, SAT)).toEqual([
-      { color: '#ff0000', frac: 1 },
-      { color: '#00ff00', frac: 0 },
+      { color: '#ff0000', frac: 1, open: 0 },
+      { color: '#00ff00', frac: 0, open: 0 },
     ]);
     // Monday: both count, one ticked — half.
     expect(dayShares(secs, hs, ticked, MON)[0]!.frac).toBe(0.5);
@@ -98,14 +98,15 @@ describe('the day’s pie', () => {
     // Even TICKED, the Never habit must not move the circle: if it counted in
     // the numerator alone it would read as more than done.
     expect(dayShares(secs, hs, () => true, MON)).toEqual([
-      { color: '#ff0000', frac: 1 },
-      { color: '#00ff00', frac: 0 },
+      { color: '#ff0000', frac: 1, open: 0 },
+      { color: '#00ff00', frac: 0, open: 0 },
     ]);
     // And with only Never habits there is nothing to fill, rather than a
-    // division by zero.
+    // division by zero. Nothing OWED either — a Never habit is not a thing the
+    // day asked for, so it must not draw a faint arc any more than a solid one.
     expect(dayShares(secs, [habit('n', 's1', 'never')], () => true, MON)).toEqual([
-      { color: '#ff0000', frac: 0 },
-      { color: '#00ff00', frac: 0 },
+      { color: '#ff0000', frac: 0, open: 0 },
+      { color: '#00ff00', frac: 0, open: 0 },
     ]);
   });
 
@@ -144,5 +145,67 @@ describe('the day’s pie', () => {
   it('an untouched day is empty, not absent', () => {
     const hs = [habit('a', 's1'), habit('b', 's2')];
     expect(dayShares(secs, hs, () => false, MON).map((s) => s.frac)).toEqual([0, 0]);
+  });
+
+  describe('what the day still OWES', () => {
+    // Sean, 2026-08-12: "very transparent fill for items required-but-unchecked
+    // that day". The fill needs a number, and this is it.
+
+    it('is what was required and not done', () => {
+      const hs = [habit('a', 's1'), habit('b', 's2'), habit('c', 's2')];
+      // Only 'b' done. s1 owes its one, s2 has one of two.
+      const shares = dayShares(secs, hs, (id) => id === 'b', MON);
+      expect(shares.map((s) => s.frac)).toEqual([0, 1 / 3]);
+      expect(shares.map((s) => s.open)).toEqual([1 / 3, 1 / 3]);
+    });
+
+    it('fills the circle exactly once, between the two shares', () => {
+      // The property the drawing depends on: each section is one contiguous
+      // wedge, and the wedges together are the whole circle. If this ever
+      // exceeded 1 the arcs would wrap past 12 o'clock and overdraw the
+      // section they started from.
+      const hs = [habit('a', 's1'), habit('b', 's2'), habit('c', 's2')];
+      for (const ticked of [() => true, () => false, (id: string) => id === 'c']) {
+        const shares = dayShares(secs, hs, ticked, MON);
+        expect(shares.reduce((n, s) => n + s.frac + s.open, 0)).toBeCloseTo(1);
+      }
+    });
+
+    it('is empty on a day that asked for nothing', () => {
+      // No habits at all, and only-Never habits, both go through the total===0
+      // branch — there is nothing owed rather than everything owed.
+      expect(dayShares(secs, [], () => false, MON).map((s) => s.open)).toEqual([0, 0]);
+      expect(dayShares(secs, [habit('n', 's1', 'never')], () => false, MON).map((s) => s.open))
+        .toEqual([0, 0]);
+    });
+
+    it('owes nothing for an untouched OFF-schedule day', () => {
+      // The half that makes `open` honest rather than just "not ticked": a
+      // weekdays habit at the weekend was never asked for, so it owes nothing.
+      // Reading `open` off the whole habit list instead of off what the day
+      // counted — the obvious wrong implementation — would draw a faint arc on
+      // every Saturday for every weekday habit Sean has.
+      //
+      // THE WEEKDAYS HABIT IS IN ITS OWN SECTION, and an always habit shares
+      // the day, both deliberately. Written first as a lone weekdays habit, it
+      // was a test that could not fail: with nothing counted the whole function
+      // returns early on `total === 0` and never reaches the arithmetic this is
+      // about. Proven by making that exact wrong change and watching this stay
+      // green while two older tests went red. Now s1 carries the day's real
+      // work and s2 carries only the thing Saturday did not ask for, so s2's
+      // share is the assertion.
+      const hs = [habit('a', 's1', 'always'), habit('w', 's2', 'weekdays')];
+      expect(dayShares(secs, hs, () => false, SAT).map((s) => s.open)).toEqual([1, 0]);
+      // …and on a weekday it does owe it — half the day each.
+      expect(dayShares(secs, hs, () => false, MON).map((s) => s.open)).toEqual([0.5, 0.5]);
+    });
+
+    it('owes nothing once the thing is ticked, on either kind of day', () => {
+      const hs = [habit('w', 's1', 'weekdays')];
+      expect(dayShares(secs, hs, () => true, MON)[0]!).toEqual({ color: '#ff0000', frac: 1, open: 0 });
+      // The weekend bonus: in the numerator and denominator together, so it is
+      // done rather than owed.
+      expect(dayShares(secs, hs, () => true, SAT)[0]!).toEqual({ color: '#ff0000', frac: 1, open: 0 });
+    });
   });
 });

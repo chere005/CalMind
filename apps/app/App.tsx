@@ -4,6 +4,7 @@ import { StatusBar, StyleSheet, View } from 'react-native';
 // status bar and the tab bar under the gesture bar. This one insets on both.
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { StoreProvider, useStore } from './src/store';
+import { ToastProvider } from './src/components/Toast';
 import { TabBar, NavCtx, type Tab } from './src/nav';
 import { Login } from './src/screens/Login';
 import { Reminders } from './src/screens/Reminders';
@@ -104,7 +105,13 @@ export default function App() {
       <SafeAreaProvider>
         <SafeAreaView key={themeGen} testID="page-root" style={s.page} edges={['top', 'bottom', 'left', 'right']}>
           <StatusBar barStyle={light ? 'dark-content' : 'light-content'} backgroundColor={T.bg} />
-          <Root />
+          {/* The toast host wraps the tree so its popup is the LAST thing laid
+              out in here, and therefore the thing drawn on top. Inside the
+              safe area, so a centred notice is centred in the PAGE rather than
+              in the screen the status bar is part of. */}
+          <ToastProvider>
+            <Root />
+          </ToastProvider>
         </SafeAreaView>
       </SafeAreaProvider>
     </StoreProvider>

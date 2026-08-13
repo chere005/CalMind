@@ -20,6 +20,7 @@ import { useSectionDrag, type SectionSlot } from '../components/sectiondrag';
 import { useSwipeLeft } from '../components/swiperow';
 import { Chevron } from '../components/Chevron';
 import { SyncDot, syncWord } from '../components/SyncDot';
+import { useToast } from '../components/Toast';
 import { EditExit } from '../components/EditExit';
 import { RecipeEditor } from './RecipeEditor';
 
@@ -81,7 +82,8 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
   // The suite's page edit mode: long-press a row to enter, tap away or
   // Escape to leave; grips and row controls exist only inside it.
   const [pageEdit, setPageEdit] = useState(false);
-  const [copyNote, setCopyNote] = useState('');
+  /** The editor's Copy says so in a popup — see components/Toast. */
+  const toast = useToast();
   /** Which note the mini date editor is open for, or null. */
   const [dateFor, setDateFor] = useState<string | null>(null);
   /** What is being TYPED in that sheet, before it parses into a real date. */
@@ -489,27 +491,6 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
             phone, and a right-aligned child in a wrapping row drops to the
             second line, which is not the top right of anything. Measured at
             390pt, where it sat 44pt below the back button. */}
-        {/* Notes has no account dropdown to hang "Copy as Markdown" off —
-            the editor is its own screen — so it gets the control directly,
-            with the same little confirmation the menu shows. Sean, 2026-08-12:
-            "just add a Copy which pops up a little note like Copied as
-            Markdown when it's tapped". */}
-        <Pressable
-          testID="note-copymd"
-          accessibilityRole="button"
-          accessibilityLabel="Copy as Markdown"
-          style={s.copyBtn}
-          onPress={() => {
-            const md = `# ${open.payload.title}\n\n${open.payload.body}`;
-            Clipboard.setStringAsync(md)
-              .then(() => setCopyNote('Copied as Markdown'))
-              .catch(() => setCopyNote('Could not copy'))
-              .finally(() => setTimeout(() => setCopyNote(''), 2000));
-          }}
-        >
-          <Text style={s.copyBtnText}>Copy</Text>
-        </Pressable>
-        {copyNote !== '' && <Text testID="note-copynote" style={s.copyNote}>{copyNote}</Text>}
         <View style={s.edStatus} pointerEvents="none">
           <SyncDot testID="editor-sync" withText />
         </View>
@@ -713,14 +694,36 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
             >
               {syncWord(syncState, persistFailed)}
             </Text>
-            <Pressable
-              onPress={() => {
-                if (delArmed) { setOpenId(null); mutate((e) => e.del(open.id)); setDelArmed(false); }
-                else { setDelArmed(true); setTimeout(() => setDelArmed(false), 2500); }
-              }}
-            >
-              <Text style={[s.delText, delArmed && s.delArmed]}>Delete</Text>
-            </Pressable>
+            {/* Notes has no account dropdown to hang "Copy as Markdown" off —
+                the editor is its own screen — so it gets the control directly.
+                Sean, 2026-08-12: NEXT TO DELETE, which is where the row of
+                things you do to the whole note already lives. It spent a few
+                hours pinned in the top-right corner beside the sync dot
+                instead, which put a button nobody was looking for in the one
+                place on this screen that is not a button. */}
+            <View style={s.footActs}>
+              <Pressable
+                testID="note-copymd"
+                accessibilityRole="button"
+                accessibilityLabel="Copy as Markdown"
+                onPress={() => {
+                  const md = `# ${open.payload.title}\n\n${open.payload.body}`;
+                  Clipboard.setStringAsync(md)
+                    .then(() => toast('Copied as Markdown'))
+                    .catch(() => toast('Could not copy'));
+                }}
+              >
+                <Text style={s.copyBtnText}>Copy</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => {
+                  if (delArmed) { setOpenId(null); mutate((e) => e.del(open.id)); setDelArmed(false); }
+                  else { setDelArmed(true); setTimeout(() => setDelArmed(false), 2500); }
+                }}
+              >
+                <Text style={[s.delText, delArmed && s.delArmed]}>Delete</Text>
+              </Pressable>
+            </View>
           </View>
         </Scroll>
 
@@ -1275,9 +1278,10 @@ const s = themed(() => StyleSheet.create({
   // note does not nudge it upwards.
   edStatus: { position: 'absolute', right: 16, top: TOPBAR_DOT_TOP },
   // Left of the status dot, on the same line as it.
-  copyBtn: { position: 'absolute', right: 40, top: TOPBAR_DOT_TOP - 7, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: T.line, borderRadius: 999 },
-  copyBtnText: { color: T.dim, fontSize: 12, fontWeight: '600' },
-  copyNote: { position: 'absolute', right: 40, top: TOPBAR_DOT_TOP + 18, color: T.dim, fontSize: 11 },
+  // Copy and Delete are a PAIR at the foot of the note, so Copy wears the same
+  // pill as Delete rather than the smaller one it had in the corner.
+  footActs: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  copyBtnText: { color: T.dim, fontSize: 15, borderWidth: 1, borderColor: T.line, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 5, overflow: 'hidden' },
   ddPill: { borderWidth: 1, borderColor: T.line, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: T.surface },
   ddPillGold: { borderColor: T.gold },
   backText: { color: T.accent, fontSize: 15, fontWeight: '600' },

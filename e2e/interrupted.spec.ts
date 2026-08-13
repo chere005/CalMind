@@ -5,10 +5,23 @@ import { expect, test, type Page } from '@playwright/test';
  *
  * Every spec finishes what it starts — types, presses Enter, moves on. A
  * phone doesn't work like that: you rename something, a message arrives, you
- * switch away, you come back. The inline edit holds its text in local state
- * and writes it on blur, so whether the change survives depends on whether
- * blur fires when the screen is torn out from under it — which is exactly the
- * kind of thing nobody can answer by reading.
+ * switch away, you come back. Whether the change survives depends on when the
+ * text reaches the store, which is exactly the kind of thing nobody can answer
+ * by reading.
+ *
+ * THE REMINDER HALF OF THIS FILE IS GONE, and not because it stopped mattering:
+ * the thing it described stopped existing. Sean removed inline name editing
+ * from the Reminders screen on 2026-08-12, so there is no row holding text in
+ * local state and writing it on blur, and no question about whether blur fires
+ * when the tab changes under it. A name is edited in the item window now, which
+ * writes on Save and on nothing else — so an abandoned edit is DISCARDED, and
+ * that is the modal's contract rather than a loss. A test asserting the old
+ * survival would now be asserting a bug.
+ *
+ * The note body is the interesting case that remains, and it is the opposite
+ * design: it writes on every keystroke, so it should be safe by construction.
+ * Worth holding precisely because a later "optimisation" to debounce it would
+ * quietly break exactly this.
  */
 let seq = 0;
 async function signup(page: Page): Promise<string> {
@@ -24,39 +37,7 @@ async function signup(page: Page): Promise<string> {
   return user;
 }
 
-test('an edit interrupted by switching tabs is not thrown away', async ({ page }) => {
-  await signup(page);
-  await page.getByTestId('tab-reminders').click();
-  await page.getByTestId('secadd-General').first().click();
-  await page.getByTestId('rem-add-field').fill('call the vet');
-  await page.getByTestId('rem-add-field').press('Enter');
-
-  // Open the inline edit the way a finger does, and change the words.
-  const body = page.getByTestId('rem-body').filter({ hasText: 'call the vet' });
-  const box = (await body.boundingBox())!;
-  await page.mouse.move(box.x + 20, box.y + box.height / 2);
-  await page.mouse.down();
-  await page.waitForTimeout(500);
-  await page.mouse.up();
-  const field = page.getByTestId('rem-edit');
-  await expect(field).toHaveValue('call the vet');
-  await field.fill('call the vet about the refill');
-
-  // …and get interrupted, without pressing Enter.
-  await page.getByTestId('tab-calendar').click();
-  await expect(page.getByTestId('cal-grid')).toBeVisible();
-  await page.getByTestId('tab-reminders').click();
-
-  await expect(
-    page.getByTestId('rem-row').filter({ hasText: 'call the vet about the refill' }),
-    'the interrupted edit survived the trip',
-  ).toBeVisible();
-});
-
 test('a note body survives being interrupted mid-sentence, even across a reload', async ({ page }) => {
-  // The body writes on every keystroke and the snapshot is written on every
-  // write, so this one should be safe by construction — worth holding, since
-  // a later "optimisation" to debounce it would quietly break exactly this.
   await signup(page);
   await page.getByTestId('tab-notes').click();
   await page.getByTestId('secadd-General').first().click();

@@ -47,7 +47,7 @@ Standing rules live in `CLAUDE.md`, not here.
 
 ## Suite counts, as of this commit
 
-core **502** · gesture **208** (+2 skipped) · WebKit **16** · server **48** ·
+core **507** · gesture **209** (+2 skipped) · WebKit **15** · server **48** ·
 live **19** with the API · desktop **7** (+3 in `npm run test:desktop`) · deploy guards **9** · plus the four
 native seam checkers no browser can reach: `npm run test:watch`,
 `npm run test:widget`, `npm run test:deploy`.
@@ -533,6 +533,86 @@ by re-running, and the failures CLUSTER, so a single red run says very little.
 Confirm with isolation plus a clean full re-run before believing it is
 anything but this.
 
+**The ELEVENTH, 2026-08-12 night**, on the WebKit gate after the five-nits
+iteration — which touched the note editor (Copy moved to the footer, its notice
+became a root-level toast), so again the change most likely to be blamed. Same
+line, same 30-second `locator.fill` timeout on `note-body-edit`. Cleared with
+1 isolated run and a clean 15/15 full suite.
+
+**The TWELFTH came straight after it, on the retry**, and on a DIFFERENT spec —
+`scale.spec.ts:20`, not `app.spec.ts:366` — which is the first time this has
+moved off that one line. It is the same failure underneath: `locator.fill`
+timing out on `note-body-edit`, in a spec whose shape is identical (make a
+note, fill the TITLE, then fill the body).
+
+**And the page snapshot finally shows the mechanism, rather than reasoning about
+it.** At the moment of failure the title is `[active]` with its text in it, and
+the body is a `generic` reading `Write…` — the placeholder of `note-body-view`.
+So `bodyEditing` is FALSE, and the earlier hypothesis above ("it never becomes
+true at all") is wrong: it became true, the 50ms timer focused the body, and
+then the spec's title fill BLURRED it, and `onBlur` collapsed the editor. The
+race is not the field failing to mount. It is whether the spec's title fill
+lands before or after that 50ms focus:
+
+- title fill FIRST → nothing was focused, no blur, `bodyEditing` stays true,
+  `note-body-edit` is there → pass;
+- focus FIRST → the title fill blurs the body → collapse → the field is gone,
+  and the spec waits out its whole budget → fail.
+
+Which means the comment in Notes.tsx — "the window is 50ms, no hand is that
+fast" — is true of a hand and false of Playwright, and being slow makes the
+test MORE likely to fail, not less.
+
+**THE SEQUENCING IS THE TRIGGER — and it REPRODUCES, which this entry has
+spent eleven occurrences saying nobody could do.** Counted at one commit, on
+one machine, in one evening:
+
+- **8 of 8 standalone full WebKit runs PASSED**, all ~25s.
+- **3 of 3 in-script runs FAILED** — three consecutive `deploy-test.sh`
+  invocations, blocking all three deploys.
+
+The condition is not load in general and not a busy machine: it is WebKit
+running immediately after the nine-minute gesture suite, in the same script,
+which is what `deploy-test.sh` does BY CONSTRUCTION. That is why this thing
+blocks deploys and almost never a hand-run suite — and why "every deliberate
+reproduction has failed" was true: every attempt reproduced the wrong
+condition. It also means anyone measuring the "true rate" with 25 standalone
+runs will measure the wrong thing, and the ~1-in-6 standing figure is a
+mixture of two populations rather than one rate.
+
+Next step for whoever takes this: `deploy-test.sh --no-gestures` followed by a
+bare `npx playwright test && npx playwright test -c playwright.webkit.config.ts`
+should reproduce it outside the deploy path, which would separate "runs after a
+long suite" from "runs inside that script". If it does, the 50ms timer is the
+thing to change and the design question in §1 has to be answered first.
+
+Also cleared here, so it is not re-litigated: an A/B against the note-editor
+change in the same session (Copy moved to the footer, its notice became a
+root-level toast) — the change most likely to be blamed, since the failing
+specs are both about the note body. Four full WebKit runs with it and four
+without, all 15/15, all ~25s. Not the cause.
+
+Two things worth adding rather than just the tally:
+
+- **A wrong cause was reached for, retracted, and then partly reinstated —
+  worth keeping in that order, because the middle step is the mistake.** The
+  failing run took 56.7s against 25.7s clean, and that was read as "the machine
+  was loaded". As evidence it is worthless: the failure IS a 30-second timeout,
+  so 25.7 + 30 ≈ 56.7 accounts for the whole difference with no load involved,
+  and the run-length of a run containing a timeout only tells you the timeout
+  happened. So the reasoning was retracted. But the CONCLUSION drawn from the
+  retraction — "so it is not load" — did not follow either, and the sequencing
+  finding above says something in that family is exactly the trigger. A bad
+  argument for a claim is not a disproof of the claim.
+
+  This also puts the 4-runs-under-8-busy-loops control in its place: CPU
+  starvation is not the same condition as "runs directly after a nine-minute
+  suite", and it was the second that both of today's failures shared.
+- **The count is 15/15 now, not 16/16.** The WebKit grep named the reminders
+  interruption test, which this iteration deleted along with the inline editor
+  it drove. Anyone comparing against the older "clean 16/16" clearances above
+  should not read 15 as a missing test.
+
 Ruled out 2026-08-11: the note editor's status dot, which was new that day and
 the obvious suspect — a clean A/B on the same spec passes with it and without.
 
@@ -573,6 +653,20 @@ direct `devicectl` install fixes it, and only while the watch is awake and
 holding a tunnel. Why the companion path does not update it is unknown; until
 then the watch needs the direct install and the build number is the proof.
 ## 3 · Work, not decisions
+
+- **A toast raised while a Modal is open is hidden on the native builds.**
+  Written down at the moment it was built (2026-08-12) rather than left to be
+  discovered. `ToastProvider` is a plain absolutely-filled View at the root
+  with `pointerEvents: 'none'`, which is exactly why it costs no layout and
+  eats no taps — but an RN Modal is its OWN WINDOW and sits above the whole
+  app, so a confirmation raised from inside a sheet would be drawn behind it.
+  Neither of the two callers does that (the account menu closes before it
+  copies; the note editor's Copy is not in a sheet), so nothing is broken
+  today. It becomes real the moment a sheet wants to say something. The fix is
+  not "use a Modal for the toast" — that reintroduces the touch-swallowing
+  this design exists to avoid, and would have made the second of two
+  consecutive undos land on the first one's popup. A sheet should say its own
+  piece inside itself.
 
 - **The circular complication shows a bare time for an event days away.**
   `whenShort` (ComplicationWidget.swift) drives accessoryCorner and

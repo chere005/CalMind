@@ -13,8 +13,14 @@
  * The clipboard itself is not read here. A headless browser's clipboard is a
  * permissions maze, and what would be proved is Playwright's grant rather
  * than the app's behaviour — so this checks the app's own answer, which is
- * the thing a person sees: the little "Copied as Markdown" note. The SHAPE of
+ * the thing a person sees: the "Copied as Markdown" popup. The SHAPE of
  * the markdown is core's business and is tested there.
+ *
+ * ONE MARKER, `toast`, for both answers now. They were two inline `<Text>`
+ * nodes — `undo-note` under the top bar and `note-copynote` beside the
+ * editor's Copy — and Sean named the problem with being laid-out children:
+ * "text that randomly inserts itself". They are one centred popup, so they
+ * are one testID. The claim each test makes is unchanged.
  */
 import { test, expect, type Page } from '@playwright/test';
 
@@ -63,7 +69,7 @@ test('it says so when it has copied', async ({ page }) => {
   // clipboard — but SOME answer is the whole point. The old button said
   // nothing whether it worked or not, and a button with no answer is a
   // button you press twice.
-  await expect(page.getByTestId('undo-note'), 'it tells you what happened')
+  await expect(page.getByTestId('toast'), 'it tells you what happened')
     .toHaveText(/Copied as Markdown|Could not copy/, { timeout: 10_000 });
 });
 
@@ -76,7 +82,7 @@ test('the note editor has its own Copy, since it has no dropdown', async ({ page
 
   await expect(page.getByTestId('topbar-sync'), 'the editor has no account menu').toHaveCount(0);
   await page.getByTestId('note-copymd').click();
-  await expect(page.getByTestId('note-copynote'), 'and it pops up its little note')
+  await expect(page.getByTestId('toast'), 'and it pops up its little note')
     .toHaveText(/Copied as Markdown|Could not copy/, { timeout: 10_000 });
 });
 
