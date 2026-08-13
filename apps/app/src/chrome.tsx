@@ -7,6 +7,7 @@
  */
 import React, { useEffect, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
 import { logout } from './api';
 import { useStore } from './store';
 import { themed, T } from './theme';
@@ -24,10 +25,21 @@ export function TopBar({
   title,
   controls,
   completed,
+  copyMarkdown,
   picker,
 }: {
   title: string;
   controls?: React.ReactNode;
+  /**
+   * What this screen would put on the clipboard as Markdown, or nothing if it
+   * has none. Sean, 2026-08-12: every tab, every user — it used to be one
+   * button on Reminders, visible only to him.
+   *
+   * A FUNCTION rather than a string: building the markdown means walking the
+   * whole screen's rows, and doing that on every render of every top bar to
+   * fill a menu row nobody has opened is work for nothing.
+   */
+  copyMarkdown?: () => string;
   /** The show-completed toggle, between collapse-all and the folder picker.
    *  Sean's placement, 2026-08-12: it used to sit in a toolbar row under the
    *  divider, which is a second row of controls for one button. */
@@ -138,7 +150,11 @@ export function TopBar({
       <View testID="top-rule" style={s.ruleWrap}><Rule /></View>
       {undone !== null && (
         <Text testID="undo-note" style={s.undoNote}>
-          {undone === 'Nothing to undo' ? undone : `Restored “${undone}”`}
+          {/* Only a RESTORE gets the quotes — the copy messages are whole
+              sentences of their own. */}
+          {undone === 'Nothing to undo' || undone.startsWith('Copied') || undone.startsWith('Could not')
+            ? undone
+            : `Restored “${undone}”`}
         </Text>
       )}
       {/* The username's own dropdown — the same two rows in every app. */}
@@ -155,6 +171,28 @@ export function TopBar({
                   : { top: insets.top + 52, right: 16 },
               ]}
             >
+              {copyMarkdown && (
+                <Pressable
+                  testID="menu-copymd"
+                  style={s.menuRow}
+                  onPress={() => {
+                    setMenuOpen(false);
+                    // Say something either way. A refusal — a browser that
+                    // will not hand the clipboard to a page it thinks is
+                    // unfocused — used to be swallowed whole, and a button
+                    // with no answer is a button you press twice.
+                    Clipboard.setStringAsync(copyMarkdown())
+                      .then(() => setUndone('Copied as Markdown'))
+                      .catch(() => setUndone('Could not copy'))
+                      .finally(() => {
+                        clearTimeout(undoTimer.current);
+                        undoTimer.current = setTimeout(() => setUndone(null), 2000);
+                      });
+                  }}
+                >
+                  <Text style={s.menuText}>Copy as Markdown</Text>
+                </Pressable>
+              )}
               <Pressable style={s.menuRow} onPress={() => { setMenuOpen(false); setSettingsOpen(true); }}>
                 <Text style={s.menuText}>Settings</Text>
               </Pressable>

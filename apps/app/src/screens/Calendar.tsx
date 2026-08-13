@@ -8,18 +8,21 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { PanResponder, Pressable, StyleSheet, Text, View } from 'react-native';
-import { prefsOf, duplicateItem,
-  timeLabel,
+import {
   addDays,
   cellMarks,
   dayItems,
+  duplicateItem,
   monthGridFilled,
   monthLegend,
-  twoWeeksFrom,
   newId,
+  prefsOf,
   reminderToggle,
+  timeLabel,
   todayStr,
+  twoWeeksFrom,
   type Rec,
+  viewMarkdown,
 } from '@calmind/core';
 import { useStore } from '../store';
 import { useClock24 } from '../useClock24';
@@ -395,6 +398,11 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
       <TopBar
         title="Calendar"
         controls={<CollapseAllBtn open={!allCollapsed} onPress={collapseAllGroups} />}
+        copyMarkdown={() => viewMarkdown(dayLabel, [
+          { name: 'Events', lines: items.events.map((e) => ({ text: e.payload.text, chip: e.payload.time ? timeLabel(e.payload.time, clock24) : null })) },
+          { name: 'Reminders', lines: myReminders.map(({ rec: r }) => ({ text: r.payload.text, chip: r.payload.time ? timeLabel(r.payload.time, clock24) : null })) },
+          { name: sharedPartner ? `Shared — ${sharedPartner}` : 'Shared', lines: theirReminders.map(({ rec: r }) => ({ text: r.payload.text, chip: r.payload.time ? timeLabel(r.payload.time, clock24) : null })) },
+        ])}
         completed={<CircleBtn testID="cal-completed" glyph="☑" label="Completed" size={TOPBAR_CTRL} active={showDone} onPress={() => setShowDone(!showDone)} />}
         picker={<CalendarPick />}
       />

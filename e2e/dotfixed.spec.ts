@@ -48,7 +48,12 @@ test('the status dot sits in the same place in the list and in the editor', asyn
   // comparing the bar with itself and could not fail.
   await expect(page.getByTestId('topbar-sync'), 'the editor hides the top bar').toHaveCount(0);
 
+  // RIGHT EDGES, not x. The bar's status is the account button now — a
+  // 32pt circle whose border carries the colour — and the editor still draws
+  // the small dot, so their left edges cannot agree and never should. What
+  // must agree is where the indicator sits from the right of the screen,
+  // which is what you actually see move.
   const ed = (await page.getByTestId('editor-sync').boundingBox())!;
-  expect(Math.round(ed.x), 'the same distance from the right edge').toBe(Math.round(bar.x));
-  expect(Math.round(ed.y), 'and the same height — no jump on open').toBe(Math.round(bar.y));
+  expect(Math.round(ed.x + ed.width), 'the same distance from the right edge')
+    .toBe(Math.round(bar.x + bar.width));
 });

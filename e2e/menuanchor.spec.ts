@@ -31,7 +31,7 @@ for (const width of [1440, 1160, 390]) {
     await page.setViewportSize({ width, height: 800 });
     const user = await signedIn(page);
 
-    const pill = (await page.getByText(user, { exact: true }).first().boundingBox())!;
+    const pill = (await page.getByTestId('topbar-sync').first().boundingBox())!;
     await page.getByTestId('topbar-sync').click();
     const menu = (await page.getByText('Log out', { exact: true }).boundingBox())!;
 

@@ -62,7 +62,7 @@ test('back sits left of the title on every screen', async ({ page }) => {
 
     // The right-hand cluster: picker then username, both on screen. A control
     // pushed past the edge is unreachable, not merely untidy.
-    const who = await page.getByText(user, { exact: true }).first().boundingBox();
+    const who = await page.getByTestId('topbar-sync').first().boundingBox();
     expect(who, `${tab}: the username is in the bar`).not.toBeNull();
     expect(who!.x, `${tab}: the username is past the title`).toBeGreaterThan(head!.x);
     expect(who!.x + who!.width, `${tab}: the username is not pushed off-screen`).toBeLessThanOrEqual(width);
@@ -93,7 +93,7 @@ test('the picker and the username survive a change of view mode', async ({ page 
   // Month.
   await page.getByTestId('tab-calendar').click();
   await expect(page.getByTestId('pick-calendar')).toBeVisible();
-  await expect(page.getByText(user, { exact: true }).first()).toBeVisible();
+  await expect(page.getByTestId('topbar-sync').first()).toBeVisible();
 
   // Week — the mode that was quietly stripping chrome. It is entered by a
   // swipe on the grid, and it persists under this key, which is steadier to
@@ -103,7 +103,7 @@ test('the picker and the username survive a change of view mode', async ({ page 
   await page.getByTestId('tab-calendar').click();
   await expect(page.getByTestId('cal-grid')).toBeVisible({ timeout: 20_000 });
   await expect(page.getByTestId('pick-calendar'), 'the picker does not belong to one view mode').toBeVisible();
-  await expect(page.getByText(user, { exact: true }).first()).toBeVisible();
+  await expect(page.getByTestId('topbar-sync').first()).toBeVisible();
 });
 
 test('a fortnight of marks comes with a legend to read them by', async ({ page }) => {
@@ -182,40 +182,12 @@ test('the gap under the top divider is the same on every tab', async ({ page }) 
   expect(gaps.reminders, `and it is the 10 Sean picked — got ${JSON.stringify(gaps)}`).toBe(10);
 });
 
-test('the Reminders toolbar sits in even air, 10 above and 10 below', async ({ page }) => {
-  test.setTimeout(90_000);
-  await page.setViewportSize({ width: 390, height: 844 });
-  await signup(page);
-
-  // Sean, once the divider gap landed: "there should also be 10px under the
-  // buttons in reminders". Zeroing the toolbar's old paddingTop of 13 had
-  // left it welded to the first folder below.
-  //
-  // Measured bottom-of-buttons to top-of-content, which is the space he is
-  // looking at — not a padding value read back out of the stylesheet, which
-  // would pass whatever the box actually drew.
-  await page.getByTestId('tab-reminders').click();
-  await expect(page.getByText('Reminders', { exact: true }).first()).toBeVisible({ timeout: 20_000 });
-
-  const gap = await page.getByTestId('top-rule').evaluate((el) => {
-    const bar = el.nextElementSibling!;           // the toolbar row
-    const scroll = bar.nextElementSibling!;       // the list below it
-    const btns = [...bar.querySelectorAll('*')]
-      .filter((n) => getComputedStyle(n).position !== 'absolute')
-      .map((n) => n.getBoundingClientRect())
-      .filter((r) => r.height > 0 && r.width > 0);
-    if (btns.length === 0) throw new Error('no visible control in the toolbar — nothing to measure from');
-    const below = [...scroll.querySelectorAll('*')]
-      .filter((n) => getComputedStyle(n).position !== 'absolute')
-      .map((n) => n.getBoundingClientRect())
-      .filter((r) => r.height > 0 && r.width > 0)
-      .map((r) => r.top);
-    if (below.length === 0) throw new Error('nothing under the toolbar — the measurement would be meaningless');
-    return Math.round(Math.min(...below) - Math.max(...btns.map((r) => r.bottom)));
-  });
-
-  expect(gap, 'ten pixels under the buttons, the same as above them').toBe(10);
-});
+// The Reminders toolbar row is GONE (2026-08-12). Its only control —
+// show-completed — moved into the top bar on Sean's word, and the sean-only
+// copy button went with the Copy-as-Markdown rework, so the row had nothing
+// left in it. The spec that measured its even air is deleted rather than
+// rewritten: there is no row to measure, and a spec that asserts the absence
+// of a container it can no longer find is the absence-assertion trap.
 
 /**
  * One row, one scale — every control in the top bar is the same height.
@@ -282,7 +254,7 @@ test('every control in the top bar is one height', async ({ page }) => {
     }
     // The username is a control here, not a bare label — it is the way in to
     // Settings, and Sean asked for it to match the icons beside it.
-    const who = await page.getByText(user, { exact: true }).first().evaluate(
+    const who = await page.getByTestId('topbar-sync').first().evaluate(
       (el) => Math.round(el.closest('[role="button"]')!.getBoundingClientRect().height),
     );
     expect(who, `${tab}: the username pill matches the icons beside it`).toBe(32);

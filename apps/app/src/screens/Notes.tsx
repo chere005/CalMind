@@ -7,6 +7,7 @@ import React, { useEffect, useMemo, useState, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { defaultNoteTitle, looksLikeDefaultNoteTitle, deleteSection, renameSection, sectionNameTaken, byRecOrd, richLines, scaleRecipeBody, duplicateItem, prefsPut, moveNote, moveSection, moveSectionEmptyingFolder, newId, nowStr, ordBetween, parseDateField, parseWhenFromText, todayStr, type Rec } from '@calmind/core';
+import * as Clipboard from 'expo-clipboard';
 import { useStore } from '../store';
 import { useNav } from '../nav';
 import { themed, T } from '../theme';
@@ -80,6 +81,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
   // The suite's page edit mode: long-press a row to enter, tap away or
   // Escape to leave; grips and row controls exist only inside it.
   const [pageEdit, setPageEdit] = useState(false);
+  const [copyNote, setCopyNote] = useState('');
   /** Which note the mini date editor is open for, or null. */
   const [dateFor, setDateFor] = useState<string | null>(null);
   /** What is being TYPED in that sheet, before it parses into a real date. */
@@ -487,6 +489,27 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
             phone, and a right-aligned child in a wrapping row drops to the
             second line, which is not the top right of anything. Measured at
             390pt, where it sat 44pt below the back button. */}
+        {/* Notes has no account dropdown to hang "Copy as Markdown" off —
+            the editor is its own screen — so it gets the control directly,
+            with the same little confirmation the menu shows. Sean, 2026-08-12:
+            "just add a Copy which pops up a little note like Copied as
+            Markdown when it's tapped". */}
+        <Pressable
+          testID="note-copymd"
+          accessibilityRole="button"
+          accessibilityLabel="Copy as Markdown"
+          style={s.copyBtn}
+          onPress={() => {
+            const md = `# ${open.payload.title}\n\n${open.payload.body}`;
+            Clipboard.setStringAsync(md)
+              .then(() => setCopyNote('Copied as Markdown'))
+              .catch(() => setCopyNote('Could not copy'))
+              .finally(() => setTimeout(() => setCopyNote(''), 2000));
+          }}
+        >
+          <Text style={s.copyBtnText}>Copy</Text>
+        </Pressable>
+        {copyNote !== '' && <Text testID="note-copynote" style={s.copyNote}>{copyNote}</Text>}
         <View style={s.edStatus} pointerEvents="none">
           <SyncDot testID="editor-sync" withText />
         </View>
@@ -1251,6 +1274,10 @@ const s = themed(() => StyleSheet.create({
   // Same height as the top bar's dot, from the same constant, so opening a
   // note does not nudge it upwards.
   edStatus: { position: 'absolute', right: 16, top: TOPBAR_DOT_TOP },
+  // Left of the status dot, on the same line as it.
+  copyBtn: { position: 'absolute', right: 40, top: TOPBAR_DOT_TOP - 7, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: T.line, borderRadius: 999 },
+  copyBtnText: { color: T.dim, fontSize: 12, fontWeight: '600' },
+  copyNote: { position: 'absolute', right: 40, top: TOPBAR_DOT_TOP + 18, color: T.dim, fontSize: 11 },
   ddPill: { borderWidth: 1, borderColor: T.line, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: T.surface },
   ddPillGold: { borderColor: T.gold },
   backText: { color: T.accent, fontSize: 15, fontWeight: '600' },
