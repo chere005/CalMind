@@ -48,7 +48,10 @@ async function signup(page: Page): Promise<string> {
 
 test('signing up lands on the calendar, like the suite', async ({ page }) => {
   await signup(page);
-  const month = new Date().toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+  // 'short', matching the header since 2026-08-13 — Sean asked for a 3-char
+  // month so the centred label stops shifting as you page. Built the same way
+  // the screen builds it rather than hardcoded, so this holds in any locale.
+  const month = new Date().toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
   await expect(page.getByText(month)).toBeVisible();
 });
 

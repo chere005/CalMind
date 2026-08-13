@@ -1854,3 +1854,32 @@ minutes plus a flaky watch install. The third round was done that way.
 each direction was mutation-checked when it landed. The height test is
 relational — shorter than a real Pill, measured via getByRole, because
 getByText finds the 17pt line of type inside the 32pt button.
+
+### The month is three letters now, 2026-08-13
+
+Sean: "use 3 chars for month name in the calendar view like 'Aug' instead of
+'August' so the text isn't jumping around when i select days". Applied to BOTH
+month names on the screen — the pager heading (`cal-ym`, "Aug 2026") and the day
+panel's title ("Thursday, Aug 13") — so the screen agrees with itself about how a
+month is written.
+
+`month: 'short'` rather than a hand-rolled `slice(0, 3)`. Every other date on
+this screen goes through `toLocaleDateString`, and a home-made three-letter list
+would be the one thing on the page that disagreed with the reader's locale.
+
+Worth noting which of the two actually MOVES, since the stated reason was
+jumping: the pager label is CENTRED between the two arrows, so "May 2026" and
+"September 2026" centre at different widths and the header shifts as you page.
+The day title is left-aligned and grows rightward instead, and within a single
+month its month name does not change at all as you select days — the width
+variation there comes from the weekday ("Sunday" to "Wednesday"). Both were
+shortened because he asked for the calendar view, but the centred one is the one
+that was visibly moving.
+
+The guard came for free: `clock.spec.ts` already asserted `/December 2026/` and
+`toContainText('December 31')`, and "December 2026" does not contain the
+substring "Dec 2026" — so pointing those at the short form makes them a real
+regression test, and reverting the screen to `'long'` turns both red (verified).
+`app.spec.ts`'s landing test builds the expected label itself and needed the same
+change; `calarrows.spec.ts` and the paging tests only compare labels for
+INEQUALITY, so they never cared.

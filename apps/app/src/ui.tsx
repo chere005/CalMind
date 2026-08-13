@@ -369,6 +369,9 @@ const s = themed(() => StyleSheet.create({
     height: 32,
   },
   // 26 drawn; the 5pt of slop above and below puts the target back past 32.
+  // 26 drawn, and SETTLED there: "the add button looks fine now" (Sean,
+  // 2026-08-13) after 32 → 26 → 32 → 26. A 22 was briefly tried on a misread
+  // instruction and reverted unshipped.
   pillCompact: { height: 26, paddingVertical: 3 },
   pillPrimary: { backgroundColor: T.accentInk, borderColor: T.accentInk },
   pillText: { color: T.text, fontSize: 14 },

@@ -382,7 +382,17 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
 
   const dueLabel = (d: string) =>
     new Date(`${d}T12:00:00`).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
-  const dayLabel = new Date(`${day}T12:00:00`).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
+  /**
+   * "Thursday, Aug 13" — the month ABBREVIATED, on Sean's word (2026-08-13):
+   * "use 3 chars for month name in the calendar view like 'Aug' instead of
+   * 'August' so the text isn't jumping around when i select days".
+   *
+   * `month: 'short'` rather than a hand-rolled `slice(0, 3)`, so a locale that
+   * abbreviates differently still gets its own abbreviation — the rest of this
+   * screen already reads dates through toLocaleDateString and would disagree
+   * with a home-made list.
+   */
+  const dayLabel = new Date(`${day}T12:00:00`).toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
 
   return (
     <View style={s.page}>
@@ -410,7 +420,13 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
       <View style={s.pagerRow}>
         <CircleBtn testID="cal-prev" glyph="‹" label="Previous" size={32} onPress={() => page(-1)} />
         <Pressable onPress={() => { setYm(today.slice(0, 7)); setDay(today); setWkAnchor(today); }} hitSlop={6}>
-          <Text testID="cal-ym" style={s.ymLabel}>{new Date(`${ym}-15T12:00:00`).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</Text>
+          {/* Abbreviated too, and this is the one that actually moves: the
+              label is CENTRED between the two arrows, so "May 2026" and
+              "September 2026" centre at different widths and the whole header
+              shifts as you page. The day title below is left-aligned and grows
+              rightward instead. Both are shortened so the screen agrees with
+              itself about how a month is written. */}
+          <Text testID="cal-ym" style={s.ymLabel}>{new Date(`${ym}-15T12:00:00`).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}</Text>
         </Pressable>
         <CircleBtn testID="cal-next" glyph="›" label="Next" size={32} onPress={() => page(1)} />
       </View>

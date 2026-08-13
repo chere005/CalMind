@@ -43,24 +43,29 @@ async function signup(page: Page): Promise<string> {
   return user;
 }
 
+// THE MONTH IS ABBREVIATED, and these assertions are what pin it. Sean asked
+// for "3 chars for month name in the calendar view" on 2026-08-13, so the header
+// reads "Dec 2026" and the day title "Wednesday, Dec 31". The regexes below
+// would go red against the old long form — "December 2026" does not contain the
+// substring "Dec 2026" — so they are a real guard rather than a loosening.
 test("New Year's Eve: the calendar pages December into January", async ({ page, context }) => {
   await freezeClock(context, '2026-12-31T10:00:00');
   await signup(page);
-  await expect(page.getByTestId('cal-ym')).toHaveText(/December 2026/);
+  await expect(page.getByTestId('cal-ym')).toHaveText(/Dec 2026/);
 
   // The year boundary, forwards and back — the arithmetic that goes wrong by
   // a whole year if a month index is added without wrapping.
   await page.getByTestId('cal-next').click();
-  await expect(page.getByTestId('cal-ym')).toHaveText(/January 2027/);
+  await expect(page.getByTestId('cal-ym')).toHaveText(/Jan 2027/);
   await page.getByTestId('cal-prev').click();
-  await expect(page.getByTestId('cal-ym')).toHaveText(/December 2026/);
+  await expect(page.getByTestId('cal-ym')).toHaveText(/Dec 2026/);
 
   // A reminder filed "today" lands on the 31st and reads back as today.
   await page.getByText('+ Add', { exact: true }).click();
   await page.getByTestId('kind-reminder').click();
   await page.getByPlaceholder(/What\?/).fill('see the year out');
   await page.getByText('Save', { exact: true }).click();
-  await expect(page.getByTestId('cal-day-title')).toContainText('December 31');
+  await expect(page.getByTestId('cal-day-title')).toContainText('Dec 31');
   await expect(page.getByText('see the year out')).toBeVisible();
 
   // And "tomorrow" from here is next year, which is the parser and the screen
@@ -77,11 +82,11 @@ test("New Year's Eve: the calendar pages December into January", async ({ page, 
 test('a leap day is a day like any other', async ({ page, context }) => {
   await freezeClock(context, '2028-02-29T10:00:00');
   await signup(page);
-  await expect(page.getByTestId('cal-ym')).toHaveText(/February 2028/);
-  await expect(page.getByTestId('cal-day-title')).toContainText('February 29');
+  await expect(page.getByTestId('cal-ym')).toHaveText(/Feb 2028/);
+  await expect(page.getByTestId('cal-day-title')).toContainText('Feb 29');
   // March, and back again — the step that lands on a date February hasn't got.
   await page.getByTestId('cal-next').click();
-  await expect(page.getByTestId('cal-ym')).toHaveText(/March 2028/);
+  await expect(page.getByTestId('cal-ym')).toHaveText(/Mar 2028/);
   await page.getByTestId('cal-prev').click();
-  await expect(page.getByTestId('cal-ym')).toHaveText(/February 2028/);
+  await expect(page.getByTestId('cal-ym')).toHaveText(/Feb 2028/);
 });
