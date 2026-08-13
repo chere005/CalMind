@@ -148,11 +148,21 @@ test('entering edit mode does not move anything', async ({ page }) => {
 
   await makeHabit(page);
   const habName = page.getByTestId('habit-name').first();
+  const habBox = page.getByTestId('habit-namebox').first();
   const habBefore = (await habName.boundingBox())!;
+  const boxBefore = (await habBox.boundingBox())!;
   await longPress(page, habBefore);
   await expect(page.getByTestId('habit-grip').first(), 'really in edit mode').toBeVisible();
   const habAfter = (await habName.boundingBox())!;
-  // THE ONE THAT FAILED: 68 -> 48 before the slots were reserved.
+  const boxAfter = (await habBox.boundingBox())!;
+  // THE ONE THAT FAILED: 68 -> 48 before this was dealt with.
   expect(Math.round(habAfter.x), 'the habit name does not slide sideways').toBe(Math.round(habBefore.x));
   expect(Math.round(habAfter.width), 'and does not resize').toBe(Math.round(habBefore.width));
+
+  // AND THE BOX ITSELF DOES NOT SHRINK. The first fix held the row still by
+  // reserving slots for the controls, which cost the name box that width
+  // permanently — Sean: "the sizes shouldn't have shrunk". The controls float
+  // over the box now, so its width is the same in edit mode and out of it.
+  expect(Math.round(boxAfter.width), 'the name box keeps its width in edit mode')
+    .toBe(Math.round(boxBefore.width));
 });

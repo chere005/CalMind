@@ -421,18 +421,18 @@ export function Habits() {
                   ref={secDrag.registerHeader(sec.id, HFOLDER)}
                   style={[s.secHead, secDrag.dragging === sec.id && s.dragging]}
                 >
-                  {edit ? (
+                  {/* Floats too, for the same reason as the row's: the
+                      section header must not slide sideways as edit opens. */}
+                  {edit && (
                     <View
                       testID={`hsec-grip-${sec.payload.name}`}
                       {...secDrag.gripFor(sec.id)}
-                      style={s.rowGrip}
+                      style={[s.gripFloat, s.gripFloatSec]}
                       hitSlop={6}
                     >
                       <WebHitSlop slop={6} />
                       <Text style={s.rowGripText}>≡</Text>
                     </View>
-                  ) : (
-                    <View style={s.slotGrip} />
                   )}
                   <Pressable onPress={() => toggleFold(sec.id)} hitSlop={8} style={s.chevWrap}>
                     <WebHitSlop />
@@ -481,18 +481,28 @@ export function Habits() {
                         ]}
                       >
                       <View style={s.nameCol}>
-                        {edit ? (
+                        {/* The edit controls FLOAT over the habit rather than
+                            taking space in its row — Sean, 2026-08-12: "the
+                            icons should appear on top of the habit, the sizes
+                            shouldn't have shrunk".
+                            
+                            Reserving their slots was the first fix and it did
+                            stop the row moving, at the cost of a permanently
+                            narrower name. This is the Reminders pattern
+                            instead, which its own comment already argued for:
+                            an absolutely positioned cluster over an opaque
+                            background, so nothing reflows and the text it
+                            covers is simply not shown. */}
+                        {edit && (
                           <View
                             testID="habit-grip"
                             {...drag.handleFor(flatIdxOf(h.id))}
-                            style={s.rowGrip}
+                            style={[s.gripFloat, { backgroundColor: tint(sec.payload.color, '14') }]}
                             hitSlop={6}
                           >
                             <WebHitSlop slop={6} />
                             <Text style={s.rowGripText}>≡</Text>
                           </View>
-                        ) : (
-                          <View style={s.slotGrip} />
                         )}
                         {/* Holding a habit no longer starts typing over its
                             name. Sean, 2026-08-11: it "displays pencil edit
@@ -502,6 +512,7 @@ export function Habits() {
                             put a second thing. A tap while editing opens the
                             same screen, so the edit pencil and the row agree. */}
                         <Pressable
+                          testID="habit-namebox"
                           style={[s.nameBox, { borderColor: tint(sec.payload.color, '55'), backgroundColor: tint(sec.payload.color, '14') }]}
                           onPress={() => {
                             if (edit) { setEditor({ sectionId: sec.id, habit: h }); return; }
@@ -528,22 +539,18 @@ export function Habits() {
                         >
                           <Text testID="habit-name" style={[s.habitName, { color: tint(sec.payload.color, 'ee') }]} numberOfLines={1}>{h.payload.name}</Text>
                         </Pressable>
-                        {/* Each control keeps its SLOT when it is not shown,
-                            so nothing in the row moves as edit mode opens. */}
-                        {edit ? (
-                          <CircleBtn
-                            testID="habit-edit"
-                            glyph="✎"
-                            label="Edit habit"
-                            size={24}
-                            onPress={() => setEditor({ sectionId: sec.id, habit: h })}
-                          />
-                        ) : (
-                          <View style={s.slotCtrl} />
+                        {edit && (
+                          <View style={[s.ctrlFloat, { backgroundColor: tint(sec.payload.color, '14') }]}>
+                            <CircleBtn
+                              testID="habit-edit"
+                              glyph="✎"
+                              label="Edit habit"
+                              size={24}
+                              onPress={() => setEditor({ sectionId: sec.id, habit: h })}
+                            />
+                            <ConfirmDelete size={24} onDelete={() => mutate((e) => e.del(h.id))} />
+                          </View>
                         )}
-                        {edit
-                          ? <ConfirmDelete size={24} onDelete={() => mutate((e) => e.del(h.id))} />
-                          : <View style={s.slotCtrl} />}
                       </View>
                       {days.map((d) => {
                         // An off-schedule day — a weekend for a weekdays
@@ -678,6 +685,9 @@ const s = themed(() => StyleSheet.create({
   dayHeadTextToday: { color: T.accentInk },
   section: { gap: 8 },
   secHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
+  // The header's grip hangs to the LEFT of the row rather than over it: there
+  // is empty margin there, and nothing to cover.
+  gripFloatSec: { left: -22, backgroundColor: 'transparent' },
   // The same 20x20 box Reminders and Notes give their fold chevrons.
   // This Pressable had NO style, so its box was exactly the glyph and
   // the slop was the whole target — measured at 7x7 drawn against the
@@ -706,8 +716,28 @@ const s = themed(() => StyleSheet.create({
    * something `toBeHidden()` calls visible, so the controls stay genuinely
    * absent and only their space is kept.
    */
-  slotGrip: { width: 16 },
-  slotCtrl: { width: 24 },
+  /**
+   * The floating edit controls.
+   *
+   * They sit ON TOP of the habit's own name box rather than beside it, so the
+   * name keeps its full width whether or not edit mode is open and nothing in
+   * the row moves as it opens. The background is the name box's own tint, so
+   * the cluster reads as part of the box rather than as a hole punched in it.
+   *
+   * The first fix reserved slots for these instead. It held the row still —
+   * which was the ask — but shrank every habit name permanently to do it, and
+   * Sean said so: "the sizes shouldn't have shrunk".
+   */
+  gripFloat: {
+    position: 'absolute', left: 0, top: 0, bottom: 0, zIndex: 2,
+    width: 26, alignItems: 'center', justifyContent: 'center',
+    borderTopLeftRadius: 10, borderBottomLeftRadius: 10,
+  },
+  ctrlFloat: {
+    position: 'absolute', right: 8, top: 0, bottom: 0, zIndex: 2,
+    flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 6,
+    borderTopRightRadius: 10, borderBottomRightRadius: 10,
+  },
   rowGripText: { color: T.muted, fontSize: 14 },
   dragging: { opacity: 0.55 },
   dropLine: { height: 2, backgroundColor: T.accent, borderRadius: 1, marginVertical: 1 },

@@ -41,13 +41,30 @@ export function dayItems(recs: AnyRec[], date: string, today: string, modes?: Re
     const { due, done, repeat, folderId } = r.payload;
     const mode = modeById.get(folderId) ?? 'dated';
     if (mode === 'none') continue;
-    const rider = !due && !done && mode === 'all' && date === today;
+    // `done` is NOT part of whether a row belongs to this day — that is the
+    // screen's business, and `onDate` below has always worked that way.
+    //
+    // It used to be part of `rider` and `overdue`, and that asymmetry was a
+    // bug Sean hit: ticking a reminder that "always appears on today" made it
+    // vanish instantly, with no two-second grace to take the tap back. The
+    // grace is a FILTER over the day's rows — `showDone || !done ||
+    // grace.held` — and a filter can only keep a row that is still in the
+    // list. Core had already removed it, so there was nothing to hold.
+    //
+    // A dated reminder never had the problem because `onDate` does not ask.
+    const rider = !due && mode === 'all' && date === today;
     const onDate = !!due && repeatDates(due, repeat, date, date).length > 0;
     // Today gathers what's late as well as what's due — an overdue reminder
     // stays in sight until ticked. It is never flagged as a rider (it isn't
     // riding, it's late) and a rider is never overdue (it was never due).
-    const overdue = !!due && !done && due < today && date === today;
-    if (rider || onDate || overdue) reminders.push({ rec: r, overdue, rider });
+    // BELONGING and BEING LATE are separated here, and that is the fix: a
+    // late reminder is collected onto today whether or not it is ticked, so
+    // the grace has a row to hold, while the `overdue` FLAG — which is what
+    // paints it late — still means late AND open. A ticked one sits there
+    // struck through for its two seconds rather than wearing the late colour.
+    const late = !!due && due < today && date === today;
+    const overdue = late && !done;
+    if (rider || onDate || late) reminders.push({ rec: r, overdue, rider });
   }
   reminders.sort((a, b) => {
     const ka = `${a.rec.payload.due ?? ''}\u0000${a.rec.payload.time ?? ''}`;

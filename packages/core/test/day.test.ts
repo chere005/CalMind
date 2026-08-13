@@ -43,9 +43,22 @@ describe('dayItems — what lands on a day', () => {
     expect(tomorrow.reminders.length).toBe(0);
   });
 
-  it('a done reminder stops riding and stops being overdue', () => {
+  it('a done reminder STAYS on today, and stops being overdue', () => {
+    // It used to leave the day the instant it was ticked, and that was a bug
+    // Sean hit on 2026-08-12: a reminder that "always appears on today" — a
+    // rider, or something late — disappeared with no grace to take the tap
+    // back. The two-second grace is a FILTER the screens apply over this
+    // list, and a filter cannot keep a row core has already dropped. A DATED
+    // reminder never had the problem, because `onDate` never asked about
+    // done; this is the other two catching up with it.
     const recs: AnyRec[] = [folder('cal', true), rem('done-late', '2026-08-01', { done: true }), rem('done-rider', null, { folderId: 'cal', done: true })];
-    expect(dayItems(recs, TODAY, TODAY).reminders.length).toBe(0);
+    const today = dayItems(recs, TODAY, TODAY);
+    expect(today.reminders.map((r) => r.rec.id).sort()).toEqual(['done-late', 'done-rider']);
+    // Present, but not painted late: `overdue` still means late AND open.
+    expect(today.reminders.find((r) => r.rec.id === 'done-late')!.overdue).toBe(false);
+    expect(today.reminders.find((r) => r.rec.id === 'done-rider')!.rider).toBe(true);
+    // And it is TODAY's business only — a done rider does not haunt tomorrow.
+    expect(dayItems(recs, '2026-08-08', TODAY).reminders.length).toBe(0);
   });
 
   it('a dated note shows on its day', () => {
