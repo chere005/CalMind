@@ -42,7 +42,7 @@ test('a token revoked elsewhere lands this device back on the login, not in a si
   await expect(p2.getByTestId('tab-reminders')).toBeVisible({ timeout: 20_000 });
 
   // Device one changes the password, which revokes device two's token.
-  await page.getByText(user, { exact: true }).click();
+  await page.getByTestId('topbar-sync').click();
   await page.getByText('Settings', { exact: true }).click();
   await page.getByPlaceholder('Current password').fill('e2epassword');
   await page.getByPlaceholder('New password', { exact: true }).fill('e2epassword2');

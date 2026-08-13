@@ -23,7 +23,7 @@ test('a revoked token lands on a login page that looks like the login page', asy
 
   // Sage, so "still wearing the last user's colours" is visible rather than
   // theoretical — it is nearly white where midnight is nearly black.
-  await page.getByText(user, { exact: true }).click();
+  await page.getByTestId('topbar-sync').click();
   await page.getByText('Settings', { exact: true }).click();
   await page.getByTestId('theme-sage').click();
   // Bounded: a click() on a control that is not there does not fail fast, it

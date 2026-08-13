@@ -10,7 +10,6 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { REPEAT_UNITS, byRecOrd, ordGap, deleteSection, duplicateItem, moveReminderBlock, moveSection, moveSectionEmptyingFolder, newId, nowStr, ordBetween, parseWhenFromText, reminderToggle, remindersMarkdown, renameSection, repeatLabel, sectionNameTaken, sortByDate, timeLabel, todayStr, type Rec, type Repeat } from '@calmind/core';
-import * as Clipboard from 'expo-clipboard';
 import { useStore } from '../store';
 import { useClock24 } from '../useClock24';
 import { themed, T } from '../theme';
@@ -23,7 +22,7 @@ import { Chevron } from '../components/Chevron';
 import { EditExit } from '../components/EditExit';
 import { useSectionDrag, type SectionSlot } from '../components/sectiondrag';
 import { ItemModal } from '../components/ItemModal';
-import { CircleBtn, CollapseAllBtn, ConfirmDelete, Field, Pill, Scroll, WebHitSlop } from '../ui';
+import { CircleBtn, CollapseAllBtn, ConfirmDelete, Field, Pill, Scroll, TOPBAR_CTRL, WebHitSlop } from '../ui';
 
 type FolderRec = Rec<'folder'>;
 type SectionRec = Rec<'section'>;
@@ -32,7 +31,7 @@ type ReminderRec = Rec<'reminder'>;
 const FOLD_KEY = 'calmind.folded.reminders';
 
 export function Reminders() {
-  const { recs, session, mutate, sharedRecs, sharedPartnerLabel } = useStore();
+  const { recs, mutate, sharedRecs, sharedPartnerLabel } = useStore();
   const { view, visible: visibleFolders, visibleShared, sharedView, sharedPartner } = useFolderView('reminders');
   // Remembered, as the suite's remShowDone is. Same gap and same fix as the
   // calendar's: it was plain state, so leaving the tab turned Completed off.
@@ -382,8 +381,7 @@ export function Reminders() {
   };
 
   /** The visible list as Markdown — sean's personal tool, as in prod. */
-  const [copyNote, setCopyNote] = useState('');
-  const copyMarkdown = () => {
+  const copyMarkdown = (): string => {
     // The shaping lives in core so it can be tested; this only says WHICH
     // folders, sections and rows are on screen.
     const md = remindersMarkdown(
@@ -403,14 +401,7 @@ export function Reminders() {
       })),
       showDone,
     );
-    // Pressing it used to do nothing visible whether it worked or not: no
-    // "copied", and a refusal — a browser that will not give the clipboard to
-    // a page it thinks is unfocused — swallowed whole. A button with no
-    // answer is a button you press twice.
-    Clipboard.setStringAsync(md)
-      .then(() => setCopyNote('Copied'))
-      .catch(() => setCopyNote('Could not copy'))
-      .finally(() => setTimeout(() => setCopyNote(''), 2000));
+    return md;
   };
 
   const dueChip = (r: ReminderRec) => {
@@ -457,20 +448,10 @@ export function Reminders() {
       <TopBar
         title="Reminders"
         controls={<CollapseAllBtn open={!allCollapsed} onPress={collapseAll} />}
+        copyMarkdown={copyMarkdown}
+        completed={<CircleBtn testID="rem-completed" glyph="☑" label="Completed" size={TOPBAR_CTRL} active={showDone} onPress={() => setShowDone(!showDone)} />}
         picker={<FolderPick app="reminders" />}
       />
-      {/* The suite's toolbar row: under the divider, immediately above the folders. */}
-      <View style={s.toolbar}>
-        <CircleBtn glyph="☑" label="Completed" active={showDone} onPress={() => setShowDone(!showDone)} />
-        {session?.username === 'sean' && <CircleBtn testID="rem-copymd" glyph="⧉" label="Duplicate" onPress={copyMarkdown} />}
-        {copyNote !== '' && <Text testID="rem-copynote" style={s.copyNote}>{copyNote}</Text>}
-        {/* No Done button. It was added to give edit mode a visible exit, and
-            it was itself the last of the vertical shift Sean was complaining
-            about — a Pill is taller than the collapse-all circle, so the
-            toolbar grew and took the list with it. Tapping out is the only
-            way now, which means it has to work everywhere: the headers below
-            are exit targets, not just the blank space. */}
-      </View>
 
       {/* A live drag holds the scroll still — see Habits for the why. */}
       <Scroll contentContainerStyle={s.scroll} scrollEnabled={drag.dragIdx === null && secDrag.dragging === null}>

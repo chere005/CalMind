@@ -8,18 +8,21 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { PanResponder, Pressable, StyleSheet, Text, View } from 'react-native';
-import { prefsOf, duplicateItem,
-  timeLabel,
+import {
   addDays,
   cellMarks,
   dayItems,
+  duplicateItem,
   monthGridFilled,
   monthLegend,
-  twoWeeksFrom,
   newId,
+  prefsOf,
   reminderToggle,
+  timeLabel,
   todayStr,
+  twoWeeksFrom,
   type Rec,
+  viewMarkdown,
 } from '@calmind/core';
 import { useStore } from '../store';
 import { useClock24 } from '../useClock24';
@@ -33,7 +36,7 @@ import { BalancedRow } from '../components/BalancedRow';
 import { Chevron } from '../components/Chevron';
 import { useSharedTick, useTickGrace } from '../components/tickgrace';
 import { EditExit } from '../components/EditExit';
-import { CircleBtn, CollapseAllBtn, ConfirmDelete, Pill, Rule, Scroll, WebHitSlop } from '../ui';
+import { CircleBtn, CollapseAllBtn, ConfirmDelete, Pill, Rule, Scroll, TOPBAR_CTRL, WebHitSlop } from '../ui';
 
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
@@ -395,6 +398,12 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
       <TopBar
         title="Calendar"
         controls={<CollapseAllBtn open={!allCollapsed} onPress={collapseAllGroups} />}
+        copyMarkdown={() => viewMarkdown(dayLabel, [
+          { name: 'Events', lines: items.events.map((e) => ({ text: e.payload.text, chip: e.payload.time ? timeLabel(e.payload.time, clock24) : null })) },
+          { name: 'Reminders', lines: myReminders.map(({ rec: r }) => ({ text: r.payload.text, chip: r.payload.time ? timeLabel(r.payload.time, clock24) : null })) },
+          { name: sharedPartner ? `Shared — ${sharedPartner}` : 'Shared', lines: theirReminders.map(({ rec: r }) => ({ text: r.payload.text, chip: r.payload.time ? timeLabel(r.payload.time, clock24) : null })) },
+        ])}
+        completed={<CircleBtn testID="cal-completed" glyph="☑" label="Completed" size={TOPBAR_CTRL} active={showDone} onPress={() => setShowDone(!showDone)} />}
         picker={<CalendarPick />}
       />
       {/* The date centred over the grid; ◉ jumps home to today. */}
@@ -500,7 +509,6 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
         <View style={s.panelHead}>
           <Text testID="cal-day-title" style={s.panelTitle}>{dayLabel}</Text>
           <View style={s.panelBtns}>
-            <CircleBtn testID="cal-completed" glyph="☑" label="Completed" active={showDone} onPress={() => setShowDone(!showDone)} />
             {/* "+ Add" stays put in edit mode too: swapping it for a Done was
                 a second control appearing and disappearing in the one row
                 Sean did not want moving. */}

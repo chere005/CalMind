@@ -40,7 +40,7 @@ test('a tick on a row the partner just un-shared fails quietly and honestly', as
   await pageA.getByTestId('secadd-General').first().click();
   await pageA.getByTestId('rem-add-field').fill('peel garlic');
   await pageA.getByTestId('rem-add-field').press('Enter');
-  await pageA.getByText(userA, { exact: true }).click();
+  await pageA.getByTestId('topbar-sync').click();
   await pageA.getByText('Settings', { exact: true }).click();
   await pageA.getByTestId('open-share').click();
   await pageA.getByTestId('share-add-partner').fill(userB);
@@ -48,7 +48,7 @@ test('a tick on a row the partner just un-shared fails quietly and honestly', as
   await pageA.getByTestId('share-folders-Reminders').click();
   await pageA.getByText('Done', { exact: true }).click();
 
-  await pageB.getByText(userB, { exact: true }).click();
+  await pageB.getByTestId('topbar-sync').click();
   await pageB.getByText('Settings', { exact: true }).click();
   await pageB.getByTestId('open-share').click();
   await pageB.getByTestId('share-add-partner').fill(userA);

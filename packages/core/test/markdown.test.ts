@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { remindersMarkdown } from '../src/markdown';
+import { remindersMarkdown, viewMarkdown } from '../src/markdown';
 
 /**
  * These pin what the ⧉ button ALREADY produced before the logic moved into
@@ -46,5 +46,29 @@ describe('remindersMarkdown', () => {
     // Pinned because it is a real divergence, not because it is obviously
     // right: someone comparing the two later should find it written down.
     expect(remindersMarkdown(folders, false)).toContain('### Empty');
+  });
+});
+
+describe('viewMarkdown — a tab as markdown', () => {
+  it('heads the view, groups what is in it, and drops empty groups', () => {
+    const md = viewMarkdown('Wednesday, August 12', [
+      { name: 'Events', lines: [{ text: 'standup', chip: '9am' }, { text: 'all day thing' }] },
+      { name: 'Nothing here', lines: [] },
+      { name: 'Reminders', lines: [{ text: 'ring the vet', chip: 'today' }] },
+    ]);
+    expect(md).toBe([
+      '## Wednesday, August 12',
+      '',
+      '### Events',
+      '- standup (9am)',
+      '- all day thing',
+      '',
+      '### Reminders',
+      '- ring the vet (today)',
+    ].join('\n'));
+  });
+
+  it('an empty view is its heading, not an empty clipboard', () => {
+    expect(viewMarkdown('Today', [{ name: 'Events', lines: [] }])).toBe('## Today');
   });
 });

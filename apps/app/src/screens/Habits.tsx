@@ -11,7 +11,24 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { PanResponder, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Svg, { Circle, Path } from 'react-native-svg';
-import { byRecOrd, dayShares, habitOnScheduleOn, monthGrid, moveHabit, moveHabitSection, newId, ordBetween, prefsOf, prefsPut, tickId, todayStr, type Frequency, type Rec } from '@calmind/core';
+import {
+  byRecOrd,
+  dayShares,
+  frequencyOf,
+  habitOnScheduleOn,
+  monthGrid,
+  moveHabit,
+  moveHabitSection,
+  newId,
+  ordBetween,
+  prefsOf,
+  prefsPut,
+  tickId,
+  todayStr,
+  type Frequency,
+  type Rec,
+  viewMarkdown,
+} from '@calmind/core';
 import { useStore } from '../store';
 import { APP_PALETTES, themed, T } from '../theme';
 import { TopBar } from '../chrome';
@@ -358,6 +375,10 @@ export function Habits() {
              nobody else needs. */
           <CollapseAllBtn open={!allCollapsed} onPress={collapseAll} />
         }
+        copyMarkdown={() => viewMarkdown(pagerLabel, sections.map((sec) => ({
+          name: sec.payload.name,
+          lines: habitsOf(sec.id).map((h) => ({ text: h.payload.name, chip: frequencyOf(h) === 'always' ? null : frequencyOf(h) })),
+        })))}
         picker={<SectionPick />}
       />
 

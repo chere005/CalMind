@@ -59,7 +59,7 @@ test('a sync that never answers does not leave the app looking synced', async ({
     `${hung} stalled syncs in 95s — the poll is stacking them instead of waiting`,
   ).toBeLessThanOrEqual(2);
 
-  await page.getByText(user, { exact: true }).click();
+  await page.getByTestId('topbar-sync').click();
   await page.getByText('Settings', { exact: true }).click();
   await expect(
     page.getByText('Online — synced'),

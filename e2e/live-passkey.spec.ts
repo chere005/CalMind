@@ -47,7 +47,7 @@ test('a passkey works against the deployed test server, end to end', async ({ pa
   await page.getByText('Sign up', { exact: true }).click();
   await expect(page.getByTestId('tab-reminders')).toBeVisible({ timeout: 30_000 });
 
-  await page.getByText(user, { exact: true }).click();
+  await page.getByTestId('topbar-sync').click();
   await page.getByText('Settings', { exact: true }).click();
   await expect(
     page.getByTestId('passkey-section'),
@@ -60,7 +60,7 @@ test('a passkey works against the deployed test server, end to end', async ({ pa
   await expect(page.getByTestId('passkey-signin')).toBeVisible({ timeout: 30_000 });
   await page.getByTestId('passkey-signin').click();
   await expect(page.getByTestId('tab-reminders')).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByText(user, { exact: true }).first()).toBeVisible();
+  await expect(page.getByTestId('topbar-sync').first()).toBeVisible();
 
   // Residue, said out loud rather than left to be discovered: this account and
   // its passkey stay on the test server. There is no delete-account endpoint.

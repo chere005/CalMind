@@ -400,7 +400,7 @@ test('a theme picked in Settings repaints the app, syncs, and login stays midnig
     return getComputedStyle(el).backgroundColor;
   });
   expect(await pageBg()).toBe('rgb(17, 17, 17)'); // midnight #111111
-  await page.getByText(user, { exact: true }).click();
+  await page.getByTestId('topbar-sync').click();
   await page.getByText('Settings', { exact: true }).click();
   // The PAGE's background follows too, not just the app's own view. It is
   // what shows through the safe areas, so a body left at midnight under a
@@ -415,7 +415,7 @@ test('a theme picked in Settings repaints the app, syncs, and login stays midnig
   await expect.poll(pageBg, { timeout: 10_000 }).toBe('rgb(254, 250, 224)');
   await expect.poll(bodyBg, { timeout: 10_000 }).toBe('rgb(254, 250, 224)');
   // Logging out returns to midnight — the login page has no user to theme.
-  await page.getByText(user, { exact: true }).click();
+  await page.getByTestId('topbar-sync').click();
   await page.getByText('Log out', { exact: true }).click();
   await expect.poll(pageBg, { timeout: 10_000 }).toBe('rgb(17, 17, 17)');
 });
@@ -534,7 +534,7 @@ test('the 12/24-hour setting reaches the screens, and survives a reload', async 
 
   // Switch to 24-hour in Settings — through the username menu, as a person
   // does, since there is no direct testid for it.
-  await page.getByText(user, { exact: true }).click();
+  await page.getByTestId('topbar-sync').click();
   await page.getByText('Settings', { exact: true }).click();
   await page.getByTestId('clock-24').click();
   await page.getByLabel('Done').click();
@@ -546,7 +546,7 @@ test('the 12/24-hour setting reaches the screens, and survives a reload', async 
   await expect(page.getByText('14:00', { exact: true })).toBeVisible({ timeout: 15_000 });
 
   // …and back again, so the default is reachable too.
-  await page.getByText(user, { exact: true }).click();
+  await page.getByTestId('topbar-sync').click();
   await page.getByText('Settings', { exact: true }).click();
   await page.getByTestId('clock-12').click();
   await page.getByLabel('Done').click();
@@ -798,7 +798,7 @@ test('sharing: mutual handshake, @partner view, a tick lands in their store', as
   await pageA.getByTestId('secadd-General').first().click();
   await pageA.getByTestId('rem-add-field').fill('peel garlic');
   await pageA.getByTestId('rem-add-field').press('Enter');
-  await pageA.getByText(userA, { exact: true }).click();
+  await pageA.getByTestId('topbar-sync').click();
   await pageA.getByText('Settings', { exact: true }).click();
   await pageA.getByTestId('open-share').click();
   await pageA.getByTestId('share-add-partner').fill(userB);
@@ -807,7 +807,7 @@ test('sharing: mutual handshake, @partner view, a tick lands in their store', as
   await pageA.getByText('Done', { exact: true }).click();
 
   // B: add A back — the handshake closes and A's folder flows in.
-  await pageB.getByText(userB, { exact: true }).click();
+  await pageB.getByTestId('topbar-sync').click();
   await pageB.getByText('Settings', { exact: true }).click();
   await pageB.getByTestId('open-share').click();
   await pageB.getByTestId('share-add-partner').fill(userA);
@@ -946,7 +946,7 @@ test("sharing: a calendar shows under the partner's day-panel group; notes read 
   await pageA.getByTestId('note-title').fill('the recipe');
   await pageA.getByTestId('note-body-edit').fill('**garlic** first');
   await pageA.getByTestId('note-back').click();
-  await pageA.getByText(userA, { exact: true }).click();
+  await pageA.getByTestId('topbar-sync').click();
   await pageA.getByText('Settings', { exact: true }).click();
   await pageA.getByTestId('open-share').click();
   await pageA.getByTestId('share-add-partner').fill(userB);
@@ -956,7 +956,7 @@ test("sharing: a calendar shows under the partner's day-panel group; notes read 
   await pageA.getByText('Done', { exact: true }).click();
 
   // B adds A back, then looks at today and at the shared notes.
-  await pageB.getByText(userB, { exact: true }).click();
+  await pageB.getByTestId('topbar-sync').click();
   await pageB.getByText('Settings', { exact: true }).click();
   await pageB.getByTestId('open-share').click();
   await pageB.getByTestId('share-add-partner').fill(userA);

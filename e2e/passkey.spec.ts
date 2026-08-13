@@ -51,7 +51,7 @@ test('a passkey is added, signs in with no username, and the password still work
   await expect(page.getByTestId('tab-reminders')).toBeVisible({ timeout: 20_000 });
 
   // Add one from Settings.
-  await page.getByText(user, { exact: true }).click();
+  await page.getByTestId('topbar-sync').click();
   await page.getByText('Settings', { exact: true }).click();
   await expect(page.getByTestId('passkey-section')).toBeVisible();
   await page.getByTestId('passkey-add').click();
@@ -63,11 +63,11 @@ test('a passkey is added, signs in with no username, and the password still work
   await expect(page.getByTestId('passkey-signin')).toBeVisible({ timeout: 20_000 });
   await page.getByTestId('passkey-signin').click();
   await expect(page.getByTestId('tab-reminders')).toBeVisible({ timeout: 20_000 });
-  await expect(page.getByText(user, { exact: true }).first()).toBeVisible();
+  await expect(page.getByTestId('topbar-sync').first()).toBeVisible();
 
   // The password is still a way in — a passkey is an addition, and a device
   // left at home must not lock anyone out of their own account.
-  await page.getByText(user, { exact: true }).click();
+  await page.getByTestId('topbar-sync').click();
   await page.getByText('Settings', { exact: true }).click();
   await page.getByText('Log out', { exact: true }).click();
   await page.getByPlaceholder('Username').fill(user);
@@ -106,7 +106,7 @@ test('an unreachable server does not report "no passkeys"', async ({ page }) => 
     return route.continue();
   });
 
-  await page.getByText(user, { exact: true }).click();
+  await page.getByTestId('topbar-sync').click();
   await page.getByText('Settings', { exact: true }).click();
   await expect(page.getByTestId('passkey-section')).toBeVisible();
   await expect(

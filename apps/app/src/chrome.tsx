@@ -7,12 +7,13 @@
  */
 import React, { useEffect, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
 import { logout } from './api';
 import { useStore } from './store';
 import { themed, T } from './theme';
 import { CircleBtn, Rule, TOPBAR_CTRL, TOPBAR_MARGIN_TOP } from './ui';
 import { Settings } from './screens/Settings';
-import { SyncDot } from './components/SyncDot';
+import { syncLook } from './components/SyncDot';
 import { useNav } from './nav';
 // A Modal is its own window, so an absolute `top` inside one is measured from
 // the top of the SCREEN, not from where the app's content begins. Without the
@@ -23,15 +24,31 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 export function TopBar({
   title,
   controls,
+  completed,
+  copyMarkdown,
   picker,
 }: {
   title: string;
   controls?: React.ReactNode;
+  /**
+   * What this screen would put on the clipboard as Markdown, or nothing if it
+   * has none. Sean, 2026-08-12: every tab, every user — it used to be one
+   * button on Reminders, visible only to him.
+   *
+   * A FUNCTION rather than a string: building the markdown means walking the
+   * whole screen's rows, and doing that on every render of every top bar to
+   * fill a menu row nobody has opened is work for nothing.
+   */
+  copyMarkdown?: () => string;
+  /** The show-completed toggle, between collapse-all and the folder picker.
+   *  Sean's placement, 2026-08-12: it used to sit in a toolbar row under the
+   *  divider, which is a second row of controls for one button. */
+  completed?: React.ReactNode;
   picker?: React.ReactNode;
 }) {
   const nav = useNav();
   const insets = useSafeAreaInsets();
-  const { session, signOut, undoLastDelete } = useStore();
+  const { session, signOut, undoLastDelete, syncState, persistFailed, refusedLabels } = useStore();
   const [menuOpen, setMenuOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   /** What the last undo brought back, shown briefly under the bar. */
@@ -66,6 +83,9 @@ export function TopBar({
       setMenuOpen(true);
     }
   };
+  // One rule, one place: the dot, Settings, the note editor and this border
+  // all read the same function.
+  const look = syncLook(syncState, persistFailed, refusedLabels);
   useEffect(() => () => clearTimeout(undoTimer.current), []);
   return (
     <>
@@ -84,39 +104,35 @@ export function TopBar({
         </View>
         <View style={s.right}>
           {controls}
+          {completed}
           {picker && <View style={s.pickerRing}>{picker}</View>}
-          {/* The suite's `.who` is a <button>; ours was a bare Pressable, and
-              react-native-web only emits role="button" when it is asked to —
-              so the one way into Settings announced itself as nothing at all.
-              The label names what it opens, since "sean ▾" read aloud does
-              not say that a menu is behind it. */}
+          {/* The account button, and the STATUS INDICATOR in one control.
+              Sean, 2026-08-12: same size as every other button, the
+              username's first letter as its icon, and "the color of the
+              button border is the status indicator, so the status indicator
+              can be removed".
+
+              That is a real simplification rather than a saving of pixels:
+              the dot had to live somewhere, and it had been moved twice in a
+              day — between the picker and the pill, then past it, then held
+              still against the note editor's copy. A border has no position
+              of its own to get wrong.
+
+              It still carries the whole sentence as its accessibility label,
+              because a coloured ring tells a screen reader nothing — the same
+              rule SyncDot has always followed, and the reason `syncLook` is
+              shared rather than copied. */}
           <Pressable
             ref={pillRef}
+            testID="topbar-sync"
             onPress={openMenu}
             hitSlop={8}
             accessibilityRole="button"
-            accessibilityLabel={`${session?.username ?? ''} — account menu`}
-            style={s.whoPill}
+            accessibilityLabel={`${session?.username ?? ''} — account menu. ${look.text}`}
+            style={[s.whoBtn, { borderColor: look.color }]}
           >
-            <Text style={s.who}>{session?.username}</Text>
-            <Text style={s.whoCaret}>▾</Text>
+            <Text style={s.whoLetter}>{(session?.username ?? '?').slice(0, 1).toUpperCase()}</Text>
           </Pressable>
-          {/* THE STATUS DOT, which this file's own header has described all
-              along while nothing drew it: `syncState` was destructured here
-              and never used. So the app's one honest signal that a note did
-              not save — the red dot for a refused record — lived only inside
-              Settings, which you have to go and open. A warning you have to
-              go looking for is most of the way to no warning.
-
-              Same component and same rule as Settings and the note editor,
-              so the three cannot drift. It carries the full sentence as its
-              accessibility label; the colour alone tells a screen reader, and
-              a colour-blind reader, nothing.
-
-              LAST in the row, on Sean's word (2026-08-12): far right of the
-              top bar, outside the account pill rather than between the picker
-              and it. */}
-          <SyncDot testID="topbar-sync" />
         </View>
       </View>
       {/* The gap AFTER the divider belongs here, not to each screen.
@@ -134,7 +150,11 @@ export function TopBar({
       <View testID="top-rule" style={s.ruleWrap}><Rule /></View>
       {undone !== null && (
         <Text testID="undo-note" style={s.undoNote}>
-          {undone === 'Nothing to undo' ? undone : `Restored “${undone}”`}
+          {/* Only a RESTORE gets the quotes — the copy messages are whole
+              sentences of their own. */}
+          {undone === 'Nothing to undo' || undone.startsWith('Copied') || undone.startsWith('Could not')
+            ? undone
+            : `Restored “${undone}”`}
         </Text>
       )}
       {/* The username's own dropdown — the same two rows in every app. */}
@@ -151,6 +171,28 @@ export function TopBar({
                   : { top: insets.top + 52, right: 16 },
               ]}
             >
+              {copyMarkdown && (
+                <Pressable
+                  testID="menu-copymd"
+                  style={s.menuRow}
+                  onPress={() => {
+                    setMenuOpen(false);
+                    // Say something either way. A refusal — a browser that
+                    // will not hand the clipboard to a page it thinks is
+                    // unfocused — used to be swallowed whole, and a button
+                    // with no answer is a button you press twice.
+                    Clipboard.setStringAsync(copyMarkdown())
+                      .then(() => setUndone('Copied as Markdown'))
+                      .catch(() => setUndone('Could not copy'))
+                      .finally(() => {
+                        clearTimeout(undoTimer.current);
+                        undoTimer.current = setTimeout(() => setUndone(null), 2000);
+                      });
+                  }}
+                >
+                  <Text style={s.menuText}>Copy as Markdown</Text>
+                </Pressable>
+              )}
               <Pressable style={s.menuRow} onPress={() => { setMenuOpen(false); setSettingsOpen(true); }}>
                 <Text style={s.menuText}>Settings</Text>
               </Pressable>
@@ -210,7 +252,9 @@ const s = themed(() => StyleSheet.create({
   // unhittable.
   appname: { color: T.text, fontSize: 24, fontWeight: '800', flexShrink: 1 },
   hleft: { flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 1, minWidth: 0 },
-  right: { flexDirection: 'row', alignItems: 'center', gap: 10, flexShrink: 0 },
+  // 8 between every button, Sean's number. It was 10 here with a further 4
+  // either side of the picker, so the row had three different gaps in it.
+  right: { flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 0 },
   status: { width: 8, height: 8, borderRadius: 4 },
   tip: { position: 'absolute', top: 14, right: 0, backgroundColor: T.surface2, borderWidth: 1, borderColor: T.line, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5, zIndex: 40, minWidth: 150 },
   tipText: { color: T.text, fontSize: 12 },
@@ -219,10 +263,15 @@ const s = themed(() => StyleSheet.create({
   // One row, one scale — every control is TOPBAR_CTRL high, the suite's
   // `.backbtn, .titlebtn, .usermenu .who { height: 32px }`.
   // Icon-sized, ringed, with air between the pie and its border (Sean).
-  pickerRing: { width: TOPBAR_CTRL, height: TOPBAR_CTRL, borderRadius: TOPBAR_CTRL / 2, borderWidth: 1, borderColor: T.line, backgroundColor: T.surface, alignItems: 'center', justifyContent: 'center', marginHorizontal: 4 },
-  whoPill: { height: TOPBAR_CTRL, flexDirection: 'row', alignItems: 'center', gap: 5, borderWidth: 1, borderColor: T.accentSoft, borderRadius: 999, paddingHorizontal: 13 },
-  who: { color: T.accent, fontSize: 14, fontWeight: '600' },
-  whoCaret: { color: T.accent, fontSize: 10, opacity: 0.8 },
+  pickerRing: { width: TOPBAR_CTRL, height: TOPBAR_CTRL, borderRadius: TOPBAR_CTRL / 2, borderWidth: 1, borderColor: T.line, backgroundColor: T.surface, alignItems: 'center', justifyContent: 'center' },
+  // The same circle as every other control in the row. borderWidth 2, not 1:
+  // the border IS the status now, and one pixel of colour is not a signal.
+  whoBtn: {
+    width: TOPBAR_CTRL, height: TOPBAR_CTRL, borderRadius: TOPBAR_CTRL / 2,
+    borderWidth: 2, backgroundColor: T.surface,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  whoLetter: { color: T.accent, fontSize: 15, fontWeight: '700' },
   menuBackdrop: { flex: 1, backgroundColor: '#0007' },
   menu: {
     position: 'absolute',

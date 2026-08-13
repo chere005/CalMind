@@ -69,7 +69,7 @@ test('it goes red where it matters — a note too long to save', async ({ page }
 
   // Settings tells the same story from the same rule — it used to carry its
   // own copy of the sentence beside a dot that read the shared one.
-  await page.getByText(/^tb\d+$/).first().click();
+  await page.getByTestId('topbar-sync').click();
   await page.getByText('Settings', { exact: true }).click();
   await expect(page.getByText(/War and Peace.*too long to save/)).toBeVisible({ timeout: 10_000 });
 });

@@ -44,3 +44,31 @@ export function remindersMarkdown(folders: MarkdownFolder[], showDone: boolean):
   }
   return lines.join('\n');
 }
+
+/**
+ * A VIEW as markdown — one heading, then its groups, then their lines.
+ *
+ * Sean, 2026-08-12: Copy as Markdown belongs on every tab, not just
+ * Reminders. The calendar's copy is "all events and reminders that appear in
+ * that view", which is a different shape from the folders/sections one above:
+ * its groups are days or kinds, and an EVENT has no checkbox to tick.
+ *
+ * So this is deliberately the plainer format — `- line`, with whatever chip
+ * the screen already shows appended in brackets. `remindersMarkdown` stays
+ * exactly as it was, because its output is what Sean already pastes and
+ * quietly reformatting his clipboard is not a thing to do by refactor.
+ *
+ * Empty groups are dropped; a view with nothing in it is its heading alone,
+ * which is more useful on a clipboard than an empty string.
+ */
+export type MarkdownGroup = { name: string; lines: { text: string; chip?: string | null }[] };
+
+export function viewMarkdown(title: string, groups: MarkdownGroup[]): string {
+  const out: string[] = [`## ${title}`];
+  for (const g of groups) {
+    if (g.lines.length === 0) continue;
+    out.push('', `### ${g.name}`);
+    for (const l of g.lines) out.push(`- ${l.text}${l.chip ? ` (${l.chip})` : ''}`);
+  }
+  return out.join('\n');
+}

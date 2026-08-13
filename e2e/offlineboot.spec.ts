@@ -55,7 +55,7 @@ test('the app opens with the network off', async ({ page, context }) => {
     page.getByTestId('cal-grid'),
     'the app starts from cache with no server at all',
   ).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByText(user, { exact: true }).first(), 'still signed in').toBeVisible();
+  await expect(page.getByTestId('topbar-sync').first(), 'still signed in').toBeVisible();
   await expect(page.getByTestId('cal-cell').first(), 'and drawing its own data').toBeVisible();
 
   await context.setOffline(false);
