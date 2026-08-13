@@ -69,7 +69,7 @@ is between real tradeoffs, not because the answer is unclear.
 
 ### The watch app stops launching on 2026-08-16 — THREE days from now
 Not a decision so much as a clock. Free Personal Team profiles last 7 days,
-the last device install was **build 31 on 2026-08-13** (phone and watch, both
+the last device install was **build 34 on 2026-08-13** (phone and watch, both
 confirmed on the device rather than from the installer's output), and the apps
 stop launching when their profiles expire. Re-read out of the profiles
 themselves after that install, and they are unchanged:
@@ -95,8 +95,8 @@ This was written down on 2026-08-09 as "both device profiles expire
 2026-08-16" and the rewrite dropped it the next day.
 
 **Build 23 was installed on 2026-08-12 and the dates above did NOT move** (nor
-did they for 24-31 since — checked again after 31 on 2026-08-13, all four
-timestamps identical to the minute).
+did they for 24-34 since — checked again after 31 AND after 34 on 2026-08-13,
+all four timestamps identical to the minute both times).
 Checked by re-reading the profiles after the build: a rebuild only renews
 when the profile it needs is invalid, and these are still good, so
 `-allowProvisioningUpdates` reused them and bought nothing. So installing
@@ -1038,6 +1038,16 @@ where someone writing a test will meet them.
   `cat >> PARITY.md` echoed "appended" and the bytes did not survive, which was
   only caught by grepping for the text afterwards. If a session has been near
   full, re-read what you wrote.
+
+- **A watch retry loop must log the MESSAGE, not just the error code.** The
+  tunnel errors (4000, 3002, 1011, NWError 60, RemotePairingError 1001) are
+  Mac↔watch flakiness that patience wins — build 34 landed on attempt 21 after
+  a run of them. But `CoreDeviceError 10003` with `RemotePairingError 1016` is
+  "the device was still locked … has not been unlocked recently", which
+  retrying NEVER fixes: it needs Sean to put the watch on. That went unnoticed
+  through eleven identical attempts because the loop was capturing only the
+  numeric code, and a bare number cannot tell "wait" apart from "ask the
+  human". The loop greps for the phrases now.
 
 
 - `git pull --autostash` first; stage explicit paths; never `git add -A`.
