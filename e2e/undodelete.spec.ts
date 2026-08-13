@@ -44,7 +44,7 @@ async function deleteNote(page: Page, title: string) {
 }
 
 async function undo(page: Page, user: string) {
-  await page.getByText(user, { exact: true }).click();
+  await page.getByTestId('topbar-sync').click();
   await page.getByTestId('undo-delete').click();
 }
 

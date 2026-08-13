@@ -54,7 +54,7 @@ test('a device that cannot save its copy says so instead of looking fine', async
   ).toHaveText('Not saved', { timeout: 10_000 });
   await page.getByTestId('note-back').click();
 
-  await page.getByText(user, { exact: true }).click();
+  await page.getByTestId('topbar-sync').click();
   await page.getByText('Settings', { exact: true }).click();
   await expect(
     page.getByText(/cannot save its copy/),

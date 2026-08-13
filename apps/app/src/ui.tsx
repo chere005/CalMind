@@ -60,8 +60,13 @@ export const TOPBAR_DOT_TOP = TOPBAR_MARGIN_TOP + (TOPBAR_CTRL - SYNC_DOT) / 2;
 const DRAWN: Record<string, (c: number) => string[]> = {
   '+': (c) => [`${c * 0.18},${c / 2} ${c * 0.82},${c / 2}`, `${c / 2},${c * 0.18} ${c / 2},${c * 0.82}`],
   '−': (c) => [`${c * 0.18},${c / 2} ${c * 0.82},${c / 2}`],
-  '‹': (c) => [`${c * 0.71},${c * 0.15} ${c * 0.29},${c / 2} ${c * 0.71},${c * 0.85}`],
-  '›': (c) => [`${c * 0.29},${c * 0.15} ${c * 0.71},${c / 2} ${c * 0.29},${c * 0.85}`],
+  // Smaller and box-centred, on Sean's word (2026-08-12): the old chevron
+  // spanned 0.15–0.85 of the canvas, which is 70% of the circle in a mark
+  // only 42% wide — tall, thin and reading as slightly off. 0.24–0.76 by
+  // 0.34–0.66 is the same shape at 52%, and its bounding box centres on 0.5
+  // in both directions rather than merely its apex.
+  '‹': (c) => [`${c * 0.66},${c * 0.24} ${c * 0.34},${c / 2} ${c * 0.66},${c * 0.76}`],
+  '›': (c) => [`${c * 0.34},${c * 0.24} ${c * 0.66},${c / 2} ${c * 0.34},${c * 0.76}`],
 };
 
 /** `size` is the CANVAS, not the button: a caller that is not a CircleBtn

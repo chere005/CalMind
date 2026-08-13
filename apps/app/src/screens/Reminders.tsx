@@ -23,7 +23,7 @@ import { Chevron } from '../components/Chevron';
 import { EditExit } from '../components/EditExit';
 import { useSectionDrag, type SectionSlot } from '../components/sectiondrag';
 import { ItemModal } from '../components/ItemModal';
-import { CircleBtn, CollapseAllBtn, ConfirmDelete, Field, Pill, Scroll, WebHitSlop } from '../ui';
+import { CircleBtn, CollapseAllBtn, ConfirmDelete, Field, Pill, Scroll, TOPBAR_CTRL, WebHitSlop } from '../ui';
 
 type FolderRec = Rec<'folder'>;
 type SectionRec = Rec<'section'>;
@@ -457,11 +457,11 @@ export function Reminders() {
       <TopBar
         title="Reminders"
         controls={<CollapseAllBtn open={!allCollapsed} onPress={collapseAll} />}
+        completed={<CircleBtn testID="rem-completed" glyph="☑" label="Completed" size={TOPBAR_CTRL} active={showDone} onPress={() => setShowDone(!showDone)} />}
         picker={<FolderPick app="reminders" />}
       />
       {/* The suite's toolbar row: under the divider, immediately above the folders. */}
       <View style={s.toolbar}>
-        <CircleBtn glyph="☑" label="Completed" active={showDone} onPress={() => setShowDone(!showDone)} />
         {session?.username === 'sean' && <CircleBtn testID="rem-copymd" glyph="⧉" label="Duplicate" onPress={copyMarkdown} />}
         {copyNote !== '' && <Text testID="rem-copynote" style={s.copyNote}>{copyNote}</Text>}
         {/* No Done button. It was added to give edit mode a visible exit, and

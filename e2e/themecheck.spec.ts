@@ -21,7 +21,7 @@ test('theme-color and the page background follow the chosen theme, across a relo
   await page.getByText('Sign up', { exact: true }).click();
   await expect(page.getByTestId('tab-reminders')).toBeVisible({ timeout: 20_000 });
 
-  await page.getByText(user, { exact: true }).click();
+  await page.getByTestId('topbar-sync').click();
   await page.getByText('Settings', { exact: true }).click();
   await page.getByTestId('theme-sage').click();
 

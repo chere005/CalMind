@@ -33,7 +33,7 @@ import { BalancedRow } from '../components/BalancedRow';
 import { Chevron } from '../components/Chevron';
 import { useSharedTick, useTickGrace } from '../components/tickgrace';
 import { EditExit } from '../components/EditExit';
-import { CircleBtn, CollapseAllBtn, ConfirmDelete, Pill, Rule, Scroll, WebHitSlop } from '../ui';
+import { CircleBtn, CollapseAllBtn, ConfirmDelete, Pill, Rule, Scroll, TOPBAR_CTRL, WebHitSlop } from '../ui';
 
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
@@ -395,6 +395,7 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
       <TopBar
         title="Calendar"
         controls={<CollapseAllBtn open={!allCollapsed} onPress={collapseAllGroups} />}
+        completed={<CircleBtn testID="cal-completed" glyph="☑" label="Completed" size={TOPBAR_CTRL} active={showDone} onPress={() => setShowDone(!showDone)} />}
         picker={<CalendarPick />}
       />
       {/* The date centred over the grid; ◉ jumps home to today. */}
@@ -500,7 +501,6 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
         <View style={s.panelHead}>
           <Text testID="cal-day-title" style={s.panelTitle}>{dayLabel}</Text>
           <View style={s.panelBtns}>
-            <CircleBtn testID="cal-completed" glyph="☑" label="Completed" active={showDone} onPress={() => setShowDone(!showDone)} />
             {/* "+ Add" stays put in edit mode too: swapping it for a Done was
                 a second control appearing and disappearing in the one row
                 Sean did not want moving. */}

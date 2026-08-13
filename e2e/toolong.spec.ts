@@ -30,7 +30,7 @@ test('an over-long note says so instead of quietly living on one device', async 
   await page.getByTestId('note-back').click();
   await page.waitForTimeout(3_000);
 
-  await page.getByText(user, { exact: true }).click();
+  await page.getByTestId('topbar-sync').click();
   await page.getByText('Settings', { exact: true }).click();
   await expect(
     page.getByText(/too long to save/),
