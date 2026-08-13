@@ -47,7 +47,7 @@ Standing rules live in `CLAUDE.md`, not here.
 
 ## Suite counts, as of this commit
 
-core **507** · gesture **209** (+2 skipped) · WebKit **15** · server **48** ·
+core **507** · gesture **212** (+2 skipped) · WebKit **15** · server **48** ·
 live **19** with the API · desktop **7** (+3 in `npm run test:desktop`) · deploy guards **9** · plus the four
 native seam checkers no browser can reach: `npm run test:watch`,
 `npm run test:widget`, `npm run test:deploy`.
@@ -460,7 +460,39 @@ web-app icon is the site-wide "SC" mark rather than CalMind's. The deploy DOES
 add `apple-touch-icon` (deploy-test.sh:235) and iOS was not using it.
 Cosmetic.
 
-### The new-note focus is a 50ms race (WebKit only)
+### The new-note focus is a 50ms race (NOT WebKit only — see below)
+
+**A CHROMIUM OCCURRENCE, 2026-08-13**, which is what took "(WebKit only)" out
+of this heading. `recipehand.spec.ts:71` ("an ingredient typed by hand lands at
+the TOP") timed out at 30s as test 161 of a 9.6-minute gesture run, then passed
+in 1.2s in isolation, 5/5 for its whole file, and the next full run came back
+212/212. A recipe IS a note, so this spec drives the same editor and the same
+`bodyEditing` mount that every WebKit instance of this has hit.
+
+Honest limit on that claim: Playwright clears `test-results` at the start of a
+run, so the isolation re-run destroyed the artifact and WHICH locator timed out
+is unknown. The profile matches (deep into a long run, 30s wait, instant in
+isolation) and the screen matches; the locator is inference.
+
+It also fits the sequencing finding below: this was test 161 of 212, not test 3.
+
+**THE ARTIFACT IS CAPTURED NOW, and it confirms the mechanism.** The very next
+WebKit gate failed the usual way, and this time `test-results/` was copied aside
+BEFORE re-running — the cheap thing nobody had done. The page snapshot at the
+moment of the timeout:
+
+    textbox "Title" [active]: styled      <- the title has focus AND the text
+    generic [cursor=pointer]: Write…      <- the body is note-body-VIEW
+
+So `bodyEditing` went true, the body mounted, the 50ms timer focused it, and the
+spec's title fill then BLURRED it — `onBlur` collapsed the editor, `note-body-edit`
+stopped existing, and the fill waited out its whole budget. That is the sequence
+reasoned about below, now observed. It also kills the older hypothesis in this
+entry that `bodyEditing` "never becomes true at all".
+
+Cleared 15/15 on the re-run. Keep doing the copy-aside: it cost one `cp -R` and
+settled a question that had been open across twelve occurrences.
+
 STILL LIVE, and the count is 8 in ~47 full runs: it recurred on
 2026-08-11 and five times on 2026-08-12, all at `app.spec.ts:359` ("note body
 renders its markers as styled text when you tap away"), each time passing

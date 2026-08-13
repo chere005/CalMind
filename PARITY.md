@@ -1768,3 +1768,51 @@ genuinely owes nothing on a day that genuinely counted something.
 The second is the reason the calendar spec measures the second row's tick and not
 the first, noted above. Both were found by making the wrong change on purpose and
 watching, which is the only thing that finds this class.
+
+## Iteration — the day panel's head row, 2026-08-13
+
+Sean, walking the calendar: "weird space under legend". THE LEGEND WAS INNOCENT,
+and establishing that was most of the work — worth recording because the next
+report phrased this way will send someone to the same wrong place.
+
+Measured on the web at 390/430/640/900/1160px, in month AND week mode, with one
+chip and with a seeded store that wraps to three lines, and then again on the
+simulator: the legend band is 20pt of content plus 6pt of padding either side,
+with a 1pt rule above and below, and NOTHING unexplained at any width. The
+`UNEXPLAINED` figure — the band's height minus its children minus its padding —
+came back 0 every time. The hole that does exist near it is the last week row's
+empty mark wells (23.5pt, reserved so busy and empty days align, and covered by
+its own test), which sits ABOVE the legend and is deliberate.
+
+What he actually meant came out of asking: the head row BELOW it. Three things,
+and all three are now pinned by `panelhead.spec.ts`:
+
+- **The date and the + Add share a top edge.** The row was `alignItems:
+  'center'`, which centres an 18pt line of text against a taller button and
+  leaves the date sitting low. `flex-start` makes the text's own line box start
+  exactly where the button's box starts — measured with a Range over the text
+  node rather than off the element, since the element box can carry padding the
+  glyphs never use. An earlier attempt added `paddingTop: 4` to the title and
+  made it worse by 4pt; the arithmetic that justified it had used the element's
+  box top and silently ignored its own padding.
+- **The gap above the button is 11pt, not 17.** The panel's `paddingTop` is 10
+  now rather than 16 — and 10 is not a fresh guess, it is the number Sean chose
+  for the gap below the top bar's divider, doing the same job under the same
+  kind of line. The other three sides stay at 16.
+- **The + Add is drawn 26 instead of 32, and is still 32 to a press.** This is
+  the one worth the test. `hitSlop` is a NO-OP under react-native-web, so taking
+  6pt off the drawn box takes 6pt off the real target in the engine Sean reads
+  the app in — the trap CLAUDE.md keeps. So `Pill` gained a `compact` prop that
+  shrinks the paint and adds a `WebHitSlop`, and the spec probes the button's
+  REACH with `elementFromPoint` walking outward from the drawn edge rather than
+  clicking a point known to be inside it.
+
+  The slop is 5, and it is 5 because it was measured: the box lands on a half
+  pixel, so slop 3 gave a 30pt target and slop 4 gave 31 (3 above, 2 below).
+  Two rounds of "the arithmetic says 32" produced a target a pixel short. A prop
+  rather than editing `pill` itself, because that style is in 45 places and the
+  other 44 were not complained about; a prop rather than a bespoke Pressable on
+  this screen, because Pill exists precisely to stop four screens inventing four
+  button heights.
+
+All three were reverted together and all three specs went red, then restored.

@@ -512,7 +512,7 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
             {/* "+ Add" stays put in edit mode too: swapping it for a Done was
                 a second control appearing and disappearing in the one row
                 Sean did not want moving. */}
-            <Pill testID="cal-add" label="+ Add" primary onPress={() => setModal({ mode: 'create' })} />
+            <Pill testID="cal-add" label="+ Add" primary compact onPress={() => setModal({ mode: 'create' })} />
           </View>
         </View>
         {items.events.length > 0 && (
@@ -734,10 +734,33 @@ const s = themed(() => StyleSheet.create({
   // flexGrow: the day panel's EditExit is flexGrow: 1 inside this, and needs
   // height to grow into or the tap-out stops at the last row. Same fix as
   // Habits, same day.
-  panelInner: { padding: 16, gap: 8, flexGrow: 1 },
-  // The same box the other three tabs use for collapse-all — the bar has to
-  // look identical, not merely similar.
-  panelHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  /**
+   * paddingTop 10, not 16 — Sean, 2026-08-13: "there shouldn't be so much
+   * space between the legend and the top of the add button".
+   *
+   * 10 is not a fresh guess. It is the number he chose for the gap BELOW a
+   * divider when the top bar's was settled ("habits looks almost correct, i'd
+   * go with 10px", chrome.tsx's ruleWrap), and the rule under the legend is the
+   * same kind of line doing the same job. The other three sides stay at 16.
+   *
+   * flexGrow: the day panel's EditExit is flexGrow: 1 inside this, and needs
+   * height to grow into or the tap-out stops at the last row. Same fix as
+   * Habits, same day.
+   */
+  panelInner: { paddingTop: 10, paddingHorizontal: 16, paddingBottom: 16, gap: 8, flexGrow: 1 },
+  /**
+   * flex-start, so the date and the + Add button share a TOP edge.
+   *
+   * Sean, 2026-08-13: "top of date and add button should be aligned". It was
+   * `center`, which centres an 18pt line of text against a taller button and
+   * left the date sitting a few points low — the kind of misalignment you see
+   * without being able to name. The title's paddingTop is what makes the two
+   * agree OPTICALLY rather than by box edge: a Text's box starts above its
+   * cap-height by the line box's leading, while the pill's box starts at its
+   * border, so aligning the boxes alone still reads as the date sitting high.
+   * Measured, not guessed — see the spec.
+   */
+  panelHead: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
   panelTitle: { color: T.gold, fontSize: 15, fontWeight: '700' },
   row: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 4 },
   rowNoSelect: { userSelect: 'none' } as import('react-native').ViewStyle,

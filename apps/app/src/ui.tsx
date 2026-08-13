@@ -154,12 +154,34 @@ export function Pill({
   onPress,
   primary = false,
   disabled = false,
+  compact = false,
   testID,
 }: {
   label: string;
   onPress: () => void;
   primary?: boolean;
   disabled?: boolean;
+  /**
+   * A shorter pill — 26 drawn instead of 32, WITHOUT a smaller tap target.
+   *
+   * Sean, 2026-08-13, of the calendar's "+ Add": it "shouldn't be quite so
+   * tall". A prop rather than a bespoke Pressable on that screen, because the
+   * whole reason Pill exists is that four screens had each invented their own
+   * button and the row came to look ragged; and a prop rather than editing
+   * `pill` itself, because this pill is in 45 places and the other 44 were not
+   * complained about.
+   *
+   * The slop is the point. Losing 6pt of height would have cost 6pt of real
+   * TARGET on the web, where hitSlop is a no-op — the trap CLAUDE.md keeps and
+   * the reason WebHitSlop exists. So the drawn box shrinks and the touchable
+   * area does not: 26 drawn plus 5 above and below measures back past the 32
+   * it always was. Probed with elementFromPoint rather than assumed, and the
+   * probing is why it is 5 and not 3: the box lands on a half pixel, so slop 3
+   * measured 30 and slop 4 measured 31 (3 above, 2 below). Rounding eats about
+   * a pixel a side, and a target must not be a pixel short because the
+   * arithmetic was done on paper.
+   */
+  compact?: boolean;
   testID?: string;
 }) {
   return (
@@ -181,8 +203,10 @@ export function Pill({
       testID={testID}
       onPress={onPress}
       disabled={disabled}
-      style={({ pressed }) => [s.pill, primary && s.pillPrimary, pressed && s.pressed, disabled && s.disabled]}
+      hitSlop={compact ? 5 : 0}
+      style={({ pressed }) => [s.pill, compact && s.pillCompact, primary && s.pillPrimary, pressed && s.pressed, disabled && s.disabled]}
     >
+      {compact && <WebHitSlop slop={5} />}
       <Text style={[s.pillText, primary && s.pillTextPrimary]}>{label}</Text>
     </Pressable>
   );
@@ -337,6 +361,8 @@ const s = themed(() => StyleSheet.create({
     justifyContent: 'center',
     height: 32,
   },
+  // 26 drawn; the 5pt of slop above and below puts the target back past 32.
+  pillCompact: { height: 26, paddingVertical: 3 },
   pillPrimary: { backgroundColor: T.accentInk, borderColor: T.accentInk },
   pillText: { color: T.text, fontSize: 14 },
   pillTextPrimary: { color: T.accent, fontWeight: '700' },
