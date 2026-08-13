@@ -103,8 +103,10 @@ export function TopBar({
           <Text style={s.appname} numberOfLines={1}>{title}</Text>
         </View>
         <View style={s.right}>
-          {controls}
+          {/* Completed FIRST, then collapse-all — Sean swapped them
+              2026-08-12, having seen the two side by side. */}
           {completed}
+          {controls}
           {picker && <View style={s.pickerRing}>{picker}</View>}
           {/* The account button, and the STATUS INDICATOR in one control.
               Sean, 2026-08-12: same size as every other button, the

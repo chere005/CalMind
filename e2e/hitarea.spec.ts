@@ -42,7 +42,13 @@ test('an icon button answers a press outside its drawn edge', async ({ page }) =
   const box = (await btn.boundingBox())!;
   const atRest = await bg();
 
-  await page.mouse.click(box.x + box.width + 5, box.y + box.height / 2);
+  // ABOVE, not beside. The top bar's controls sit 8px apart with an 8px
+  // hitSlop each since the 2026-08-12 spacing change, so their reach now
+  // OVERLAPS and a press five pixels to the right belongs to the neighbour —
+  // measured, and a real consequence of even spacing rather than a bug. Above
+  // the button there is nothing to collide with, and it proves the same
+  // thing: the reach extends past the drawn edge.
+  await page.mouse.click(box.x + box.width / 2, box.y - 5);
   await expect
     .poll(bg, { message: 'a press five pixels outside the drawn edge is still on the button' })
     .not.toBe(atRest);
