@@ -67,11 +67,12 @@ own numbers, precisely because its own "145 tests" went stale unnoticed.
 Each is blocked on a call, not on work. Options are given because the choice
 is between real tradeoffs, not because the answer is unclear.
 
-### The watch app stops launching on 2026-08-16 — four days from now
+### The watch app stops launching on 2026-08-16 — THREE days from now
 Not a decision so much as a clock. Free Personal Team profiles last 7 days,
-the last device install was build 27 on 2026-08-12, and the apps stop
-launching when their profiles expire. Read out of the profiles themselves on
-2026-08-12 rather than counted forward from the build:
+the last device install was **build 31 on 2026-08-13** (phone and watch, both
+confirmed on the device rather than from the installer's output), and the apps
+stop launching when their profiles expire. Re-read out of the profiles
+themselves after that install, and they are unchanged:
 
 | profile | expires (UTC) |
 |---|---|
@@ -93,13 +94,20 @@ BEFORE the 16th rather than on it: Xcode → Settings → Accounts.
 This was written down on 2026-08-09 as "both device profiles expire
 2026-08-16" and the rewrite dropped it the next day.
 
-**Build 23 was installed on 2026-08-12 and the dates above did NOT move** (nor did they for 24-27 since).
+**Build 23 was installed on 2026-08-12 and the dates above did NOT move** (nor
+did they for 24-31 since — checked again after 31 on 2026-08-13, all four
+timestamps identical to the minute).
 Checked by re-reading the profiles after the build: a rebuild only renews
 when the profile it needs is invalid, and these are still good, so
 `-allowProvisioningUpdates` reused them and bought nothing. So installing
 again before the 16th does not help — the renewal is a rebuild ON or AFTER
 the expiry, and that is the one that needs the Apple ID session in Xcode.
 Do not read a fresh install as a reset clock.
+
+Note for whoever hits the 16th: build 31 succeeded with
+`-allowProvisioningUpdates` and no Apple ID prompt, which proves nothing about
+the renewal. It reused valid profiles, which is the path that does NOT need an
+account. The `No Accounts` wall is still unprobed and still the risk.
 
 ### Passkeys from the native iOS app — INCONCLUSIVE, and two asks
 RESTORED 2026-08-12; the probe key is still reverted from `app.json`, which
