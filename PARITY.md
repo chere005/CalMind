@@ -1883,3 +1883,48 @@ regression test, and reverting the screen to `'long'` turns both red (verified).
 `app.spec.ts`'s landing test builds the expected label itself and needed the same
 change; `calarrows.spec.ts` and the paging tests only compare labels for
 INEQUALITY, so they never cared.
+
+### Weekdays parse, prepositions leave, events end, and one back button, 2026-08-18
+
+Sean's batch, all his words on the day, plus the recipes duplication that is
+data rather than code (his account now carries a "Recipe Form" section beside
+his recipes — 19 duplicates in the structured marker shape, originals
+untouched; done through the live sync API with the desktop app's own session).
+
+- **Weekday names parse, full and short** — "lunch friday", "party on sat at
+  8pm" — next occurrence, today counting as today, exactly the bare-m/d rule.
+  This was the §1 item measured on 2026-08-11 ("a weekday name is not read as
+  a date, and quietly becomes today"); his message today is the word it was
+  waiting on. The false-positive cost is real and accepted: "sat" and "sun"
+  are words too, but a quick-add box is not prose, and he asked for the
+  shorthand by name. spec/parse.json pins eight new vectors.
+- **The introducing preposition leaves with its token** — "standup at 9am" is
+  "standup" now, not "standup at". The suite's str_replace behaviour was the
+  reference and is deliberately departed from; the "Up at 12am" vector now
+  reads "Up". Only "at" and "on" leave — "by"/"due" carry meaning.
+- **Both changes reach EDITING for free** — ItemModal's save already runs
+  parseWhenFromText, which is where both live. Nothing screen-side changed.
+- **Events take an optional END time** (`end?: 'HH:MM'` on the payload,
+  absent on every event written before it). Only events — "reminders don't
+  have end times", his words. Revealing + End PRESUMES an hour past the
+  start; the presumption sits as the placeholder and saves unless overtyped.
+  The day panel's chip reads the range ("3pm–4pm") through core's new
+  timeRangeLabel; timePlus wraps midnight and leaves the date alone.
+  e2e/endtime.spec.ts drives presume, overtype, remove, and the
+  reminders-have-none rule.
+- **The repeat units are a dropdown** in both editors, still fed from core's
+  REPEAT_UNITS. Add's starts EMPTY (revealing its panel files no repeat, so a
+  pill claiming "week" would lie); the item window's presumes weekly as it
+  always has. The two repeat specs now drive the menu.
+- **Today's number is centred in its circle** — the calendar cell used to
+  let the Text draw its own circle with lineHeight = height, which centres
+  exactly on the web and rides visibly high on iOS. It is a real View now,
+  flex-centred, identical on both.
+- **Every back is the same circle-chevron** — the note editor's "‹  Back"
+  text pill and the recipe editor's "← Note" link were the two odd ones out;
+  both are CircleBtn's drawn '‹' now (testIDs kept: note-back, recipe-back).
+- **'×' joined the DRAWN glyphs** — the text × sits above centre on iOS the
+  same way the text chevron did; every remove/dismiss wears it.
+- **The habits month pies read contiguously** — every done arc first, then
+  the owed remainder, so the day's progress is ONE wedge growing from 12
+  o'clock rather than solid and faint interleaved per section.

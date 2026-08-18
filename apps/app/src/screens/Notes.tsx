@@ -13,7 +13,7 @@ import { useNav } from '../nav';
 import { themed, T } from '../theme';
 import { TopBar } from '../chrome';
 import { FolderPick, useFolderView } from '../components/FolderPick';
-import { CircleBtn, CollapseAllBtn, ConfirmDelete, Field, Pill, Scroll, TOPBAR_DOT_TOP, WebHitSlop } from '../ui';
+import { CircleBtn, CollapseAllBtn, ConfirmDelete, Field, Pill, Scroll, TOPBAR_CTRL, TOPBAR_DOT_TOP, WebHitSlop } from '../ui';
 import { Dropdown } from '../components/Dropdown';
 import { useRowDrag } from '../components/rowdrag';
 import { useSectionDrag, type SectionSlot } from '../components/sectiondrag';
@@ -436,20 +436,23 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
               arriving from the list returns to the list. It said "← All
               notes" and always meant it, which is why coming from the
               calendar left you a tab away from what you were doing. */}
-          <Pressable
+          {/* The same circle-chevron every other screen's back wears
+              (chrome.tsx's nav-back) — this was a text pill reading
+              "‹  Back", the one back in the app formatted unlike the rest,
+              and its text-glyph chevron sat visibly off-centre on iOS.
+              Sean's word, 2026-08-18. */}
+          <CircleBtn
             testID="note-back"
-            accessibilityRole="button"
-            accessibilityLabel="Back"
-            style={s.ddPill}
+            glyph="‹"
+            size={TOPBAR_CTRL}
+            label="Back"
             onPress={() => {
               const external = cameFromTab.current;
               cameFromTab.current = false;
               setOpenId(null);
               if (external) nav.goBack();
             }}
-          >
-            <Text style={s.backText}>{'‹  Back'}</Text>
-          </Pressable>
+          />
           {/* And a direct way to the list, beside it. Back returns to wherever
               you came from — which, arriving from the calendar, is the
               calendar — so the one destination it no longer guarantees is the

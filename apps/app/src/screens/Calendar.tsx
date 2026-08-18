@@ -19,6 +19,7 @@ import {
   prefsOf,
   reminderToggle,
   timeLabel,
+  timeRangeLabel,
   todayStr,
   twoWeeksFrom,
   type Rec,
@@ -409,7 +410,7 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
         title="Calendar"
         controls={<CollapseAllBtn open={!allCollapsed} onPress={collapseAllGroups} />}
         copyMarkdown={() => viewMarkdown(dayLabel, [
-          { name: 'Events', lines: items.events.map((e) => ({ text: e.payload.text, chip: e.payload.time ? timeLabel(e.payload.time, clock24) : null })) },
+          { name: 'Events', lines: items.events.map((e) => ({ text: e.payload.text, chip: e.payload.time ? timeRangeLabel(e.payload.time, e.payload.end, clock24) : null })) },
           { name: 'Reminders', lines: myReminders.map(({ rec: r }) => ({ text: r.payload.text, chip: r.payload.time ? timeLabel(r.payload.time, clock24) : null })) },
           { name: sharedPartner ? `Shared — ${sharedPartner}` : 'Shared', lines: theirReminders.map(({ rec: r }) => ({ text: r.payload.text, chip: r.payload.time ? timeLabel(r.payload.time, clock24) : null })) },
         ])}
@@ -438,7 +439,19 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
         {cells.map((d) => (
           <Pressable key={d} testID="cal-cell" onPress={() => setDay(d)} style={s.cell}>
             <View style={[s.cellInner, d === day && s.cellPicked]}>
-              <Text style={[s.cellNum, !d.startsWith(ym) && !weekMode && s.cellNumOther, d === today && s.cellToday]}>{Number(d.slice(8))}</Text>
+              {/* Today's number sits in a real View circle, flex-centred.
+                  It used to be the Text drawing its own circle with
+                  lineHeight = height, which centres exactly on the web and
+                  rides visibly high on iOS — the number was not centred in
+                  the circle of the day (Sean, 2026-08-18). Flexbox centres
+                  identically on both. */}
+              {d === today ? (
+                <View style={s.todayWrap}>
+                  <Text style={s.cellTodayNum}>{Number(d.slice(8))}</Text>
+                </View>
+              ) : (
+                <Text style={[s.cellNum, !d.startsWith(ym) && !weekMode && s.cellNumOther]}>{Number(d.slice(8))}</Text>
+              )}
               {cellMark(d)}
             </View>
           </Pressable>
@@ -543,7 +556,7 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
             <Pressable style={s.rowBodyFlex} onPress={() => rowPress(e.id)} onLongPress={() => setPanelEdit(true)} delayLongPress={350}>
               <Text style={s.rowText}>{e.payload.text}</Text>
             </Pressable>
-            {e.payload.time && <Text style={s.chip}>{timeLabel(e.payload.time, clock24)}</Text>}
+            {e.payload.time && <Text style={s.chip}>{timeRangeLabel(e.payload.time, e.payload.end, clock24)}</Text>}
             {panelEdit ? (
               <View style={s.editCluster}>
                 <CircleBtn glyph="✎" label="Edit" size={24} onPress={() => setModal({ mode: 'edit', kind: 'event', rec: e })} />
@@ -565,7 +578,7 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
           <View key={`sh${e.id}`} style={s.row}>
             <View style={[s.dot, s.rowDot, { backgroundColor: sharedCalById.get(e.payload.calendarId)?.color ?? T.folderBlue }]} />
             <Text style={s.rowText}>{e.payload.text}</Text>
-            {e.payload.time && <Text style={s.chip}>{timeLabel(e.payload.time, clock24)}</Text>}
+            {e.payload.time && <Text style={s.chip}>{timeRangeLabel(e.payload.time, e.payload.end, clock24)}</Text>}
           </View>
         ))}
         {myReminders.length > 0 && (
@@ -708,7 +721,8 @@ const s = themed(() => StyleSheet.create({
   panelBtns: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   cellNumOther: { color: T.muted, opacity: 0.55 },
   cellNum: { color: T.text, fontSize: 13 },
-  cellToday: { color: T.accentInk, backgroundColor: T.accent, borderRadius: 9, minWidth: 18, height: 18, textAlign: 'center', lineHeight: 18, fontWeight: '700', overflow: 'hidden' },
+  todayWrap: { backgroundColor: T.accent, borderRadius: 9, minWidth: 18, height: 18, paddingHorizontal: 3, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  cellTodayNum: { color: T.accentInk, fontSize: 13, fontWeight: '700' },
   // The suite's FIXED two-row well: 11px glyphs, three to a row, the height
   // nailed to two rows (11 + 1.5 + 11) so every cell stands the same height
   // however busy its day. alignContent centres one row inside the two.

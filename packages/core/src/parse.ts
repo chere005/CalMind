@@ -10,18 +10,20 @@ const TIME_RE = /\b(\d{1,2})(?::(\d{2}))?\s*([apAP])\.?[mM]\.?\b/;
 const DATE_RE = /(^|[^\d/])(\d{1,2})\/(\d{1,2})(?:\/(\d{2}|\d{4}))?(?![\d/])/;
 
 /**
- * Take a span out of the line and close the gap — the PHP clean.
- *
- * The word that INTRODUCED the span stays, which is why "standup at 9am"
- * becomes a reminder called "standup at". That reads like a bug and it is a
- * papercut, but it is the REFERENCE behaviour: the suite's
- * parse_time_from_text (lib/util.php:102) does str_replace and nothing more,
- * spec/parse.json pins "Up at 12am" -> text "Up at", and that vector is the
- * contract this core shares with the native ones. Changing it is a product
- * decision about Sean's live app, not a tidy-up — see TODO 3ab.
+ * Take a span out of the line and close the gap — the PHP clean, plus one
+ * departure from it: the word that INTRODUCED the span leaves with it, so
+ * "standup at 9am" is a reminder called "standup", not "standup at". The
+ * suite's parse_time_from_text does a bare str_replace and left the dangling
+ * preposition; that was the reference behaviour until Sean called it
+ * (2026-08-18) — date/time tokens are instructions, and the word that hands
+ * them in is part of the instruction. spec/parse.json pins the new shape
+ * ("Up at 12am" -> "Up"), which is the contract the native cores follow.
+ * Only "at" and "on" leave — "by" and "due" carry meaning of their own.
  */
 function lift(text: string, at: number, len: number): string {
-  return (text.slice(0, at) + text.slice(at + len)).replace(/\s{2,}/g, ' ').trim();
+  const prep = /\b(?:at|on)\s+$/i.exec(text.slice(0, at));
+  const start = prep ? at - prep[0].length : at;
+  return (text.slice(0, start) + text.slice(at + len)).replace(/\s{2,}/g, ' ').trim();
 }
 
 function isRealDate(y: number, m: number, d: number): boolean {
@@ -83,6 +85,16 @@ export function parseDateFromText(text: string, today: string): [string, string 
 const REL_DAY_RE = /\b(yesterday|today|tomorrow)\b/i;
 const REL_SPAN_RE = /\b(?:in\s+)?(an?|\d{1,3})\s*(days?|weeks?|wks?|months?|mos?|years?|yrs?)\b/i;
 const REL_CLOCK_RE = /\bin\s+(an?|\d{1,3})\s*(hours?|hrs?|minutes?|mins?)\b/i;
+// Weekday names, full and short — Sean's ask, 2026-08-18. Before this,
+// "party on saturday at 8pm" landed on TODAY with the time honoured and the
+// day silently dropped, which was the surprising half of the old behaviour
+// (TODO §1 had it measured). The short forms are real words too — "she sat
+// down" — but this is a quick-add box, not prose, and Sean asked for the
+// shorthand by name. Next occurrence, and a weekday naming today stays
+// today, exactly the bare-m/d rule.
+const WEEKDAY_RE =
+  /\b(sun(?:day)?|mon(?:day)?|tue(?:s(?:day)?)?|wed(?:nesday|s)?|thu(?:rs?(?:day)?)?|fri(?:day)?|sat(?:urday)?)\b/i;
+const WEEKDAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 
 const SPAN_UNIT = (raw: string): 'day' | 'week' | 'month' | 'year' => {
   const u = raw.toLowerCase();
@@ -133,12 +145,19 @@ function shiftClock(ymd: string, hm: string, addMin: number): [string, string] {
   return [shiftDate(ymd, days, 'day'), `${pad(Math.floor(inDay / 60))}:${pad(inDay % 60)}`];
 }
 
-/** "tomorrow", "in 2 weeks", "3 days" → [cleanedText, date | null]. */
+/** "tomorrow", "friday", "in 2 weeks", "3 days" → [cleanedText, date | null]. */
 export function parseRelativeDate(text: string, today: string): [string, string | null] {
   const w = REL_DAY_RE.exec(text);
   if (w) {
     const by = { yesterday: -1, today: 0, tomorrow: 1 }[w[1]!.toLowerCase()] ?? 0;
     return [lift(text, w.index, w[0].length), shiftDate(today, by, 'day')];
+  }
+  const wd = WEEKDAY_RE.exec(text);
+  if (wd) {
+    const dow = WEEKDAYS.indexOf(wd[1]!.slice(0, 3).toLowerCase());
+    const [y, m, d] = today.split('-').map(Number) as [number, number, number];
+    const ahead = (dow - new Date(y, m - 1, d, 12).getDay() + 7) % 7;
+    return [lift(text, wd.index, wd[0].length), shiftDate(today, ahead, 'day')];
   }
   const s = REL_SPAN_RE.exec(text);
   if (!s) return [text, null];
@@ -225,6 +244,25 @@ export function nowStr(d = new Date()): string {
 /** Local 'YYYY-MM-DD' — the `today` every interactive caller passes. */
 export function todayStr(d = new Date()): string {
   return `${pad(d.getFullYear(), 4)}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+/**
+ * 'HH:MM' moved by minutes, wrapping at midnight — the "+1 hour" an event's
+ * end time presumes. The DATE deliberately does not move: an event ending in
+ * the small hours still belongs to the day it started.
+ */
+export function timePlus(hm: string, addMin: number): string {
+  const [h, m] = hm.split(':').map(Number) as [number, number];
+  const t = (((h * 60 + m + addMin) % 1440) + 1440) % 1440;
+  return `${pad(Math.floor(t / 60))}:${pad(t % 60)}`;
+}
+
+/** '3pm–4:30pm' when there is an end, '3pm' when there is not, '' bare. */
+export function timeRangeLabel(t: string | null | undefined, end: string | null | undefined, clock24 = false): string {
+  const a = timeLabel(t, clock24);
+  if (!a) return '';
+  const b = end ? timeLabel(end, clock24) : '';
+  return b ? `${a}–${b}` : a;
 }
 
 /** A stored 'HH:MM' back in the suite's spoken style: '3pm', '2:30pm'. */

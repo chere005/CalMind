@@ -91,24 +91,27 @@ function DayPie({ shares, future, size = 30 }: { shares: { color: string; frac: 
   const c = size / 2;
   let a0 = -Math.PI / 2;
   const arcs: { d: string; color: string; owed: boolean }[] = [];
-  // Done then owed, per section, so a section's own two arcs are adjacent and
-  // the sections stay in the order the key lists them.
-  for (const sh of shares) {
-    for (const [frac, owed] of [[sh.frac, false], [sh.open, true]] as const) {
-      if (frac <= 0) continue;
-      const a1 = a0 + frac * 2 * Math.PI;
-      const large = a1 - a0 > Math.PI ? 1 : 0;
-      const full = frac >= 0.9999;
-      arcs.push({
-        color: sh.color,
-        owed,
-        d: full
-          ? `M ${c} ${c - r} A ${r} ${r} 0 1 1 ${c - 0.01} ${c - r} Z`
-          : `M ${c} ${c} L ${c + r * Math.cos(a0)} ${c + r * Math.sin(a0)} A ${r} ${r} 0 ${large} 1 ${c + r * Math.cos(a1)} ${c + r * Math.sin(a1)} Z`,
-      });
-      a0 = a1;
-    }
-  }
+  const arc = (frac: number, color: string, owed: boolean) => {
+    if (frac <= 0) return;
+    const a1 = a0 + frac * 2 * Math.PI;
+    const large = a1 - a0 > Math.PI ? 1 : 0;
+    const full = frac >= 0.9999;
+    arcs.push({
+      color,
+      owed,
+      d: full
+        ? `M ${c} ${c - r} A ${r} ${r} 0 1 1 ${c - 0.01} ${c - r} Z`
+        : `M ${c} ${c} L ${c + r * Math.cos(a0)} ${c + r * Math.sin(a0)} A ${r} ${r} 0 ${large} 1 ${c + r * Math.cos(a1)} ${c + r * Math.sin(a1)} Z`,
+    });
+    a0 = a1;
+  };
+  // Every DONE arc first, then every owed one — Sean (2026-08-18): the pie
+  // should read contiguously, the ticked share as one solid wedge growing
+  // from 12 o'clock with the faint remainder after it. It used to interleave
+  // solid and faint per section, which broke the day's progress into pieces.
+  // Sections keep the key's order within each half.
+  for (const sh of shares) arc(sh.frac, sh.color, false);
+  for (const sh of shares) arc(sh.open, sh.color, true);
   return (
     <Svg width={size} height={size}>
       <Circle cx={c} cy={c} r={r} fill="none" stroke={future ? T.lineSoft : T.line} strokeWidth={1.5} />

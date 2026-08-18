@@ -1080,24 +1080,21 @@ test('a ticked repeat ROLLS and flashes instead of checking off', async ({ page 
   await longPress(page, page.getByTestId('rem-body').filter({ hasText: 'water ferns' }));
   await page.getByTestId('rem-pencil').click();
   await page.getByText('+ Repeat', { exact: true }).click();
-  // The unit pills render from core's REPEAT_UNITS now, not a literal copy of
-  // it, so this asserts the list REACHES the screen: an empty or missing
-  // constant draws no pills at all. The test used to accept the default
-  // { n: 1, unit: 'week' } and never touch them, so it would not have noticed.
-  // The four are written out here rather than imported — a test that reads its
-  // expectation from the same constant as the code agrees with it by
-  // construction.
+  // The units are a DROPDOWN now (Sean's word, 2026-08-18), fed from core's
+  // REPEAT_UNITS rather than a literal copy — so this opens the menu and
+  // asserts the list REACHES it: an empty or missing constant draws no rows.
+  // The four are written out here rather than imported — a test that reads
+  // its expectation from the same constant as the code agrees with it by
+  // construction. `.last()` is the menu row; the closed pill shows the
+  // current unit, so its word is on screen twice once the menu is open.
+  await page.getByTestId('repeat-unit').click();
   for (const u of ['day', 'week', 'month', 'year']) {
-    await expect(page.getByText(u, { exact: true }).first()).toBeVisible();
+    await expect(page.getByText(u, { exact: true }).last()).toBeVisible();
   }
   // …and that they are live. 'month' is deliberately not the default, so a
-  // pill that renders but does not respond still fails here.
-  const monthPill = page.getByText('month', { exact: true }).first();
-  await monthPill.click();
-  const bgOf = (t: string) =>
-    page.getByText(t, { exact: true }).first()
-      .evaluate((el) => getComputedStyle(el.parentElement!).backgroundColor);
-  expect(await bgOf('month')).not.toBe(await bgOf('day'));
+  // menu that renders but does not respond still fails here.
+  await page.getByText('month', { exact: true }).last().click();
+  await expect(page.getByTestId('repeat-unit')).toContainText('month');
   await page.getByText('Save', { exact: true }).click();
   await page.keyboard.press('Escape');
   // Tick it: the row STAYS (rolled, not done) and flashes.
@@ -1664,18 +1661,24 @@ test('every repeat editor draws core’s unit list — the Add screen and the it
   // Both survivors are enumerated here rather than one being trusted to stand
   // for the other, which is the whole reason this spec exists.
   await signup(page);
-  const bgOf = (t: string) =>
-    page.getByText(t, { exact: true }).first()
-      .evaluate((el) => getComputedStyle(el.parentElement!).backgroundColor);
+  // Both editors offer the units through one dropdown now (Sean, 2026-08-18):
+  // open it, see every unit core knows, pick one, and the pill says so.
+  const pickMonth = async () => {
+    await page.getByTestId('repeat-unit').click();
+    for (const u of ['day', 'week', 'month', 'year']) {
+      await expect(page.getByText(u, { exact: true }).last()).toBeVisible();
+    }
+    await page.getByText('month', { exact: true }).last().click();
+    await expect(page.getByTestId('repeat-unit')).toContainText('month');
+  };
 
-  // 1 — the Add screen's editor.
+  // 1 — the Add screen's editor. Its dropdown starts EMPTY on purpose:
+  // revealing the panel files no repeat there, so a pill claiming "week"
+  // before anything is picked would be lying.
   await page.getByTestId('tab-add').click();
   await page.getByText('+ Repeat', { exact: true }).click();
-  for (const u of ['day', 'week', 'month', 'year']) {
-    await expect(page.getByText(u, { exact: true }).first()).toBeVisible();
-  }
-  await page.getByText('month', { exact: true }).first().click();
-  expect(await bgOf('month'), 'Add: the picked unit is the selected one').not.toBe(await bgOf('day'));
+  await expect(page.getByTestId('repeat-unit')).toContainText('—');
+  await pickMonth();
 
   // 2 — the item window's, reached the way a Reminders row reaches it: hold to
   // arm edit mode, then the pencil. This is where the retired inline editor's
@@ -1689,9 +1692,5 @@ test('every repeat editor draws core’s unit list — the Add screen and the it
   await page.getByTestId('rem-pencil').first().click();
   await expect(page.getByPlaceholder(/What\?/)).toBeVisible();
   await page.getByText('+ Repeat', { exact: true }).click();
-  for (const u of ['day', 'week', 'month', 'year']) {
-    await expect(page.getByText(u, { exact: true }).first()).toBeVisible();
-  }
-  await page.getByText('month', { exact: true }).first().click();
-  expect(await bgOf('month'), 'the window: the picked unit is the selected one').not.toBe(await bgOf('day'));
+  await pickMonth();
 });

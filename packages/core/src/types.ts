@@ -44,6 +44,13 @@ export type Event = {
   text: string;
   date: string; // events always have a date — today by default
   time: string | null;
+  /**
+   * Optional end, 'HH:MM' (Sean's ask, 2026-08-18) — meaningful only with a
+   * start `time`, and absent on every event written before it existed, which
+   * is why it is optional rather than nullable-required. An end past midnight
+   * reads as the small hours; the event stays on its one `date`.
+   */
+  end?: string | null;
   repeat: Repeat | null;
   calendarId: string;
   ord: string;

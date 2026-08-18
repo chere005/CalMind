@@ -35,7 +35,7 @@
     "name": "midnight is 00:00",
     "input": "Up at 12am",
     "today": "2026-08-01",
-    "text": "Up at",
+    "text": "Up",
     "date": "2026-08-01",
     "time": "00:00"
   },
@@ -297,6 +297,70 @@
     "input": "Vet 8/3 tomorrow",
     "today": "2026-08-01",
     "text": "Vet tomorrow",
+    "date": "2026-08-03",
+    "time": null
+  },
+  {
+    "name": "the introducing preposition leaves with the time",
+    "input": "standup at 9am",
+    "today": "2026-08-01",
+    "text": "standup",
+    "date": "2026-08-01",
+    "time": "09:00"
+  },
+  {
+    "name": "the introducing preposition leaves with the date",
+    "input": "dinner on 8/3",
+    "today": "2026-08-01",
+    "text": "dinner",
+    "date": "2026-08-03",
+    "time": null
+  },
+  {
+    "name": "a weekday name lands on its next occurrence",
+    "input": "lunch friday",
+    "today": "2026-08-18",
+    "text": "lunch",
+    "date": "2026-08-21",
+    "time": null
+  },
+  {
+    "name": "a short weekday works, with its preposition leaving too",
+    "input": "party on sat at 8pm",
+    "today": "2026-08-18",
+    "text": "party",
+    "date": "2026-08-22",
+    "time": "20:00"
+  },
+  {
+    "name": "a weekday naming today stays today, like a bare m/d landing today",
+    "input": "gym tuesday",
+    "today": "2026-08-18",
+    "text": "gym",
+    "date": "2026-08-18",
+    "time": null
+  },
+  {
+    "name": "tues and thurs, the other short spellings",
+    "input": "clean thurs",
+    "today": "2026-08-18",
+    "text": "clean",
+    "date": "2026-08-20",
+    "time": null
+  },
+  {
+    "name": "a weekday a week out, not eight days",
+    "input": "call wed",
+    "today": "2026-08-18",
+    "text": "call",
+    "date": "2026-08-19",
+    "time": null
+  },
+  {
+    "name": "an explicit date beats a weekday in the same line",
+    "input": "dentist 8/3 friday",
+    "today": "2026-08-01",
+    "text": "dentist friday",
     "date": "2026-08-03",
     "time": null
   }

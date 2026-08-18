@@ -47,7 +47,7 @@ Standing rules live in `CLAUDE.md`, not here.
 
 ## Suite counts, as of this commit
 
-core **507** · gesture **212** (+2 skipped) · WebKit **15** · server **48** ·
+core **527** · gesture **216** (+2 skipped) · WebKit **15** · server **48** ·
 live **19** with the API · desktop **7** (+3 in `npm run test:desktop`) · deploy guards **9** · plus the four
 native seam checkers no browser can reach: `npm run test:watch`,
 `npm run test:widget`, `npm run test:deploy`.
@@ -108,6 +108,19 @@ Note for whoever hits the 16th: build 31 succeeded with
 `-allowProvisioningUpdates` and no Apple ID prompt, which proves nothing about
 the renewal. It reused valid profiles, which is the path that does NOT need an
 account. The `No Accounts` wall is still unprobed and still the risk.
+
+**THE 16TH CAME AND THE WALL IS REAL — probed 2026-08-18.** The profiles
+expired on schedule (watch 08-16, phone 08-17; the installed apps have
+stopped launching), and the build-37 renewal attempt failed exactly as this
+entry feared: `No Accounts: Add a new account in Accounts settings`, once per
+target, from `xcodebuild -allowProvisioningUpdates`. Two follow-ups from the
+probe worth having: the keychain still holds a VALID "Apple Development:
+seancheren@gmail.com" identity (plus one revoked), and Xcode's defaults still
+list an account identifier — so the account-store ENTRY survives while the
+SESSION is gone, and neither of those listings is the test. The one fix is
+Sean signing in: Xcode → Settings → Accounts. The moment that is done, the
+renewal is `xcodebuild -allowProvisioningUpdates` away and build 37 is
+already staged (app.json and the pbxproj both say 37).
 
 ### Passkeys from the native iOS app — INCONCLUSIVE, and two asks
 RESTORED 2026-08-12; the probe key is still reverted from `app.json`, which
@@ -372,26 +385,18 @@ It was then dropped entirely when §3 was cut back — recovered from git.)
 ### Smaller, still his
 - A FINISHED item greys out rather than keeping its folder colour. That is
   the suite's rule; it can go.
-- "standup at 9am" is titled "standup at" — the preposition is left behind
-  when the time is lifted out. VERIFIED against core on 2026-08-11, and the
-  only §1 entry so far that was already accurate: `parseWhenFromText('standup
-  at 9am')` really does return the title `"standup at"`, with due=today and
-  time=09:00. Same for "call mum at 5pm" → "call mum at". It is the reference
-  behaviour. The fix is one line and was written, then reverted pending his
-  word.
+- ~~"standup at 9am" is titled "standup at"~~ — **his word arrived 2026-08-18
+  and it SHIPPED**: the introducing preposition ("at"/"on") leaves with the
+  token it hands in, in core's lift(), so every add and edit path gets it.
+  spec/parse.json's "Up at 12am" vector now pins "Up". Deliberate departure
+  from the suite's str_replace reference — see PARITY.md.
 
-- **A weekday name is not read as a date, and quietly becomes today.**
-  Measured beside the above: `"party on saturday at 8pm"` gives due=TODAY and
-  time=20:00, titled "party on saturday at". So a reminder that says Saturday
-  lands on Tuesday with no sign that the day was ignored. `"lunch friday"`
-  parses no date at all, with or without the preposition — weekday names are
-  simply not supported.
-
-  NOT a bug against the spec: the old suite does not parse weekday names
-  either, so this matches it. But the combination — the day silently dropped
-  while the TIME is honoured, dating it today — is the surprising half, and it
-  is Sean's call whether weekdays should parse or whether a dropped day should
-  stop the time being taken too.
+- ~~**A weekday name is not read as a date**~~ — **his word arrived 2026-08-18
+  and it SHIPPED**: full and short weekday names parse to the next occurrence
+  (today counts as today, the bare-m/d rule), in parseRelativeDate so the
+  date FIELD accepts them too. Eight vectors in spec/parse.json. The known
+  cost, accepted with the ask: "sat" and "sun" are ordinary words and will
+  now be read as days in a title that uses them as prose.
 - "Adding a note should go straight to the note editor" — it already does
   (`app.spec.ts:157`), so he either means native-only or means it should land
   in TYPING mode. Awaiting which. Cannot test it myself: it writes to his data.

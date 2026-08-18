@@ -16,11 +16,14 @@ import { showAgain,
   nowStr,
   parseWhenFromText,
   prefsOf,
+  timeLabel,
+  timePlus,
   todayStr,
   type Rec,
   type Repeat,
 } from '@calmind/core';
 import { useStore } from '../store';
+import { useClock24 } from '../useClock24';
 import { themed, T } from '../theme';
 import { TopBar } from '../chrome';
 import { CalendarIcon, PageIcon, TickCircleIcon } from '../components/KindIcons';
@@ -31,6 +34,7 @@ type Kind = 'reminder' | 'event' | 'note';
 
 export function Add({ done, onNoteCreated }: { done: () => void; onNoteCreated?: (id: string) => void }) {
   const { recs, mutate } = useStore();
+  const clock24 = useClock24();
   // EVENT first, on Sean's word (2026-08-12). The + used to open on Reminder
   // — the suite's order, kept because it was the suite's — and he asked for
   // the card that is actually reached for from this button.
@@ -42,6 +46,13 @@ export function Add({ done, onNoteCreated }: { done: () => void; onNoteCreated?:
   const [showRepeat, setShowRepeat] = useState(false);
   const [dateField, setDateField] = useState('');
   const [timeField, setTimeField] = useState('');
+  const [showEnd, setShowEnd] = useState(false);
+  const [endField, setEndField] = useState('');
+  // The presumed end (+1 hour) lives in STATE and shows as the placeholder,
+  // never as field text: prefilling the field would write it in the display
+  // clock, and a 24-hour '15:30' is a string parseTimeFromText cannot read
+  // back — the field's input syntax is 12-hour app-wide.
+  const [endPresumed, setEndPresumed] = useState<string | null>(null);
   const [repeat, setRepeat] = useState<Repeat | null>(null);
   const [err, setErr] = useState('');
   const lastFiled = useRef<{ text: string; at: number } | null>(null);
@@ -83,6 +94,10 @@ export function Add({ done, onNoteCreated }: { done: () => void; onNoteCreated?:
     const [, ft] = parseTimeFromText(timeField.trim());
     const date = fd ?? pd;
     const time = ft ?? pt;
+    // Only events carry an end, and only after a start (Sean, 2026-08-18).
+    // An empty field keeps the presumption made when the row was revealed.
+    const [, fe] = parseTimeFromText(endField.trim());
+    const end = kind === 'event' && time !== null && showEnd ? fe ?? endPresumed : null;
     const title = clean || raw;
     let createdNoteId: string | null = null;
     mutate((e) => {
@@ -91,7 +106,7 @@ export function Add({ done, onNoteCreated }: { done: () => void; onNoteCreated?:
         // Whatever you just added has to be visible afterwards.
         const widen = showAgain(recs, 'calendar', cal.id);
         if (widen) e.put(widen);
-        e.put({ id: newId(), type: 'event', updated: 0, payload: { text: title, date: date ?? today, time, repeat, calendarId: cal.id, ord: ordBetween(null, null) } });
+        e.put({ id: newId(), type: 'event', updated: 0, payload: { text: title, date: date ?? today, time, end, repeat, calendarId: cal.id, ord: ordBetween(null, null) } });
       } else {
         const app = kind === 'note' ? ('notes' as const) : ('reminders' as const);
         const pick =
@@ -182,6 +197,32 @@ export function Add({ done, onNoteCreated }: { done: () => void; onNoteCreated?:
           <View style={s.panel}>
             <Field value={dateField} onChangeText={setDateField} placeholder="m/d" style={s.miniField} />
             <Field value={timeField} onChangeText={setTimeField} placeholder="2:30pm" style={s.miniField} />
+            {/* An end belongs to events only, and revealing it presumes an
+                hour past whatever start is on the line or in the field. */}
+            {kind === 'event' &&
+              (!showEnd ? (
+                <Pill
+                  label="+ End"
+                  onPress={() => {
+                    const [, ft] = parseTimeFromText(timeField.trim());
+                    const [, , pt] = parseWhenFromText(text.trim(), today, nowStr());
+                    const start = ft ?? pt;
+                    setEndPresumed(start ? timePlus(start, 60) : null);
+                    setShowEnd(true);
+                  }}
+                />
+              ) : (
+                <>
+                  <Text style={s.panelLabel}>ends</Text>
+                  <Field
+                    value={endField}
+                    onChangeText={setEndField}
+                    placeholder={endPresumed ? timeLabel(endPresumed, clock24) : '3:30pm'}
+                    style={s.miniField}
+                  />
+                  <CircleBtn glyph="×" label="Remove end" size={22} onPress={() => { setShowEnd(false); setEndField(''); setEndPresumed(null); }} />
+                </>
+              ))}
           </View>
         )}
         {showRepeat && kind !== 'note' && (
@@ -192,13 +233,17 @@ export function Add({ done, onNoteCreated }: { done: () => void; onNoteCreated?:
             {/* Math.min matches ItemModal's stepper, which has always had a
                 ceiling this one lacked — the floor was clamped in both. */}
             <CircleBtn glyph="+" label="Add" size={22} onPress={() => setRepeat({ n: Math.min(999, (repeat?.n ?? 1) + 1), unit: repeat?.unit ?? 'week' })} />
-            {/* The THIRD copy of this list, found by sweeping for the cast
-                rather than for the text: `as RepeatUnit[]` is where the
-                compiler stops checking, so a literal that drifts from the
-                type reads as correct right up until someone edits the type. */}
-            {REPEAT_UNITS.map((u) => (
-              <Pill key={u} label={u} primary={repeat?.unit === u} onPress={() => setRepeat({ n: repeat?.n ?? 1, unit: u })} />
-            ))}
+            {/* core's list, in a dropdown — Sean's word, 2026-08-18. The
+                literal-copy trap testids.spec.ts guards still applies. */}
+            {/* value null until a unit is PICKED: revealing this panel files
+                no repeat (unlike the item window, which presumes weekly), so
+                a dropdown claiming "week" here would be lying. */}
+            <Dropdown
+              testID="repeat-unit"
+              value={repeat?.unit ?? null}
+              options={REPEAT_UNITS.map((u) => ({ id: u, label: u }))}
+              onPick={(u) => setRepeat({ n: repeat?.n ?? 1, unit: u as Repeat['unit'] })}
+            />
           </View>
         )}
 
@@ -213,6 +258,7 @@ export function Add({ done, onNoteCreated }: { done: () => void; onNoteCreated?:
           <Text style={s.helpRow}>·  <Text style={s.helpBold}>8/3</Text> — a date this year (the next one to come)</Text>
           <Text style={s.helpRow}>·  <Text style={s.helpBold}>8/3/26</Text> or <Text style={s.helpBold}>8/3/2026</Text> — a full date</Text>
           <Text style={s.helpRow}>·  <Text style={s.helpBold}>tomorrow</Text>, <Text style={s.helpBold}>today</Text> or <Text style={s.helpBold}>yesterday</Text></Text>
+          <Text style={s.helpRow}>·  <Text style={s.helpBold}>friday</Text> or <Text style={s.helpBold}>fri</Text> — the next one to come</Text>
           <Text style={s.helpRow}>·  <Text style={s.helpBold}>in 2 weeks</Text>, <Text style={s.helpBold}>3 days</Text>, <Text style={s.helpBold}>1 month</Text> — that far from today</Text>
           <Text style={s.helpRow}>·  <Text style={s.helpBold}>in an hour</Text> or <Text style={s.helpBold}>in 30mins</Text> — a time from now</Text>
           <Text style={s.helpRow}>·  e.g. <Text style={s.helpBold}>Vet 8/3 2pm</Text> → “Vet”, Aug 3, 2:00pm</Text>

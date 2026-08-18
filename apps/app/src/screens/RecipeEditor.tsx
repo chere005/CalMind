@@ -246,7 +246,10 @@ export function RecipeEditor({ note, onClose }: { note: Rec<'note'>; onClose: ()
     <Modal animationType="slide" onRequestClose={onClose}>
       <Scroll style={[s.page, { paddingTop: insets.top }]} contentContainerStyle={s.inner} scrollEnabled={ingDrag.dragIdx === null && stepDrag.dragIdx === null}>
         <View style={s.headRow}>
-          <Pressable onPress={onClose} hitSlop={8}><Text style={s.back}>← Note</Text></Pressable>
+          {/* The one circle-chevron every back in the app wears now
+              (2026-08-18) — this was a "← Note" text link, formatted like
+              nothing else that goes back. */}
+          <CircleBtn testID="recipe-back" glyph="‹" size={32} label="Back to the note" onPress={onClose} />
           <CircleBtn testID="recipe-link" glyph="🔗" label="Import from a link" size={32} onPress={() => setUrlOpen((v) => !v)} />
           <CircleBtn testID="recipe-photos" glyph="📷" label="Read a photo" size={32} onPress={() => void importPhotos()} />
         </View>
@@ -425,7 +428,6 @@ const s = themed(() => StyleSheet.create({
   urlGo: { backgroundColor: T.surface2, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 999 },
   urlGoText: { color: T.text, fontWeight: '600' },
   headRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  back: { color: T.dim, fontSize: 15 },
   h1: { color: T.text, fontSize: 26, fontWeight: '800' },
   busy: { color: T.dim, fontSize: 14 },
   title: { fontSize: 18, fontWeight: '700' },

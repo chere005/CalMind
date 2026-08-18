@@ -67,6 +67,11 @@ const DRAWN: Record<string, (c: number) => string[]> = {
   // in both directions rather than merely its apex.
   '‹': (c) => [`${c * 0.66},${c * 0.24} ${c * 0.34},${c / 2} ${c * 0.66},${c * 0.76}`],
   '›': (c) => [`${c * 0.34},${c * 0.24} ${c * 0.66},${c / 2} ${c * 0.34},${c * 0.76}`],
+  // The close ×, drawn for the same reason as the chevrons: the TEXT glyph
+  // sits above centre on iOS (its box is baseline-placed, not box-centred),
+  // and every remove/dismiss in the app wears it. Two diagonals of the +'s
+  // weight, spanning 0.30–0.70 so the diagonal reads as wide as the + does.
+  '×': (c) => [`${c * 0.3},${c * 0.3} ${c * 0.7},${c * 0.7}`, `${c * 0.7},${c * 0.3} ${c * 0.3},${c * 0.7}`],
 };
 
 /** `size` is the CANVAS, not the button: a caller that is not a CircleBtn

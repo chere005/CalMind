@@ -22,12 +22,15 @@ import {
   nowStr,
   parseWhenFromText,
   prefsOf,
+  timeLabel,
+  timePlus,
   todayStr,
   type AnyRec,
   type Rec,
   type Repeat,
 } from '@calmind/core';
 import { useStore } from '../store';
+import { useClock24 } from '../useClock24';
 import { themed, T } from '../theme';
 import { CircleBtn, ConfirmDelete, Field, Pill, Scroll } from '../ui';
 import { Dropdown } from './Dropdown';
@@ -51,22 +54,24 @@ export function ItemModal({
   onSaved?: (id: string, kind: ItemKind) => void;
 }) {
   const { recs, mutate, sharedRecs, sharedPartner, sharedPut } = useStore();
+  const clock24 = useClock24();
   const today = todayStr();
   const [kind, setKind] = useState<ItemKind>(kind0);
   const lastFiled = useRef<{ text: string; at: number } | null>(null);
 
   const init = useMemo(() => {
     if (mode === 'edit' && rec) {
-      const p = rec.payload as { text?: string; title?: string; due?: string | null; date?: string | null; time?: string | null; repeat?: Repeat | null };
+      const p = rec.payload as { text?: string; title?: string; due?: string | null; date?: string | null; time?: string | null; end?: string | null; repeat?: Repeat | null };
       return {
         text: p.text ?? p.title ?? '',
         date: (rec.type === 'reminder' ? p.due : p.date) ?? null,
         time: p.time ?? null,
+        end: (rec.type === 'event' ? p.end : null) ?? null,
         repeat: p.repeat ?? null,
         dest: rec.type === 'event' ? (rec.payload as Rec<'event'>['payload']).calendarId : (rec.payload as Rec<'reminder'>['payload']).sectionId,
       };
     }
-    return { text: '', date: date0 ?? null, time: null, repeat: null, dest: null as string | null };
+    return { text: '', date: date0 ?? null, time: null, end: null, repeat: null, dest: null as string | null };
   }, [mode, rec, date0]);
 
   const [text, setText] = useState(init.text);
@@ -75,6 +80,9 @@ export function ItemModal({
   const [time, setTime] = useState<string | null>(init.time);
   const [timeField, setTimeField] = useState('');
   const [showTime, setShowTime] = useState(init.time !== null);
+  const [end, setEnd] = useState<string | null>(init.end);
+  const [endField, setEndField] = useState('');
+  const [showEnd, setShowEnd] = useState(init.end !== null);
   const [repeat, setRepeat] = useState<Repeat | null>(init.repeat);
   const [showRepeat, setShowRepeat] = useState(init.repeat !== null);
   const [dest, setDest] = useState<string | null>(init.dest);
@@ -163,6 +171,10 @@ export function ItemModal({
     const [, ft] = parseTimeFromText(timeField.trim());
     const finalDate = fd ?? date ?? pd;
     const finalTime = (showTime ? ft ?? time : null) ?? pt;
+    // An end only means something after a start; an empty field keeps the
+    // presumed one (+1 hour, set when the row was revealed).
+    const [, fe] = parseTimeFromText(endField.trim());
+    const finalEnd = kind === 'event' && finalTime !== null && showEnd ? fe ?? end : null;
     const finalRepeat = kind === 'note' ? null : showRepeat ? repeat : null;
     const title = clean || raw;
     if (!resolvedDest) {
@@ -195,7 +207,7 @@ export function ItemModal({
           return { ...r, payload: { ...r.payload, title, date: finalDate } };
         }
         if (r.type === 'event') {
-          return { ...r, payload: { ...r.payload, text: title, date: finalDate ?? today, time: finalTime, repeat: finalRepeat } };
+          return { ...r, payload: { ...r.payload, text: title, date: finalDate ?? today, time: finalTime, end: finalEnd, repeat: finalRepeat } };
         }
         if (r.type === 'reminder') {
           return { ...r, payload: { ...r.payload, text: title, due: finalDate, time: finalTime, repeat: finalRepeat } };
@@ -213,7 +225,7 @@ export function ItemModal({
       const id = newId();
       const record: AnyRec =
         kind === 'event'
-          ? { id, type: 'event', updated: 0, payload: { text: title, date: finalDate ?? today, time: finalTime, repeat: finalRepeat, calendarId: sharedDest.id, ord: ordBetween(null, null) } }
+          ? { id, type: 'event', updated: 0, payload: { text: title, date: finalDate ?? today, time: finalTime, end: finalEnd, repeat: finalRepeat, calendarId: sharedDest.id, ord: ordBetween(null, null) } }
           : kind === 'reminder'
             ? { id, type: 'reminder', updated: 0, payload: { text: title, due: finalDate, time: finalTime, done: false, repeat: finalRepeat, folderId: (sharedDest as Rec<'section'>).payload.folderId, sectionId: sharedDest.id, indent: 0, ord: ordBetween(null, null) } }
             : { id, type: 'note', updated: 0, payload: { title: title, body: '', date: finalDate, folderId: (sharedDest as Rec<'section'>).payload.folderId, sectionId: sharedDest.id, ord: ordBetween(null, null) } };
@@ -231,7 +243,7 @@ export function ItemModal({
     mutate((e) => {
       if (kind === 'event') {
         const payload: Rec<'event'>['payload'] = {
-          text: title, date: finalDate ?? today, time: finalTime, repeat: finalRepeat,
+          text: title, date: finalDate ?? today, time: finalTime, end: finalEnd, repeat: finalRepeat,
           calendarId: resolvedDest.id,
           ord: mode === 'edit' && rec ? (rec.payload as { ord: string }).ord : ordBetween(null, null),
         };
@@ -294,10 +306,32 @@ export function ItemModal({
             ) : (
               <View style={s.rowWrap}>
                 <Text style={s.label}>Time</Text>
-                <Field value={timeField} onChangeText={setTimeField} placeholder={time ?? '2:30pm'} style={s.miniField} />
-                <CircleBtn glyph="×" label="Remove" size={22} onPress={() => { setShowTime(false); setTime(null); setTimeField(''); }} />
+                <Field value={timeField} onChangeText={setTimeField} placeholder={time ? timeLabel(time, clock24) : '2:30pm'} style={s.miniField} />
+                <CircleBtn glyph="×" label="Remove" size={22} onPress={() => { setShowTime(false); setTime(null); setTimeField(''); setShowEnd(false); setEnd(null); setEndField(''); }} />
               </View>
             )}
+            {/* An end is an event's thing — reminders have none (Sean,
+                2026-08-18) — and only means something once a start exists.
+                Revealing it PRESUMES an hour past the start; the presumption
+                sits as the placeholder and saves unless overtyped. */}
+            {kind === 'event' && showTime &&
+              (!showEnd ? (
+                <Pill
+                  label="+ End"
+                  onPress={() => {
+                    const [, ft] = parseTimeFromText(timeField.trim());
+                    const start = ft ?? time;
+                    setEnd(start ? timePlus(start, 60) : null);
+                    setShowEnd(true);
+                  }}
+                />
+              ) : (
+                <View style={s.rowWrap}>
+                  <Text style={s.label}>End</Text>
+                  <Field value={endField} onChangeText={setEndField} placeholder={end ? timeLabel(end, clock24) : '3:30pm'} style={s.miniField} />
+                  <CircleBtn glyph="×" label="Remove end" size={22} onPress={() => { setShowEnd(false); setEnd(null); setEndField(''); }} />
+                </View>
+              ))}
 
             {kind !== 'note' &&
               (!showRepeat ? (
@@ -308,13 +342,15 @@ export function ItemModal({
                   <CircleBtn glyph="−" label="Fewer" size={22} onPress={() => repeat && setRepeat({ ...repeat, n: Math.max(1, repeat.n - 1) })} />
                   <Text style={s.repN}>{repeat?.n ?? 1}</Text>
                   <CircleBtn glyph="+" label="Add" size={22} onPress={() => repeat && setRepeat({ ...repeat, n: Math.min(999, repeat.n + 1) })} />
-                  {/* core's list, not a copy of it. There are TWO repeat
-                      editors — this one and Reminders.tsx's inline row — and
-                      both had their own hand-written literal, so a unit added
-                      to the type reached neither. Both read REPEAT_UNITS now. */}
-                  {REPEAT_UNITS.map((u) => (
-                    <Pill key={u} label={u} primary={repeat?.unit === u} onPress={() => setRepeat({ n: repeat?.n ?? 1, unit: u })} />
-                  ))}
+                  {/* core's list, not a copy of it — a unit added to the type
+                      reaches the menu by construction. A dropdown, not four
+                      pills: Sean's word, 2026-08-18. */}
+                  <Dropdown
+                    testID="repeat-unit"
+                    value={repeat?.unit ?? 'week'}
+                    options={REPEAT_UNITS.map((u) => ({ id: u, label: u }))}
+                    onPick={(u) => setRepeat({ n: repeat?.n ?? 1, unit: u as Repeat['unit'] })}
+                  />
                   <CircleBtn glyph="×" label="Remove repeat" size={22} onPress={() => { setShowRepeat(false); setRepeat(null); }} />
                 </View>
               ))}
