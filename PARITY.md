@@ -1928,3 +1928,14 @@ untouched; done through the live sync API with the desktop app's own session).
 - **The habits month pies read contiguously** — every done arc first, then
   the owed remainder, so the day's progress is ONE wedge growing from 12
   o'clock rather than solid and faint interleaved per section.
+
+LOOKED AT, not just measured (same day): built for the SIMULATOR — which
+needs no provisioning, so the No-Accounts wall does not block the eye — and
+verified on the iPhone 17 Pro sim as a throwaway account: the 18's digits
+measure dead-centre in the today pill (13px top and bottom at 3x), + End
+reveals with the presumed "4pm" from a typed "3pm" and the saved chip reads
+"3pm–4pm" in the day panel, and the note editor opens under the standard
+circle-chevron back. The sim build command that works: NO `-sdk
+iphonesimulator` (the recorded trap — it overrides every target's SDKROOT
+and now also breaks the watch icon's actool), destination
+'platform=iOS Simulator,id=…' only.
