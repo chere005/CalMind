@@ -14,7 +14,9 @@ parity with the plain-PHP suite at
 successor architecture this is. Everything the product *does* is written once,
 in TypeScript, and every surface renders it: the outline drags, the repeat
 rolls, the four full themes, mutual-consent sharing with live ticks, recipes
-read out of a photo or a URL, the ?tick= quick-done, and the watch and widget feeds — all proven by the harnesses
+read out of a photo or a URL (with subheaders, scaling, and a first-ordering
+for fresh lists), search across reminders, notes and events, the whole store
+exported as one JSON file, the ?tick= quick-done, and the watch and widget feeds — all proven by the harnesses
 in `TESTING.md`, which is the map of which one watches what. `PARITY.md` is the
 build ledger and `TODO.md` is what is still owed, including the current test
 counts.

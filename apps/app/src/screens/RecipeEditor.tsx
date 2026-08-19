@@ -15,7 +15,7 @@ import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 // phone that put "← Note" beneath the time and left the 📷 unreachable behind
 // the status bar: not cosmetic, the photo import could not be tapped at all.
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ingredientParts, parseIngredient, recipeBody, recipeFromHtml, recipeFromPages, type Rec } from '@calmind/core';
+import { ingredientParts, isSubheader, orderIngredients, parseIngredient, recipeBody, recipeFromHtml, recipeFromPages, type Rec } from '@calmind/core';
 import { useStore } from '../store';
 import { themed, T } from '../theme';
 import { CircleBtn, ConfirmDelete, Field, Pill, Scroll, WebHitSlop } from '../ui';
@@ -83,6 +83,14 @@ export function RecipeEditor({ note, onClose }: { note: Rec<'note'>; onClose: ()
     else setSteps(apply);
   };
 
+  // A subheader row ("For the béchamel:") wears no number; the steps count
+  // past it, exactly as the saved body will number them.
+  const stepNums: (number | null)[] = [];
+  {
+    let n = 0;
+    for (const st of steps) stepNums.push(isSubheader(st) ? null : ++n);
+  }
+
   // Reordering, by the marker each row already wears — the bullet and the
   // step number ARE the handles, so the rows gain no furniture for it. OCR
   // hands ingredients over in whatever order the camera found them, and a
@@ -149,7 +157,10 @@ export function RecipeEditor({ note, onClose }: { note: Rec<'note'>; onClose: ()
       }
       if (r.title && !title) setTitle(r.title);
       if (r.ingredients.length) {
-        setIngredients((cur) => [...r.ingredients, ...cur]);
+        // The BATCH is first-ordered (dry, wet, rest, unitless last — Sean's
+        // rule for what an import creates); rows already on the page are a
+        // person's order and stay exactly where they are.
+        setIngredients((cur) => [...orderIngredients(r.ingredients), ...cur]);
         // An import can land while a LINE IS BEING EDITED, and `editing.at` is
         // an index into a list that has just grown at the front. Left alone,
         // the commit writes the correction into whichever row now sits at that
@@ -201,7 +212,8 @@ export function RecipeEditor({ note, onClose }: { note: Rec<'note'>; onClose: ()
       const r = recipeFromPages(pages);
       if (r.title && !title) setTitle(r.title);
       if (r.ingredients.length) {
-        setIngredients((cur) => [...r.ingredients, ...cur]);
+        // Same first-ordering as the link import: the batch, never the page.
+        setIngredients((cur) => [...orderIngredients(r.ingredients), ...cur]);
         // An import can land while a LINE IS BEING EDITED, and `editing.at` is
         // an index into a list that has just grown at the front. Left alone,
         // the commit writes the correction into whichever row now sits at that
@@ -313,6 +325,9 @@ export function RecipeEditor({ note, onClose }: { note: Rec<'note'>; onClose: ()
             ) : (
               <Pressable testID="ing-row" style={s.rowPress} onPress={() => { if (!swipe.justSwiped()) startEdit('ing', i, ing); }}>
                 {(() => {
+                  // A subheader is its own kind of row: bold, no badge —
+                  // ending a typed line with ':' is what makes one.
+                  if (isSubheader(ing)) return <Text style={[s.rowText, s.subhead]}>{ing}</Text>;
                   // The measure as a right-justified iconized badge — the
                   // treatment a parsed date gets on a reminder row, shared
                   // with the note's rendered body via UnitBadge so the two
@@ -357,7 +372,7 @@ export function RecipeEditor({ note, onClose }: { note: Rec<'note'>; onClose: ()
             >
             <View testID="step-grip" {...stepDrag.handleFor(i)} style={s.handle} hitSlop={8}>
                     <WebHitSlop slop={6} />
-              <Text style={s.stepNum}>{i + 1}.</Text>
+              <Text style={s.stepNum}>{stepNums[i] === null ? '•' : `${stepNums[i]}.`}</Text>
             </View>
             {editing?.list === 'step' && editing.at === i ? (
               <Field
@@ -371,7 +386,7 @@ export function RecipeEditor({ note, onClose }: { note: Rec<'note'>; onClose: ()
               />
             ) : (
               <Pressable testID="step-row" style={s.rowPress} onPress={() => { if (!swipe.justSwiped()) startEdit('step', i, st); }}>
-                <Text style={s.rowText}>{st}</Text>
+                <Text style={[s.rowText, isSubheader(st) && s.subhead]}>{st}</Text>
               </Pressable>
             )}
             {swipe.swiped === `step-${i}` && (
@@ -412,7 +427,8 @@ export function RecipeEditor({ note, onClose }: { note: Rec<'note'>; onClose: ()
             plenty to guess at without being told. */}
         {(ingredients.length > 1 || steps.length > 1) && (
           <Text testID="recipe-hint" style={s.hint}>
-            Drag a bullet or a step number to reorder · tap a line to fix it · swipe it left to delete
+            Drag a bullet or a step number to reorder · tap a line to fix it · swipe it left to delete ·
+            end a line with &quot;:&quot; for a heading like &quot;For the sauce:&quot;
           </Text>
         )}
 
@@ -442,6 +458,7 @@ const s = themed(() => StyleSheet.create({
   dot: { color: T.dim, fontSize: 15 },
   stepNum: { color: T.gold, fontSize: 14, fontWeight: '700', width: 22, textAlign: 'right' },
   rowText: { color: T.text, fontSize: 15, flexShrink: 1 },
+  subhead: { fontWeight: '700', marginTop: 2 },
   ingLine: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   // The reminder row's date chip, verbatim — marginLeft auto is the right
   // justification, the 999 radius is the pill.

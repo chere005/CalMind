@@ -7,7 +7,7 @@
  */
 
 const HEADING = /^(ingredients?|directions?|instructions?|method|steps?|preparation|prep|for the .{1,40})\s*:?\s*$/i;
-const QTY = /^\s*(\d+([./]\d+)?|½|¼|¾|⅓|⅔|⅛)\s*(cups?|cup|tsp|tbsp|teaspoons?|tablespoons?|oz|ounces?|lbs?|pounds?|g|grams?|kg|ml|l|cloves?|cans?|sticks?|pinch|dash|slices?|bunch|large|small|medium|eggs?)?\b/i;
+const QTY = /^\s*(\d+([./]\d+)?|½|¼|¾|⅓|⅔|⅛|⅜|⅝|⅞|⅙|⅚)\s*(cups?|cup|tsp|tbsp|teaspoons?|tablespoons?|oz|ounces?|lbs?|pounds?|g|grams?|kg|ml|l|cloves?|cans?|sticks?|pinch|dash|slices?|bunch|large|small|medium|eggs?)?\b/i;
 const STEP = /^\s*(\d+)[.)]\s+/;
 
 export type RecipeResult = { title: string | null; body: string };
@@ -21,7 +21,13 @@ const UNIT_MAP: Record<string, string> = {
   cup: 'cup', cups: 'cups', clove: 'clove', cloves: 'cloves', can: 'can', cans: 'cans',
   pinch: 'pinch', dash: 'dash', stick: 'stick', sticks: 'sticks', slice: 'slice', slices: 'slices',
 };
-const FRACTIONS: Record<string, string> = { '1/2': '½', '1/4': '¼', '3/4': '¾', '1/3': '⅓', '2/3': '⅔', '1/8': '⅛' };
+const FRACTIONS: Record<string, string> = {
+  '1/2': '½', '1/4': '¼', '3/4': '¾', '1/3': '⅓', '2/3': '⅔', '1/8': '⅛',
+  // The rest of the glyphs qtyText can EMIT. They were write-only: halving
+  // ⅓ cup printed ⅙ (well, 0.17 before that was fixed) and nothing could
+  // read it back — found running Sean's Key Lime Pie through the scaler.
+  '3/8': '⅜', '5/8': '⅝', '7/8': '⅞', '1/6': '⅙', '5/6': '⅚',
+};
 
 /**
  * The units that may claim a fused word's front ('tspsalt'). Longest first
@@ -43,7 +49,7 @@ function oneQty(raw: string): string {
 // A quantity is a fraction, a decimal, a whole number, or a whole number
 // followed by either kind of fraction ('2 1/2', '1 ½'). Longest forms first,
 // so '2 1/2 cups' can't be read as a bare 2 with '1/2' left in the name.
-const NUM = String.raw`\d+\s+and\s+\d\/\d|\d+\s+\d\/\d|\d+\s+[½¼¾⅓⅔⅛]|\d\/\d|\d+(?:[.,]\d+)?|[½¼¾⅓⅔⅛]`;
+const NUM = String.raw`\d+\s+and\s+\d\/\d|\d+\s+\d\/\d|\d+\s+[½¼¾⅓⅔⅛⅜⅝⅞⅙⅚]|\d\/\d|\d+(?:[.,]\d+)?|[½¼¾⅓⅔⅛⅜⅝⅞⅙⅚]`;
 // …and a RANGE of two of them, written with a dash or the word 'to'. A range
 // is a pattern worth seeing: without it '2-3 cloves garlic' parsed as the
 // bare 2 and left '-3 cloves garlic' as the ingredient's name, so the unit
@@ -104,25 +110,51 @@ export function ingredientParts(text: string): IngredientParts {
   const qty = m[3] ? `${m[1]}${/to/.test(m[2]!) ? ' to ' : '-'}${m[3]}` : m[1]!;
   const word = (m[4] ?? '').toLowerCase();
   // parseIngredient already canonicalised, so a bare lookup is the truth.
-  if (UNIT_MAP[word]) return { qty, unit: word, name: (m[5] ?? '').trim() };
+  // The unit's own abbreviation dot goes with it: '1 lb. ground lamb' splits
+  // as unit 'lb' + rest '. ground lamb', and the badge row was printing
+  // '. ground lamb' — seen on Sean's Pastitsio the day the subheaders landed.
+  if (UNIT_MAP[word]) return { qty, unit: word, name: (m[5] ?? '').trim().replace(/^\.\s*/, '') };
   // tidy, as parseIngredient does: '4 eggs, beaten' splits into the word
   // 'eggs' and the rest ', beaten', and a plain space-join hands back
   // 'eggs , beaten' — seen the moment the badge left the name on screen.
   return { qty, unit: null, name: tidy([m[4], (m[5] ?? '').trim()].filter(Boolean).join(' ')) };
 }
 
+/**
+ * A subheader inside the recipe blob — "For the béchamel:", "Prepare the
+ * sandwich:" (Sean's ask, 2026-08-19, his Croque Madame the example). The
+ * shape is a short line ending in a colon with no quantity in front of it:
+ * exactly what a cook writes above a phase of the work. Typing one as an
+ * ordinary row on the Recipe page is the whole gesture — no extra control.
+ * It lives in the ingredients/steps arrays like any row, so dragging and
+ * editing already work on it.
+ */
+export function isSubheader(line: string): boolean {
+  const t = line.trim();
+  return t.length >= 2 && t.length <= 60 && /:$/.test(t) && !QTY.test(t) && /\p{L}/u.test(t);
+}
+
+/** The marker shape a subheader wears in a saved body: bold, colon kept —
+ *  the colon is what tells it apart from the section headings. */
+const SUBHEAD_MARKER = /^\*\*(.+:)\*\*$/;
+
 /** The marker body the structured page saves: bold headings, ingredient
- *  bullets, numbered steps — the same shape the reader renders. */
+ *  bullets, numbered steps — the same shape the reader renders. A subheader
+ *  row goes bold with its colon; the step numbers walk past it. */
 export function recipeBody(ingredients: string[], steps: string[]): string {
   const out: string[] = [];
   if (ingredients.length) {
     out.push('**Ingredients**');
-    for (const i of ingredients) out.push('- ' + i);
+    for (const i of ingredients) out.push(isSubheader(i) ? '**' + i + '**' : '- ' + i);
   }
   if (steps.length) {
     if (out.length) out.push('');
     out.push('**Directions**');
-    steps.forEach((s, i) => out.push(`${i + 1}. ${s.replace(/^\s*\d+[.)]\s*/, '')}`));
+    let n = 0;
+    for (const st of steps) {
+      if (isSubheader(st)) out.push('**' + st + '**');
+      else out.push(`${++n}. ${st.replace(/^\s*\d+[.)]\s*/, '')}`);
+    }
   }
   return out.join('\n');
 }
@@ -280,9 +312,26 @@ export function formatRecipe(pages: string[]): RecipeResult {
     if (i === titleAt) continue;
     const l = lines[i]!;
     if (HEADING.test(l)) {
+      const forThe = /^for the /i.test(l);
+      // "For the béchamel:" INSIDE a list is a subheader of that list, not a
+      // second Ingredients opening — Sean's Croque Madame has one above step
+      // 1 (his ask, 2026-08-19). Only at the top, before any list has begun,
+      // does a for-the line open the ingredients the old way.
+      if (forThe && block !== 'none') {
+        out.push('**' + l.replace(/\s*:\s*$/, '') + ':**');
+        continue;
+      }
       block = /^(ingredients?|for the )/i.test(l) ? 'ingredients' : 'steps';
       if (out.length) out.push('');
-      out.push('**' + l.replace(/\s*:\s*$/, '') + '**');
+      // A for-the heading keeps its colon: that is the subheader shape, and
+      // what lets the round trip tell it from **Ingredients** itself.
+      out.push('**' + l.replace(/\s*:\s*$/, '') + (forThe ? ':' : '') + '**');
+      continue;
+    }
+    // "Prepare the sandwich:" partway down a list — a short colon line with
+    // no quantity subdivides whichever list it is in.
+    if (block !== 'none' && isSubheader(l)) {
+      out.push('**' + l + '**');
       continue;
     }
     if (STEP.test(l)) {
@@ -359,6 +408,13 @@ function fromMarkers(text: string): RecipeParts {
       block = /ingredients/i.test(head[1]!) ? 'ing' : 'steps';
       continue;
     }
+    // A subheader stays in the list it subdivides, as the plain row it was
+    // typed as — round-tripping through the editor must not shed it.
+    const sub = l.match(SUBHEAD_MARKER);
+    if (sub && block !== 'none') {
+      (block === 'ing' ? ingredients : steps).push(sub[1]!.trim());
+      continue;
+    }
     if (block === 'ing' && l.startsWith('- ')) {
       ingredients.push(l.slice(2).trim());
       continue;
@@ -384,9 +440,21 @@ export function recipeFromPages(pages: string[]): RecipeParts {
   const ingredients: string[] = [];
   const steps: string[] = [];
   const extra: string[] = [];
+  // Which list a subheader belongs to. Bold section headings are consumed
+  // (recipeBody writes its own), but a bold COLON line is a subheader and
+  // stays — it used to be dropped here with the headings, which silently ate
+  // every "For the sauce:" a photograph carried.
+  let block: 'ing' | 'steps' = 'ing';
   for (const line of flat.body.split('\n')) {
     const l = line.trim();
-    if (l === '' || /^\*\*.*\*\*$/.test(l)) continue;
+    if (l === '') continue;
+    const bold = /^\*\*(.*)\*\*$/.exec(l);
+    if (bold) {
+      const text = bold[1]!.trim();
+      if (/:$/.test(text)) (block === 'ing' ? ingredients : steps).push(text);
+      else block = /^ingredients?$/i.test(text) ? 'ing' : 'steps';
+      continue;
+    }
     if (l.startsWith('- ')) {
       const txt = l.slice(2);
       // A narrow column wraps most ingredients onto a second line, and each
@@ -408,7 +476,12 @@ export function recipeFromPages(pages: string[]): RecipeParts {
       if (continues) ingredients[ingredients.length - 1] = parseIngredient(`${prev} ${txt}`);
       else ingredients.push(parseIngredient(txt));
     }
-    else if (/^\d+[.)]\s/.test(l)) steps.push(l.replace(/^\d+[.)]\s*/, ''));
+    else if (/^\d+[.)]\s/.test(l)) {
+      // A numbered line means the steps have begun even with no Directions
+      // heading, so a later subheader files with them.
+      block = 'steps';
+      steps.push(l.replace(/^\d+[.)]\s*/, ''));
+    }
     else extra.push(l);
   }
   // NOTE for callers: the title line is CONSUMED — it comes back as `title`
@@ -439,6 +512,13 @@ export function splitRecipeBody(body: string): { before: string; recipe: string;
     if (l === '') continue;
     if (/^\*\*Directions\*\*$/i.test(l)) {
       block = 'steps';
+      end = i + 1;
+      continue;
+    }
+    // "**For the béchamel:**" — a subheader belongs to the blob in either
+    // block; a plain bold line (someone's own emphasis after the recipe)
+    // still ends it.
+    if (SUBHEAD_MARKER.test(l)) {
       end = i + 1;
       continue;
     }
@@ -490,11 +570,14 @@ export function isRecipeNote(n: { body: string; recipe?: boolean }): boolean {
 
 const FRACTION_VALUES: Record<string, number> = {
   '½': 0.5, '¼': 0.25, '¾': 0.75, '⅓': 1 / 3, '⅔': 2 / 3, '⅛': 0.125,
+  '⅜': 0.375, '⅝': 0.625, '⅞': 0.875, '⅙': 1 / 6, '⅚': 5 / 6,
 };
-// Rendered back to the fractions a kitchen owns measuring cups for.
+// Rendered back to the fractions a kitchen owns measuring cups for. The
+// sixths are here because halving a third lands on one: ⅓ cup of melted
+// butter halved printed '0.17 cup' on Sean's Key Lime Pie.
 const NICE: [number, string][] = [
-  [0.125, '⅛'], [0.25, '¼'], [1 / 3, '⅓'], [0.375, '⅜'], [0.5, '½'],
-  [0.625, '⅝'], [2 / 3, '⅔'], [0.75, '¾'], [0.875, '⅞'],
+  [0.125, '⅛'], [1 / 6, '⅙'], [0.25, '¼'], [1 / 3, '⅓'], [0.375, '⅜'], [0.5, '½'],
+  [0.625, '⅝'], [2 / 3, '⅔'], [0.75, '¾'], [5 / 6, '⅚'], [0.875, '⅞'],
 ];
 // Abbreviations never take an 's'; 2 tbsp, not 2 tbsps.
 const INVARIANT = new Set(['g', 'kg', 'ml', 'l', 'tsp', 'tbsp', 'oz', 'lb', 'lbs']);
@@ -569,11 +652,15 @@ function qtyText(v: number): string {
 
 /** 'cups' at one, 'cup'; 'egg' at two, 'eggs'. Abbreviations stay put. */
 function countWord(word: string, n: number): string {
-  if (INVARIANT.has(word.toLowerCase())) return word;
+  const low = word.toLowerCase();
   // Half a cup is a cup, not cups — English pluralises above one, not away
   // from it.
-  const low = word.toLowerCase();
   const plural = n > 1 + 1e-9;
+  // 'lbs' is the one abbreviation that arrives already plural-marked, so it
+  // alone has somewhere to go: '2 lbs lamb shank' halved read '1 lbs' off
+  // Sean's Gohrme Sabzi. The other invariants have no 's' to shed.
+  if (low === 'lbs' && !plural) return word.slice(0, -1);
+  if (INVARIANT.has(low)) return word;
   const isPlural = SINGULAR_OF[low] !== undefined
     || /(?:ch|sh|s|x|z)es$/i.test(word) || (/s$/i.test(word) && !/ss$/i.test(word));
   if (plural === isPlural) return word;
@@ -598,14 +685,36 @@ function countWord(word: string, n: number): string {
  */
 const SECOND_MEASURE = new RegExp(`^(${NUM})\\s*([a-zA-Z]+)\\b(.*)$`);
 
+/** '(300 g)' straight after a known unit — the same amount in a second
+ *  measure, bracketed. */
+const PAREN_DUAL = new RegExp(String.raw`^\(\s*(${NUM})\s*([a-zA-Z]+)\s*\)`);
+
+/** '… or ½ tsp. Morton kosher salt' — an alternative amount of the thing. */
+const OR_ALT = new RegExp(String.raw`\bor\s+(${NUM})\s*([a-zA-Z]+)`, 'i');
+
 function knownUnit(word: string): boolean {
   const w = word.toLowerCase();
   return UNIT_MAP[w] !== undefined || INVARIANT.has(w) || MEASURE.has(singularOf(w));
 }
 
+/** A hedge word in front of the number — every shape here is off Sean's own
+ *  cards: '~4 Tbsp butter/olive oil' (Pastitsio), 'about 2 cups tomato
+ *  sauce' (Pappa col Pomodoro), 'scant 1/4 teaspoon ground nutmeg' (Croque
+ *  Madame), 'optional: 1/8 cup sugar' (Key Lime Pie). The hedge rides
+ *  along; the number under it still scales, because about 2 cups doubled
+ *  is about 4. */
+const APPROX = /^(~|about|scant|roughly|around|approx\.?|optional:)\s*/i;
+
 /** '1 ½ cups flour' doubled is '3 cups flour'; '2-3 cloves' halved is '1-1 ½'. */
 export function scaleIngredient(text: string, factor: number): string {
   const t = text.replace(/\s+/g, ' ').trim();
+  const pre = APPROX.exec(t);
+  if (pre) {
+    const rest = t.slice(pre[0].length);
+    const scaled = scaleIngredient(rest, factor);
+    if (scaled === rest) return t; // no quantity under the hedge — untouched
+    return pre[0].trim() === '~' ? '~' + scaled : pre[0].trim() + ' ' + scaled;
+  }
   const m = t.match(LEAD);
   if (!m) return t;
   const first = qtyValue(m[1]!);
@@ -622,8 +731,13 @@ export function scaleIngredient(text: string, factor: number): string {
   // Only recount a word that is doing the counting: a measure word, or the
   // whole name of the thing. 'egg' in '3 egg yolks' is neither.
   const tail = rest.trim();
-  const namesTheThing = tail === '' || /^[,;(]/.test(tail);
-  const recount = unit !== '' && (MEASURE.has(singularOf(unit).toLowerCase()) || namesTheThing);
+  // An 'or' after the word means the word still names the thing — '1 onion
+  // or 2 shallots' is an onion with an alternative, and doubling owes it
+  // its plural.
+  const namesTheThing = tail === '' || /^[,;(]/.test(tail) || /^or\s/i.test(tail);
+  // 'lbs' joins the recount so a halving can shed its 's' (countWord's own
+  // special case); every other invariant abbreviation recounts to itself.
+  const recount = unit !== '' && (MEASURE.has(singularOf(unit).toLowerCase()) || namesTheThing || unit.toLowerCase() === 'lbs');
   const word = unit === '' ? '' : recount ? countWord(unit, count) : unit;
 
   // If the word after the number was NOT the thing being counted — 'bay' in
@@ -736,6 +850,28 @@ export function scaleIngredient(text: string, factor: number): string {
         .join(' ');
     }
   }
+  // '1 ½ cups (300 g) sugar' — with a KNOWN unit in front, the bracket
+  // restates the same amount in a second measure and must move with it:
+  // doubling gave '3 cups (300 g) sugar' off Sean's Basque cheesecake, a
+  // line that contradicts itself. '1 (14 oz) can tomatoes' is the other
+  // bracket — no unit in front, the size of each can — and holds still.
+  if (unit !== '' && knownUnit(unit)) {
+    after = after.replace(PAREN_DUAL, (mm, num: string, u2: string) => {
+      const v = qtyValue(num);
+      if (v === null || !knownUnit(u2)) return mm;
+      return `(${qtyText(v * factor)} ${countWord(u2, v * factor)})`;
+    });
+  }
+  // '1 tsp. Diamond Crystal or ½ tsp. Morton kosher salt' — the OR names an
+  // alternative amount of the same thing, and scaling one side only hands
+  // the cook a contradiction (also Sean's Basque cheesecake). Only when the
+  // word after the number is a unit we know: '1 onion or 2 shallots' counts
+  // things, not amounts, and stays as written.
+  after = after.replace(OR_ALT, (mm, num: string, u2: string) => {
+    const v = qtyValue(num);
+    if (v === null || !knownUnit(u2)) return mm;
+    return `or ${qtyText(v * factor)} ${countWord(u2, v * factor)}`;
+  });
   return tidy([qty, word, after].filter((p) => p !== '').join(' ').trim());
 }
 
@@ -752,7 +888,9 @@ export function scaleRecipeBody(body: string, factor: number): string {
     .map((raw) => {
       const t = raw.trim();
       if (/^\*\*.+\*\*$/.test(t)) {
-        inIngredients = /^\*\*ingredients\*\*$/i.test(t);
+        // A subheader ("**For the béchamel:**") subdivides the block it is
+        // in rather than ending it — the rows after it still scale.
+        if (!SUBHEAD_MARKER.test(t)) inIngredients = /^\*\*ingredients\*\*$/i.test(t);
         return raw;
       }
       if (!inIngredients || !raw.startsWith('- ')) return raw;
@@ -833,8 +971,9 @@ function asStrings(v: unknown): string[] {
 /**
  * Instructions come three ways in the wild: plain strings, HowToStep objects
  * with a `text`, and HowToSection objects wrapping their own itemListElement.
- * A section's own name ("For the sauce") is dropped — Sean asked for steps,
- * and a heading is not a step.
+ * A section's name ("For the sauce") used to be dropped — "a heading is not
+ * a step" — but subheaders exist now (Sean, 2026-08-19), so it arrives as
+ * one: colon and all, the shape isSubheader knows.
  */
 function instructionStrings(v: unknown): string[] {
   if (typeof v === 'string') {
@@ -856,7 +995,11 @@ function instructionStrings(v: unknown): string[] {
     if (typeof x === 'string') return [decodeEntities(x).trim()];
     if (!x || typeof x !== 'object') return [];
     const o = x as Record<string, unknown>;
-    if (o.itemListElement) return instructionStrings(o.itemListElement);
+    if (o.itemListElement) {
+      const inner = instructionStrings(o.itemListElement);
+      const name = typeof o.name === 'string' ? decodeEntities(o.name).trim() : '';
+      return name !== '' && inner.length ? [name.replace(/:*$/, ':'), ...inner] : inner;
+    }
     const t = o.text ?? o.name;
     return typeof t === 'string' ? [decodeEntities(t).trim()] : [];
   }).filter((s) => s.length > 1);
@@ -896,4 +1039,70 @@ function decodeEntities(s: string): string {
       return Number.isFinite(n) && n > 0 && n <= 0x10ffff ? String.fromCodePoint(n) : m;
     })
     .replace(/\s+/g, ' ');
+}
+
+/* ── First order for a fresh list ─────────────────────────────────────────
+ * Sean, 2026-08-19: "always bring unitless ingredients to the bottom of the
+ * list, and try to group dry then wet then remaining" — and, minutes later,
+ * the boundary: "always respect manual ordering, this is just when things
+ * are first added or created." So this runs ONCE, on what an import hands
+ * over (a photograph's OCR, a page's JSON-LD), and never on a list a person
+ * has since touched — the editor's drags and the saved body are the order.
+ */
+
+// The words that class an ingredient, matched against the NAME's last words
+// first — the noun that heads '1 cup milk chocolate chips' is 'chips', and
+// walking from the end is what keeps the 'milk' in it from calling it wet.
+const DRY_WORDS = new Set([
+  'flour', 'sugar', 'salt', 'pepper', 'powder', 'soda', 'cocoa', 'oat',
+  'oatmeal', 'cornstarch', 'cornflour', 'semolina', 'breadcrumb', 'panko',
+  'yeast', 'cinnamon', 'nutmeg', 'paprika', 'cumin', 'turmeric', 'oregano',
+  'spice', 'rice', 'pasta', 'spaghetti', 'macaroni', 'noodle', 'lentil',
+  'chickpea', 'flake', 'seed', 'sesame', 'almond', 'walnut', 'pecan', 'nut',
+  'chip', 'polenta', 'couscous', 'quinoa', 'fenugreek', 'cardamom',
+  'coriander', 'saffron',
+]);
+const WET_WORDS = new Set([
+  'water', 'milk', 'buttermilk', 'cream', 'butter', 'margarine', 'oil',
+  'egg', 'honey', 'syrup', 'molasses', 'vinegar', 'juice', 'wine', 'beer',
+  'stock', 'broth', 'yogurt', 'yoghurt', 'sauce', 'extract', 'vanilla',
+  'paste', 'puree', 'ketchup', 'mayonnaise', 'tahini',
+]);
+
+/** dry 0 · wet 1 · remaining 2 · unitless 3 — the sort key of one row. */
+function ingredientClass(row: string): 0 | 1 | 2 | 3 {
+  const p = ingredientParts(row);
+  if (p.qty === null) return 3; // 'a pinch of salt', 'salt to taste' sink
+  const words = p.name.toLowerCase().split(/[^a-zà-ÿ]+/).filter(Boolean);
+  for (let i = words.length - 1; i >= 0; i--) {
+    const w = singularOf(words[i]!);
+    if (DRY_WORDS.has(w)) return 0;
+    if (WET_WORDS.has(w)) return 1;
+  }
+  return 2;
+}
+
+/**
+ * A fresh list's first order: dry, wet, the rest, unitless — STABLE within
+ * each class, so two cups of flour stay in the order the card gave them.
+ * Subheaders fence the sort: each group orders within itself and the
+ * headers keep their places.
+ */
+export function orderIngredients(rows: string[]): string[] {
+  const out: string[] = [];
+  let seg: { r: string; i: number; c: number }[] = [];
+  const flush = () => {
+    out.push(...seg.sort((a, b) => a.c - b.c || a.i - b.i).map((x) => x.r));
+    seg = [];
+  };
+  for (const r of rows) {
+    if (isSubheader(r)) {
+      flush();
+      out.push(r);
+    } else {
+      seg.push({ r, i: seg.length, c: ingredientClass(r) });
+    }
+  }
+  flush();
+  return out;
 }

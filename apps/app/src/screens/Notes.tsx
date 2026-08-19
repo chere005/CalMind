@@ -77,7 +77,10 @@ function RichBody({ body, onLine, badges }: { body: string; onLine?: (text: stri
     <>
       {richLines(body).map((ln, i) => {
         const boldHead = ln.kind === 'plain' && ln.runs.length === 1 && !!ln.runs[0]!.bold;
-        if (boldHead) inIngredients = /^ingredients$/i.test(ln.runs[0]!.text.trim());
+        // A bold line ending in ':' is a SUBHEADER ("For the béchamel:") —
+        // it subdivides the block it is in rather than ending it, so the
+        // bullets after it keep their badges.
+        if (boldHead && !/:$/.test(ln.runs[0]!.text.trim())) inIngredients = /^ingredients$/i.test(ln.runs[0]!.text.trim());
         const raw = ln.runs.map((r) => r.text).join('');
         const parts = badges && !boldHead && inIngredients && ln.kind === 'bullet' ? ingredientParts(raw) : null;
         // Tap an ingredient or a step and it becomes a REMINDER (Sean,

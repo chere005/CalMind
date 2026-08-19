@@ -105,7 +105,11 @@ test('a correction typed during an import lands on the line it was typed into', 
 
   // The correction belongs to the milk line and nothing else moved: both
   // imported lines survive, flour survives, and there is no second milk.
+  // The batch arrives FIRST-ORDERED now (Sean, 2026-08-19: dry, then wet,
+  // then the rest, unitless last — on import only), so the salt leads the
+  // eggs; the shift of `editing.at` cares about the batch's LENGTH, not its
+  // order, which is exactly what this race still proves.
   await expect
     .poll(ings, { message: 'the edit landed on its own row, not on an imported one', timeout: 10_000 })
-    .toEqual(['eggs3', 'salt1 tsp', 'flour2 cups', 'whole milk2 cups']);
+    .toEqual(['salt1 tsp', 'eggs3', 'flour2 cups', 'whole milk2 cups']);
 });

@@ -12,9 +12,11 @@
       "bundleIdentifier": "com.seancheren.calmind",
       "appleTeamId": "2LGYTL3FSJ",
       "entitlements": {
-        "com.apple.security.application-groups": ["group.com.seancheren.calmind"]
+        "com.apple.security.application-groups": [
+          "group.com.seancheren.calmind"
+        ]
       },
-      "buildNumber": "41"
+      "buildNumber": "42"
     },
     "android": {
       "package": "com.seancheren.calmind",
@@ -34,7 +36,8 @@
       "baseUrl": "/test/calmind"
     },
     "plugins": [
-      "@bacons/apple-targets"
+      "@bacons/apple-targets",
+      "expo-sharing"
     ]
   }
 }

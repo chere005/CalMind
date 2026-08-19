@@ -5,8 +5,9 @@
  */
 import { useEffect, useState } from 'react';
 import { Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
-import { prefsOf, prefsPut } from '@calmind/core';
+import { exportFilename, exportStore, exportText, prefsOf, prefsPut } from '@calmind/core';
 import { changePassword, logout } from '../api';
+import { saveTextFile } from '../savefile';
 import { addPasskey, listPasskeys, passkeyAvailable, removePasskey, type PasskeyRow } from '../passkey';
 import { useStore } from '../store';
 import { syncLook } from '../components/SyncDot';
@@ -170,6 +171,21 @@ export function Settings({ onClose }: { onClose: () => void }) {
           <View style={s.footer}>
             <CircleBtn testID="open-share" glyph="⇗" label="Sharing" size={40} onPress={() => setShareOpen(true)} />
             <CircleBtn glyph="✓" label="Done" size={40} color={T.accent} active onPress={onClose} />
+          </View>
+          <View style={s.row}>
+            <Pill
+              testID="export-data"
+              label="Export my data"
+              onPress={() => {
+                setErr('');
+                // Behaviour (what the file holds, what it is called) is
+                // core's; this is only the hand-off to the platform.
+                const file = exportStore(recs, session?.username ?? 'me');
+                void saveTextFile(exportFilename(file.account, file.exported), exportText(file))
+                  .then(() => setMsg('Exported.'))
+                  .catch((e: unknown) => setErr(e instanceof Error ? e.message : 'could not export'));
+              }}
+            />
           </View>
           <View style={s.row}>
             <Pill

@@ -20,3 +20,5 @@ export * from './layout';
 export * from './watch';
 export * from './habit';
 export * from './undo';
+export * from './backup';
+export * from './search';

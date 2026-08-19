@@ -13,6 +13,7 @@ import { Notes } from './src/screens/Notes';
 import { Habits } from './src/screens/Habits';
 import { Add } from './src/screens/Add';
 import { QuickTick } from './src/screens/QuickTick';
+import { Search } from './src/screens/Search';
 import { themed, currentTheme, onThemeChange, T, THEMES_LIGHT, PAGE_MAX_WIDTH } from './src/theme';
 
 function Root() {
@@ -57,11 +58,14 @@ function Root() {
   };
   // A note made anywhere opens in its editor — the Add tab hands the id over.
   const [noteToOpen, setNoteToOpen] = useState<string | null>(null);
+  // The 🔍 in every top bar opens the one search screen; a tapped result
+  // closes it and goes where the thing lives (Sean, 2026-08-19).
+  const [searchOpen, setSearchOpen] = useState(false);
   if (!ready) return <View style={s.page} />;
   if (!session) return <Login />;
   if (tickId) return <QuickTick id={tickId} onDone={tickDone} />;
   return (
-    <NavCtx.Provider value={{ canBack, goBack }}>
+    <NavCtx.Provider value={{ canBack, goBack, openSearch: () => setSearchOpen(true) }}>
     <View style={s.page}>
       {/* Phone-first column, centred on a wide window — the suite's page shape. */}
       <View style={s.centre}>
@@ -89,6 +93,20 @@ function Root() {
         </View>
       </View>
       <TabBar tab={tab} onTab={setTab} />
+      {searchOpen && (
+        <Search
+          onClose={() => setSearchOpen(false)}
+          onOpen={(hit) => {
+            setSearchOpen(false);
+            if (hit.kind === 'note') {
+              setNoteToOpen(hit.id);
+              setTab('notes');
+            } else {
+              setTab(hit.kind === 'reminder' ? 'reminders' : 'calendar');
+            }
+          }}
+        />
+      )}
     </View>
     </NavCtx.Provider>
   );

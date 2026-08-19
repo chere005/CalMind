@@ -131,3 +131,44 @@ test('a step taps into a reminder too', async ({ page }) => {
   await page.getByTestId('tab-reminders').click();
   await expect(page.getByTestId('rem-row').filter({ hasText: 'Whisk it.' })).toBeVisible();
 });
+
+test("subheaders live inside the card, and scaling reaches past them — the Croque Madame shape", async ({ page }) => {
+  test.setTimeout(90_000);
+  await signup(page);
+  // Typed exactly as a hand would: a colon row IS the subheader gesture.
+  const body = [
+    '**Ingredients**',
+    '**For the bechamel:**',
+    '- 2 tbsp butter',
+    '- 1 cup milk',
+    '**For assembly:**',
+    '- 2 slices bread',
+    '',
+    '**Directions**',
+    '**For the bechamel:**',
+    '1. Melt the butter.',
+    '**Prepare the sandwich:**',
+    '2. Assemble and broil.',
+  ].join('\n');
+  await makeRecipeNote(page, 'Croque shape', `Tonight.\n\n${body}\n\nGrandma approved.`);
+
+  const card = page.getByTestId('recipe-card');
+  await expect(card).toBeVisible();
+  // The subheaders render INSIDE the card — the old splitRecipeBody ended
+  // the region at the first one, spilling half the recipe onto the bank.
+  await expect(card.getByText('For the bechamel:').first()).toBeVisible();
+  await expect(card.getByText('Prepare the sandwich:')).toBeVisible();
+  await expect(card.getByText('Assemble and broil.')).toBeVisible();
+  await expect(page.getByText('Grandma approved.')).toBeVisible();
+  await expect(card.getByText('Grandma approved.')).toHaveCount(0);
+  // Badges survive a subheader: the walk used to read any bold line as "the
+  // ingredients ended" and undressed every row after it.
+  await expect(card.getByTestId('ing-unit')).toHaveText(['2 tbsp', '1 cup', '2 slices']);
+
+  // Scaling walks past the headers and doubles the rows under them.
+  await page.getByTestId('scale-double').click();
+  await expect(card.getByTestId('ing-unit')).toHaveText(['4 tbsp', '2 cups', '4 slices']);
+  await expect(card.getByText('For the bechamel:').first(), 'the header itself never scales').toBeVisible();
+  // The step numbers walk past a subheader without restarting.
+  await expect(card.getByText('2.', { exact: false }).first()).toBeVisible();
+});

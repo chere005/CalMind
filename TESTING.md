@@ -8,8 +8,9 @@ neither list and nobody is looking at it.
 
 ## Every harness, in one place
 
-Eight run against the working tree; two more exist only against a deployed
-instance (`smoke-live.sh` and the live passkey spec, both further down). Four
+Eight run against the working tree; three more exist only against a deployed
+instance (`smoke-live.sh` and the two CALMIND_LIVE Playwright specs — the
+passkey ceremony and the watch-tick round trip, both further down). Four
 of the eight are the deploy gate — WebKit joined it after being manual cost a
 real bug (its own section below). The other four have to be *remembered*,
 which is why they are listed here rather than left to be discovered.
@@ -997,6 +998,15 @@ opt-in because it touches the network and leaves an account behind:
 
 It asserts the URL contains /test/ before it creates anything, and prints the
 account it leaves. There is no delete-account endpoint, so the residue is real.
+
+`e2e/live-watchtick.spec.ts` is the second CALMIND_LIVE spec (2026-08-19,
+unblocked by the throwaway-account approval): the wrist's whole loop against
+the deployed test server — a browser types a reminder, the spec builds the
+exact `watchFeed` the wrist would receive, answers with the row's id applied
+precisely as store.tsx's onWatchTick applies it, syncs through core's own
+SyncEngine, and the reloaded browser watches the done row leave the list.
+Only WatchConnectivity itself is out of frame; the swift seam checkers hold
+that end. Same opt-in, same /test/ assertion, same honest residue.
 
 SIGNING OUT is checked against a storage that will not delete —
 `e2e/signout.spec.ts`, added 2026-08-12. The two tests there are deliberately

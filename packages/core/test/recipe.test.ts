@@ -1,6 +1,6 @@
 /** The OCR-to-note heuristics: humble, but pinned. */
 import { describe, it, expect } from 'vitest';
-import { formatRecipe, ingredientParts, isRecipeNote, recipeFromHtml, looksLikeChrome, parseIngredient, precleanOcrLine, recipeBody, recipeFromPages, scaleIngredient, scaleRecipeBody, scrubLine } from '../src/recipe';
+import { formatRecipe, ingredientParts, isRecipeNote, isSubheader, orderIngredients, recipeFromHtml, looksLikeChrome, parseIngredient, precleanOcrLine, recipeBody, recipeFromPages, scaleIngredient, scaleRecipeBody, scrubLine, splitRecipeBody } from '../src/recipe';
 
 describe('formatRecipe', () => {
   it('finds the obvious title, bullets the ingredients, keeps the steps', () => {
@@ -615,13 +615,16 @@ describe('recipeFromHtml — a page that says what its recipe is', () => {
     expect(recipeFromHtml(page([{ '@type': 'Organization' }, inner]))!.ingredients).toEqual(['1 egg']);
   });
 
-  it('unwraps HowToSection but drops its heading — a heading is not a step', () => {
+  it("unwraps HowToSection and keeps its heading as a subheader — Sean's ask, 2026-08-19", () => {
+    // The name used to be dropped ("a heading is not a step"). Subheaders
+    // exist now, so it arrives as one — colon and all.
     const r = recipeFromHtml(page({
       '@type': 'Recipe',
       recipeIngredient: ['1 tsp salt'],
       recipeInstructions: [{ '@type': 'HowToSection', name: 'For the sauce', itemListElement: [{ '@type': 'HowToStep', text: 'Simmer' }] }],
     }))!;
-    expect(r.steps).toEqual(['Simmer']);
+    expect(r.steps).toEqual(['For the sauce:', 'Simmer']);
+    expect(isSubheader(r.steps[0]!)).toBe(true);
   });
 
   it('entities and fractions survive', () => {
@@ -719,5 +722,190 @@ describe('recipeFromHtml — ingredient shapes the wild produces', () => {
   it('the older `ingredients` key still works — sites that never updated', () => {
     const r = recipeFromHtml(page({ '@type': 'Recipe', name: 'Old', ingredients: ['3 ripe bananas'], recipeInstructions: ['Mash'] }))!;
     expect(r.ingredients).toEqual(['3 ripe bananas']);
+  });
+});
+
+describe("subheaders — Sean's Croque Madame shape (2026-08-19)", () => {
+  it('knows one when it sees one, and knows what is not one', () => {
+    expect(isSubheader('For the béchamel:')).toBe(true);
+    expect(isSubheader('Prepare the sandwich:')).toBe(true);
+    expect(isSubheader('For serving:')).toBe(true);
+    expect(isSubheader('1 cup milk:')).toBe(false); // a quantity is an ingredient
+    expect(isSubheader('Whisk everything together.')).toBe(false);
+    expect(isSubheader(':')).toBe(false);
+  });
+
+  it('recipeBody writes them bold with the colon, and the step numbers walk past', () => {
+    const body = recipeBody(
+      ['For the béchamel:', '2 tbsp butter', 'For assembly:', '4 slices bread'],
+      ['For the béchamel:', 'Melt the butter', 'Whisk in flour', 'Prepare the sandwich:', 'Butter the bread'],
+    );
+    expect(body).toBe(
+      [
+        '**Ingredients**',
+        '**For the béchamel:**',
+        '- 2 tbsp butter',
+        '**For assembly:**',
+        '- 4 slices bread',
+        '',
+        '**Directions**',
+        '**For the béchamel:**',
+        '1. Melt the butter',
+        '2. Whisk in flour',
+        '**Prepare the sandwich:**',
+        '3. Butter the bread',
+      ].join('\n'),
+    );
+  });
+
+  it('round-trips through the editor parse without shedding or moving one', () => {
+    const ings = ['For the béchamel:', '2 tbsp butter', '2 tbsp flour'];
+    const steps = ['For the béchamel:', 'Melt the butter', 'Prepare the sandwich:', 'Butter the bread'];
+    const r = recipeFromPages([recipeBody(ings, steps)]);
+    expect(r.ingredients).toEqual(ings);
+    expect(r.steps).toEqual(steps);
+  });
+
+  it('the blob keeps its subheaders — the card renders them, the prose stays out', () => {
+    const body = ['My note about lunch.', '', recipeBody(['For the béchamel:', '2 tbsp butter'], ['For the béchamel:', 'Melt it']), '', 'Serve hot, says Grandma.'].join('\n');
+    const split = splitRecipeBody(body)!;
+    expect(split.before).toBe('My note about lunch.');
+    expect(split.recipe).toContain('**For the béchamel:**');
+    expect(split.recipe).toContain('1. Melt it');
+    expect(split.after).toBe('Serve hot, says Grandma.');
+  });
+
+  it('scaling reaches past a subheader; the subheader itself never scales', () => {
+    const body = recipeBody(['For the béchamel:', '2 tbsp butter', '1 cup milk'], ['Melt it']);
+    const doubled = scaleRecipeBody(body, 2);
+    expect(doubled).toContain('**For the béchamel:**');
+    expect(doubled).toContain('- 4 tbsp butter');
+    expect(doubled).toContain('- 2 cups milk');
+  });
+
+  it('OCR keeps a mid-list "For the…" line as a subheader instead of reopening the ingredients', () => {
+    const page = [
+      'Croque Madame',
+      '',
+      'INGREDIENTS',
+      '2 tbsp butter',
+      '4 slices bread',
+      '',
+      'DIRECTIONS',
+      'For the béchamel:',
+      '1. Melt the butter in a saucepan',
+      'Prepare the sandwich:',
+      '2. Butter the bread',
+    ].join('\n');
+    const r = recipeFromPages([page]);
+    expect(r.steps).toEqual([
+      'For the béchamel:',
+      'Melt the butter in a saucepan',
+      'Prepare the sandwich:',
+      'Butter the bread',
+    ]);
+    expect(r.ingredients).toEqual(['2 tbsp butter', '4 slices bread']);
+  });
+});
+
+describe("first order for a fresh list — dry, wet, the rest, unitless last (Sean's rule, 2026-08-19)", () => {
+  it('groups a real card and sinks the unitless lines, stably', () => {
+    expect(
+      orderIngredients([
+        'salt and pepper to taste',
+        '2 cups milk',
+        '1 large yellow onion',
+        '2 cups all-purpose flour',
+        '4 tbsp butter',
+        '1 tsp salt',
+        'fresh cracked black pepper to taste',
+      ]),
+    ).toEqual([
+      '2 cups all-purpose flour', // dry, in card order
+      '1 tsp salt',
+      '2 cups milk', // wet, in card order
+      '4 tbsp butter',
+      '1 large yellow onion', // the rest
+      'salt and pepper to taste', // unitless sink to the bottom, in card order
+      'fresh cracked black pepper to taste',
+    ]);
+  });
+
+  it('classifies by the noun that heads the name, not the first word it knows', () => {
+    // 'milk' is in the name, but the thing is the CHIPS — dry.
+    expect(orderIngredients(['1 cup milk chocolate chips', '1 cup milk'])).toEqual([
+      '1 cup milk chocolate chips',
+      '1 cup milk',
+    ]);
+  });
+
+  it('subheaders fence the sort — each group orders within itself', () => {
+    expect(
+      orderIngredients([
+        'For the béchamel:',
+        '2 cups milk',
+        '2 tbsp flour',
+        'For assembly:',
+        '4 slices bread',
+        'dijon mustard to taste',
+      ]),
+    ).toEqual([
+      'For the béchamel:',
+      '2 tbsp flour',
+      '2 cups milk',
+      'For assembly:',
+      '4 slices bread',
+      'dijon mustard to taste',
+    ]);
+  });
+});
+
+describe("scaling gaps mined from Sean's own cards, 2026-08-19", () => {
+  it("'2 lbs lamb shank' halves to '1 lb', not '1 lbs' — Gohrme Sabzi", () => {
+    expect(scaleIngredient('2 lbs lamb shank', 0.5)).toBe('1 lb lamb shank');
+    expect(scaleIngredient('2 lbs lamb shank', 2)).toBe('4 lbs lamb shank');
+  });
+
+  it("halving a third lands on a sixth, not '0.17' — Key Lime Pie's melted butter", () => {
+    expect(scaleIngredient('1/3 cup melted butter', 0.5)).toBe('⅙ cup melted butter');
+    // …and the glyph reads back, so the scale row can move again from it.
+    expect(scaleIngredient('⅙ cup melted butter', 2)).toBe('⅓ cup melted butter');
+    expect(scaleIngredient('⅜ cup water', 2)).toBe('¾ cup water');
+  });
+
+  it('a hedge word rides along and the number under it still scales', () => {
+    // All four shapes are verbatim off his cards.
+    expect(scaleIngredient('~4 Tbsp butter/olive oil', 2)).toBe('~8 Tbsp butter/olive oil');
+    expect(scaleIngredient('about 2 cups tomato sauce (can be passata)', 2)).toBe('about 4 cups tomato sauce (can be passata)');
+    expect(scaleIngredient('scant 1/4 teaspoon ground nutmeg (fresh grated is ideal)', 2)).toBe('scant ½ teaspoon ground nutmeg (fresh grated is ideal)');
+    expect(scaleIngredient('optional: 1/8 cup sugar', 2)).toBe('optional: ¼ cup sugar');
+    // A hedge over no quantity stays exactly as written.
+    expect(scaleIngredient('about enough for everyone', 2)).toBe('about enough for everyone');
+  });
+
+  it("a bracket after a KNOWN unit restates the amount and scales with it — Basque cheesecake's sugar", () => {
+    expect(scaleIngredient('1 ½ cups (300 g) sugar', 2)).toBe('3 cups (600 g) sugar');
+    expect(scaleIngredient('⅓ cup (42 g) all-purpose flour', 0.5)).toBe('⅙ cup (21 g) all-purpose flour');
+    // The per-item bracket keeps holding still: no unit in front, so the
+    // bracket is the size of each can, not a restatement.
+    expect(scaleIngredient('1 (14 oz) can tomatoes', 2)).toBe('2 (14 oz) cans tomatoes');
+  });
+
+  it("the 'or' alternative scales too — Basque cheesecake's two salts", () => {
+    expect(scaleIngredient('1 tsp. Diamond Crystal or ½ tsp. Morton kosher salt', 2))
+      .toBe('2 tsp. Diamond Crystal or 1 tsp. Morton kosher salt');
+    // Counting things, not measuring amounts: untouched past the first number.
+    expect(scaleIngredient('1 onion or 2 shallots', 2)).toBe('2 onions or 2 shallots');
+  });
+});
+
+describe("the unit's abbreviation dot goes with the unit", () => {
+  it("'1 lb. ground lamb' badges as [1|lb] 'ground lamb', not '. ground lamb'", () => {
+    // Off Sean's Pastitsio, seen the day the Android card first rendered it.
+    expect(ingredientParts('1 lb. ground lamb')).toEqual({ qty: '1', unit: 'lb', name: 'ground lamb' });
+    expect(ingredientParts('1 tsp. vanilla')).toEqual({ qty: '1', unit: 'tsp', name: 'vanilla' });
+    // A rest that legitimately opens with punctuation the dot rule must not
+    // eat: the comma shape keeps its comma-free name exactly as before.
+    expect(ingredientParts('1 onion, chopped').name).toBe('onion, chopped');
   });
 });

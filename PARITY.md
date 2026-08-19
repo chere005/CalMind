@@ -2294,3 +2294,113 @@ Not the RNW Modal on web, deliberately: it traps focus, and a toast fired
 mid-keystroke would blur the note editor and collapse it — the exact bug
 family the title-tap rule just killed. @types/react-dom joined the dev
 deps for the portal's types.
+
+### One button hands you your whole store, 2026-08-19 evening
+
+"Data export/backup" — Settings grows **Export my data**: the live store as
+one pretty-printed JSON file, `calmind-<account>-<day>.json`. The file's
+behaviour is core's (`backup.ts`): records sorted type-then-id so two
+exports of the same store are byte-identical and diffable, counts by type
+for a human squint, and TOMBSTONES STAY OUT — a tombstone keeps its payload
+forever for the shared-write scope check, and a backup that carried them
+would mail every deleted note along silently. The core test asserts the
+deleted secret is absent from the TEXT, not just the list. Web downloads via
+a blob anchor; native writes to cache and opens the share sheet
+(expo-file-system + expo-sharing joined the deps). The e2e spec catches the
+real download and parses it back.
+
+### The wrist's round trip, proven against the live server, 2026-08-19 evening
+
+The throwaway-account approval (2026-08-19) unblocked the test that could
+not exist before: `live-watchtick.spec.ts` signs up on the DEPLOYED test
+instance, types a reminder in a real browser, builds the exact `watchFeed`
+JSON the wrist would be pushed, answers with the row's id applied precisely
+as store.tsx's onWatchTick applies it, syncs through core's own SyncEngine —
+and then the browser reloads and watches the done row leave the list. Every
+step is the real code; only WatchConnectivity itself (native, seam-checked)
+is out of frame. Opt-in like the live passkey spec: CALMIND_LIVE=1.
+
+### Subheaders, first-order, and five scaling bugs off his own cards, 2026-08-19 evening
+
+Sean: "allow Subheaders in ingredients and Directions" (Croque Madame's
+"For the bachamel:" the example) — a row ending in ':' with no quantity IS
+one now, everywhere at once: recipeBody writes it bold with its colon (the
+colon is what tells it from **Ingredients**), the blob keeps it, scaling
+walks past it, badges survive it, the editor renders it bold and numbers
+past it, OCR keeps a mid-list "For the…" line as one instead of reopening
+the ingredients, and the JSON-LD import now KEEPS HowToSection names it
+used to drop — that refusal was deliberate once ("a heading is not a step")
+and his ask overturned it.
+
+"Bring unitless ingredients to the bottom, group dry then wet then
+remaining" — with his own boundary: "this is just when things are first
+added or created.. manual edits/drags will override those choices and
+stay". So `orderIngredients` runs on an IMPORT BATCH only, never a list a
+person has touched, stable within class, subheaders fencing the sort. The
+import-race spec's expected order moved with it, deliberately.
+
+Pattern-mining every ingredient line of his 19 curated cards through the
+parsers found five real scaling bugs, each now fixed with his exact line as
+the test: '2 lbs lamb shank' halved to '1 lbs' (Gohrme Sabzi); halving ⅓
+cup printed '0.17 cup' (Key Lime Pie — sixths join the glyphs, and the
+write-only ⅜⅝⅞ finally parse back); '~4 Tbsp', 'about 2 cups', 'scant 1/4
+teaspoon' and 'optional: 1/8 cup' never scaled at all (hedge words ride
+along now); '1 ½ cups (300 g) sugar' doubled to '3 cups (300 g)' — a line
+contradicting itself (Basque cheesecake; the per-item '1 (14 oz) can'
+bracket still holds still); and '1 tsp. Diamond Crystal or ½ tsp. Morton'
+scaled one salt and not the other. Cacio e Pepe's curated copy is a bare
+YouTube link wearing the recipe flag — harmless (the card gates on shape
+too) and left as he made it.
+
+### Search, 2026-08-19 evening
+
+Sean's spec, verbatim where it mattered: the 🔍 sits between the folder
+picker and the username on every tab; the screen always searches Reminders,
+Notes and Events with best results on top; under the bar, a check-filter
+over the three kinds — REMEMBERED ALWAYS, as a synced pref
+(`searchKinds`), so it survives reload and follows him across devices —
+and a sort dropdown (relevance · date · alphabetical, alpha on the note's
+name or the entire reminder/event text) with a direction arrow. Ranking is
+core's `searchRecords`, deliberately inspectable: exact beats leads-with
+beats word-boundary beats substring beats scattered-words, a note title
+beats its body two-to-one, ties break to the freshest edit, undated rows
+sink last in date sort whichever way it runs. Done reminders still turn up
+— a search is where old things are found — dimmed and struck through. A
+tapped note opens in its editor; reminders and events land on their tab.
+
+### The fix-up lands in his store, and Android earns its stripes, 2026-08-19 evening
+
+His word: "fix up the existing recipes yourself manually." Four curated
+copies got their subheaders over the sync API — Croque Madame (his own
+example: the fused "For the bechamel: warm the milk" split into a subheader
+and a step, the orphaned serving line folded into the ingredients' group
+header), Pastitsio (meat sauce / white sauce / assembly, both lists), Key
+Lime Pie (crust / filling / topping, both lists), Ravioli di Zucca
+(directions only — the ingredient list is what step 2's "the rest of the
+ingredients" points at, and regrouping would have broken his own sentence).
+Every edit was an exact-line operation verified through core (region intact,
+round-trip stable, scaling past every header) before the push, byte-exact on
+re-read after it. His typos stay his ("tomatoe", "spires" — his text, not
+mine to edit). The originals in Recipes·General: untouched, stamps checked.
+
+Android, the same evening ("get the android build simulated and well
+tested"): release APK built from the existing prebuild (77MB, arm64), run on
+two emulators. On the Pixel 10 Pro image with Sean's own signed-in session —
+READ ONLY, per the standing rule — the calendar with aki's shared events,
+search over his real cards, the fixed-up Pastitsio rendering its card with
+subheaders and badges intact, and Export my data producing the share sheet
+with `calmind-sean-2026-08-19.json`. On a wiped clone with a throwaway
+account, the WRITE paths: signup against the live test server, an event
+filed through the new DayPick onto the day it picked, a recipe built in the
+editor — subheader typed as a colon row, bold and badge-free live — saved,
+carded, doubled past the header, and pulled back through the API byte-exact
+(`recipe: true`, canonical markers). No app crashes in either logcat.
+
+Looking at that Pastitsio card found one more real bug on the spot: '1 lb.
+ground lamb' badged as '. ground lamb' — the unit's abbreviation dot stayed
+glued to the name. Fixed in ingredientParts with his line as the test.
+
+One Android peculiarity worth recording rather than re-finding: the
+hardware BACK inside the Recipe page closes the whole sheet (Modal
+onRequestClose), exactly like Cancel — rows typed but not saved go with it.
+That is standard Android modal behaviour, kept.

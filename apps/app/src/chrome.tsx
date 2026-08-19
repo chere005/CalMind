@@ -115,6 +115,10 @@ export function TopBar({
           {completed}
           {controls}
           {picker && <View style={s.pickerRing}>{picker}</View>}
+          {/* Search, to the left of the username and the right of the folder
+              picker — Sean's placement, 2026-08-19. One screen for all
+              three kinds, so it lives in the shared bar, not on a tab. */}
+          <CircleBtn testID="topbar-search" glyph="🔍" size={TOPBAR_CTRL} label="Search" onPress={nav.openSearch} />
           {/* The account button, and the STATUS INDICATOR in one control.
               Sean, 2026-08-12: same size as every other button, the
               username's first letter as its icon, and "the color of the

@@ -498,7 +498,6 @@ struct Provider: AppIntentTimelineProvider {
 
 struct HomeWidgetView: View {
     var entry: Entry
-    @Environment(\.widgetFamily) var family
 
     /// What each piece of the card actually costs, in POINTS.
     ///
@@ -546,8 +545,9 @@ struct HomeWidgetView: View {
         // The card measures ITSELF. WidgetKit hands the view its real content
         // size — after the system's own margins, and different on every device
         // and family — so there is nothing left to guess and no table of
-        // family sizes to keep right. `family` is still read, but only by the
-        // small card's own row cap below.
+        // family sizes to keep right. NOTHING here reads the family any more:
+        // small, medium and large all pack by measurement alone. (A stale
+        // comment claimed a small-card row cap survived; it had already gone.)
         GeometryReader { geo in
             layout(available: max(0, geo.size.height - Self.HEADER_H))
         }

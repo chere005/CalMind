@@ -32,9 +32,11 @@ describe('scaling a decimal quantity', () => {
   });
 
   it('and still prints a real decimal when nothing fits', () => {
-    // The half that keeps the two above from being "always snap to something":
-    // a third of a cup halved is a sixth, which is not on the list.
-    expect(scaled('0.33 cup flour', 0.5)).toBe('0.17 cup flour');
+    // The half that keeps the two above from being "always snap to something".
+    // This used to pin a sixth as off the list; sixths joined it 2026-08-19
+    // (halving ⅓ lands there, straight off Sean's Key Lime Pie), so the
+    // nothing-fits value moved to a fifth-ish one no kitchen glyph names.
+    expect(scaled('0.44 cup flour', 0.5)).toBe('0.22 cup flour');
   });
 
   it('leaves an exact fraction exact', () => {

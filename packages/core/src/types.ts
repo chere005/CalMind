@@ -107,6 +107,13 @@ export type Prefs = {
    * and the widget agree without being set four times.
    */
   clock24?: boolean;
+  /**
+   * suite: which kinds the search screen includes — "remember the last
+   * selected search filter always" (Sean, 2026-08-19). Synced for the same
+   * reason as the clock: it is one person's habit, not a device's. Empty or
+   * absent means all three; unknown entries drop out on read.
+   */
+  searchKinds?: string[];
 };
 
 export type FolderMode = 'all' | 'dated' | 'none';

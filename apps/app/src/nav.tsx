@@ -98,5 +98,9 @@ const s = themed(() => StyleSheet.create({
  * a refresh restores.
  */
 import { createContext, useContext } from 'react';
-export const NavCtx = createContext<{ canBack: boolean; goBack: () => void }>({ canBack: false, goBack: () => {} });
+export const NavCtx = createContext<{ canBack: boolean; goBack: () => void; openSearch: () => void }>({
+  canBack: false,
+  goBack: () => {},
+  openSearch: () => {},
+});
 export const useNav = () => useContext(NavCtx);
