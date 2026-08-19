@@ -167,6 +167,61 @@ export class SyncEngine {
     return batch.length === SYNC_MAX_BATCH && [...this.dirty.keys()].some((id) => !sent.has(id));
   }
 
+  /**
+   * Another engine's snapshot of the SAME account, folded into this one.
+   *
+   * This exists for two browser TABS sharing one localStorage key: each held
+   * its own engine and wrote the whole snapshot over the other's on every
+   * mutate, so offline, the last tab to write was the only one whose work
+   * survived a reload (e2e/twotab.spec.ts held that pinned as a fixme).
+   * The `storage` event tells the other tab a write happened; this is what
+   * it does with it.
+   *
+   * The rules are sync's own, not new ones: a strictly newer stamp wins, a
+   * missing record is taken, and an EQUAL stamp keeps ours — between two
+   * tabs an equal stamp with equal content is the ordinary shared-ancestry
+   * case, and with different content it is the two-devices tie, which the
+   * SERVER arbitrates when both sides push (adopting here would pick a winner
+   * the server never saw). Ours never loses to an older stamp, so nothing an
+   * unsent edit says is eaten.
+   *
+   * A record adopted from the other tab's DIRTY set becomes dirty here too.
+   * The other tab would push it eventually — but "eventually" assumes the
+   * other tab survives, and the whole reason this record is only in a
+   * snapshot is that the network was away. If that tab closes first, this
+   * tab is the record's only way to the server. Both tabs pushing the same
+   * content is a no-op on the server side.
+   *
+   * The cursor advances to the higher of the two: the further tab has
+   * consumed more of the server's tail, and its snapshot carries what it
+   * consumed.
+   *
+   * Returns whether anything changed, so the caller can persist the union
+   * exactly when there is one — persisting unconditionally would ping-pong
+   * storage events between the tabs forever.
+   */
+  mergeSnapshot(s: Snapshot): boolean {
+    let changed = false;
+    const theirDirty = new Set(s.dirty);
+    for (const theirs of s.recs) {
+      const mine = this.recs.get(theirs.id);
+      if (mine && theirs.updated <= mine.updated) continue;
+      this.recs.set(theirs.id, theirs);
+      changed = true;
+      if (theirDirty.has(theirs.id)) this.dirty.set(theirs.id, theirs.updated);
+      // Adopting a SERVER-BORNE record (not dirty over there) over our own
+      // dirty older copy: the dirty entry stays, and the next push offers the
+      // adopted content back — which the server recognises as identical and
+      // ignores. Harmless, and clearing it here would be wrong the moment a
+      // keystroke lands between this merge and that push.
+    }
+    if (s.cursor > this.cursor) {
+      this.cursor = s.cursor;
+      changed = true;
+    }
+    return changed;
+  }
+
   toSnapshot(): Snapshot {
     return { cursor: this.cursor, recs: [...this.recs.values()], dirty: [...this.dirty.keys()] };
   }

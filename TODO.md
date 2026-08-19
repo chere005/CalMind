@@ -47,7 +47,7 @@ Standing rules live in `CLAUDE.md`, not here.
 
 ## Suite counts, as of this commit
 
-core **537** · gesture **224** (+2 skipped) · WebKit **15** · server **53** ·
+core **544** · gesture **226** (+1 skipped) · WebKit **15** · server **53** ·
 live **19** with the API · desktop **7** (+3 in `npm run test:desktop`) · deploy guards **9** · plus the four
 native seam checkers no browser can reach: `npm run test:watch`,
 `npm run test:widget`, `npm run test:deploy`.
@@ -303,7 +303,16 @@ rounding: it is what keeps ⅓ cup × 3 printing "1" instead of the arithmetic's
 0.9999…, and removing it would put that noise on every thirds-based card.
 All of it stays pinned in `scalefrac.test.ts`.
 
-### The phone's top-bar title disappears behind a long username — your call
+### ~~The phone's top-bar title disappears behind a long username~~ — STALE, closed 2026-08-19
+The 2026-08-12 redesign ("same size as every other button, the username's
+first letter as its icon") removed the username TEXT from the bar entirely —
+the pill is a fixed 32pt circle now, so there is nothing left to grow with
+the name. Verified by measurement rather than by reading: a 17-character
+account at 390px renders "Reminders" at its full 123px, unclipped
+(scrollWidth == clientWidth). The entry below stands as history; the numbers
+in it describe a bar that no longer exists.
+
+### The phone's top-bar title disappears behind a long username (history)
 Found by LOOKING at the app rather than testing it, 2026-08-11, which is a
 method this session had not used at all.
 
@@ -329,9 +338,24 @@ A `maxWidth` on the pill would be a no-op at four characters and would leave
 the title intact at seventeen. NOT DONE, because you have been specific about
 this bar before and how your own name renders is yours to decide.
 
-### Two browser TABS lose each other's offline work — architectural, your call
-Proven 2026-08-11 by `e2e/twotab.spec.ts`, which is parked as `test.fixme` so
-the bug stays visible without turning the suite red.
+### ~~Two browser TABS lose each other's offline work~~ — FIXED 2026-08-19
+Sean's "get all of that done" unblocked it; of the three options below, the
+first — the `storage` listener — was the recommended one and is what
+shipped. Core gained `SyncEngine.mergeSnapshot` (sync's own LWW rules: newer
+wins, missing is taken, equal keeps ours so the server stays the tie's
+arbiter; a record adopted from the other tab's dirty set becomes dirty here
+too, in case that tab closes before it can push). `store.tsx` folds the
+other tab's snapshot in on the `storage` event and persists the UNION only
+when something changed, which is what makes the two tabs' ping-pong
+terminate — pinned in `twotabmerge.test.ts` (7 tests, 6 watched red with
+the merge gutted). `e2e/twotab.spec.ts` is no longer a fixme and passes:
+offline adds in both tabs survive a reload. The clobber worry was already
+answered by the editor's draft state, the same protection a server pull
+relies on. The entry below stands as the record of the decision space.
+
+### Two browser TABS lose each other's offline work (history)
+Proven 2026-08-11 by `e2e/twotab.spec.ts`, which was parked as `test.fixme` so
+the bug stayed visible without turning the suite red.
 
 `twodevice.spec` opens a second browser CONTEXT — "its own storage, its own
 session" — so it tests two machines and passes. Two TABS of one browser are a
@@ -433,7 +457,37 @@ Left as a decision rather than fixed on the spot because it changes sync
 timing. PARITY.md:1412 says it was "written down in TODO"; it was, and the
 rewrite dropped it, which is how a known bug becomes a mystery twice.
 
-### The installed PWA's bottom gap is still UNVERIFIED
+### ~~The installed PWA's bottom gap~~ — REPRODUCED AND FIXED 2026-08-19
+Installed as a webclip on the iOS 26 simulator (402x874) and the gap was
+THERE, on the code carrying the dvh fix: the tab bar's top border measured
+153pt from the screen bottom against the native app's correct 91pt, icons at
+85.8% of screen height — Sean's screenshot proportions exactly. So the dvh
+fix never covered the reported case, and "his install was running old code"
+was the wrong likeliest-reason.
+
+The mechanism, measured with an on-screen probe in the webclip (there is no
+console in one): in STANDALONE, WebKit sizes the small viewports as if
+Safari's chrome existed in an app that has none — `100dvh` answered 812 or
+820 of the 874 screen depending on the launch, `100svh` 812, and only
+`100lvh` the true 874. The app was pinned to dvh, so it laid out ~62pt short
+and the bar floated over a dead band. In a Safari TAB dvh is the right unit
+(the toolbar collapses); in standalone it is the lie.
+
+The fix (`tools/patch-web-html.mjs`, calmind-vh block): under
+`@media (display-mode: standalone)` — verified matching in a webclip —
+html/body/#root pin to `100lvh`. Verified on the simulator across the
+change: rootH 812 → 874, the login screen now filling the true screen.
+`e2e/bottomgap.spec.ts` pins the style's presence (a headless browser is
+never in standalone, so presence is all it can honestly check).
+
+Still worth one glance from Sean's phone after this deploys: his 393x852 is
+a size no simulator here reproduced (the 17e needs a device-access grant),
+and his webclip picks up the fixed page on its next cold launch — the
+document is network-first, no re-add needed for CSS.
+
+The entry below stands as the history of the hunt.
+
+### The installed PWA's bottom gap (history)
 RESTORED 2026-08-12. Sean reported a black gap below the tab bar in the
 installed home-screen app. It was never reproduced: on the simulator in real
 standalone the tab icons centre at ~96.7% of screen height, against ~85.9%
@@ -461,10 +515,14 @@ Also never explained, and not to be guessed at: his 393x852 against the
 simulator's 402x874 is a different device size, and it cannot be ruled out
 that the gap only appears at his.
 
-Separate and still unfixed, noticed in the same investigation: the installed
-web-app icon is the site-wide "SC" mark rather than CalMind's. The deploy DOES
-add `apple-touch-icon` (deploy-test.sh:235) and iOS was not using it.
-Cosmetic.
+Separate, and RESOLVED SERVER-SIDE (verified 2026-08-19): the installed
+web-app icon showing the site-wide "SC" mark. The live page serves the
+`apple-touch-icon` link and a 180x180 CalMind "CM" PNG, and a fresh
+add-to-home-screen on the simulator picks it up — the share sheet and the
+add dialog both preview the CM mark. iOS captures the icon AT ADD TIME and
+never re-reads it, so Sean's older install keeps "SC" until he deletes the
+webclip and re-adds it. One re-add fixes the icon AND guarantees the
+freshest page in one go; nothing left to ship.
 
 ### The new-note focus is a 50ms race (NOT WebKit only — see below)
 
@@ -738,6 +796,26 @@ then the watch needs the direct install and the build number is the proof.
   the only formatter in that file nothing exercised. Its current behaviour is
   now pinned in `check-watch-format.sh`, including this case, so whichever
   way he decides the change is deliberate rather than drift.
+
+- ~~**The desktop shell ships with `"csp": null`.**~~ — **CLOSED 2026-08-19,
+  the way this entry demanded**: a strict policy is in `tauri.conf.json`
+  (`script-src 'self'` with Tauri's automatic inline hashes carrying the two
+  patched head scripts; `style-src 'unsafe-inline'` because react-native-web
+  injects its stylesheet at runtime; `connect-src 'self'
+  https://seancheren.com` for the test API; object/base/form/frame all
+  denied), and it was verified by OPENING THE WINDOW, not by reading config:
+  the policy was replicated as a meta tag over the staged export in a real
+  browser (renders, zero violations, API reachable — status 400 not a CSP
+  TypeError), and then the built .app itself was launched with a probe that
+  writes localStorage once #root has children — `csp-probe: rendered-…`
+  read back out of the WKWebView store afterwards. A first probe tried an
+  http://127.0.0.1 beacon and got silence: WKWebView blocks mixed content
+  with no loopback exemption, worth remembering. Desktop smoke 6/6 on the
+  ship build. (Same sweep fixed the Windows workflow: `beforeBuildCommand`
+  used `$(git rev-parse …)`, which Windows mangles — now `sh stage-dist.sh`,
+  relative to `desktop/`, where the CLI actually runs it.)
+
+  The paragraph below stands as the original entry.
 
 - **The desktop shell ships with `"csp": null`.** `desktop/src-tauri/tauri.conf.json`
   sets no Content Security Policy, which Tauri treats as "inject nothing".

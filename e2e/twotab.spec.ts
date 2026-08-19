@@ -37,13 +37,12 @@ async function addReminder(page: Page, text: string) {
 }
 
 test('two offline tabs do not overwrite each other in the snapshot', async ({ page, context }) => {
-  // KNOWN BUG, kept visible rather than deleted or left red. Recorded in
-  // TODO §1 on 2026-08-11: the fix is architectural — a `storage` listener
-  // merging the other tab's snapshot through the engine's existing LWW, or a
-  // single-writer election — and picking one is Sean's call, not a tidy-up.
-  // The repo already has strong opinions about clobbering an edit in progress
-  // (see clobber.spec), which is exactly what a careless merge would do.
-  test.fixme(true, 'two tabs share one snapshot key and the last writer wins — see TODO §1');
+  // A fixme from 2026-08-11 to 2026-08-19, when Sean said to get it done.
+  // The fix is the first option the TODO entry listed: a `storage` listener
+  // (store.tsx) folding the other tab's snapshot through core's own LWW
+  // (SyncEngine.mergeSnapshot, driven in twotabmerge.test.ts) — each tab
+  // persists the UNION when the merge changed anything, so whichever tab's
+  // snapshot a reload reads, both tabs' work is in it.
   test.setTimeout(120_000);
   await signup(page);
   const url = page.url().split('?')[0]!;

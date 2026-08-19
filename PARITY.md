@@ -2045,3 +2045,57 @@ The rest of Sean's recipe message, same night:
   tapping that opens the reminder sheet by design.
 - e2e/recipecard.spec.ts drives all five: card, banks, blob-opens-Recipe,
   ingredient→reminder, step→reminder.
+
+### The bottom gap surrenders, 2026-08-19
+
+Sean: "get all of that done." The first casualties of the sweep were two
+entries that had outlived their bugs, and one bug that had outlived three
+investigations:
+
+- **The bottom gap is REAL, REPRODUCED, and FIXED.** Added the app to an
+  iOS 26 simulator home screen and the deployed code showed it plainly: tab
+  bar top border 153pt from the screen bottom against native's correct 91pt.
+  An on-screen probe inside the webclip (no console exists there) gave the
+  mechanism: standalone WebKit answers `100dvh` with 812/820 of an 874pt
+  screen and only `100lvh` with the truth, so the dvh fix — built for the
+  Safari-tab toolbar — was itself the short ruler in the installed app. Fix:
+  `display-mode: standalone` pins html/body/#root to `100lvh`
+  (patch-web-html.mjs); rootH measured 812 → 874 across the change. His
+  phone still owes one confirming glance at 393x852.
+- **The error shout stands down once the app renders.** iOS fires a scrubbed
+  "Script error. :0" at a page when the share sheet opens over it, and the
+  boot-failure screen treated that as fatal — "CalMind could not start"
+  painted over an app running fine, watched happen twice. The shout now
+  yields if #root has children; errshout.spec's after-render test was
+  watched red against the unguarded page.
+- **The long-username title clip is STALE** — the 08-12 first-letter circle
+  removed the username text from the bar; measured unclipped with a 17-char
+  account at 390px. And the **"SC" webclip icon** is a client-side relic:
+  the server serves the CM mark and a fresh add picks it up; his install
+  needs one delete-and-re-add, nothing needs shipping.
+
+### The tabs stop eating each other, and the shell gets its lock, 2026-08-19
+
+Second sweep of "get all of that done":
+
+- **Two offline tabs no longer lose work.** Core gained
+  `SyncEngine.mergeSnapshot` — sync's own rules pointed sideways: newer
+  wins, missing is taken, equal keeps ours so the server stays the
+  arbiter, and a record adopted from the other tab's dirty set turns dirty
+  here too, in case that tab closes before it can push. store.tsx folds the
+  neighbour's snapshot in on the `storage` event and persists the union
+  only when the merge changed something, which is what makes the ping-pong
+  terminate. twotabmerge.test.ts (7, six watched red with the merge
+  gutted); e2e/twotab.spec.ts un-fixmed and green.
+- **The desktop shell has a real CSP**, verified by opening the window
+  rather than trusting the config: policy replicated in a browser (renders,
+  no violations, API answers), then the built app run with a probe that
+  writes localStorage when #root fills — read back out of the WKWebView
+  store. WKWebView's mixed-content block has NO loopback exemption; an
+  http://127.0.0.1 beacon proved that the hard way. The Windows workflow's
+  first-ever dispatch also failed usefully: `$(git rev-parse)` in
+  beforeBuildCommand does not survive Windows, replaced with a plain
+  relative `sh stage-dist.sh`.
+- **A deploy died of its own freshness gate** — source edited mid-run makes
+  the WebKit suite's staleness check refuse, correctly. The rule the traps
+  list already implied, now paid for: no source edits while a deploy runs.

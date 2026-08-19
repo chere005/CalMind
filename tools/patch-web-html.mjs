@@ -72,10 +72,18 @@ if (add) html = html.replace('</head>', `${add}</head>`);
  * screen in silence — which is precisely the case worth catching, since a
  * cached page pointing at a bundle that is no longer there looks exactly
  * like a blank screen and nothing else.
+ *
+ * It stands down the moment the app has RENDERED. The first version stayed
+ * armed forever, and iOS fires a scrubbed "Script error. :0" at the page
+ * when the share sheet opens over it — so sharing the app's own URL painted
+ * "CalMind could not start" over an app that was running fine (seen twice,
+ * simulator webclip and Safari, 2026-08-19). A late uncaught error in a
+ * rendered app is the app's problem to surface; this screen is only for the
+ * boot that never drew anything, which is the one case with no other voice.
  */
 const ERR_ID = 'calmind-error-shout';
 if (!html.includes(ERR_ID)) {
-  const shout = `<script id="${ERR_ID}">(function(){var shown=0;function say(what){if(shown++)return;try{var d=document.createElement('pre');d.setAttribute('data-testid','fatal-error');d.style.cssText='position:fixed;inset:0;z-index:2147483647;margin:0;padding:16px;background:#111;color:#f6b4b2;font:12px/1.4 ui-monospace,monospace;white-space:pre-wrap;overflow:auto';d.textContent='CalMind could not start.\\n\\n'+what;(document.body||document.documentElement).appendChild(d);}catch(_){}}window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&(t.src||t.href)){say('failed to load: '+(t.src||t.href));return;}say((e&&e.message||'error')+'\\n'+((e&&e.error&&e.error.stack)||(e&&e.filename+':'+e.lineno)||''));},true);window.addEventListener('unhandledrejection',function(e){var r=e&&e.reason;say('unhandled rejection: '+((r&&r.message)||r)+'\\n'+((r&&r.stack)||''));});})();</script>`;
+  const shout = `<script id="${ERR_ID}">(function(){var shown=0;function say(what){if(shown++)return;var r=document.getElementById('root');if(r&&r.firstChild)return;try{var d=document.createElement('pre');d.setAttribute('data-testid','fatal-error');d.style.cssText='position:fixed;inset:0;z-index:2147483647;margin:0;padding:16px;background:#111;color:#f6b4b2;font:12px/1.4 ui-monospace,monospace;white-space:pre-wrap;overflow:auto';d.textContent='CalMind could not start.\\n\\n'+what;(document.body||document.documentElement).appendChild(d);}catch(_){}}window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&(t.src||t.href)){say('failed to load: '+(t.src||t.href));return;}say((e&&e.message||'error')+'\\n'+((e&&e.error&&e.error.stack)||(e&&e.filename+':'+e.lineno)||''));},true);window.addEventListener('unhandledrejection',function(e){var r=e&&e.reason;say('unhandled rejection: '+((r&&r.message)||r)+'\\n'+((r&&r.stack)||''));});})();</script>`;
   html = html.replace('<head>', `<head>${shout}`);
 }
 
@@ -132,10 +140,20 @@ if (!/id="calmind-bg"/.test(html)) {
  * and it is why this is fixed by construction rather than by measuring.
  *
  * `dvh` is the unit for exactly this: it tracks the viewport as the toolbars
- * come and go. Standalone has no toolbar, so dvh == lvh == svh and nothing
- * moves there; the native app never loads this file at all. Guarded by
+ * come and go. The native app never loads this file at all. Guarded by
  * @supports so a browser without dvh keeps the old behaviour rather than
  * losing its height entirely.
+ *
+ * STANDALONE IS THE OPPOSITE CASE, and the first version of this got it
+ * wrong by assuming "no toolbar, so dvh == lvh == svh and nothing moves".
+ * Measured on the iOS 26 simulator, webclip, 874pt screen: dvh answers 812
+ * or 820 depending on the launch, svh 812, and only lvh the true 874 —
+ * WebKit sizes the small viewport as if Safari's chrome existed in an app
+ * that has none, and the app laid out to it sat ~62pt short, the tab bar
+ * floating above a dead band. That is Sean's reported bottom gap, finally
+ * reproduced. In standalone the LARGE viewport is the screen, so
+ * `display-mode: standalone` (verified matching in a webclip) pins the app
+ * to lvh there.
  *
  * Deliberately NOT touching padding: the bottom safe-area inset is applied
  * once, by the app's own SafeAreaView, and adding any here would double it.
@@ -143,7 +161,8 @@ if (!/id="calmind-bg"/.test(html)) {
 if (!/id="calmind-vh"/.test(html)) {
   html = html.replace(
     '</head>',
-    '<style id="calmind-vh">@supports (height:100dvh){html,body{height:100dvh}#root{height:100dvh}}</style></head>',
+    '<style id="calmind-vh">@supports (height:100dvh){html,body{height:100dvh}#root{height:100dvh}}' +
+      '@supports (height:100lvh){@media (display-mode: standalone){html,body{height:100lvh}#root{height:100lvh}}}</style></head>',
   );
 }
 

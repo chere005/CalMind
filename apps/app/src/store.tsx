@@ -9,7 +9,7 @@ import React, { createContext, useCallback, useContext, useEffect, useRef, useSt
 import { AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { watchForUpdate } from './update';
-import { SyncEngine, lastDeleted, normalize, prefsOf, folderApp, recLabel, reminderToggle, shareOf, todayStr, undeleted, type AnyRec, type Rec } from '@calmind/core';
+import { SyncEngine, lastDeleted, normalize, prefsOf, folderApp, recLabel, reminderToggle, shareOf, todayStr, undeleted, type AnyRec, type Rec, type Snapshot } from '@calmind/core';
 import { apiPost, type Session, syncTransport, ApiError } from './api';
 import { drainWidgetTicks, onWatchTick, pushWatchIfWidgetMoved, pushWatchList } from './watch';
 import { applyTheme, type ThemeName } from './theme';
@@ -361,6 +361,48 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     });
     return () => sub.remove();
   }, [mutate]);
+
+  /**
+   * The OTHER tab's writes, folded in as they land (web only — native has one
+   * JS runtime and no second tab). Two tabs share one snapshot key and each
+   * used to write the whole snapshot over the other's, so offline, a reload
+   * kept only the last writer's work — e2e/twotab.spec.ts, a fixme since
+   * 2026-08-11. Sean's "get all of that done" (2026-08-19) unblocked it; of
+   * the three options the TODO entry laid out, this is the recommended one —
+   * the listener reuses machinery that already exists.
+   *
+   * The merge itself is core's (SyncEngine.mergeSnapshot, sync's own LWW
+   * rules), so a mid-sentence arrival cannot eat the sentence any more than a
+   * server pull can: the editor's draft state survives a re-render, which is
+   * the protection clobber.spec pins. Persisting only when something CHANGED
+   * is what stops the two tabs ping-ponging storage events forever — tab A
+   * persists the union, tab B folds A's half in and persists once more, and
+   * the third bounce merges nothing and writes nothing.
+   *
+   * The `storage` event only ever fires in the tabs that did NOT write, so
+   * none of this runs in the tab whose keystroke it was.
+   */
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.addEventListener !== 'function') return;
+    const onStorage = (ev: StorageEvent) => {
+      const s = sessionRef.current;
+      if (!s || ev.key !== snapKey(s.username) || !ev.newValue) return;
+      let snap: Snapshot | null = null;
+      try {
+        snap = JSON.parse(ev.newValue) as Snapshot;
+      } catch {
+        return; // a corrupt snapshot is a cache problem, not a merge input
+      }
+      if (!snap || !Array.isArray(snap.recs)) return;
+      if (engineRef.current.mergeSnapshot(snap)) {
+        refresh();
+        persistNow(s.username); // the union, so a reload right now loses neither tab
+        syncSoon(); // and offer it to the server when there is one
+      }
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, [refresh, persistNow, syncSoon]);
 
   const signIn = useCallback(
     async (s: Session) => {
