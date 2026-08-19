@@ -11,7 +11,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { watchForUpdate } from './update';
 import { SyncEngine, lastDeleted, normalize, prefsOf, folderApp, recLabel, reminderToggle, shareOf, todayStr, undeleted, type AnyRec, type Rec } from '@calmind/core';
 import { apiPost, type Session, syncTransport, ApiError } from './api';
-import { drainWidgetTicks, onWatchTick, pushWatchList } from './watch';
+import { drainWidgetTicks, onWatchTick, pushWatchIfWidgetMoved, pushWatchList } from './watch';
 import { applyTheme, type ThemeName } from './theme';
 
 const SESSION_KEY = 'calmind.session';
@@ -350,7 +350,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       });
     };
     apply(); // whatever was queued while the app was away
-    const sub = AppState.addEventListener('change', (st) => { if (st === 'active') apply(); });
+    const sub = AppState.addEventListener('change', (st) => {
+      if (st !== 'active') return;
+      apply();
+      // The widget's calendar selection may have moved while the app was
+      // away, and nothing notifies us when it does — so the watch mirrored
+      // the OLD selection until the next unrelated push (the one-push-behind
+      // bug, fixed on Sean's word 2026-08-18). A no-op when nothing moved.
+      pushWatchIfWidgetMoved(engineRef.current.all(), sharedForWatch.current);
+    });
     return () => sub.remove();
   }, [mutate]);
 

@@ -71,3 +71,35 @@ test('a habit section drags below its neighbour, and stays there', async ({ page
   await page.getByTestId('tab-habits').click();
   expect(await order(), 'the stored ord is the display order').toEqual(['Habits', 'Morning', 'Evening']);
 });
+
+test('a habit section swatch opens the TRAY, and a pick recolours it', async ({ page }) => {
+  // Sean, 2026-08-18: "habits should bring up the swatch tray" — the one
+  // manager still cycling one palette step per tap. Same interaction as
+  // folders and calendars now, through the same SwatchTray.
+  test.setTimeout(90_000);
+  const user = `ht${String(Date.now()).slice(-6)}`;
+  await page.goto('.');
+  await page.getByText('Sign up', { exact: true }).click();
+  await page.getByPlaceholder('Username').fill(user);
+  await page.getByPlaceholder('Email').fill(user + '@example.com');
+  await page.getByPlaceholder('Password', { exact: true }).fill('e2epassword');
+  await page.getByPlaceholder('Confirm password').fill('e2epassword');
+  await page.getByText('Sign up', { exact: true }).click();
+  await expect(page.getByTestId('tab-reminders')).toBeVisible({ timeout: 20_000 });
+  await page.getByTestId('tab-habits').click();
+  await page.getByTestId('pick-habits').click();
+  await page.getByText('Manage sections…').click();
+
+  const swatch = page.getByTestId('habit-swatch-Habits');
+  await expect(swatch).toBeVisible();
+  const before = await swatch.evaluate((el) => getComputedStyle(el).backgroundColor);
+  await swatch.click();
+  // The tray is a row of swatches, not a one-step advance: several distinct
+  // colour dots are on screen at once, and picking one closes it.
+  const options = page.getByTestId(/^habit-swatch-Habits-/);
+  expect(await options.count(), 'a tray of choices, not a cycle').toBeGreaterThan(3);
+  await options.last().click();
+  await expect(options.first(), 'picking closes the tray').toBeHidden();
+  const after = await swatch.evaluate((el) => getComputedStyle(el).backgroundColor);
+  expect(after, 'the picked colour landed on the section').not.toBe(before);
+});

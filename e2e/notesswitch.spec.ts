@@ -46,6 +46,9 @@ test('opening a second note never shows the first one’s text', async ({ page }
   for (const [title, body] of [['Alpha', 'the first recipe'], ['Beta', 'the second recipe']]) {
     await page.getByTestId('secadd-General').first().click();
     await page.getByTestId('note-title').fill(title!);
+    // The title touch collapsed the body to its view (deterministic since
+    // the title-tap rule, 2026-08-18) — reopen it the way a hand would.
+    await page.getByTestId('note-body-view').click();
     await page.getByTestId('note-body-edit').fill(body!);
     await page.getByTestId('note-back').click();
   }

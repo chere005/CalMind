@@ -203,34 +203,54 @@ export function parseDateField(text: string, today: string): string | null {
  * so "8/3 tomorrow" keeps the 3rd. `now` ('HH:MM') is what lets a bare time
  * know whether it has already gone by — without it, a bare time simply means
  * today.
+ *
+ * `lift` is the manual-beats-parsed rule (Sean, 2026-08-18: "if the date or
+ * time was manually chosen, that is the winner and text is left alone").
+ * A category switched OFF is neither lifted NOR read: the token stays in the
+ * text — it was not used, and a title stripped of a date that lost would be
+ * lying about where the date came from. Both default ON, which is every
+ * caller that predates the rule.
  */
 export function parseWhenFromText(
   text: string,
   today: string,
   now?: string,
+  lift: { date?: boolean; time?: boolean } = {},
 ): [string, string | null, string | null] {
-  const [t1, date] = parseDateFromText(text, today);
-  const [t2, time] = parseTimeFromText(t1);
-  let out = t2;
-  let d = date;
-  let t = time;
-  if (t === null) {
-    const [t3, rd, rt] = parseRelativeClock(out, today, now ?? '00:00');
-    if (rt !== null) {
-      out = t3;
-      t = rt;
-      d ??= rd;
+  const liftDate = lift.date ?? true;
+  const liftTime = lift.time ?? true;
+  let out = text;
+  let d: string | null = null;
+  let t: string | null = null;
+  if (liftDate) {
+    const [t1, date] = parseDateFromText(out, today);
+    out = t1;
+    d = date;
+  }
+  if (liftTime) {
+    const [t2, time] = parseTimeFromText(out);
+    out = t2;
+    t = time;
+    if (t === null) {
+      const [t3, rd, rt] = parseRelativeClock(out, today, now ?? '00:00');
+      if (rt !== null) {
+        out = t3;
+        t = rt;
+        if (liftDate) d ??= rd;
+      }
     }
   }
-  if (d === null) {
+  if (liftDate && d === null) {
     const [t4, rel] = parseRelativeDate(out, today);
     if (rel !== null) {
       out = t4;
       d = rel;
     }
   }
-  // A time always implies a day: the one it still belongs to, or the next.
-  if (t !== null && d === null) d = now && t < now ? shiftDate(today, 1, 'day') : today;
+  // A time always implies a day: the one it still belongs to, or the next —
+  // unless the day is not this parser's to say (lift.date off means the
+  // caller holds a manual date that outranks any implication).
+  if (liftDate && t !== null && d === null) d = now && t < now ? shiftDate(today, 1, 'day') : today;
   return [out, d, t];
 }
 

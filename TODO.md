@@ -47,7 +47,7 @@ Standing rules live in `CLAUDE.md`, not here.
 
 ## Suite counts, as of this commit
 
-core **527** · gesture **216** (+2 skipped) · WebKit **15** · server **48** ·
+core **532** · gesture **219** (+2 skipped) · WebKit **15** · server **53** ·
 live **19** with the API · desktop **7** (+3 in `npm run test:desktop`) · deploy guards **9** · plus the four
 native seam checkers no browser can reach: `npm run test:watch`,
 `npm run test:widget`, `npm run test:deploy`.
@@ -295,20 +295,13 @@ the complication uses the compact `clock12` (`3:30`). check-watch-format.sh
 pins both, and pins that the two DISAGREE below 8pm so one cannot become the
 other. This entry described a state that is not the case.
 
-### Scaled quantities round DOWN to a whole but never up — 0.99 stays 0.99
-Noticed 2026-08-11 while pinning the fraction rendering. `qtyText` drops a
-remainder under 0.02 and prints the whole number, so `0.67 cup × 3 = 2.01`
-reads "2 cups". The mirror case is not handled: `0.33 cup × 3 = 0.99` reads
-"0.99 cup", and 1.99 reads "1.99", rather than 1 cup and 2 cups.
-
-Both are accurate; neither is a measurement anyone owns a cup for. The
-existing down-snap says the intent is that a hundredth is noise, and if that
-is true going down it is true going up — but changing how your recipes round
-is your call, not a tidy-up I should make quietly. One word either way.
-
-The rest of that rendering is pinned now (`scalefrac.test.ts`), including the
-tolerance and the down-snap, both of which mutation showed nothing was
-watching.
+### ~~Scaled quantities round DOWN to a whole but never up~~ — DECIDED 2026-08-18
+Sean: "don't round". So 0.99 stays 0.99 and 1.99 stays 1.99 — no up-snap is
+added, and the question is closed with no code change. The existing
+under-0.02 down-snap STAYS, read as float-noise tolerance rather than
+rounding: it is what keeps ⅓ cup × 3 printing "1" instead of the arithmetic's
+0.9999…, and removing it would put that noise on every thirds-based card.
+All of it stays pinned in `scalefrac.test.ts`.
 
 ### The phone's top-bar title disappears behind a long username — your call
 Found by LOOKING at the app rather than testing it, 2026-08-11, which is a
@@ -414,7 +407,15 @@ It was then dropped entirely when §3 was cut back — recovered from git.)
 
 ## 2 · Open bugs
 
-### The watch mirrors the widget's selection ONE PUSH BEHIND
+### ~~The watch mirrors the widget's selection ONE PUSH BEHIND~~ — FIXED 2026-08-18
+Sean: "fix the widget calendar sync." The app re-reads the widget's App Group
+selection when it comes FOREGROUND and re-pushes only when it moved
+(`pushWatchIfWidgetMoved`, watch.ts) — coming forward is exactly the moment
+someone who just edited their widget looks at the wrist. A no-op push-wise
+when nothing changed, so ordinary foregrounds cost nothing. The original
+entry below stands as the history of the bug.
+
+### The watch mirrors the widget's selection ONE PUSH BEHIND (history)
 RESTORED 2026-08-12 and confirmed still live in the source. Sean reported
 shared events on the widget and missing from the watch's first tab. The
 four-day-window explanation given at the time was wrong — the events had
@@ -728,10 +729,10 @@ then the watch needs the direct install and the build number is the proof.
   **"5"** — identical to one today at 5pm, and the phone sends the next 30
   events, so a next-two that is days out is ordinary rather than rare.
 
-  `when`, its wider sibling in the same file, argues the opposite in its own
-  comment: "A date appears exactly when it is not today, which is when it
-  carries information." One of the two is wrong and only Sean can say which,
-  since it is his face and the circle really does hold one thing.
+  **DECIDED 2026-08-18 — Sean: "a bare 5 is ok."** The circle keeps showing
+  the time; `whenShort` stays as it is and check-watch-format.sh keeps it
+  pinned. `when`'s comment argues the other way for the WIDE face, which is
+  allowed to disagree — it has room for two things.
 
   Found 2026-08-12 by listing the Swift functions no checker runs — this was
   the only formatter in that file nothing exercised. Its current behaviour is
@@ -806,9 +807,9 @@ then the watch needs the direct install and the build number is the proof.
   sight rather than gone. They still accumulate for ever, still sync on every
   round trip, and there is no way to remove them but one at a time.
 
-  Worth deciding before building: hiding them may be the better answer and
-  the suite's footer may simply not be wanted. But the choice should be made,
-  not arrived at by nobody noticing.
+  **DECIDED 2026-08-18 — Sean: "bless hiding."** The ☑ toggle IS the answer;
+  the suite's clear-completed footer is deliberately not wanted. No code
+  change; recorded so nobody re-opens it as a gap.
 
 - **Larger notes, with images** (Sean asked, 2026-08-11). Not a bigger cap:
   the shape cannot carry it. The client persists the WHOLE snapshot as one

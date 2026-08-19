@@ -32,15 +32,21 @@ test('scaling reads the recipe differently and writes nothing', async ({ page })
   await page.getByTestId('tab-notes').click();
   await page.getByTestId('secadd-General').first().click();
   await page.getByTestId('note-title').fill('Loaf');
+  // The title touch collapsed the body to its view (deterministic since
+  // the title-tap rule, 2026-08-18) — reopen it the way a hand would.
+  await page.getByTestId('note-body-view').click();
   await page.getByTestId('note-body-edit').fill(BODY);
   await page.getByTestId('note-title').click();
 
   const body = page.getByTestId('note-body-view');
   await expect(page.getByTestId('scale-row')).toBeVisible();
   await page.getByTestId('scale-double').click();
-  await expect(body).toContainText('4 cups flour');
+  // The measures live in the BADGES now (Sean, 2026-08-18), name in the text:
+  // asserting the badge list in order is the doubled claim, whole.
+  await expect(body.getByTestId('ing-unit')).toHaveText(['4 cups', '4']);
+  await expect(body).toContainText('flour');
   await expect(body, 'a pinch has no number to double').toContainText('a pinch of salt');
-  await expect(body).toContainText('4 eggs');
+  await expect(body).toContainText('eggs, beaten');
   await expect(body, '20-25 minutes is a time, not a yield').toContainText('Bake 20-25 minutes at 425°');
 
   // While scaled, the text on screen is not the text in the note — so tapping
@@ -49,12 +55,12 @@ test('scaling reads the recipe differently and writes nothing', async ({ page })
   await expect(page.getByTestId('note-body-edit')).toHaveCount(0);
 
   await page.getByTestId('scale-half').click();
-  await expect(body).toContainText('1 cup flour');
-  await expect(body, 'half of two eggs is one egg, not one eggs').toContainText('1 egg, beaten');
+  await expect(body.getByTestId('ing-unit')).toHaveText(['1 cup', '1']);
+  await expect(body, 'half of two eggs is one egg, not one eggs').toContainText('egg, beaten');
 
   // Back to 1x: the note is exactly as written, and editable again.
   await page.getByTestId('scale-one').click();
-  await expect(body).toContainText('2 cups flour');
+  await expect(body.getByTestId('ing-unit')).toHaveText(['2 cups', '2']);
   await body.click();
   await expect(page.getByTestId('note-body-edit')).toHaveValue(BODY);
 });
@@ -74,6 +80,9 @@ test('scaling never reaches the stored recipe, even through the Recipe editor', 
   await page.getByTestId('tab-notes').click();
   await page.getByTestId('secadd-General').first().click();
   await page.getByTestId('note-title').fill('Loaf');
+  // The title touch collapsed the body to its view (deterministic since
+  // the title-tap rule, 2026-08-18) — reopen it the way a hand would.
+  await page.getByTestId('note-body-view').click();
   await page.getByTestId('note-body-edit').fill(BODY);
   await page.getByTestId('note-title').click();
 
@@ -81,7 +90,7 @@ test('scaling never reaches the stored recipe, even through the Recipe editor', 
   // the path where a doubling could be written back permanently: the editor
   // re-parses the note and Save rewrites the whole body.
   await page.getByTestId('scale-double').click();
-  await expect(page.getByTestId('note-body-view')).toContainText('4 cups flour');
+  await expect(page.getByTestId('note-body-view').getByTestId('ing-unit').first()).toHaveText('4 cups');
   await page.getByTestId('recipe-import').click();
   await expect(page.getByTestId('recipe-save')).toBeVisible({ timeout: 10_000 });
   // Name in the row, measure in the badge — together they are the claim.
@@ -96,7 +105,7 @@ test('scaling never reaches the stored recipe, even through the Recipe editor', 
   await page.reload();
   await page.getByTestId('tab-notes').click();
   await page.getByTestId('note-row').filter({ hasText: 'Loaf' }).click();
-  await expect(page.getByTestId('note-body-view')).toContainText('2 cups flour');
+  await expect(page.getByTestId('note-body-view').getByTestId('ing-unit').first()).toHaveText('2 cups');
   await expect(page.getByTestId('note-body-view')).not.toContainText('4 cups');
 });
 
@@ -113,6 +122,9 @@ test('a plain note is never offered a scale it cannot honour', async ({ page }) 
   await page.getByTestId('tab-notes').click();
   await page.getByTestId('secadd-General').first().click();
   await page.getByTestId('note-title').fill('Shopping');
+  // The title touch collapsed the body to its view (deterministic since
+  // the title-tap rule, 2026-08-18) — reopen it the way a hand would.
+  await page.getByTestId('note-body-view').click();
   await page.getByTestId('note-body-edit').fill('- 2 cups flour\n- milk');
   await page.getByTestId('note-title').click();
   // Quantities alone are not a recipe; the markers are.

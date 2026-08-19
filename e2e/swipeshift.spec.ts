@@ -47,6 +47,9 @@ async function openRecipe(page: Page) {
   await page.getByTestId('tab-notes').click();
   await page.getByTestId('secadd-General').first().click();
   await page.getByTestId('note-title').fill('Pancakes');
+  // The title touch collapsed the body to its view (deterministic since
+  // the title-tap rule, 2026-08-18) — reopen it the way a hand would.
+  await page.getByTestId('note-body-view').click();
   await page.getByTestId('note-body-edit').fill('2 cups flour\n1 cup milk\n3 eggs\n1. Mix it');
   await page.getByTestId('recipe-import').click();
   // The page slides in; measuring a row mid-animation aims the swipe at where
@@ -64,7 +67,11 @@ async function swipeOpen(page: Page, row: ReturnType<Page['getByTestId']>) {
   await page.mouse.up();
 }
 
-const ings = (page: Page) => page.getByTestId('ing-row').allTextContents();
+// The badge's family icon sits between name and measure in a row's text
+// now; the claims these arrays make are about WORDS and ORDER, so the icon
+// is stripped before comparing.
+const deIcon = (a: string[]) => a.map((t) => t.replace(/[\u{1F944}\u{1F963}\u{2696}\u{1F4A7}\u{FE0F}]/gu, ''));
+const ings = (page: Page) => page.getByTestId('ing-row').allTextContents().then(deIcon);
 
 test('adding an ingredient dismisses a parked delete instead of moving it', async ({ page }) => {
   test.setTimeout(120_000);

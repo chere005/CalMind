@@ -54,13 +54,15 @@ test('the recipe importer reads photos into a formatted note', async ({ page, co
   // recipe text I typed myself:
   const ings = (await page.getByTestId('ing-row').allTextContents()).join(' | ').toLowerCase();
   const steps = (await page.getByTestId('step-row').allTextContents()).join(' | ').toLowerCase();
-  // The measure lives in the row's badge now, name first: 'flour2 cups'.
-  expect(ings, 'the quantities came through').toContain('flour2 cups');
+  // The measure lives in the row's badge now, name first — and the badge
+  // wears its family icon between them, which this deliberately does not
+  // spell: [^|] keeps the match inside one row without pinning the emoji.
+  expect(ings, 'the quantities came through').toMatch(/flour[^|]*2 cups/);
   // An ingredient with no number in front of it still counts as one — it used
   // to fall through to the leftovers under "Include notes".
   expect(ings, 'a wordy ingredient counts').toContain('a pinch of salt');
   // …and the fraction is normalised on the way in.
-  expect(ings, 'the fraction reads typographically').toContain('whole milk½ cup');
+  expect(ings, 'the fraction reads typographically').toMatch(/whole milk[^|]*½ cup/);
   // The line under the title is prose and is NOT swept into the list, which is
   // the other half of that rule: nothing has established a quantity run yet.
   expect(ings, 'the subtitle stayed out').not.toContain('serves four');

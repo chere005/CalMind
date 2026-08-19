@@ -105,7 +105,10 @@ export function ingredientParts(text: string): IngredientParts {
   const word = (m[4] ?? '').toLowerCase();
   // parseIngredient already canonicalised, so a bare lookup is the truth.
   if (UNIT_MAP[word]) return { qty, unit: word, name: (m[5] ?? '').trim() };
-  return { qty, unit: null, name: [m[4], (m[5] ?? '').trim()].filter(Boolean).join(' ') };
+  // tidy, as parseIngredient does: '4 eggs, beaten' splits into the word
+  // 'eggs' and the rest ', beaten', and a plain space-join hands back
+  // 'eggs , beaten' — seen the moment the badge left the name on screen.
+  return { qty, unit: null, name: tidy([m[4], (m[5] ?? '').trim()].filter(Boolean).join(' ')) };
 }
 
 /** The marker body the structured page saves: bold headings, ingredient

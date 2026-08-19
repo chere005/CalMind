@@ -70,8 +70,10 @@ test('a note deleted on another device leaves its editor gracefully, not blank',
   await expect(page.getByTestId('note-row').filter({ hasText: 'doomed' })).toHaveCount(0, { timeout: 20_000 });
   await page.getByTestId('secadd-General').first().click();
   await page.getByTestId('note-title').fill('still usable');
-  // Creation lands in the editor TYPING now, so the live edit field is the
+  // The title touch collapses the body to its view (the title-tap rule,
+  // 2026-08-18), and tapping the view reopens the editor — which is the
   // proof the screen still works.
+  await page.getByTestId('note-body-view').click();
   await expect(page.getByTestId('note-body-edit')).toBeVisible();
 
   await other.close();

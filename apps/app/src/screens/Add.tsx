@@ -89,9 +89,11 @@ export function Add({ done, onNoteCreated }: { done: () => void; onNoteCreated?:
       return false;
     }
     lastFiled.current = { text: raw, at: now };
-    const [clean, pd, pt] = parseWhenFromText(raw, today, nowStr());
     const fd = parseDateField(dateField, today);
     const [, ft] = parseTimeFromText(timeField.trim());
+    // Manual-beats-parsed (Sean, 2026-08-18): a category the fields settled
+    // is not lifted from the line — the token stays, unused.
+    const [clean, pd, pt] = parseWhenFromText(raw, today, nowStr(), { date: fd === null, time: ft === null });
     const date = fd ?? pd;
     const time = ft ?? pt;
     // Only events carry an end, and only after a start (Sean, 2026-08-18).

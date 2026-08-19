@@ -20,6 +20,7 @@ import { useStore } from '../store';
 import { themed, T } from '../theme';
 import { CircleBtn, ConfirmDelete, Field, Pill, Scroll, WebHitSlop } from '../ui';
 import { OCR_UNSUPPORTED, ocrImages, ocrSupported } from '../components/ocr';
+import { UnitBadge } from '../components/IngredientBadge';
 import { apiPost } from '../api';
 import { useRowDrag } from '../components/rowdrag';
 import { useSwipeLeft } from '../components/swiperow';
@@ -309,15 +310,16 @@ export function RecipeEditor({ note, onClose }: { note: Rec<'note'>; onClose: ()
             ) : (
               <Pressable testID="ing-row" style={s.rowPress} onPress={() => { if (!swipe.justSwiped()) startEdit('ing', i, ing); }}>
                 {(() => {
-                  // The measure as a right-justified badge, the treatment a
-                  // parsed date gets on a reminder row — Sean's ask, and the
-                  // same pill so the two cannot drift apart. No quantity, no
-                  // badge: 'a pinch of salt' has nothing to lift out.
+                  // The measure as a right-justified iconized badge — the
+                  // treatment a parsed date gets on a reminder row, shared
+                  // with the note's rendered body via UnitBadge so the two
+                  // cannot drift apart. No quantity, no badge: 'a pinch of
+                  // salt' has nothing to lift out.
                   const p = ingredientParts(ing);
                   return (
                     <View style={s.ingLine}>
                       <Text style={s.rowText}>{p.name || ing}</Text>
-                      {p.qty && <Text testID="ing-unit" style={s.unitChip}>{[p.qty, p.unit].filter(Boolean).join(' ')}</Text>}
+                      {p.qty && <UnitBadge qty={p.qty} unit={p.unit} />}
                     </View>
                   );
                 })()}
@@ -440,7 +442,6 @@ const s = themed(() => StyleSheet.create({
   ingLine: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   // The reminder row's date chip, verbatim — marginLeft auto is the right
   // justification, the 999 radius is the pill.
-  unitChip: { color: T.dim, fontSize: 13, backgroundColor: T.surface2, paddingHorizontal: 9, paddingVertical: 3, borderRadius: 999, overflow: 'hidden', marginLeft: 'auto', flexShrink: 0 },
   // The tap target is the whole line, not just the glyphs in it — a phone
   // gives you a thumb, not a cursor.
   rowPress: { flex: 1, paddingVertical: 2 },

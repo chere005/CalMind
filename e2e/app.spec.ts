@@ -32,6 +32,10 @@ async function longPress(page: Page, locator: ReturnType<Page['getByTestId']>) {
   await page.mouse.up();
 }
 
+// The badge's family icon sits between name and measure in a row's text
+// now; the claims these arrays make are about WORDS and ORDER, so the icon
+// is stripped before comparing.
+const deIcon = (a: string[]) => a.map((t) => t.replace(/[\u{1F944}\u{1F963}\u{2696}\u{1F4A7}\u{FE0F}]/gu, ''));
 let seq = 0;
 async function signup(page: Page): Promise<string> {
   const user = `e2e${Date.now()}${seq++}`;
@@ -152,14 +156,19 @@ test('a reminder row drags to a new spot and the order survives a reload', async
 
 test("a section's + lands in the editor TYPING, not just open", async ({ page }) => {
   // Sean, twice, both meaning the same thing: making a note should end with
-  // the cursor in it. The editor already auto-opened; the body field did not.
+  // the cursor in it. And since 2026-08-18, a deliberate title touch WINS
+  // afterwards ("tapping the title should switch to editing the title") —
+  // the caret is not stolen back by the body's deferred focus.
   await signup(page);
   await page.getByTestId('tab-notes').click();
   await page.getByTestId('secadd-General').first().click();
-  await page.getByTestId('note-title').fill('straight to typing');
   // The body edit field itself, focused — not the read view.
   await expect(page.getByTestId('note-body-edit')).toBeVisible();
   await expect(page.getByTestId('note-body-edit')).toBeFocused();
+  // The title tap hands the caret over, and the body returns to its view.
+  await page.getByTestId('note-title').fill('straight to typing');
+  await expect(page.getByTestId('note-title')).toBeFocused();
+  await expect(page.getByTestId('note-body-view')).toBeVisible();
 });
 
 test('a note drags between folders and re-files', async ({ page }) => {
@@ -372,6 +381,9 @@ test('note body renders its markers as styled text when you tap away', async ({ 
   await page.getByTestId('secadd-General').first().click();
   await page.getByTestId('note-title').fill('styled');
   // The editor auto-opens. Tap the body, type markers, then tap the title.
+  // The title touch collapsed the body to its view (deterministic since
+  // the title-tap rule, 2026-08-18) — reopen it the way a hand would.
+  await page.getByTestId('note-body-view').click();
   await page.getByTestId('note-body-edit').fill('**loud** and *slanted*\n- milk\n> wisdom');
   await page.getByPlaceholder('Title').click();
   const view = page.getByTestId('note-body-view');
@@ -960,6 +972,9 @@ test("sharing: a calendar shows under the partner's day-panel group; notes read 
   await pageA.getByTestId('tab-notes').click();
   await pageA.getByTestId('secadd-General').first().click();
   await pageA.getByTestId('note-title').fill('the recipe');
+  // The title touch collapsed the body to its view (deterministic since
+  // the title-tap rule, 2026-08-18) — reopen it the way a hand would.
+  await pageA.getByTestId('note-body-view').click();
   await pageA.getByTestId('note-body-edit').fill('**garlic** first');
   await pageA.getByTestId('note-back').click();
   await pageA.getByTestId('topbar-sync').click();
@@ -1033,8 +1048,10 @@ test("sharing: a calendar shows under the partner's day-panel group; notes read 
   await expect(pageB.getByTestId('shared-scale-row')).toBeVisible({ timeout: 10_000 });
   await pageB.getByTestId('shared-scale-double').click();
   const shared = pageB.getByTestId('shared-note-body');
-  await expect(shared).toContainText('4 cups flour');
-  await expect(shared, 'the compound noun keeps its head').toContainText('6 egg yolks');
+  // Name in the text, measure in the badge — the doubled claim, both halves.
+  await expect(shared.getByTestId('ing-unit')).toHaveText(['4 cups', '6']);
+  await expect(shared).toContainText('flour');
+  await expect(shared, 'the compound noun keeps its head').toContainText('egg yolks');
   // And a scaled view is not an editor, here either.
   await shared.click();
   await expect(pageB.getByTestId('shared-note-edit')).toHaveCount(0);
@@ -1127,6 +1144,9 @@ test('unticking Include notes shows what it would drop, rather than hiding it', 
   await page.getByTestId('tab-notes').click();
   await page.getByTestId('secadd-General').first().click();
   await page.getByTestId('note-title').fill('Uovo');
+  // The title touch collapsed the body to its view (deterministic since
+  // the title-tap rule, 2026-08-18) — reopen it the way a hand would.
+  await page.getByTestId('note-body-view').click();
   await page.getByTestId('note-body-edit').fill(
     'Ingredients\n200 g farina 00\n2 eggs\nForm a well with the flour and knead it.\nDo whatever you want with it.',
   );
@@ -1510,6 +1530,9 @@ test('a recipe line is mended by tapping it, not by deleting and retyping', asyn
   await page.getByTestId('tab-notes').click();
   await page.getByTestId('secadd-General').first().click();
   await page.getByTestId('note-title').fill('Pancakes');
+  // The title touch collapsed the body to its view (deterministic since
+  // the title-tap rule, 2026-08-18) — reopen it the way a hand would.
+  await page.getByTestId('note-body-view').click();
   await page.getByTestId('note-body-edit').fill('2 cups flur\n1. Mix it');
   await page.getByTestId('recipe-import').click();
 
@@ -1544,10 +1567,13 @@ test('recipe lines reorder by dragging the marker they already wear', async ({ p
   await page.getByTestId('tab-notes').click();
   await page.getByTestId('secadd-General').first().click();
   await page.getByTestId('note-title').fill('Pancakes');
+  // The title touch collapsed the body to its view (deterministic since
+  // the title-tap rule, 2026-08-18) — reopen it the way a hand would.
+  await page.getByTestId('note-body-view').click();
   await page.getByTestId('note-body-edit').fill('2 cups flour\n1 cup milk\n3 eggs');
   await page.getByTestId('recipe-import').click();
 
-  const rows = () => page.getByTestId('ing-row').allTextContents();
+  const rows = () => page.getByTestId('ing-row').allTextContents().then(deIcon);
   await expect.poll(rows).toEqual(['flour2 cups', 'milk1 cup', 'eggs3']);
   // The Recipe page slides in; measuring a grip mid-animation aims the drag
   // at where the row USED to be.
@@ -1559,11 +1585,12 @@ test('recipe lines reorder by dragging the marker they already wear', async ({ p
   await dragVert(page, grips.first(), g2.y + g2.height / 2 - (g0.y + g0.height / 2) + 8);
   await expect.poll(rows).toEqual(['milk1 cup', 'eggs3', 'flour2 cups']);
 
-  // The order is what gets saved, not merely what is drawn.
+  // The order is what gets saved, not merely what is drawn — read out of the
+  // badges, which carry the measures in the rendered body now.
   await page.getByTestId('recipe-save').click();
-  await expect(page.getByTestId('note-body-view')).toContainText('1 cup milk');
+  await expect(page.getByTestId('note-body-view').getByTestId('ing-unit')).toHaveText(['1 cup', '3', '2 cups']);
   const body = await page.getByTestId('note-body-view').innerText();
-  expect(body.indexOf('1 cup milk')).toBeLessThan(body.indexOf('2 cups flour'));
+  expect(body.indexOf('milk')).toBeLessThan(body.indexOf('flour'));
 });
 
 test('the Recipe page says how its lines are handled', async ({ page }) => {
@@ -1575,6 +1602,9 @@ test('the Recipe page says how its lines are handled', async ({ page }) => {
   await page.getByTestId('tab-notes').click();
   await page.getByTestId('secadd-General').first().click();
   await page.getByTestId('note-title').fill('Pancakes');
+  // The title touch collapsed the body to its view (deterministic since
+  // the title-tap rule, 2026-08-18) — reopen it the way a hand would.
+  await page.getByTestId('note-body-view').click();
   await page.getByTestId('note-body-edit').fill('2 cups flour\n1 cup milk');
   await page.getByTestId('recipe-import').click();
   const hint = page.getByTestId('recipe-hint');
@@ -1591,9 +1621,12 @@ test('a recipe line deletes by swiping it, not by a × parked on every row', asy
   await page.getByTestId('tab-notes').click();
   await page.getByTestId('secadd-General').first().click();
   await page.getByTestId('note-title').fill('Pancakes');
+  // The title touch collapsed the body to its view (deterministic since
+  // the title-tap rule, 2026-08-18) — reopen it the way a hand would.
+  await page.getByTestId('note-body-view').click();
   await page.getByTestId('note-body-edit').fill('2 cups flour\n1 cup milk');
   await page.getByTestId('recipe-import').click();
-  await expect.poll(() => page.getByTestId('ing-row').allTextContents()).toEqual(['flour2 cups', 'milk1 cup']);
+  await expect.poll(() => page.getByTestId('ing-row').allTextContents().then(deIcon)).toEqual(['flour2 cups', 'milk1 cup']);
   await page.waitForTimeout(400); // the page slides in
 
   await expect(page.getByTestId('ing-del')).toHaveCount(0); // nothing parked
@@ -1606,7 +1639,7 @@ test('a recipe line deletes by swiping it, not by a × parked on every row', asy
   await page.mouse.up();
   // The swipe counts as the first press, so one tap finishes it.
   await page.getByTestId('ing-del').click();
-  await expect.poll(() => page.getByTestId('ing-row').allTextContents()).toEqual(['milk1 cup']);
+  await expect.poll(() => page.getByTestId('ing-row').allTextContents().then(deIcon)).toEqual(['milk1 cup']);
 });
 
 test('the Recipe page can shed the non-recipe notes with its checkbox', async ({ page }) => {
@@ -1615,6 +1648,9 @@ test('the Recipe page can shed the non-recipe notes with its checkbox', async ({
   await page.getByTestId('secadd-General').first().click();
   await page.getByTestId('note-title').fill('Pancakes');
   // The editor auto-opens; give the body a recipe plus one free-text line.
+  // The title touch collapsed the body to its view (deterministic since
+  // the title-tap rule, 2026-08-18) — reopen it the way a hand would.
+  await page.getByTestId('note-body-view').click();
   await page.getByTestId('note-body-edit').fill('2 cups flour\n1. Mix well\nGrandma loved these, and she always doubled the butter.');
   await page.getByTestId('recipe-import').click();
   // The checkbox shows because free text exists; untick and save.

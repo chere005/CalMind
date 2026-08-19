@@ -54,16 +54,23 @@ async function signup(page: Page): Promise<string> {
   return user;
 }
 
+// The badge's family icon sits between name and measure in a row's text
+// now; the claims these arrays make are about WORDS and ORDER, so the icon
+// is stripped before comparing.
+const deIcon = (a: string[]) => a.map((t) => t.replace(/[\u{1F944}\u{1F963}\u{2696}\u{1F4A7}\u{FE0F}]/gu, ''));
 test('a correction typed during an import lands on the line it was typed into', async ({ page }) => {
   test.setTimeout(120_000);
   await signup(page);
   await page.getByTestId('tab-notes').click();
   await page.getByTestId('secadd-General').first().click();
   await page.getByTestId('note-title').fill('Pancakes');
+  // The title touch collapsed the body to its view (deterministic since
+  // the title-tap rule, 2026-08-18) — reopen it the way a hand would.
+  await page.getByTestId('note-body-view').click();
   await page.getByTestId('note-body-edit').fill('2 cups flour\n1 cup milk\n1. Mix it');
   await page.getByTestId('recipe-import').click();
   await page.waitForTimeout(400);
-  const ings = () => page.getByTestId('ing-row').allTextContents();
+  const ings = () => page.getByTestId('ing-row').allTextContents().then(deIcon);
   await expect.poll(ings).toEqual(['flour2 cups', 'milk1 cup']);
 
   // A slow fetch, so the import is guaranteed to land mid-edit rather than

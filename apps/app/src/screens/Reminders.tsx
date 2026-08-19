@@ -639,7 +639,9 @@ export function Reminders() {
                             onLongPress={enterEdit}
                             delayLongPress={350}
                           >
-                            <Text style={[s.rowText, r.payload.done && s.rowTextDone]}>{r.payload.text || '…'}</Text>
+                            {/* Done keeps the folder's hue, faded — Sean's
+                                word over the suite's grey, 2026-08-18. */}
+                            <Text style={[s.rowText, r.payload.done && s.rowTextDone, r.payload.done && { color: f.payload.color + '77' }]}>{r.payload.text || '…'}</Text>
                           </Pressable>
                           {dueChip(r)}
                           {/* The edit cluster FLOATS over the row's right edge

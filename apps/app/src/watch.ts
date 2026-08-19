@@ -50,6 +50,10 @@ export function drainWidgetTicks(): string[] {
   }
 }
 
+/** What the last push carried as the widget's selection — the memory that
+ *  lets a foreground check tell "moved" from "same". */
+let lastPushedCals: string | null = null;
+
 export function pushWatchList(recs: AnyRec[], shared: { recs: AnyRec[]; partner: string } | null = null): void {
   if (!bridge) return;
   try {
@@ -71,8 +75,31 @@ export function pushWatchList(recs: AnyRec[], shared: { recs: AnyRec[]; partner:
       // then mirrors nothing and shows everything, which is what it did
       // before this existed — a worse page, never a broken one.
     }
+    lastPushedCals = JSON.stringify(cals);
     bridge.push(JSON.stringify(watchFeed(recs, todayStr(), shared, cals)));
   } catch {
     // The watch being unreachable must never cost the phone anything.
+  }
+}
+
+/**
+ * Push ONLY if the widget's calendar selection moved since the last push.
+ *
+ * The one-push-behind bug (TODO §2, fixed on Sean's word 2026-08-18): the
+ * widget rewrites its App Group selection when its configuration changes and
+ * nothing notifies the app, so the watch kept mirroring the OLD selection
+ * until the store happened to change for some unrelated reason. Called when
+ * the app comes forward — which is exactly the moment someone who just
+ * edited their widget looks at the wrist and wonders. A no-op when nothing
+ * moved, so the ordinary foreground costs no push at all.
+ */
+export function pushWatchIfWidgetMoved(recs: AnyRec[], shared: { recs: AnyRec[]; partner: string } | null = null): void {
+  if (!bridge) return;
+  try {
+    const cals = JSON.stringify(bridge.widgetCalendars?.() ?? []);
+    if (lastPushedCals !== null && cals === lastPushedCals) return;
+    pushWatchList(recs, shared);
+  } catch {
+    // Same rule as the push itself: never cost the phone anything.
   }
 }

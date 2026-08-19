@@ -123,6 +123,12 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
     return sharedRecs.filter((r) => r.type !== 'event' || on.has(r.payload.calendarId));
   }, [sharedRecs, sharedPartner, visibleShared]);
   const folderModes = useMemo(() => prefsOf(recs, 'calendar').folderModes ?? {}, [recs]);
+  // For the done rows' faded folder hue — the day panel knows its reminders
+  // only by record, and a record names its folder by id.
+  const folderColor = useMemo(
+    () => new Map(recs.filter((r): r is Rec<'folder'> => r.type === 'folder').map((f) => [f.id, f.payload.color])),
+    [recs],
+  );
   const sharedItems = useMemo(() => dayItems(sharedDrawn, day, today, folderModes), [sharedDrawn, day, today, folderModes]);
   const sharedCalById = useMemo(() => new Map(sharedRecs.filter((r): r is Rec<'calendar'> => r.type === 'calendar').map((c) => [c.id, c.payload])), [sharedRecs]);
   // The filled grid: every cell a real date, the neighbours' lightened.
@@ -368,12 +374,14 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
           // One colour, one source: the folder's, as set in the manage menu.
           // The suite paints every reminder icon in its folder's colour
           // inline — an overdue one included; the `overdue` class it adds
-          // changes no colour. Only a FINISHED colour greys out, and that is
-          // hidden altogether unless Completed is showing. Swapping overdue
-          // for the theme's orange broke the chain Sean asked for: the
-          // manage-menu colour, the legend chip and the date's own mark all
-          // have to be the same colour.
-          const color = m.state === 'done' ? T.muted : m.color;
+          // changes no colour. Swapping overdue for the theme's orange broke
+          // the chain Sean asked for: the manage-menu colour, the legend chip
+          // and the date's own mark all have to be the same colour.
+          //
+          // A FINISHED one used to grey to T.muted — the suite's rule — and
+          // Sean replaced it (2026-08-18): "finished items should be a
+          // lighter/grayer version of their previous color". Same hue, faded.
+          const color = m.state === 'done' ? m.color + '77' : m.color;
           return <TickBoxGlyph key={i} color={color} done={m.state === 'done'} />;
         })}
         {all.length > 6 && <Text style={s.markMore}>+</Text>}
@@ -597,7 +605,9 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
                 cluster used to squeeze, so its width is the measurement that
                 tells the two arrangements apart. */}
             <Pressable testID="dp-rem-body" style={s.rowBodyFlex} onPress={() => rowPress(r.id)} onLongPress={() => setPanelEdit(true)} delayLongPress={350}>
-              <Text style={[s.rowText, r.payload.done && s.rowDone]}>{r.payload.text}</Text>
+              {/* Done keeps the folder's hue, faded — Sean's word over the
+                  suite's grey, 2026-08-18. The strike still says finished. */}
+              <Text style={[s.rowText, r.payload.done && s.rowDone, r.payload.done && { color: (folderColor.get(r.payload.folderId) ?? T.muted) + '77' }]}>{r.payload.text}</Text>
             </Pressable>
             {overdue && <Text style={[s.chip, { color: T.overdue }]}>{dueLabel(r.payload.due!)}</Text>}
             {/* The ride-along folder's reminders sit under TODAY every day

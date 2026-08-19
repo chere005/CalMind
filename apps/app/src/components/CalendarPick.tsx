@@ -59,7 +59,7 @@ export function useCalendarView(): CalendarView {
 export function CalendarPick() {
   const { recs, mutate, sharedPartnerLabel } = useStore();
   const [manageRem, setManageRem] = useState(false);
-  const { view, hidden, calendars, visible, sharedCals, hiddenShared } = useCalendarView();
+  const { view, hidden, calendars, visible, sharedCals, hiddenShared, visibleShared } = useCalendarView();
   const [open, setOpen] = useState(false);
   const [manage, setManage] = useState(false);
 
@@ -68,7 +68,11 @@ export function CalendarPick() {
   return (
     <>
       <Pressable testID="pick-calendar" style={pickHit} onPress={() => setOpen(true)} hitSlop={8}>
-        <PieDot rainbow={hidden.length === 0 && hiddenShared.length === 0} colors={visible.map((c) => c.payload.color)} size={16} />
+        {/* Visible SHARED calendars are in the pie too — the half that made
+            isolating a partner's calendar possible at all: a view holding
+            only theirs used to draw a blank button (TODO §1, decided
+            2026-08-18: "shared calendars should work on tap"). */}
+        <PieDot rainbow={hidden.length === 0 && hiddenShared.length === 0} colors={[...visible, ...visibleShared].map((c) => c.payload.color)} size={16} />
       </Pressable>
 
       {open && (
@@ -130,11 +134,26 @@ export function CalendarPick() {
                         <WebHitSlop />
                         <Text style={[s.box, !off && s.boxOn]}>{off ? '☐' : '☑'}</Text>
                       </Pressable>
-                      <View style={s.rowMain}>
+                      {/* Isolate on tap, like every other row in every picker
+                          (Sean, 2026-08-18). lastView can only name one of
+                          MINE, so a partner's isolation is said the other way
+                          it can be said: everything else hidden. */}
+                      <Pressable
+                        testID={`calshared-row-${c.payload.name}`}
+                        style={s.rowMain}
+                        onPress={() => {
+                          setPrefs({
+                            lastView: 'all',
+                            hidden: calendars.map((x) => x.id),
+                            hiddenShared: sharedCals.filter((x) => x.id !== c.id).map((x) => x.id),
+                          });
+                          setOpen(false);
+                        }}
+                      >
                         <View style={[s.dot, { backgroundColor: c.payload.color }]} />
                         <Text style={s.rowText}>{c.payload.name}</Text>
                         <Text style={s.partnerChip}>{sharedPartnerLabel}</Text>
-                      </View>
+                      </Pressable>
                     </View>
                   );
                 })}

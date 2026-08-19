@@ -56,6 +56,9 @@ test('a recipe link fills in ingredients and steps, and nothing else', async ({ 
   await page.getByTestId('tab-notes').click();
   await page.getByTestId('secadd-General').first().click();
   await page.getByTestId('note-title').fill('From a link');
+  // The title touch collapsed the body to its view (deterministic since
+  // the title-tap rule, 2026-08-18) — reopen it the way a hand would.
+  await page.getByTestId('note-body-view').click();
   await page.getByTestId('note-body-edit').fill('placeholder body');
   await page.getByTestId('note-title').click();
   await page.getByTestId('recipe-import').click();
@@ -95,6 +98,9 @@ test('a page with no recipe says so instead of appearing to work', async ({ page
   await page.getByTestId('tab-notes').click();
   await page.getByTestId('secadd-General').first().click();
   await page.getByTestId('note-title').fill('Not a recipe');
+  // The title touch collapsed the body to its view (deterministic since
+  // the title-tap rule, 2026-08-18) — reopen it the way a hand would.
+  await page.getByTestId('note-body-view').click();
   await page.getByTestId('note-body-edit').fill('placeholder body');
   await page.getByTestId('note-title').click();
   await page.getByTestId('recipe-import').click();

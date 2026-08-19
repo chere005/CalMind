@@ -79,6 +79,12 @@ export function ItemModal({
   const [dateField, setDateField] = useState('');
   const [time, setTime] = useState<string | null>(init.time);
   const [timeField, setTimeField] = useState('');
+  // Manual-beats-parsed (Sean, 2026-08-18): what the hand chose IN THIS
+  // SHEET outranks anything typed into the line, and a token that lost
+  // stays in the text — it was not used. Defaults and incumbents rank
+  // below both, so "typing a date overrides a default selected date".
+  const [dateTouched, setDateTouched] = useState(false);
+  const [timeTouched, setTimeTouched] = useState(false);
   const [showTime, setShowTime] = useState(init.time !== null);
   const [end, setEnd] = useState<string | null>(init.end);
   const [endField, setEndField] = useState('');
@@ -165,12 +171,22 @@ export function ItemModal({
       if (lastFiled.current && lastFiled.current.text === raw && now - lastFiled.current.at < 1500) return;
       lastFiled.current = { text: raw, at: now };
     }
-    // Parsed tokens leave the title either way; explicit fields win the value.
-    const [clean, pd, pt] = parseWhenFromText(raw, today, nowStr());
     const fd = parseDateField(dateField, today);
     const [, ft] = parseTimeFromText(timeField.trim());
-    const finalDate = fd ?? date ?? pd;
-    const finalTime = (showTime ? ft ?? time : null) ?? pt;
+    const manualDate = dateTouched || fd !== null;
+    const manualTime = timeTouched || ft !== null;
+    // A category the hand settled is not lifted: the token stays in the
+    // title, unused. A category left to the line is lifted and wins over
+    // the incumbent — which is what makes editing parse like adding.
+    const [clean, pd, pt] = parseWhenFromText(raw, today, nowStr(), { date: !manualDate, time: !manualTime });
+    // …but only an EXPLICIT date token outranks the sheet's own date. A bare
+    // "2pm" IMPLIES a day (today, or tomorrow once 2pm has gone) and that
+    // implication is a fallback, not an instruction — letting it beat the
+    // selected day sent a day-panel event to tomorrow. The time-less parse
+    // cannot imply, so its date is the explicit token alone.
+    const [, pdExplicit] = parseWhenFromText(raw, today, nowStr(), { date: !manualDate, time: false });
+    const finalDate = manualDate ? fd ?? date : pdExplicit ?? date ?? pd;
+    const finalTime = manualTime ? (showTime ? ft ?? time : null) : pt ?? (showTime ? time : null);
     // An end only means something after a start; an empty field keeps the
     // presumed one (+1 hour, set when the row was revealed).
     const [, fe] = parseTimeFromText(endField.trim());
@@ -295,10 +311,10 @@ export function ItemModal({
 
             <Text style={s.label}>Date</Text>
             <View style={s.rowWrap}>
-              {kind !== 'event' && <Pill label="None" primary={!date && dateField === ''} onPress={() => { setDate(null); setDateField(''); }} />}
-              <Pill label="Today" primary={date === today && dateField === ''} onPress={() => { setDate(today); setDateField(''); }} />
+              {kind !== 'event' && <Pill label="None" primary={!date && dateField === ''} onPress={() => { setDate(null); setDateField(''); setDateTouched(true); }} />}
+              <Pill label="Today" primary={date === today && dateField === ''} onPress={() => { setDate(today); setDateField(''); setDateTouched(true); }} />
               {date && date !== today && dateField === '' && <Pill label={dateLabel(date)} primary onPress={() => {}} />}
-              <Field value={dateField} onChangeText={setDateField} placeholder="m/d" style={s.miniField} />
+              <Field value={dateField} onChangeText={(v) => { setDateField(v); if (v.trim() !== '') setDateTouched(true); }} placeholder="m/d" style={s.miniField} />
             </View>
 
             {!showTime ? (
@@ -306,7 +322,7 @@ export function ItemModal({
             ) : (
               <View style={s.rowWrap}>
                 <Text style={s.label}>Time</Text>
-                <Field value={timeField} onChangeText={setTimeField} placeholder={time ? timeLabel(time, clock24) : '2:30pm'} style={s.miniField} />
+                <Field value={timeField} onChangeText={(v) => { setTimeField(v); if (v.trim() !== '') setTimeTouched(true); }} placeholder={time ? timeLabel(time, clock24) : '2:30pm'} style={s.miniField} />
                 <CircleBtn glyph="×" label="Remove" size={22} onPress={() => { setShowTime(false); setTime(null); setTimeField(''); setShowEnd(false); setEnd(null); setEndField(''); }} />
               </View>
             )}

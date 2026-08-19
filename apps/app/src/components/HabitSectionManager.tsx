@@ -10,6 +10,7 @@ import { byRecOrd, deleteHabitSection, newId, ordBetween, type Rec } from '@calm
 import { useStore } from '../store';
 import { themed, APP_PALETTES, T } from '../theme';
 import { CircleBtn, ConfirmDelete, Field, Pill, Scroll, WebHitSlop } from '../ui';
+import { SwatchTray } from './SwatchTray';
 import { ordForMove, useRowDrag } from './rowdrag';
 
 export function HabitSectionManager({ onClose }: { onClose: () => void }) {
@@ -80,15 +81,16 @@ export function HabitSectionManager({ onClose }: { onClose: () => void }) {
                 {drag.slot === i && <View style={s.dropLine} />}
                 <View ref={drag.registerRow(i)} style={[s.row, drag.dragIdx === i && { opacity: 0.55, transform: [{ translateY: drag.dragDy }] }]}>
                 <View {...drag.handleFor(i)} style={s.grip} hitSlop={8}><WebHitSlop /><Text style={s.gripText}>≡</Text></View>
-                <CircleBtn
-                  glyph=" "
-                  label="Change colour"
-                  size={22}
-                  bg={sec.payload.color}
-                  onPress={() => {
-                    const at = pal.indexOf(sec.payload.color);
-                    mutate((e) => e.put({ ...sec, payload: { ...sec.payload, color: pal[(at + 1) % pal.length]! } }));
-                  }}
+                {/* The tray, not the cycle — Sean's word, 2026-08-18:
+                    "habits should bring up the swatch tray." This was the one
+                    manager still advancing one palette step per tap; the
+                    migration that brought SwatchTray to folders and calendars
+                    stopped one file short of here (TODO §1 has the story). */}
+                <SwatchTray
+                  testID={`habit-swatch-${sec.payload.name}`}
+                  palette={pal}
+                  color={sec.payload.color}
+                  onPick={(hex) => mutate((e) => e.put({ ...sec, payload: { ...sec.payload, color: hex } }))}
                 />
                 {renaming === sec.id ? (
                   <Field

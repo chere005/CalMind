@@ -54,6 +54,9 @@ test('it goes red and says so when a note is refused', async ({ page }) => {
   await page.getByTestId('secadd-General').first().click();
   await page.getByTestId('note-title').fill('War and Peace');
   // Over the server's 64KB cap, so the sync is refused and the store says so.
+  // The title touch collapsed the body to its view (deterministic since
+  // the title-tap rule, 2026-08-18) — reopen it the way a hand would.
+  await page.getByTestId('note-body-view').click();
   await page.getByTestId('note-body-edit').fill('x'.repeat(70_000));
 
   // The whole point of putting it HERE: you find out without leaving the note.

@@ -42,11 +42,18 @@ async function openEditor(page: Page, body: string) {
   await page.getByTestId('tab-notes').click();
   await page.getByTestId('secadd-General').first().click();
   await page.getByTestId('note-title').fill('Pancakes');
+  // The title touch collapsed the body to its view (deterministic since
+  // the title-tap rule, 2026-08-18) — reopen it the way a hand would.
+  await page.getByTestId('note-body-view').click();
   await page.getByTestId('note-body-edit').fill(body);
   await page.getByTestId('recipe-import').click();
 }
 
-const ings = (page: Page) => page.getByTestId('ing-row').allTextContents();
+// The badge's family icon sits between name and measure in a row's text
+// now; the claims these arrays make are about WORDS and ORDER, so the icon
+// is stripped before comparing.
+const deIcon = (a: string[]) => a.map((t) => t.replace(/[\u{1F944}\u{1F963}\u{2696}\u{1F4A7}\u{FE0F}]/gu, ''));
+const ings = (page: Page) => page.getByTestId('ing-row').allTextContents().then(deIcon);
 const stepTexts = (page: Page) => page.getByTestId('step-row').allTextContents();
 /** The numbers, which are drawn on the GRIP rather than in the row — that is
  *  what makes the grip a handle you already look at. */

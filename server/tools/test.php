@@ -1003,5 +1003,72 @@ t('the Authorization header must BE a bearer token, not merely contain one', fun
 });
 
 
+t('five wrong guesses lock the account — and the RIGHT password is locked too', function () use ($scratch) {
+    eq(200, api(['action' => 'signup', 'username' => 'locky', 'email' => 'locky@example.com', 'password' => 'rightpass'])['status']);
+    for ($i = 1; $i <= 5; $i++) {
+        eq(401, api(['action' => 'login', 'username' => 'locky', 'password' => 'wrong' . $i])['status'], "miss $i is an ordinary 401");
+    }
+    // The fifth miss armed the lock; from here even the true password waits.
+    $r = api(['action' => 'login', 'username' => 'locky', 'password' => 'rightpass']);
+    eq(429, $r['status'], 'the right password is refused while locked');
+    ok(str_contains((string) $r['body']['error'], 'locked for 5m'), 'the message names the wait: ' . $r['body']['error']);
+});
+
+t('an unknown username never locks — that would confirm which names exist', function () use ($scratch) {
+    for ($i = 1; $i <= 7; $i++) {
+        eq(401, api(['action' => 'login', 'username' => 'ghost', 'password' => 'x' . $i])['status'], "ghost miss $i stays a 401");
+    }
+    $db = store_read(['data_dir' => $scratch], $scratch . '/lockouts.json');
+    ok(!isset($db['ghost']), 'no lockout entry was minted for a name that does not exist');
+});
+
+t('the lock expires, and each further round holds LONGER — 5m then 10m', function () use ($scratch) {
+    $cfg = ['data_dir' => $scratch];
+    // Reach into the store the way the backend disable does — this is also
+    // the documented manual override, so the test doubles as its proof.
+    $db = store_read($cfg, $scratch . '/lockouts.json');
+    ok(isset($db['locky']) && (int) $db['locky']['until'] > time(), 'round one is held');
+    eq(1, (int) $db['locky']['rounds']);
+    $db['locky']['until'] = time() - 1;
+    store_write($cfg, $scratch . '/lockouts.json', $db);
+    // Five more misses arm round TWO, which holds twice as long.
+    for ($i = 1; $i <= 5; $i++) {
+        eq(401, api(['action' => 'login', 'username' => 'locky', 'password' => 'nope' . $i])['status']);
+    }
+    $db = store_read($cfg, $scratch . '/lockouts.json');
+    eq(2, (int) $db['locky']['rounds'], 'the ladder climbed');
+    $hold = (int) $db['locky']['until'] - time();
+    ok($hold > 9 * 60 && $hold <= 10 * 60 + 5, "round two holds ~10m (got {$hold}s)");
+    eq(429, api(['action' => 'login', 'username' => 'locky', 'password' => 'rightpass'])['status'], 'and the door is shut again');
+});
+
+t('a clean sign-in clears the ladder — consecutive is the word in the rule', function () use ($scratch) {
+    $cfg = ['data_dir' => $scratch];
+    $db  = store_read($cfg, $scratch . '/lockouts.json');
+    $db['locky']['until'] = time() - 1;    // let round two lapse
+    store_write($cfg, $scratch . '/lockouts.json', $db);
+    // Three misses, then the right password: the counter must reset, so the
+    // NEXT miss is one-of-five again rather than four-of-five.
+    for ($i = 1; $i <= 3; $i++) {
+        api(['action' => 'login', 'username' => 'locky', 'password' => 'meh' . $i]);
+    }
+    eq(200, api(['action' => 'login', 'username' => 'locky', 'password' => 'rightpass'])['status'], 'in, once the lock lapsed');
+    $db = store_read($cfg, $scratch . '/lockouts.json');
+    ok(!isset($db['locky']), 'the slate is clean — fails AND rounds');
+});
+
+t('a password reset lifts the lockout — recovery proves the mailbox', function () use ($scratch) {
+    for ($i = 1; $i <= 5; $i++) {
+        api(['action' => 'login', 'username' => 'locky', 'password' => 'bad' . $i]);
+    }
+    eq(429, api(['action' => 'login', 'username' => 'locky', 'password' => 'rightpass'])['status'], 'locked again first');
+    api(['action' => 'recover', 'username' => 'locky']);
+    preg_match_all('/code=(\d{6})/', (string) file_get_contents($scratch . '/mail.log'), $m);
+    $code = end($m[1]);
+    eq(200, api(['action' => 'reset', 'username' => 'locky', 'code' => $code, 'password' => 'freshpass1'])['status'], 'the reset itself is not gated');
+    eq(200, api(['action' => 'login', 'username' => 'locky', 'password' => 'freshpass1'])['status'], 'and the front door opens at once');
+});
+
+
 echo "\n────────────────────────────────\n$pass passed, $fail failed\n";
 exit($fail === 0 ? 0 : 1);

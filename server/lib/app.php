@@ -150,6 +150,42 @@ function mail_code(array $cfg, string $email, string $code): void
 function accounts_file(array $cfg): string { return $cfg['data_dir'] . '/accounts.json'; }
 function tokens_file(array $cfg): string   { return $cfg['data_dir'] . '/tokens.json'; }
 function recover_file(array $cfg): string  { return $cfg['data_dir'] . '/recover.json'; }
+function lockouts_file(array $cfg): string { return $cfg['data_dir'] . '/lockouts.json'; }
+
+/**
+ * Login throttling — Sean's policy, 2026-08-18: five wrong guesses lock the
+ * account, and each further lockout holds longer — 5m, 10m, 1h, 2h, 3h,
+ * then another hour per round. A clean sign-in (or a password reset) clears
+ * the slate. There is DELIBERATELY no endpoint that lifts one — "manually
+ * disable from the backend only": delete the account's entry from
+ * data/lockouts.json on the server (or the file itself) and the ladder
+ * starts over. bcrypt already makes each guess slow; this bounds how many
+ * guesses a night can hold at all.
+ */
+const LOCK_TRIES = 5;
+
+function lockout_minutes(int $round): int
+{
+    $ladder = [5, 10, 60, 120, 180];
+    return $round <= count($ladder) ? $ladder[$round - 1] : 180 + 60 * ($round - count($ladder));
+}
+
+/** '5m' under the hour, '2h' from it — the wait, sized for an error message. */
+function lock_label(int $secs): string
+{
+    return $secs >= 3600 ? ((int) ceil($secs / 3600)) . 'h' : ((int) max(1, ceil($secs / 60))) . 'm';
+}
+
+function lockout_clear(array $cfg, string $user): void
+{
+    with_lock($cfg, 'lockouts', function () use ($cfg, $user) {
+        $db = store_read($cfg, lockouts_file($cfg));
+        if (isset($db[$user])) {
+            unset($db[$user]);
+            store_write($cfg, lockouts_file($cfg), $db);
+        }
+    });
+}
 function records_file(array $cfg, string $user): string { return $cfg['data_dir'] . '/records-' . $user . '.json'; }
 
 /** A fresh bearer token for $user; only its hash is stored. */
@@ -215,11 +251,41 @@ function handle_login(array $cfg, array $in): never
 {
     $user = (string) ($in['username'] ?? '');
     $pass = (string) ($in['password'] ?? '');
-    $acc  = store_read($cfg, accounts_file($cfg));
+    // The lockout gate comes FIRST and holds against the right password too —
+    // a lockout that only stops wrong guesses throttles nothing but typos.
+    $now   = time();
+    $until = with_lock($cfg, 'lockouts', function () use ($cfg, $user, $now) {
+        $db = store_read($cfg, lockouts_file($cfg));
+        $u  = (int) ($db[$user]['until'] ?? 0);
+        return $u > $now ? $u : 0;
+    });
+    if ($until > 0) {
+        usage_log($cfg, 'login_locked', $user);
+        fail(429, 'too many attempts — locked for ' . lock_label($until - $now));
+    }
+    $acc = store_read($cfg, accounts_file($cfg));
     if (!isset($acc[$user]) || !password_verify($pass, $acc[$user]['hash'] ?? '')) {
+        // A miss counts against a REAL account only: an unknown name has
+        // nothing to lock, and locking it would confirm which names exist.
+        if (isset($acc[$user])) {
+            with_lock($cfg, 'lockouts', function () use ($cfg, $user, $now) {
+                $db = store_read($cfg, lockouts_file($cfg));
+                $l  = $db[$user] ?? ['fails' => 0, 'rounds' => 0, 'until' => 0];
+                $l['fails'] = (int) $l['fails'] + 1;
+                if ($l['fails'] >= LOCK_TRIES) {
+                    $l['rounds'] = (int) $l['rounds'] + 1;
+                    $l['until']  = $now + 60 * lockout_minutes((int) $l['rounds']);
+                    $l['fails']  = 0;
+                }
+                $db[$user] = $l;
+                store_write($cfg, lockouts_file($cfg), $db);
+            });
+        }
         usage_log($cfg, 'login_fail', $user);
         fail(401, 'wrong username or password');
     }
+    // A clean sign-in clears the slate — "consecutive" is the word in the rule.
+    lockout_clear($cfg, $user);
     usage_log($cfg, 'login', $user);
     reply(200, ['ok' => true, 'token' => token_issue($cfg, $user), 'username' => $user]);
 }
@@ -303,6 +369,9 @@ function handle_reset(array $cfg, array $in): never
         store_write($cfg, accounts_file($cfg), $acc);
     });
     tokens_revoke($cfg, $user);
+    // A reset proves the mailbox: whoever did it IS the owner, and the owner
+    // arriving through recovery should not stay locked out of the front door.
+    lockout_clear($cfg, $user);
     usage_log($cfg, 'reset', $user);
     reply(200, ['ok' => true, 'token' => token_issue($cfg, $user), 'username' => $user]);
 }

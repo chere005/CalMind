@@ -6,9 +6,10 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { defaultNoteTitle, looksLikeDefaultNoteTitle, deleteSection, renameSection, sectionNameTaken, byRecOrd, richLines, scaleRecipeBody, duplicateItem, prefsPut, moveNote, moveSection, moveSectionEmptyingFolder, newId, nowStr, ordBetween, parseDateField, parseWhenFromText, todayStr, type Rec } from '@calmind/core';
+import { defaultNoteTitle, looksLikeDefaultNoteTitle, deleteSection, renameSection, sectionNameTaken, byRecOrd, ingredientParts, richLines, scaleRecipeBody, duplicateItem, prefsPut, moveNote, moveSection, moveSectionEmptyingFolder, newId, nowStr, ordBetween, parseDateField, parseWhenFromText, todayStr, type Rec } from '@calmind/core';
 import * as Clipboard from 'expo-clipboard';
 import { useStore } from '../store';
+import { UnitBadge } from '../components/IngredientBadge';
 import { useNav } from '../nav';
 import { themed, T } from '../theme';
 import { TopBar } from '../chrome';
@@ -53,6 +54,50 @@ function useNoteScoped<T>(noteId: string | null, initial: T): [T, React.Dispatch
     setValue(initial);
   }
   return [value, setValue];
+}
+
+/**
+ * The rendered body — one renderer for the own and the shared note, so the
+ * treatment cannot drift. An ingredient bullet wears its measure as the
+ * iconized badge (Sean, 2026-08-18) with only the NAME in the line's text; a
+ * bullet is an ingredient while the walk is inside the **Ingredients**
+ * heading and no other bold heading has ended it — the same structural read
+ * fromMarkers makes, done here on richLines' output. Scaling costs nothing:
+ * the caller hands in the already-scaled body, so the badge reads "3 cups"
+ * at 1½× exactly as the text used to.
+ */
+function RichBody({ body }: { body: string }) {
+  let inIngredients = false;
+  return (
+    <>
+      {richLines(body).map((ln, i) => {
+        const boldHead = ln.kind === 'plain' && ln.runs.length === 1 && !!ln.runs[0]!.bold;
+        if (boldHead) inIngredients = /^ingredients$/i.test(ln.runs[0]!.text.trim());
+        const raw = ln.runs.map((r) => r.text).join('');
+        const parts = !boldHead && inIngredients && ln.kind === 'bullet' ? ingredientParts(raw) : null;
+        return (
+          <View key={i} style={[s.rtLine, ln.kind === 'quote' && s.rtQuote, ln.kind === 'number' && s.rtStep]}>
+            {ln.kind === 'bullet' && <Text style={s.rtDot}>•</Text>}
+            {ln.kind === 'number' && <Text style={s.rtNum}>{ln.num}</Text>}
+            {parts?.qty ? (
+              <>
+                <Text style={s.rtText}>{parts.name || raw}</Text>
+                <UnitBadge qty={parts.qty} unit={parts.unit} />
+              </>
+            ) : (
+              <Text style={[s.rtText, ln.kind === 'quote' && s.rtQuoteText]}>
+                {ln.runs.map((r, j) => (
+                  <Text key={j} style={[r.bold && s.rtBold, r.italic && s.rtItalic, r.under && s.rtUnder]}>
+                    {r.text || (ln.runs.length === 1 ? ' ' : '')}
+                  </Text>
+                ))}
+              </Text>
+            )}
+          </View>
+        );
+      })}
+    </>
+  );
 }
 
 export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | null; onOpenConsumed?: () => void }) {
@@ -215,12 +260,14 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
   // fires on a device; on web it is a harmless no-op over autoFocus.
   const bodyRef = React.useRef<TextInput | null>(null);
   const titleRef = React.useRef<TextInput | null>(null);
-  // The pending focus above, so leaving the note can call it off. It is NOT
-  // cancelled when the title takes focus, though that was tried: the window is
-  // 50ms, no hand is that fast, and `secadd` → fill the title → expect the body
-  // focused is Sean's requirement said twice ("making a note should end with
-  // the cursor in it"). The first-letter bug it was reached through turned out
-  // to be the title's select-all, not this.
+  // The pending body focus, so leaving the note — or a TITLE TAP — can call
+  // it off. The cancel-on-title-focus was tried once and rejected ("no hand
+  // is that fast"); Sean settled it the other way on 2026-08-18: "tapping
+  // the title should switch to editing the title." So a title focus now
+  // cancels the pending steal AND collapses the body back to its view —
+  // which is also what ends the note-focus flake (TODO §2): the two orders
+  // of the old 50ms race now CONVERGE on the same state, title focused and
+  // body viewed, instead of diverging on who won.
   const freshFocus = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const cancelFreshFocus = () => {
     if (freshFocus.current) {
@@ -531,6 +578,14 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
               placeholderTextColor={T.muted}
               onFocus={() => {
                 setTitleDraft(generatedTitle ? '' : open.payload.title);
+                // Sean's rule (2026-08-18): the title tap wins. Whichever
+                // side of the 50ms the tap landed on, the state converges —
+                // pending body focus cancelled, body back to its view.
+                cancelFreshFocus();
+                if (bodyEditing) {
+                  setBodyEditing(false);
+                  setDraft(null);
+                }
               }}
               onBlur={() => {
                 // The inline add field used to do this on the way in. It is
@@ -651,33 +706,20 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
                 if (scale !== 1) return;
                 setDraft(open.payload.body);
                 setBodyEditing(true);
-                // The field does not exist until this has rendered.
-                setTimeout(() => bodyRef.current?.focus(), 50);
+                // The field does not exist until this has rendered — and the
+                // deferred focus rides the SAME ref as the fresh-note one, so
+                // a title tap inside the window calls this off too.
+                cancelFreshFocus();
+                freshFocus.current = setTimeout(() => {
+                  freshFocus.current = null;
+                  bodyRef.current?.focus();
+                }, 50);
               }}
             >
               {shownBody === '' ? (
                 <Text style={s.bodyPlaceholder}>Write…</Text>
               ) : (
-                richLines(shownBody).map((ln, i) => (
-                  <View key={i} style={[s.rtLine, ln.kind === 'quote' && s.rtQuote, ln.kind === 'number' && s.rtStep]}>
-                    {ln.kind === 'bullet' && <Text style={s.rtDot}>•</Text>}
-                    {ln.kind === 'number' && <Text style={s.rtNum}>{ln.num}</Text>}
-                    <Text style={[s.rtText, ln.kind === 'quote' && s.rtQuoteText]}>
-                      {ln.runs.map((r, j) => (
-                        <Text
-                          key={j}
-                          style={[
-                            r.bold && s.rtBold,
-                            r.italic && s.rtItalic,
-                            r.under && s.rtUnder,
-                          ]}
-                        >
-                          {r.text || (ln.runs.length === 1 ? ' ' : '')}
-                        </Text>
-                      ))}
-                    </Text>
-                  </View>
-                ))
+                <RichBody body={shownBody} />
               )}
             </Pressable>
           )}
@@ -1140,17 +1182,7 @@ function SharedNotes({ viewKey, partner }: { viewKey: string; partner: string })
                 setSharedBodyEdit(true);
               }}
             >
-              {richLines(sharedScale === 1 ? openShared.payload.body : scaleRecipeBody(openShared.payload.body, sharedScale)).map((ln, i) => (
-                <View key={i} style={[s.rtLine, ln.kind === 'number' && s.rtStep, ln.kind === 'quote' && s.rtQuote]}>
-                  {ln.kind === 'bullet' && <Text style={s.rtDot}>•</Text>}
-                  {ln.kind === 'number' && <Text style={s.rtNum}>{ln.num}</Text>}
-                  <Text style={[s.rtText, ln.kind === 'quote' && s.rtQuoteText]}>
-                    {ln.runs.map((r, j) => (
-                      <Text key={j} style={[r.bold && s.rtBold, r.italic && s.rtItalic, r.under && s.rtUnder]}>{r.text || ' '}</Text>
-                    ))}
-                  </Text>
-                </View>
-              ))}
+              <RichBody body={sharedScale === 1 ? openShared.payload.body : scaleRecipeBody(openShared.payload.body, sharedScale)} />
             </Pressable>
           )}
         </Scroll>

@@ -5,7 +5,7 @@
  * seam the spec cannot carry — the date FIELD accepting a weekday too.
  */
 import { describe, it, expect } from 'vitest';
-import { parseDateField, timeLabel, timePlus, timeRangeLabel } from '../src/index';
+import { parseDateField, parseWhenFromText, timeLabel, timePlus, timeRangeLabel } from '../src/index';
 
 describe('timePlus — the presumed end', () => {
   it('adds an hour', () => expect(timePlus('15:00', 60)).toBe('16:00'));
@@ -29,4 +29,38 @@ describe('the date field accepts a weekday, like its neighbour', () => {
   it('full form', () => expect(parseDateField('friday', '2026-08-18')).toBe('2026-08-21'));
   it('short form', () => expect(parseDateField('fri', '2026-08-18')).toBe('2026-08-21'));
   it('today, named', () => expect(parseDateField('tuesday', '2026-08-18')).toBe('2026-08-18'));
+});
+
+describe('manual-beats-parsed: the lift switches', () => {
+  // 2026-08-18 is a Tuesday; friday is the 21st.
+  it('a manual date keeps the day-word in the text, and the time still lifts', () => {
+    const [text, d, t] = parseWhenFromText('lunch friday 3pm', '2026-08-18', '09:00', { date: false });
+    expect(text).toBe('lunch friday');
+    expect(d).toBeNull();
+    expect(t).toBe('15:00');
+  });
+  it('a manual time keeps the clock in the text, and the day still lifts', () => {
+    const [text, d, t] = parseWhenFromText('lunch friday 3pm', '2026-08-18', '09:00', { time: false });
+    expect(text).toBe('lunch 3pm');
+    expect(d).toBe('2026-08-21');
+    expect(t).toBeNull();
+  });
+  it('both manual: the line is left exactly alone', () => {
+    const [text, d, t] = parseWhenFromText('lunch friday 3pm', '2026-08-18', '09:00', { date: false, time: false });
+    expect(text).toBe('lunch friday 3pm');
+    expect(d).toBeNull();
+    expect(t).toBeNull();
+  });
+  it('a lifted time does not imply a day the caller owns', () => {
+    // With the date manual, "3pm" must not smuggle in a today/tomorrow.
+    const [, d, t] = parseWhenFromText('call 3pm', '2026-08-18', '16:00', { date: false });
+    expect(d).toBeNull();
+    expect(t).toBe('15:00');
+  });
+  it('defaults lift both, exactly as before the switches existed', () => {
+    const [text, d, t] = parseWhenFromText('lunch friday 3pm', '2026-08-18', '09:00');
+    expect(text).toBe('lunch');
+    expect(d).toBe('2026-08-21');
+    expect(t).toBe('15:00');
+  });
 });

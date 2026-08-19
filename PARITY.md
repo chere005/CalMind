@@ -1939,3 +1939,81 @@ circle-chevron back. The sim build command that works: NO `-sdk
 iphonesimulator` (the recorded trap — it overrides every target's SDKROOT
 and now also breaks the watch icon's actool), destination
 'platform=iOS Simulator,id=…' only.
+
+### The measure wears an icon, and only the badge (2026-08-18, same evening)
+
+Sean: "when units are pulled out, they should become badges that are
+iconized somehow, don't just make it part of the text as well." Two halves:
+
+- **One UnitBadge component** (components/IngredientBadge.tsx) for every
+  surface that draws an ingredient — the recipe editor's rows had the badge
+  already; the note's RENDERED body did not, and its bullets still carried
+  the measure inline. Both go through UnitBadge now, and the rendered body's
+  ingredient bullets show the NAME in the text with the measure lifted
+  beside it. Scaling costs nothing: the body is scaled before it is
+  rendered, so the badge reads "4 cups" at 2× the way the text used to.
+- **The icon is the unit's FAMILY** — 🥄 spoons, 🥣 cups, ⚖️ weight, 💧
+  liquid volume — and a unit outside the families (cloves, cans, bare
+  counts) wears the badge alone: a wrong icon is worse than none.
+- A bullet is an ingredient only inside the **Ingredients** block (the same
+  structural read fromMarkers makes), so a shopping list's "- 2 cups flour"
+  keeps its words — pinned in e2e/ingbadge.spec.ts both ways.
+- Found by the change the moment it rendered: ingredientParts glued
+  "eggs , beaten" — the name join lacked parseIngredient's tidy(). Fixed in
+  core. Also decided today with no code change: quantities DON'T round up
+  (0.99 stays 0.99) — TODO §1 closes.
+- Four recipe specs moved to the badge contract (scale ×2, recipeplain's
+  survival check, ocr's row concatenations, now icon-agnostic).
+
+### Sean's decision night, 2026-08-18 — nine calls, and the flake dies of one
+
+He answered the whole §1 queue in one message, and each landed the same
+evening:
+
+- **Done keeps its colour, faded** — a finished item is the folder's hue at
+  ~47% ('77') instead of the suite's flat grey, in the reminder rows, the
+  day panel rows, and the calendar cell marks. The strike still says done.
+- **Habit sections recolour through the SwatchTray**, like folders and
+  calendars — the last cycling swatch is gone; the tray spec watches it.
+- **clear_done stays unported** ("bless hiding") and the complication keeps
+  its bare time ("a bare 5 is ok") — decisions recorded, no code.
+- **A partner's shared calendar isolates on tap.** lastView can only name
+  one of mine, so isolation is said the other way it can be said —
+  everything else hidden — and the pie button learned to draw visible
+  SHARED colours, which is what made a theirs-only view possible at all.
+- **Login lockouts**: five wrong guesses lock the account; each further
+  round holds longer (5m, 10m, 1h, 2h, 3h, +1h a round). The gate holds
+  against the RIGHT password too, unknown names never mint an entry (that
+  would confirm which names exist), a clean sign-in or a password reset
+  clears the slate, and the manual override is exactly what he asked for —
+  backend-only, by deleting the entry from data/lockouts.json. Five server
+  tests, and the gate was mutation-checked: disabled, four go red.
+- **The widget→watch selection sync** — the one-push-behind bug — is fixed
+  by re-reading the widget's App Group selection when the app comes
+  FOREGROUND and re-pushing only when it moved.
+- **"Tapping the title should switch to editing the title"** — the design
+  answer the note-focus flake was waiting on. A title focus now cancels the
+  pending 50ms body focus AND collapses the body to its view, so the two
+  orders of the old race CONVERGE instead of diverging: deterministic,
+  which is the only way a flake actually dies. Fifteen specs moved to the
+  human choreography (title, then tap the body view, then write); the
+  sweep's regex missed two multiline fills and a spec assumed a habit
+  section named General where the seed says Habits — all three found by the
+  full run and fixed.
+- **Manual beats parsed, text left alone** — parseWhenFromText grew lift
+  switches: a category the hand settled (pill or field, this sheet) is
+  neither lifted nor read, so the token stays in the text, and a category
+  left to the line wins over the incumbent — which makes editing parse like
+  adding. Wired through the item window and the Add screen; five core tests.
+- **His recipes, curated by hand**: the 15 Recipe Form notes whose methods
+  were prose paragraphs now carry numbered **Directions** — his sentences
+  verbatim, grouped by action; stranded group-labels dropped; notes,
+  references and serving lines kept as extras; the Basque step 6 shed the
+  Bon Appetit editor chatter and kept the Do-Ahead as a note.
+- **Build 37 is ON THE PHONE** — Release, after a Debug install put the dev
+  overlay's blue "Refreshing" banner on Sean's screen (the memory said
+  install Release for real use; now it has been paid for twice). The
+  renewal wall fell when a GUI ⌘B minted fresh profiles — xcodebuild never
+  saw the signed-in account from the CLI, even unsandboxed. The watch is
+  still owed: 50+ direct-install attempts, all tunnel errors (4000/3002/
+  NWError 60), none the locked-wrist kind.

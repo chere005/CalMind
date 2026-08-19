@@ -42,6 +42,9 @@ test('a note body survives being interrupted mid-sentence, even across a reload'
   await page.getByTestId('tab-notes').click();
   await page.getByTestId('secadd-General').first().click();
   await page.getByTestId('note-title').fill('shopping');
+  // The title touch collapsed the body to its view (deterministic since
+  // the title-tap rule, 2026-08-18) — reopen it the way a hand would.
+  await page.getByTestId('note-body-view').click();
   await page.getByTestId('note-body-edit').fill('half a sentence that stops mid');
 
   await page.getByTestId('tab-habits').click();

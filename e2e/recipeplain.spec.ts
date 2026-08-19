@@ -40,6 +40,9 @@ test('a plain note keeps its FIRST line through the Recipe page', async ({ page 
   await page.getByTestId('tab-notes').click();
   await page.getByTestId('secadd-General').first().click();
   await page.getByTestId('note-title').fill('Shopping');
+  // The title touch collapsed the body to its view (deterministic since
+  // the title-tap rule, 2026-08-18) — reopen it the way a hand would.
+  await page.getByTestId('note-body-view').click();
   await page.getByTestId('note-body-edit').fill('Shopping list\nmilk\neggs\nbread');
   await page.getByTestId('note-back').click();
   await page.getByTestId('note-row').filter({ hasText: 'Shopping' }).click();
@@ -56,6 +59,9 @@ test('the Recipe page on an ordinary note gives the words back unharmed', async 
   await page.getByTestId('tab-notes').click();
   await page.getByTestId('secadd-General').first().click();
   await page.getByTestId('note-title').fill('Boiler');
+  // The title touch collapsed the body to its view (deterministic since
+  // the title-tap rule, 2026-08-18) — reopen it the way a hand would.
+  await page.getByTestId('note-body-view').click();
   await page.getByTestId('note-body-edit').fill(PROSE);
   await page.getByTestId('note-back').click();
   await page.getByTestId('note-row').filter({ hasText: 'Boiler' }).click();
@@ -88,6 +94,9 @@ test('editing a recipe twice does not eat it', async ({ page }) => {
   // Start from a recipe as the page SAVES it — that is what "editing it
   // again" means. (Raw text takes the OCR path, whose title guess is its own,
   // documented, humbler story.)
+  // The title touch collapsed the body to its view (deterministic since
+  // the title-tap rule, 2026-08-18) — reopen it the way a hand would.
+  await page.getByTestId('note-body-view').click();
   await page.getByTestId('note-body-edit').fill(
     '**Ingredients**\n- 2 cups flour\n- a pinch of salt\n\n**Directions**\n1. Whisk it.\n2. Fry it.\n\nGrandma doubled the butter.',
   );
@@ -104,7 +113,9 @@ test('editing a recipe twice does not eat it', async ({ page }) => {
   }
 
   const body = await page.getByTestId('note-body-view').innerText();
-  expect(body, 'both ingredients survived three rounds').toContain('2 cups flour');
+  // The measure is the badge now, the name the text — both still in the body.
+  expect(body, 'both ingredients survived three rounds').toContain('flour');
+  expect(body).toContain('2 cups');
   expect(body).toContain('a pinch of salt');
   expect(body, 'the personal line is still prose, not a step').toContain('Grandma doubled the butter.');
   expect(body).not.toContain('3. Grandma');
