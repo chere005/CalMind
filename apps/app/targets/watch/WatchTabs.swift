@@ -69,9 +69,15 @@ struct SummaryView: View {
     /// appears was already decided by the tri-state in Manage reminders. An
     /// empty selection means everything. A day left with no lines disappears
     /// rather than drawing a bare heading.
-    static func drawnWidgetDays(days: [WatchDay], wanted: Set<String>) -> [WatchDay] {
+    static func drawnWidgetDays(days: [WatchDay], wanted: Set<String>,
+                                today: String? = nil, nowHM: String? = nil) -> [WatchDay] {
         days.compactMap { day in
             let lines = day.lines.filter { l in
+                // An event leaves the wrist once its resolved end has passed
+                // (Sean, 2026-08-19) — the same clause, word for word, as the
+                // widget's drawnDays; check-watch-feed.sh runs both. `nowHM`
+                // nil means the caller has no clock and nothing expires.
+                if let leave = l.end, let hm = nowHM, day.date == today, leave <= hm { return false }
                 if !l.isReminder, !wanted.isEmpty {
                     guard let c = l.calendarId, wanted.contains(c) else { return false }
                 }
@@ -116,7 +122,19 @@ struct SummaryView: View {
     }
 
     var body: some View {
-        let mirrored = Self.capped(Self.drawnWidgetDays(days: store.days, wanted: Set(store.widgetCalendars)))
+        // TimelineView is the wrist's run loop for the leave rule: the page
+        // re-renders each minute, so an event drops at its end even while
+        // the screen stays up — pushes only arrive when the STORE changes,
+        // and a passing hour is not a store change.
+        TimelineView(.everyMinute) { context in
+            summary(now: context.date)
+        }
+    }
+
+    @ViewBuilder
+    private func summary(now: Date) -> some View {
+        let mirrored = Self.capped(Self.drawnWidgetDays(days: store.days, wanted: Set(store.widgetCalendars),
+                                                        today: WatchFormat.todayStr(), nowHM: WatchFormat.hm(now)))
         // An older phone build sends no `days` at all. Falling back to the old
         // summary would mean keeping two pages alive forever; saying what is
         // actually true costs one line and ages out on its own.
@@ -228,14 +246,33 @@ struct WidgetMirrorView: View {
 struct EventListView: View {
     @EnvironmentObject var store: WatchStore
 
+    /// The leave rule on this page too: today's event goes at its resolved
+    /// end (core's eventLeave, carried as `end`). Static and pure so
+    /// check-watch-feed.sh can run it beside the widget-mirror's copy.
+    static func upcoming(_ evs: [WatchEvent], today: String, nowHM: String) -> [WatchEvent] {
+        evs.filter { e in
+            guard let leave = e.end, e.date == today else { return true }
+            return leave > nowHM
+        }
+    }
+
     var body: some View {
+        TimelineView(.everyMinute) { context in
+            list(now: context.date)
+        }
+        .navigationTitle("Events")
+    }
+
+    @ViewBuilder
+    private func list(now: Date) -> some View {
+        let events = Self.upcoming(store.events, today: WatchFormat.todayStr(), nowHM: WatchFormat.hm(now))
         Group {
-            if store.events.isEmpty {
+            if events.isEmpty {
                 Text(store.feed == .waiting ? "Waiting for your phone" : "No events coming")
                     .foregroundStyle(.secondary)
             } else {
                 List {
-                    ForEach(groupByDate(store.events), id: \.0) { date, evs in
+                    ForEach(groupByDate(events), id: \.0) { date, evs in
                         Section(dayLabel(date)) {
                             ForEach(evs) { e in
                                 HStack(alignment: .firstTextBaseline, spacing: 6) {
@@ -255,7 +292,6 @@ struct EventListView: View {
                 }
             }
         }
-        .navigationTitle("Events")
     }
 
     private func groupByDate(_ evs: [WatchEvent]) -> [(String, [WatchEvent])] {

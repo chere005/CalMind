@@ -301,6 +301,20 @@ check(clock12("09:05") == "9:05am", "9:05am — got \(clock12("09:05"))")
 check(clock12("00:00") == "12am", "midnight is 12am — got \(clock12("00:00"))")
 check(clock12("12:00") == "12pm", "noon is 12pm — got \(clock12("12:00"))")
 
+// THE LEAVE RULE (Sean, 2026-08-19): an event goes at its resolved end — the
+// end, or an hour past a bare start — decided in core (eventLeave) and only
+// COMPARED here, against a clock that is passed in, which is the only reason
+// this is checkable at all. e1 starts at 10:00 with no end, so core says it
+// leaves at 11:00.
+check(ev?.end == "11:00", "core resolved the bare 10:00 start to an 11:00 leave — got \(String(describing: ev?.end))")
+let at1059 = drawnDays(feed: feed, ticked: [], wanted: [], today: today, nowHM: "10:59")
+check(at1059.first?.lines.contains { $0.id == "e1" } == true, "at 10:59 the event is still on the card")
+let at1100 = drawnDays(feed: feed, ticked: [], wanted: [], today: today, nowHM: "11:00")
+check(at1100.first?.lines.contains { $0.id == "e1" } == false, "at 11:00, gone — the leave is <=, not <")
+check(at1100.first?.lines.contains { $0.id == "late" } == true, "a reminder never expires")
+check(at1100.flatMap { $0.lines }.contains { $0.id == "e2" }, "another DAY's event is untouched by today's clock")
+check(all.first?.lines.contains { $0.id == "e1" } == true, "a caller with no clock expires nothing — the old call shape is unchanged")
+
 // A queued tick STAYS, drawn done, until the app drains it. This asserted the
 // opposite until 2026-08-11 — the row vanished the instant it was tapped, and
 // with it any way to take the tap back. Sean asked for a mis-tap to be
@@ -320,8 +334,8 @@ check(afterTick.flatMap { $0.lines }.first { $0.id == "shown" }?.pending == true
 // either way, so nothing is lost by the row leaving. `now` is passed rather
 // than read from the clock, which is the only reason this is checkable at all.
 let graceDay = [WDay(date: today, lines: [
-    WLine(id: "fresh", text: "just ticked", time: nil, isReminder: true, overdue: false, color: nil, calendarId: nil),
-    WLine(id: "stale", text: "ticked a while ago", time: nil, isReminder: true, overdue: false, color: nil, calendarId: nil),
+    WLine(id: "fresh", text: "just ticked", time: nil, isReminder: true, overdue: false, color: nil, calendarId: nil, end: nil),
+    WLine(id: "stale", text: "ticked a while ago", time: nil, isReminder: true, overdue: false, color: nil, calendarId: nil, end: nil),
 ])]
 let graceFeed = Feed(items: [], events: nil, folders: nil, calendars: nil, days: graceDay, clock24: nil)
 let T0 = 1_000_000.0
@@ -411,8 +425,8 @@ let big  = [DaySection(heading: "TODAY", isToday: true,  lines: (1...3).map { Li
 // nothing left to tap. It stays now, flagged pending, and the intent toggles
 // the queue rather than only appending — see HomeWidget's TickIntent.
 let tickedDay = [WDay(date: today, lines: [
-    WLine(id: "keepme", text: "queued", time: nil, isReminder: true, overdue: false, color: nil, calendarId: nil),
-    WLine(id: "other",  text: "not queued", time: nil, isReminder: true, overdue: false, color: nil, calendarId: nil),
+    WLine(id: "keepme", text: "queued", time: nil, isReminder: true, overdue: false, color: nil, calendarId: nil, end: nil),
+    WLine(id: "other",  text: "not queued", time: nil, isReminder: true, overdue: false, color: nil, calendarId: nil, end: nil),
 ])]
 let withTick = drawnDays(feed: Feed(items: [], events: nil, folders: nil, calendars: nil, days: tickedDay, clock24: nil),
                          ticked: ["keepme"], wanted: [], today: today)

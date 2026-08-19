@@ -15,6 +15,7 @@ import { folderApp, type AnyRec, type Rec } from './types';
 import { byRecOrd } from './order';
 import { addDays, dayItems } from './day';
 import { prefsOf } from './manage';
+import { timePlus } from './parse';
 import { sortByDate } from './sort';
 
 export type WatchRow = { id: string; text: string; due: string | null; time: string | null; done: boolean; folderId: string; sectionId: string };
@@ -60,7 +61,28 @@ export function watchRows(recs: AnyRec[]): WatchRow[] {
 }
 
 /** An event as the watch shows it: what, when, which calendar's colour. */
-export type WatchEvent = { id: string; text: string; date: string; time: string | null; color: string };
+export type WatchEvent = { id: string; text: string; date: string; time: string | null; color: string; end: string | null };
+
+/**
+ * When an event LEAVES the widget and the wrist (Sean, 2026-08-19: "if no
+ * end time is specified for an event, take it out of my widget/watch after
+ * 1 hour.. otherwise respect the end time"). Resolved HERE so both Swift
+ * consumers read one answer instead of re-deriving the rule twice:
+ *   · a real end after the start — the end;
+ *   · a start with no end — an hour later;
+ *   · no start at all — never (a timeless event has no hour to add to);
+ *   · an end or an hour-later that crosses midnight — never, matching the
+ *     event model's own "past midnight reads as the small hours".
+ * The CONSUMERS compare this against their own clock — core builds a feed,
+ * not a moment — which is why it travels as data rather than as a filter.
+ */
+export function eventLeave(time: string | null | undefined, end?: string | null): string | null {
+  if (!time) return null;
+  if (end && end > time) return end;
+  if (end) return null; // crosses midnight — stays until the day does
+  const t = timePlus(time, 60);
+  return t > time ? t : null;
+}
 
 /**
  * The whole watch feed: open reminders in the list's order, plus the next
@@ -115,6 +137,7 @@ export function watchFeed(
       date: e.payload.date,
       time: e.payload.time,
       color: calColor.get(e.payload.calendarId) ?? '#60a5fa',
+      end: eventLeave(e.payload.time, e.payload.end),
     }));
   // Folders travel so the iOS widget can offer a picker. Reminder folders
   // only: the widget lists things to DO, and a notes folder in that menu is
@@ -259,6 +282,10 @@ export type WidgetLine = {
    *  it. Null for a reminder — a reminder has no calendar, and its own
    *  visibility is the tri-state's business. */
   calendarId: string | null;
+  /** When the line LEAVES the widget/wrist (eventLeave's answer) — the
+   *  event's end, or an hour past a bare start. Null for a reminder and for
+   *  a timeless event: neither expires. */
+  end: string | null;
 };
 
 export type WidgetDay = { date: string; lines: WidgetLine[] };
@@ -330,12 +357,13 @@ export function widgetDays(
         overdue: false,
         color: calColor.get(e.payload.calendarId) ?? '#60a5fa',
         calendarId: e.payload.calendarId,
+        end: eventLeave(e.payload.time, e.payload.end),
       });
     }
     for (const { rec: r, overdue } of reminders) {
       if (r.payload.done || ticked.has(r.id)) continue;
       if (wanted.size > 0 && !wanted.has(r.payload.folderId)) continue;
-      lines.push({ id: r.id, text: r.payload.text, time: r.payload.time, isReminder: true, overdue, color: null, calendarId: null });
+      lines.push({ id: r.id, text: r.payload.text, time: r.payload.time, isReminder: true, overdue, color: null, calendarId: null, end: null });
     }
     // A day with nothing on it is not a heading — the widget has room for a
     // handful of lines and an empty date spends one of them saying nothing.

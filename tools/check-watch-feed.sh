@@ -114,6 +114,18 @@ while True:
     k += 1
 fallback += '\n' + tabs[i:k+1].replace('static func', 'func')
 
+# The Events page's own leave rule (Sean, 2026-08-19) — static and pure for
+# exactly this reason.
+u = tabs.index('static func upcoming(')
+depth, ku = 0, tabs.index('{', u)
+while True:
+    if tabs[ku] == '{': depth += 1
+    elif tabs[ku] == '}':
+        depth -= 1
+        if depth == 0: break
+    ku += 1
+fallback += '\n' + tabs[u:ku+1].replace('static func', 'func')
+
 # …and the total-item cap beside it. Two nested caps (four days, six lines
 # each) used to hide anything past the fourth day, which is exactly how Sean's
 # shared events showed on the widget and not on the wrist.
@@ -231,7 +243,7 @@ check(mine.allSatisfy { !$0.lines.isEmpty }, "no day is ever drawn with an empty
 let manyDays = (0..<9).map { d in
     WatchDay(date: "2026-08-\(11 + d)",
              lines: (0..<3).map { i in
-                 WatchLine(id: "d\(d)-\(i)", text: "x", time: nil, isReminder: true, overdue: false, color: nil, calendarId: nil)
+                 WatchLine(id: "d\(d)-\(i)", text: "x", time: nil, isReminder: true, overdue: false, color: nil, calendarId: nil, end: nil)
              })
 }
 let page = capped(manyDays, limit: PAGE_LIMIT)
@@ -252,6 +264,23 @@ check(reach.contains(deepId), "an item on the fifth day is reachable — the fou
 // Fewer items than the cap draws them all, so the cap is a ceiling not a quota.
 check(capped(Array(manyDays.prefix(2)), limit: PAGE_LIMIT).flatMap { $0.lines }.count == 6,
       "a short list draws in full")
+
+// THE LEAVE RULE on the wrist (Sean, 2026-08-19): core resolves WHEN (an
+// event's end, or an hour past a bare start), both wrist pages only compare.
+// e1 is 17:00 today with no end, so it leaves at 18:00.
+check((list.events ?? []).first?.end == "18:00",
+      "core resolved e1's bare 17:00 start to an 18:00 leave — got \(String(describing: (list.events ?? []).first?.end))")
+let mirror1759 = drawnWidgetDays(days: days, wanted: [], today: "2026-08-09", nowHM: "17:59")
+check(mirror1759.flatMap { $0.lines }.contains { $0.id == "e1" }, "at 17:59 the mirror still shows it")
+let mirror1800 = drawnWidgetDays(days: days, wanted: [], today: "2026-08-09", nowHM: "18:00")
+check(!mirror1800.flatMap { $0.lines }.contains { $0.id == "e1" }, "at 18:00 the mirror has let it go — <=, not <")
+check(mirror1800.flatMap { $0.lines }.contains { $0.id == "e2" }, "another DAY's event is untouched by today's clock")
+check(mirror1800.flatMap { $0.lines }.contains { $0.isReminder }, "a reminder never expires")
+let events1800 = upcoming(list.events ?? [], today: "2026-08-09", nowHM: "18:00")
+check(!events1800.contains { $0.id == "e1" }, "the Events page lets it go at the same moment")
+check(events1800.contains { $0.id == "e2" }, "…and keeps the other day's event")
+let eventsNoEnd = upcoming(list.events ?? [], today: "2026-08-09", nowHM: "17:59")
+check(eventsNoEnd.contains { $0.id == "e1" }, "at 17:59 the Events page still shows it")
 
 print(bad == 0
       ? "watch feed: the phone's JSON and the wrist's decoder agree"

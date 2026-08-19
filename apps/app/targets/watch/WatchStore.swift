@@ -45,6 +45,10 @@ struct WatchEvent: Codable, Identifiable {
     let date: String    // "YYYY-MM-DD"
     let time: String?   // "HH:MM"
     let color: String   // the calendar's hex
+    /// When the event LEAVES the wrist (Sean, 2026-08-19): the end, or an
+    /// hour past a bare start — resolved in core (eventLeave). Nil never
+    /// leaves; feeds from older phone builds carry none and expire nothing.
+    let end: String?
 }
 
 /// The day-grouped shape the home-screen WIDGET draws, decided in core
@@ -71,6 +75,8 @@ struct WatchLine: Codable, Identifiable {
     let overdue: Bool
     let color: String?
     let calendarId: String?
+    /// The leave time, as on WatchEvent above — core's eventLeave answer.
+    let end: String?
 }
 
 /// Receives the phone's application context ({"list": json}) and keeps the last

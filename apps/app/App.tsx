@@ -14,6 +14,7 @@ import { Habits } from './src/screens/Habits';
 import { Add } from './src/screens/Add';
 import { QuickTick } from './src/screens/QuickTick';
 import { Search } from './src/screens/Search';
+import { Request } from './src/screens/Request';
 import { themed, currentTheme, onThemeChange, T, THEMES_LIGHT, PAGE_MAX_WIDTH } from './src/theme';
 
 function Root() {
@@ -61,6 +62,12 @@ function Root() {
   // The 🔍 in every top bar opens the one search screen; a tapped result
   // closes it and goes where the thing lives (Sean, 2026-08-19).
   const [searchOpen, setSearchOpen] = useState(false);
+  // The PUBLIC request page: the same bundle served at <base>/request (a
+  // rewrite on the deployed instance, e2e/router.php locally). It renders
+  // for ANYONE — before the session gate on purpose, and never reachable
+  // from the app's own navigation (Sean, 2026-08-19: "it's a separate URL
+  // to give to people").
+  if (typeof location !== 'undefined' && /\/request\/?$/.test(location.pathname)) return <Request />;
   if (!ready) return <View style={s.page} />;
   if (!session) return <Login />;
   if (tickId) return <QuickTick id={tickId} onDone={tickDone} />;

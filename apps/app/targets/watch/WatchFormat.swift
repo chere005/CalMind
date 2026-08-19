@@ -122,4 +122,13 @@ enum WatchFormat {
     }
 
     static func todayStr() -> String { ymd.string(from: Date()) }
+
+    /// 'HH:mm' of a moment — what the leave rule compares an event's
+    /// resolved end against (Sean, 2026-08-19). String comparison is the
+    /// point: both sides are zero-padded 24-hour, so '<' is 'earlier'.
+    static func hm(_ d: Date) -> String {
+        let f = DateFormatter()
+        f.dateFormat = "HH:mm"
+        return f.string(from: d)
+    }
 }

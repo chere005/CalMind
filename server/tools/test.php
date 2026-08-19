@@ -1132,5 +1132,90 @@ t('calsub_fetch: a fresh cache answers without fetching; a stale one is the fall
     ok(str_starts_with((string) file_get_contents($file), 'ENC1:'), 'the cache is encrypted at rest');
 });
 
+
+// ---------------------------------------------------------------- meeting requests
+
+t('the public slot list is the window minus the calendar, and only open/closed leaves', function () use ($scratch) {
+    $u = 'mru' . time();
+    $tok = api(['action' => 'signup', 'username' => $u, 'email' => "$u@x.com", 'password' => 'meetreq-pw-1'])['body']['token'];
+    // Two events tomorrow: a timed one at 14:00 (blocks 14:00), and one with
+    // an end that spans two slots (10:30-12:10 blocks 10:00, 11:00 and 12:00).
+    $d = date('Y-m-d', strtotime('+1 day'));
+    api(['action' => 'sync', 'cursor' => 0, 'changes' => [
+        ['id' => 'ev1', 'type' => 'event', 'updated' => 1, 'payload' => ['text' => 'SECRET-TITLE', 'date' => $d, 'time' => '14:00', 'repeat' => null, 'calendarId' => 'c', 'ord' => 'a']],
+        ['id' => 'ev2', 'type' => 'event', 'updated' => 2, 'payload' => ['text' => 'x', 'date' => $d, 'time' => '10:30', 'end' => '12:10', 'repeat' => null, 'calendarId' => 'c', 'ord' => 'b']],
+        ['id' => 'ev3', 'type' => 'event', 'updated' => 3, 'payload' => ['text' => 'timeless day marker', 'date' => $d, 'time' => null, 'repeat' => null, 'calendarId' => 'c', 'ord' => 'c']],
+    ]], $tok);
+    $r = api(['action' => 'meetreq_slots', 'user' => $u, 'from' => $d, 'days' => 1]);
+    eq(200, $r['status'], 'public, no auth');
+    $slots = $r['body']['days'][$d] ?? null;
+    eq(['13:00', '15:00', '16:00', '17:00', '18:00', '19:00'], $slots, 'window minus the busy hours, timeless blocking nothing');
+    ok(!str_contains(json_encode($r['body']), 'SECRET-TITLE'), 'and no event content leaks');
+    // Yesterday offers nothing, however empty the calendar was.
+    $y = api(['action' => 'meetreq_slots', 'user' => $u, 'from' => date('Y-m-d', strtotime('-1 day')), 'days' => 1]);
+    eq([], array_values($y['body']['days'])[0], 'the past is closed');
+});
+
+t('a create is validated against the same rule, lands as a record, and syncs back', function () use ($scratch) {
+    $u = 'mrc' . time();
+    $tok = api(['action' => 'signup', 'username' => $u, 'email' => "$u@x.com", 'password' => 'meetreq-pw-1'])['body']['token'];
+    $d = date('Y-m-d', strtotime('+2 day'));
+    api(['action' => 'sync', 'cursor' => 0, 'changes' => [
+        ['id' => 'ev1', 'type' => 'event', 'updated' => 1, 'payload' => ['text' => 'busy', 'date' => $d, 'time' => '14:00', 'repeat' => null, 'calendarId' => 'c', 'ord' => 'a']],
+    ]], $tok);
+    // The busy hour refuses; the open one lands.
+    $bad = api(['action' => 'meetreq_create', 'user' => $u, 'name' => 'Aki', 'email' => 'aki@x.com', 'date' => $d, 'time' => '14:00']);
+    eq(409, $bad['status'], 'a taken slot refuses');
+    foreach ([['', 'aki@x.com', 'a name is required'], ['Aki', 'not-an-email', 'a real email'], ['Aki', 'aki@x.com', 'on the hour', '14:30'], ['Aki', 'aki@x.com', 'on the hour', '09:00']] as $case) {
+        $r = api(['action' => 'meetreq_create', 'user' => $u, 'name' => $case[0], 'email' => $case[1], 'date' => $d, 'time' => $case[3] ?? '15:00']);
+        eq(400, $r['status'], 'refused: ' . $case[2]);
+        ok(str_contains((string) $r['body']['error'], $case[2]), 'and says why: ' . $case[2]);
+    }
+    $okr = api(['action' => 'meetreq_create', 'user' => $u, 'name' => 'Aki', 'email' => 'aki@x.com', 'date' => $d, 'time' => '15:00']);
+    eq(200, $okr['status'], 'an open slot lands');
+    // …and the OWNER sees it through ordinary sync — the whole point.
+    $pull = api(['action' => 'sync', 'cursor' => 0, 'changes' => []], $tok);
+    $reqs = array_values(array_filter($pull['body']['changes'], fn($c) => $c['type'] === 'meetreq'));
+    eq(1, count($reqs), 'one request record in the store');
+    eq('Aki', $reqs[0]['payload']['name']);
+    eq('15:00', $reqs[0]['payload']['time']);
+    eq('new', $reqs[0]['payload']['status']);
+    // A pending request does NOT block the slot — only an accepted one has
+    // become an event; anything else lets a stranger squat the calendar.
+    $again = api(['action' => 'meetreq_slots', 'user' => $u, 'from' => $d, 'days' => 1]);
+    ok(in_array('15:00', $again['body']['days'][$d], true), 'a pending request leaves its slot open');
+    // An account that does not exist gets a quiet ok and no file — which
+    // usernames exist is nobody\'s business (recover\'s rule).
+    $ghost = api(['action' => 'meetreq_create', 'user' => 'nobody' . time(), 'name' => 'X', 'email' => 'x@x.com', 'date' => $d, 'time' => '15:00']);
+    eq(200, $ghost['status'], 'an unknown user answers ok');
+});
+
+t('the create throttle holds, per IP, and the mail stub logs without sending', function () use ($scratch) {
+    $u = 'mrt' . time();
+    $tok = api(['action' => 'signup', 'username' => $u, 'email' => "$u@x.com", 'password' => 'meetreq-pw-1'])['body']['token'];
+    $d = date('Y-m-d', strtotime('+3 day'));
+    // MEETREQ_IP_MAX is 5 and the two tests above spent three of this hour\'s
+    // budget (harness = one IP): two more land, the sixth refuses.
+    $landed = 0;
+    $throttled = false;
+    foreach (['10:00', '11:00', '12:00'] as $tm) {
+        $r = api(['action' => 'meetreq_create', 'user' => $u, 'name' => 'N', 'email' => 'n@x.com', 'date' => $d, 'time' => $tm]);
+        if ($r['status'] === 200) { $landed++; }
+        if ($r['status'] === 429) { $throttled = true; }
+    }
+    eq(2, $landed, 'the remaining budget lands');
+    ok($throttled, 'and the one past it refuses 429');
+    // The mail STUB: authenticated, always logs, sends nothing unconfigured.
+    $noauth = api(['action' => 'meetreq_mail', 'to' => 'aki@x.com', 'kind' => 'accepted', 'when' => "$d 15:00"]);
+    eq(401, $noauth['status'], 'the mail answer needs the owner');
+    $m = api(['action' => 'meetreq_mail', 'to' => 'aki@x.com', 'kind' => 'accepted', 'when' => "$d 15:00"], $tok);
+    eq(200, $m['status']);
+    eq('log-only', $m['body']['sent'], 'stubbed: logged, not sent');
+    $log = (string) @file_get_contents($scratch . '/meetreq-mail.log');
+    ok(str_contains($log, 'to=aki@x.com') && str_contains($log, 'kind=accepted'), 'the line is in meetreq-mail.log');
+    $bk = api(['action' => 'meetreq_mail', 'to' => 'aki@x.com', 'kind' => 'shouted', 'when' => ''], $tok);
+    eq(400, $bk['status'], 'an unknown kind refuses');
+});
+
 echo "\n────────────────────────────────\n$pass passed, $fail failed\n";
 exit($fail === 0 ? 0 : 1);

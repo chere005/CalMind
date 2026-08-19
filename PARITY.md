@@ -2404,3 +2404,53 @@ One Android peculiarity worth recording rather than re-finding: the
 hardware BACK inside the Recipe page closes the whole sheet (Modal
 onRequestClose), exactly like Cancel — rows typed but not saved go with it.
 That is standard Android modal behaviour, kept.
+
+### A link anyone can hold, and the calendar answers for itself, 2026-08-19 night
+
+Sean's spec, whole: "<app>/request shows a simple calendar with open time
+slots.. meeting can be requested from 10am-8pm (unless there's something on
+my calendar).. this is a public link.. require their name, email,
+date/time.. a new tab called Requests.. accept/decline/new time.. if i
+accept it goes on my calendar as a 1 hour event.. the request screen will
+say ~1 hour, but it only lets you enter a start time.. it's a separate URL
+to give to people."
+
+The shape: /request is the same bundle at a second path (one RewriteRule;
+e2e/router.php does the local equivalent), rendered before the session gate
+and reachable from nowhere inside the app. A granted request is APPENDED TO
+HIS OWN STORE server-side as a `meetreq` record, so it reaches every device
+through ordinary sync — no new channel, no polling, and his three answers
+are ordinary record edits: Accept writes the one-hour event (core's
+meetreqEvent; end = start + 60) and ends the request, Decline plants the
+tombstone, New time re-dates the record as 'proposed' through the DayPick
+and the same time parser the Add line uses.
+
+The slot arithmetic lives on the SERVER — a deliberate, recorded exception
+to "behavior lives in core": the anonymous create must be validated against
+the same rule the page drew, and a rule the server cannot run is a rule it
+cannot enforce. Timeless events block nothing (a day marker is not a
+meeting); pending requests block nothing (anything else lets a stranger
+squat the calendar by asking); only open/closed leaves the endpoint, never
+titles — the server test greps its own reply for the planted secret. A
+public write endpoint gets login's posture: five creates per IP per hour, a
+pending cap, and an unknown user answers a quiet ok (recover's rule: which
+usernames exist is nobody's business).
+
+The stubs are wired, not imagined: meetreq_mail logs every answer to
+meetreq-mail.log and sends the day `send_mail` is configured (mail_code's
+own arrangement); meetreqBadgeCount counts what a badge would show and
+nothing draws it — both on his word, "no notifications or badges for now."
+
+### An event leaves the wrist when it is over, 2026-08-19 night
+
+"if no end time is specified for an event, take it out of my widget/watch
+after 1 hour.. otherwise respect the end time." Core resolves WHEN once
+(eventLeave: the end; an hour past a bare start; never for timeless events
+or ends past midnight) and the moment travels in the feed as `end` — the
+three consumers only compare. The widget, having no run loop, hands
+WidgetKit pre-rendered entries dated at each of today's remaining ends (the
+tick-grace mechanism, reused); the two wrist pages re-render each minute
+under TimelineView. Old feeds carry no `end` and expire nothing. Both seam
+checkers now pin both directions — still there a minute before, gone at the
+minute, <= not < — and the memberwise-init breakage they caught mid-change
+is the proof they lift the real code.

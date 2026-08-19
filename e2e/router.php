@@ -18,6 +18,9 @@ if (preg_match('#^/test/calmind/api/#', $uri)) {
 if (str_starts_with($uri, '/test/calmind')) {
     $rel = substr($uri, strlen('/test/calmind'));
     if ($rel === '' || $rel === '/') { $rel = '/index.html'; }
+    // The public request page is the SPA at a second path — the deployed
+    // instance does the same with a RewriteRule in web.htaccess.
+    if ($rel === '/request') { $rel = '/index.html'; }
     $file = $root . '/apps/app/dist' . $rel;
     if (is_file($file)) {
         $types = ['html' => 'text/html', 'js' => 'text/javascript', 'ico' => 'image/x-icon', 'png' => 'image/png', 'json' => 'application/json'];

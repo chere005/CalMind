@@ -26,3 +26,11 @@
 <Files "sw.js">
   Header set Cache-Control "no-cache"
 </Files>
+
+# The public meeting-request page (Sean, 2026-08-19): /request is the SPA at
+# a second path — a link to hand out, deliberately absent from the app's own
+# navigation. The app decides what to render from location.pathname; the
+# rewrite only has to serve the same index.html there. e2e/router.php does
+# the equivalent for the local harness.
+RewriteEngine On
+RewriteRule ^request$ index.html [L]

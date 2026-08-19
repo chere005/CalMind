@@ -29,7 +29,7 @@ file, and run this as part of ANY future compression.
 
 ## Suite counts, as of this commit
 
-core **582** · gesture **241** (+2 skipped: the two live specs) · WebKit **15** · server **55** ·
+core **587** · gesture **242** (+2 skipped: the two live specs) · WebKit **15** · server **58** ·
 live **19** with the API · desktop **7** (+3 in `npm run test:desktop`) · deploy guards **9** · plus the four
 native seam checkers no browser can reach: `npm run test:watch`,
 `npm run test:widget`, `npm run test:deploy`.
@@ -74,6 +74,13 @@ Each is blocked on his word, not on work.
 - **The oversized-note warning names the record but offers no way to ACT**
   — no jump-to-note, no split. He has not asked for one; recorded so the
   gap is a choice, not an oversight.
+
+- **Meeting-request emails and notifications are STUBS** (his word,
+  2026-08-19: "stub in notifications/badges, and also stub in an email
+  response"). The email answer logs to `meetreq-mail.log` and sends for
+  real the day `send_mail` is configured — same switch as the recovery
+  codes; badges/notifications have their number (`meetreqBadgeCount`) and
+  no surface. Both flip on when he says.
 
 ## 2 · Open bugs
 

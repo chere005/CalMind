@@ -107,6 +107,11 @@ struct WLine: Codable, Identifiable {
     /// for a reminder — a reminder has no calendar, and whether it appears at
     /// all is the tri-state's business, decided in the app.
     let calendarId: String?
+    /// When the line LEAVES the card (Sean, 2026-08-19): the event's end, or
+    /// an hour past a bare start — RESOLVED in core (eventLeave), so this
+    /// side only compares. Nil for reminders, timeless events, and feeds
+    /// from before the field existed — none of those expire.
+    let end: String?
 }
 
 struct Feed: Codable {
@@ -371,25 +376,44 @@ struct Provider: AppIntentTimelineProvider {
 
         // A queued tick has to STOP being drawn two seconds after it happened,
         // and a widget cannot wait — it has no run loop of its own. What it
-        // can do is hand WidgetKit a second, already-rendered entry dated at
-        // the end of the grace; the system swaps to it at that moment without
+        // can do is hand WidgetKit further, already-rendered entries dated at
+        // the moments the card must change; the system swaps to each without
         // asking for a new timeline. That is the whole mechanism, and it is
-        // why the grace works here without a timer.
+        // why neither the grace nor an event's leaving needs a timer.
         let times = (UserDefaults(suiteName: GROUP)?.dictionary(forKey: TICK_TIMES) as? [String: Double]) ?? [:]
-        let deadlines = times.values
+        var deadlines = times.values
             .map { Date(timeIntervalSince1970: $0 + TICK_GRACE) }
             .filter { $0 > now }
-            .sorted()
-        guard let due = deadlines.first else {
-            return Timeline(entries: [build(configuration, family: String(describing: context.family))], policy: .after(next))
+        // An event LEAVES the card at its resolved end (Sean, 2026-08-19) —
+        // each of today's remaining ends is such a moment.
+        if case let .ok(feed) = loadFeed() {
+            let today = todayStr()
+            let cal = Calendar.current
+            for day in feed.days ?? [] where day.date == today {
+                for l in day.lines {
+                    guard let leave = l.end, leave.count == 5,
+                          let h = Int(leave.prefix(2)), let m = Int(leave.suffix(2)),
+                          let d = cal.date(bySettingHour: h, minute: m, second: 0, of: now), d > now
+                    else { continue }
+                    deadlines.append(d)
+                }
+            }
         }
-        // Entry two is built AT the deadline — `now:` is that moment, not this
-        // one — so the row it draws is the row without the ticked line.
-        let after = Entry(date: due,
-                          days: buildDays(configuration, now: due.timeIntervalSince1970),
-                          clock24: build(configuration, family: String(describing: context.family)).clock24,
-                          state: loadFeed())
-        return Timeline(entries: [build(configuration, family: String(describing: context.family)), after], policy: .after(next))
+        let first = build(configuration, family: String(describing: context.family))
+        // A handful of boundaries is plenty — the day rolls the whole
+        // timeline at midnight anyway, and WidgetKit budgets entries.
+        let due = Array(Set(deadlines)).sorted().prefix(4)
+        var entries = [first]
+        for d in due {
+            // Each entry is built AT its deadline — `now:` is that moment,
+            // not this one — so the card it draws is the card without the
+            // line whose moment passed.
+            entries.append(Entry(date: d,
+                                 days: buildDays(configuration, now: d.timeIntervalSince1970),
+                                 clock24: first.clock24,
+                                 state: loadFeed()))
+        }
+        return Timeline(entries: entries, policy: .after(next))
     }
 
     /// The day sections as they would be drawn at `now`. Split out so the
@@ -401,7 +425,14 @@ struct Provider: AppIntentTimelineProvider {
         let tickedAt = (UserDefaults(suiteName: GROUP)?.dictionary(forKey: TICK_TIMES) as? [String: Double]) ?? [:]
         let wanted = Set((configuration.folders ?? []).map(\.id))
         return Provider.drawnDays(feed: feed, ticked: ticked, wanted: wanted, today: todayStr(),
-                                  tickedAt: tickedAt, now: now)
+                                  tickedAt: tickedAt, now: now, nowHM: Provider.hm(now))
+    }
+
+    /// The clock the expiry compares against — 'HH:mm' of a moment, local.
+    static func hm(_ epoch: Double) -> String {
+        let f = DateFormatter()
+        f.dateFormat = "HH:mm"
+        return f.string(from: Date(timeIntervalSince1970: epoch))
     }
 
     private func build(_ configuration: SelectFolders, family: String) -> Entry {
@@ -432,9 +463,10 @@ struct Provider: AppIntentTimelineProvider {
         var sets = (store?.dictionary(forKey: WIDGET_CAL_SETS) as? [String: [String: Any]]) ?? [:]
         sets[family] = ["cals": Array(wanted), "at": Date().timeIntervalSince1970]
         store?.set(sets, forKey: WIDGET_CAL_SETS)
+        let nowEpoch = Date().timeIntervalSince1970
         return Entry(date: Date(),
                      days: Provider.drawnDays(feed: feed, ticked: ticked, wanted: wanted, today: todayStr(),
-                                              tickedAt: tickedAt, now: Date().timeIntervalSince1970),
+                                              tickedAt: tickedAt, now: nowEpoch, nowHM: Provider.hm(nowEpoch)),
                      clock24: feed.clock24 ?? false,
                      state: state)
     }
@@ -453,9 +485,17 @@ struct Provider: AppIntentTimelineProvider {
     /// just-ticked, which is both what the older callers mean and what a tick
     /// queued by a previous build should do rather than vanishing on upgrade.
     static func drawnDays(feed: Feed, ticked: Set<String>, wanted: Set<String>, today: String,
-                          tickedAt: [String: Double] = [:], now: Double = Date().timeIntervalSince1970) -> [DaySection] {
+                          tickedAt: [String: Double] = [:], now: Double = Date().timeIntervalSince1970,
+                          nowHM: String? = nil) -> [DaySection] {
         let days: [DaySection] = (feed.days ?? []).compactMap { day in
             let lines = day.lines.compactMap { l -> Line? in
+                // An event leaves the card once its resolved end has passed
+                // (Sean, 2026-08-19) — core already decided WHEN (line.end:
+                // the end, or an hour past a bare start; nil never leaves).
+                // Only today's clock can pass a time, so only today expires.
+                // `nowHM` nil means the caller has no clock — old checker
+                // call sites and the placeholder — and nothing expires.
+                if let leave = l.end, let hm = nowHM, day.date == today, leave <= hm { return nil }
                 // A queued tick used to remove the row outright, which left
                 // nothing to undo — Sean asked for the ability to uncheck a
                 // mis-tap "in all apps", and this was the surface with no way

@@ -949,3 +949,207 @@ function handle_recipe_fetch(array $cfg, array $in): never
     }
     reply(200, ['ok' => true, 'html' => $body]);
 }
+
+// ---------------------------------------------------------------- meeting requests
+//
+// The public request page (Sean, 2026-08-19): anyone with the link may ask
+// for ~1 hour between 10am and 8pm, on any day his calendar leaves open. The
+// slot arithmetic lives HERE rather than in core — a deliberate exception to
+// "behavior lives in core": an anonymous create must be validated by the
+// server against the same rule the page drew, and a rule the server cannot
+// run is a rule it cannot enforce. core/src/meetreq.ts owns the client half
+// (what accepting builds) and says the same thing from its side.
+//
+// A granted request is appended to the OWNER'S OWN STORE as a `meetreq`
+// record, so it reaches every device through ordinary sync — no new channel,
+// no polling endpoint, and accept/decline/new-time are ordinary record edits
+// made by his client.
+
+const MEETREQ_START = 10;      // requestable window, local hours
+const MEETREQ_END   = 20;      // exclusive: the last ~1h slot starts at 19:00
+const MEETREQ_IP_MAX = 5;      // creates per IP per hour — it is a public write
+const MEETREQ_PENDING_MAX = 200; // a flood must not balloon the store
+
+function meetreq_user(array $cfg): string
+{
+    // Whose calendar the public page offers. One account per instance is the
+    // reality (there is no prod instance and the test one is Sean's); the
+    // config key exists so that fact lives in one place.
+    return (string) ($cfg['meetreq_user'] ?? 'sean');
+}
+
+/** The day's busy windows as [startMin, endMin), from the owner's events.
+ *  Timeless events do not block — a day-marker ("Recycling") is not a
+ *  meeting — and neither do pending requests: only an ACCEPTED one has
+ *  become an event, and letting raw requests block slots would let anyone
+ *  squat the calendar by asking. */
+function meetreq_busy(array $cfg, string $user, string $date): array
+{
+    $db   = store_read($cfg, records_file($cfg, $user));
+    $recs = is_array($db['recs'] ?? null) ? $db['recs'] : [];
+    $busy = [];
+    foreach ($recs as $r) {
+        if (($r['type'] ?? '') !== 'event' || !empty($r['deleted'])) { continue; }
+        $p = $r['payload'] ?? [];
+        if (($p['date'] ?? '') !== $date) { continue; }
+        $t = (string) ($p['time'] ?? '');
+        if (!preg_match('/^(\d{2}):(\d{2})$/', $t, $m)) { continue; }
+        $s = (int) $m[1] * 60 + (int) $m[2];
+        $e = $s + 60;
+        $endRaw = (string) ($p['end'] ?? '');
+        if (preg_match('/^(\d{2}):(\d{2})$/', $endRaw, $me)) {
+            $em = (int) $me[1] * 60 + (int) $me[2];
+            // An end past midnight reads as the small hours (the event model's
+            // own rule); for blocking purposes that is "until the day ends".
+            $e = $em > $s ? $em : 24 * 60;
+        }
+        $busy[] = [$s, $e];
+    }
+    return $busy;
+}
+
+/** Which 'HH:00' starts are open on one day. Past days and passed hours are
+ *  closed; a slot is open when no busy window overlaps its hour. */
+function meetreq_slots_for(array $cfg, string $user, string $date): array
+{
+    $today = date('Y-m-d');
+    if ($date < $today) { return []; }
+    $nowMin = $date === $today ? ((int) date('G')) * 60 + (int) date('i') : -1;
+    $busy = meetreq_busy($cfg, $user, $date);
+    $out = [];
+    for ($h = MEETREQ_START; $h < MEETREQ_END; $h++) {
+        $s = $h * 60;
+        if ($s <= $nowMin) { continue; }
+        $blocked = false;
+        foreach ($busy as [$bs, $be]) {
+            if ($bs < $s + 60 && $be > $s) { $blocked = true; break; }
+        }
+        if (!$blocked) { $out[] = sprintf('%02d:00', $h); }
+    }
+    return $out;
+}
+
+/** PUBLIC: the open slots for a run of days — what the request page draws.
+ *  Only open/closed leaves here: no titles, no ids, no exact busy times. */
+function handle_meetreq_slots(array $cfg, array $in): never
+{
+    $user = (string) ($in['user'] ?? '') !== '' ? (string) $in['user'] : meetreq_user($cfg);
+    if (!preg_match(USERNAME_RE, $user)) { fail(400, 'bad user'); }
+    $from = (string) ($in['from'] ?? date('Y-m-d'));
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $from)) { fail(400, 'bad from'); }
+    $days = min(45, max(1, (int) ($in['days'] ?? 31)));
+    $out = [];
+    for ($i = 0; $i < $days; $i++) {
+        $d = date('Y-m-d', strtotime("$from +$i day"));
+        $out[$d] = meetreq_slots_for($cfg, $user, $d);
+    }
+    usage_log($cfg, 'meetreq_slots', $user);
+    reply(200, ['ok' => true, 'start' => MEETREQ_START, 'end' => MEETREQ_END, 'days' => $out]);
+}
+
+/** PUBLIC: create a request. Validated against the same slot rule the page
+ *  drew — never trust the client's idea of "open". */
+function handle_meetreq_create(array $cfg, array $in): never
+{
+    $user  = (string) ($in['user'] ?? '') !== '' ? (string) $in['user'] : meetreq_user($cfg);
+    if (!preg_match(USERNAME_RE, $user)) { fail(400, 'bad user'); }
+    $name  = trim(preg_replace('/[\x00-\x1f\x7f]/', '', (string) ($in['name'] ?? '')));
+    $email = trim((string) ($in['email'] ?? ''));
+    $date  = (string) ($in['date'] ?? '');
+    $time  = (string) ($in['time'] ?? '');
+    if ($name === '' || mb_strlen($name) > 80) { fail(400, 'a name is required (up to 80 characters)'); }
+    if (strlen($email) > 120 || !filter_var($email, FILTER_VALIDATE_EMAIL)) { fail(400, 'a real email is required'); }
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) { fail(400, 'bad date'); }
+    if (!preg_match('/^(\d{2}):00$/', $time, $m) || (int) $m[1] < MEETREQ_START || (int) $m[1] >= MEETREQ_END) {
+        fail(400, 'meetings run 10am to 8pm, on the hour');
+    }
+
+    // A public write gets a per-IP throttle — the same posture as login's
+    // lockouts, sized for a human politely rescheduling, not a script.
+    $ip = (string) ($_SERVER['REMOTE_ADDR'] ?? '-');
+    $now = time();
+    $granted = with_lock($cfg, 'meetreq-ips', function () use ($cfg, $ip, $now) {
+        $f = $cfg['data_dir'] . '/meetreq-ips.json';
+        $all = store_read($cfg, $f);
+        $mine = array_values(array_filter($all[$ip] ?? [], fn($t) => $t > $now - 3600));
+        if (count($mine) >= MEETREQ_IP_MAX) { return false; }
+        $mine[] = $now;
+        $all[$ip] = $mine;
+        // Prune dead IPs so the file cannot grow without bound.
+        foreach ($all as $k => $ts) {
+            $ts = array_values(array_filter($ts, fn($t) => $t > $now - 3600));
+            if ($ts === []) { unset($all[$k]); } else { $all[$k] = $ts; }
+        }
+        store_write($cfg, $f, $all);
+        return true;
+    });
+    if (!$granted) { fail(429, 'too many requests from here — try again in an hour'); }
+
+    // An account that does not exist gets a quiet ok and no write: which
+    // usernames exist is nobody's business (recover's rule), and the real
+    // page always carries a real user.
+    $accounts = store_read($cfg, accounts_file($cfg));
+    if (!isset($accounts[$user])) {
+        usage_log($cfg, 'meetreq_create_orphan', $user);
+        reply(200, ['ok' => true]);
+    }
+
+    if (!in_array($time, meetreq_slots_for($cfg, $user, $date), true)) {
+        fail(409, 'that time is no longer open — pick another');
+    }
+
+    with_lock($cfg, 'records-' . $user, function () use ($cfg, $user, $name, $email, $date, $time) {
+        $db   = store_read($cfg, records_file($cfg, $user));
+        $seq  = (int) ($db['seq'] ?? 0);
+        $recs = is_array($db['recs'] ?? null) ? $db['recs'] : [];
+        $pending = 0;
+        foreach ($recs as $r) {
+            if (($r['type'] ?? '') === 'meetreq' && empty($r['deleted'])) { $pending++; }
+        }
+        if ($pending >= MEETREQ_PENDING_MAX) { fail(429, 'the calendar is not taking requests right now'); }
+        $id = 'mr' . bin2hex(random_bytes(5));
+        $recs[$id] = [
+            'id' => $id, 'type' => 'meetreq',
+            'updated' => (int) (microtime(true) * 1000), 'deleted' => false,
+            'payload' => ['name' => $name, 'email' => $email, 'date' => $date, 'time' => $time, 'status' => 'new'],
+            'seq' => ++$seq,
+        ];
+        store_write($cfg, records_file($cfg, $user), ['seq' => $seq, 'recs' => $recs]);
+    });
+    // STUB — a notification to the owner would fire here when notifications
+    // exist ("no notifications or badges for now", Sean, 2026-08-19). The
+    // record reaching his devices through sync is the whole signal today.
+    usage_log($cfg, 'meetreq_create', $user);
+    reply(200, ['ok' => true]);
+}
+
+/**
+ * The email answer, STUBBED the way mail_code is: the line always lands in
+ * meetreq-mail.log, and a real send happens only once the host is configured
+ * to send ("i can't fire off emails right now but we'll fix that later" —
+ * Sean, 2026-08-19; flipping cfg['send_mail'] is the later). Authenticated:
+ * it is the OWNER'S client answering a request, never the public page.
+ */
+function handle_meetreq_mail(array $cfg, array $in): never
+{
+    $user = require_auth($cfg);
+    $to   = trim((string) ($in['to'] ?? ''));
+    $kind = (string) ($in['kind'] ?? '');
+    $when = trim((string) ($in['when'] ?? ''));
+    if (!filter_var($to, FILTER_VALIDATE_EMAIL)) { fail(400, 'bad to'); }
+    if (!in_array($kind, ['accepted', 'declined', 'newtime'], true)) { fail(400, 'bad kind'); }
+    $lines = [
+        'accepted' => "Your meeting request was accepted: $when (about an hour).",
+        'declined' => 'Your meeting request was declined.',
+        'newtime'  => "A different time was proposed for your meeting: $when (about an hour).",
+    ];
+    $how = 'log-only';
+    if (!empty($cfg['send_mail'])) {
+        $ok  = @mail($to, 'Your meeting request', $lines[$kind] . "\n");
+        $how = $ok ? 'mailed' : 'MAIL REFUSED';
+    }
+    $line = date('c') . "  by=$user  to=$to  kind=$kind  when=$when  $how\n";
+    @file_put_contents($cfg['data_dir'] . '/meetreq-mail.log', $line, FILE_APPEND | LOCK_EX);
+    usage_log($cfg, 'meetreq_mail', $user);
+    reply(200, ['ok' => true, 'sent' => $how]);
+}

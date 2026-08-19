@@ -57,6 +57,11 @@ match ((string) ($in['action'] ?? '')) {
     'sync'            => handle_sync($cfg, $in),
     'recipe_fetch'    => handle_recipe_fetch($cfg, $in),
     'calsub_fetch'    => handle_calsub_fetch($cfg, $in),
+    // The meeting-request pair is PUBLIC (the page is a link anyone may
+    // hold); the mail answer is the owner's client and requires auth.
+    'meetreq_slots'   => handle_meetreq_slots($cfg, $in),
+    'meetreq_create'  => handle_meetreq_create($cfg, $in),
+    'meetreq_mail'    => handle_meetreq_mail($cfg, $in),
     'passkey_register_begin'  => handle_passkey_register_begin($cfg),
     'passkey_register_finish' => handle_passkey_register_finish($cfg, $in),
     'passkey_login_begin'     => handle_passkey_login_begin($cfg),

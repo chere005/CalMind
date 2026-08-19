@@ -118,6 +118,22 @@ export type Prefs = {
 
 export type FolderMode = 'all' | 'dated' | 'none';
 
+/**
+ * A meeting request from the PUBLIC request page (Sean, 2026-08-19) —
+ * appended to the owner's store by the anonymous server endpoint, never
+ * written by the app's own editors. `status` is 'new' until the owner
+ * proposes a different time ('proposed'); accept and decline both END the
+ * record (an event is born / a tombstone is planted), so neither is a
+ * status.
+ */
+export type MeetReq = {
+  name: string;
+  email: string;
+  date: string; // 'YYYY-MM-DD'
+  time: string; // 'HH:MM' 24-hour start; the meeting is ~1 hour by contract
+  status?: 'new' | 'proposed';
+};
+
 /** A calendar subscribed BY LINK, read-only (Sean, 2026-08-18: "subscribe-by-
  *  link first, i just want read only access to other calendar system"). The
  *  record is only the pointer — url, name, colour, its place in the picker.
@@ -138,7 +154,8 @@ export type RecType =
   | 'tick'
   | 'pref'
   | 'share'
-  | 'calsub';
+  | 'calsub'
+  | 'meetreq';
 
 export type PayloadOf = {
   folder: Folder;
@@ -153,6 +170,7 @@ export type PayloadOf = {
   pref: Prefs;
   share: Share;
   calsub: CalSub;
+  meetreq: MeetReq;
 };
 
 /** The suite's shares file as one singleton record (id 'share'): who I name

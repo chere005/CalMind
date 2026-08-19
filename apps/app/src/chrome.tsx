@@ -13,6 +13,7 @@ import { useStore } from './store';
 import { themed, T } from './theme';
 import { CircleBtn, Rule, TOPBAR_CTRL, TOPBAR_MARGIN_TOP } from './ui';
 import { Settings } from './screens/Settings';
+import { Requests } from './screens/Requests';
 import { syncLook } from './components/SyncDot';
 import { useToast } from './components/Toast';
 import { useNav } from './nav';
@@ -52,6 +53,7 @@ export function TopBar({
   const { session, signOut, undoLastDelete, syncState, persistFailed, refusedLabels } = useStore();
   const [menuOpen, setMenuOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [requestsOpen, setRequestsOpen] = useState(false);
   /**
    * What just happened, said in a popup in the middle of the screen.
    *
@@ -196,6 +198,13 @@ export function TopBar({
               <Pressable style={s.menuRow} onPress={() => { setMenuOpen(false); setSettingsOpen(true); }}>
                 <Text style={s.menuText}>Settings</Text>
               </Pressable>
+              {/* What the public /request link brought in (Sean, 2026-08-19).
+                  STUB: no badge on this row or the account button yet ("no
+                  notifications or badges for now") — core's meetreqBadgeCount
+                  is the number either would wear when they arrive. */}
+              <Pressable testID="menu-requests" style={s.menuRow} onPress={() => { setMenuOpen(false); setRequestsOpen(true); }}>
+                <Text style={s.menuText}>Requests</Text>
+              </Pressable>
               {/* Sean, 2026-08-11. It says what came BACK rather than just
                   closing: the deleted thing is by definition not on screen,
                   so a silent restore looks like nothing happened — and if it
@@ -229,6 +238,7 @@ export function TopBar({
         </Modal>
       )}
       {settingsOpen && <Settings onClose={() => setSettingsOpen(false)} />}
+      {requestsOpen && <Requests onClose={() => setRequestsOpen(false)} />}
     </>
   );
 }
