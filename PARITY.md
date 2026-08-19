@@ -2017,3 +2017,31 @@ evening:
   saw the signed-in account from the CLI, even unsandboxed. The watch is
   still owed: 50+ direct-install attempts, all tunnel errors (4000/3002/
   NWError 60), none the locked-wrist kind.
+
+### The recipe becomes a PLACE in the note, 2026-08-18 late
+
+The rest of Sean's recipe message, same night:
+
+- **Rendered, the recipe sits in an inset card** — left-quoted in the
+  accent, tagged *Recipe* in italic caps — with the note's own prose on the
+  banks above and below. `splitRecipeBody` in core finds the marker region
+  (Ingredients through the last numbered step); everything else is bank.
+- **Editing, the recipe is ONE quiet blob** between two editable banks: a
+  small quoted chip naming the first ingredients, deliberately never as tall
+  as the recipe. There is no way to delete it from the body editor — its
+  content is the Recipe page's business, and tapping the blob opens exactly
+  that. The banks keep their own drafts (a canonical join would eat the
+  trailing newline mid-thought), and a focus hop between them does not read
+  as leaving the editor (120ms fuse, defused by the sibling's focus).
+  The editor's SHAPE is decided when editing opens, never mid-keystroke —
+  typing markers into a plain note must not swap the field under the hand.
+- **Tap an ingredient or a step and it becomes a reminder**, today by
+  default, through the same item sheet as everywhere — prefilled with the
+  line, manual-beats-parsed applying to whatever is typed over it. Own notes
+  only: a partner's line would write to THEIR store, so shared notes render
+  the card without the tap.
+- The scaled view keeps its promise (tap ≠ editor) — the spec now taps the
+  CORNER, because the centre of a recipe body is an ingredient row and
+  tapping that opens the reminder sheet by design.
+- e2e/recipecard.spec.ts drives all five: card, banks, blob-opens-Recipe,
+  ingredient→reminder, step→reminder.

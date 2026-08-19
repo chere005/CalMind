@@ -50,19 +50,23 @@ test('scaling reads the recipe differently and writes nothing', async ({ page })
   await expect(body, '20-25 minutes is a time, not a yield').toContainText('Bake 20-25 minutes at 425°');
 
   // While scaled, the text on screen is not the text in the note — so tapping
-  // must not drop you into an editor showing something else.
-  await body.click();
+  // must not drop you into an editor showing something else. The corner, not
+  // the centre: the centre is an ingredient row now, and tapping THAT opens
+  // the tap-to-remind sheet by design (Sean, 2026-08-18).
+  await body.click({ position: { x: 10, y: 10 } });
   await expect(page.getByTestId('note-body-edit')).toHaveCount(0);
 
   await page.getByTestId('scale-half').click();
   await expect(body.getByTestId('ing-unit')).toHaveText(['1 cup', '1']);
   await expect(body, 'half of two eggs is one egg, not one eggs').toContainText('egg, beaten');
 
-  // Back to 1x: the note is exactly as written, and editable again.
+  // Back to 1x: the note is exactly as written — the badges read the stored
+  // measures — and editable again, the recipe standing as the un-deletable
+  // blob between its two banks (the composite editor, 2026-08-18).
   await page.getByTestId('scale-one').click();
   await expect(body.getByTestId('ing-unit')).toHaveText(['2 cups', '2']);
-  await body.click();
-  await expect(page.getByTestId('note-body-edit')).toHaveValue(BODY);
+  await body.click({ position: { x: 10, y: 10 } });
+  await expect(page.getByTestId('recipe-blob')).toBeVisible();
 });
 
 test('scaling never reaches the stored recipe, even through the Recipe editor', async ({ page }) => {

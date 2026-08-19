@@ -417,6 +417,54 @@ export function recipeFromPages(pages: string[]): RecipeParts {
   return { title: flat.title, ingredients, steps, extra };
 }
 
+/**
+ * The marker region as ONE PIECE of the note — for the inset card the
+ * rendered note draws and the un-deletable blob the editor shows (Sean,
+ * 2026-08-18: "the recipe itself should be a single blob… text can go above
+ * or below the blob but it can't be removed itself"). The region runs from
+ * the **Ingredients** heading through the last line still wearing the marker
+ * shape — bullets under Ingredients, the **Directions** heading, numbered
+ * steps — and everything before and after is the note's own prose. null on a
+ * note that carries no marker, which is every note the Recipe page never
+ * touched.
+ */
+export function splitRecipeBody(body: string): { before: string; recipe: string; after: string } | null {
+  const lines = body.split('\n');
+  const start = lines.findIndex((l) => /^\*\*Ingredients\*\*$/i.test(l.trim()));
+  if (start < 0) return null;
+  let end = start + 1; // exclusive; blank lines join only if the shape resumes
+  let block: 'ing' | 'steps' = 'ing';
+  for (let i = start + 1; i < lines.length; i++) {
+    const l = lines[i]!.trim();
+    if (l === '') continue;
+    if (/^\*\*Directions\*\*$/i.test(l)) {
+      block = 'steps';
+      end = i + 1;
+      continue;
+    }
+    if (block === 'ing' && l.startsWith('- ')) {
+      end = i + 1;
+      continue;
+    }
+    if (block === 'steps' && /^\d+[.)]\s/.test(l)) {
+      end = i + 1;
+      continue;
+    }
+    break;
+  }
+  return {
+    before: lines.slice(0, start).join('\n').trim(),
+    recipe: lines.slice(start, end).join('\n').trim(),
+    after: lines.slice(end).join('\n').trim(),
+  };
+}
+
+/** The split, put back: the shape recipeBody itself writes — blank lines
+ *  between the pieces, none doubled, nothing invented. */
+export function joinRecipeBody(before: string, recipe: string, after: string): string {
+  return [before.trim(), recipe.trim(), after.trim()].filter(Boolean).join('\n\n');
+}
+
 /* ── Scaling ──────────────────────────────────────────────────────────────
  * Halving or doubling is the one arithmetic a recipe actually asks of you,
  * and it is exactly the arithmetic nobody wants to do holding a phone with

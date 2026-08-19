@@ -5,7 +5,7 @@
  * seam the spec cannot carry — the date FIELD accepting a weekday too.
  */
 import { describe, it, expect } from 'vitest';
-import { parseDateField, parseWhenFromText, timeLabel, timePlus, timeRangeLabel } from '../src/index';
+import { joinRecipeBody, parseDateField, parseWhenFromText, splitRecipeBody, timeLabel, timePlus, timeRangeLabel } from '../src/index';
 
 describe('timePlus — the presumed end', () => {
   it('adds an hour', () => expect(timePlus('15:00', 60)).toBe('16:00'));
@@ -62,5 +62,35 @@ describe('manual-beats-parsed: the lift switches', () => {
     expect(text).toBe('lunch');
     expect(d).toBe('2026-08-21');
     expect(t).toBe('15:00');
+  });
+});
+
+describe('splitRecipeBody — the blob and its banks', () => {
+  const RECIPE = '**Ingredients**\n- 2 cups flour\n- a pinch of salt\n\n**Directions**\n1. Whisk.\n2. Fry.';
+  it('a bare marker body is all recipe', () => {
+    const s = splitRecipeBody(RECIPE)!;
+    expect(s.before).toBe('');
+    expect(s.recipe).toBe(RECIPE);
+    expect(s.after).toBe('');
+  });
+  it('prose above and below stays on its own banks', () => {
+    const body = `About tonight.\n\n${RECIPE}\n\nGrandma doubled the butter.\n*From http://x*`;
+    const s = splitRecipeBody(body)!;
+    expect(s.before).toBe('About tonight.');
+    expect(s.recipe).toBe(RECIPE);
+    expect(s.after).toBe('Grandma doubled the butter.\n*From http://x*');
+  });
+  it('a note with no marker is not split at all', () => {
+    expect(splitRecipeBody('milk\neggs\nbread')).toBeNull();
+  });
+  it('join is split, undone', () => {
+    const body = `above\n\n${RECIPE}\n\nbelow`;
+    const s = splitRecipeBody(body)!;
+    expect(joinRecipeBody(s.before, s.recipe, s.after)).toBe(body);
+  });
+  it('a prose line ends the steps — it is the far bank, not step three', () => {
+    const s = splitRecipeBody(`${RECIPE}\nServe warm to whoever deserves it.`)!;
+    expect(s.recipe).toBe(RECIPE);
+    expect(s.after).toBe('Serve warm to whoever deserves it.');
   });
 });

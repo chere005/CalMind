@@ -43,6 +43,7 @@ export function ItemModal({
   kind: kind0,
   rec,
   date: date0,
+  text0,
   onClose,
   onSaved,
 }: {
@@ -50,6 +51,9 @@ export function ItemModal({
   kind: ItemKind;
   rec?: ItemRec;
   date?: string;
+  /** Pre-filled line for create mode — a tapped recipe ingredient or step
+   *  arriving as a reminder-to-be (Sean, 2026-08-18). */
+  text0?: string;
   onClose: () => void;
   onSaved?: (id: string, kind: ItemKind) => void;
 }) {
@@ -71,8 +75,8 @@ export function ItemModal({
         dest: rec.type === 'event' ? (rec.payload as Rec<'event'>['payload']).calendarId : (rec.payload as Rec<'reminder'>['payload']).sectionId,
       };
     }
-    return { text: '', date: date0 ?? null, time: null, end: null, repeat: null, dest: null as string | null };
-  }, [mode, rec, date0]);
+    return { text: text0 ?? '', date: date0 ?? null, time: null, end: null, repeat: null, dest: null as string | null };
+  }, [mode, rec, date0, text0]);
 
   const [text, setText] = useState(init.text);
   const [date, setDate] = useState<string | null>(init.date);

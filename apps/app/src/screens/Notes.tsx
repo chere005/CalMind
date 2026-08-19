@@ -6,7 +6,7 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { defaultNoteTitle, looksLikeDefaultNoteTitle, deleteSection, renameSection, sectionNameTaken, byRecOrd, ingredientParts, richLines, scaleRecipeBody, duplicateItem, prefsPut, moveNote, moveSection, moveSectionEmptyingFolder, newId, nowStr, ordBetween, parseDateField, parseWhenFromText, todayStr, type Rec } from '@calmind/core';
+import { defaultNoteTitle, looksLikeDefaultNoteTitle, deleteSection, renameSection, sectionNameTaken, byRecOrd, ingredientParts, joinRecipeBody, richLines, scaleRecipeBody, splitRecipeBody, duplicateItem, prefsPut, moveNote, moveSection, moveSectionEmptyingFolder, newId, nowStr, ordBetween, parseDateField, parseWhenFromText, todayStr, type Rec } from '@calmind/core';
 import * as Clipboard from 'expo-clipboard';
 import { useStore } from '../store';
 import { UnitBadge } from '../components/IngredientBadge';
@@ -24,6 +24,7 @@ import { SyncDot, syncWord } from '../components/SyncDot';
 import { useToast } from '../components/Toast';
 import { EditExit } from '../components/EditExit';
 import { RecipeEditor } from './RecipeEditor';
+import { ItemModal } from '../components/ItemModal';
 
 // Half, as written, and double — the three a cook actually asks for.
 // The id stays ASCII: it reaches native as an accessibility identifier, and
@@ -66,7 +67,7 @@ function useNoteScoped<T>(noteId: string | null, initial: T): [T, React.Dispatch
  * the caller hands in the already-scaled body, so the badge reads "3 cups"
  * at 1½× exactly as the text used to.
  */
-function RichBody({ body }: { body: string }) {
+function RichBody({ body, onLine }: { body: string; onLine?: (text: string) => void }) {
   let inIngredients = false;
   return (
     <>
@@ -75,27 +76,61 @@ function RichBody({ body }: { body: string }) {
         if (boldHead) inIngredients = /^ingredients$/i.test(ln.runs[0]!.text.trim());
         const raw = ln.runs.map((r) => r.text).join('');
         const parts = !boldHead && inIngredients && ln.kind === 'bullet' ? ingredientParts(raw) : null;
+        // Tap an ingredient or a step and it becomes a REMINDER (Sean,
+        // 2026-08-18) — only where the caller offers the handler, which is
+        // the recipe card of your own note and nowhere else.
+        const press = onLine && !boldHead && (ln.kind === 'number' || (inIngredients && ln.kind === 'bullet'))
+          ? () => onLine(raw)
+          : undefined;
+        const content = parts?.qty ? (
+          <>
+            <Text style={s.rtText}>{parts.name || raw}</Text>
+            <UnitBadge qty={parts.qty} unit={parts.unit} />
+          </>
+        ) : (
+          <Text style={[s.rtText, ln.kind === 'quote' && s.rtQuoteText]}>
+            {ln.runs.map((r, j) => (
+              <Text key={j} style={[r.bold && s.rtBold, r.italic && s.rtItalic, r.under && s.rtUnder]}>
+                {r.text || (ln.runs.length === 1 ? ' ' : '')}
+              </Text>
+            ))}
+          </Text>
+        );
         return (
           <View key={i} style={[s.rtLine, ln.kind === 'quote' && s.rtQuote, ln.kind === 'number' && s.rtStep]}>
             {ln.kind === 'bullet' && <Text style={s.rtDot}>•</Text>}
             {ln.kind === 'number' && <Text style={s.rtNum}>{ln.num}</Text>}
-            {parts?.qty ? (
-              <>
-                <Text style={s.rtText}>{parts.name || raw}</Text>
-                <UnitBadge qty={parts.qty} unit={parts.unit} />
-              </>
+            {press ? (
+              <Pressable testID="recipe-line" style={s.rtPress} onPress={press}>
+                {content}
+              </Pressable>
             ) : (
-              <Text style={[s.rtText, ln.kind === 'quote' && s.rtQuoteText]}>
-                {ln.runs.map((r, j) => (
-                  <Text key={j} style={[r.bold && s.rtBold, r.italic && s.rtItalic, r.under && s.rtUnder]}>
-                    {r.text || (ln.runs.length === 1 ? ' ' : '')}
-                  </Text>
-                ))}
-              </Text>
+              content
             )}
           </View>
         );
       })}
+    </>
+  );
+}
+
+/**
+ * The whole rendered body: prose on its banks, the recipe as an INSET card
+ * (Sean, 2026-08-18: "recipes should have a nice inset formatting in the
+ * note"). A note with no marker renders exactly as before; the tap-to-remind
+ * handler reaches only the card's rows.
+ */
+function NoteBody({ body, onLine }: { body: string; onLine?: (text: string) => void }) {
+  const split = splitRecipeBody(body);
+  if (!split) return <RichBody body={body} />;
+  return (
+    <>
+      {split.before !== '' && <RichBody body={split.before} />}
+      <View testID="recipe-card" style={s.recipeCard}>
+        <Text style={s.recipeTag}>Recipe</Text>
+        <RichBody body={split.recipe} onLine={onLine} />
+      </View>
+      {split.after !== '' && <RichBody body={split.after} />}
     </>
   );
 }
@@ -122,6 +157,33 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
   // written, and 1× is always one tap away.
   const [scale, setScale] = useNoteScoped(openId, 1);
   const [recipeOpen, setRecipeOpen] = useNoteScoped(openId, false);
+  // The recipe-note editor splits into [above][blob][below] (Sean,
+  // 2026-08-18): the blob is the marker region, not editable here and not
+  // removable at all — its content is the Recipe page's business. The two
+  // banks keep their own drafts so a trailing newline mid-thought is not
+  // trimmed away by the canonical join the STORE receives.
+  const [beforeDraft, setBeforeDraft] = useNoteScoped<string | null>(openId, null);
+  const [afterDraft, setAfterDraft] = useNoteScoped<string | null>(openId, null);
+  // A hop between the two banks must not read as leaving the editor: each
+  // blur arms a short fuse, the other's focus defuses it.
+  const partsBlurTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const partFocus = () => {
+    if (partsBlurTimer.current) {
+      clearTimeout(partsBlurTimer.current);
+      partsBlurTimer.current = null;
+    }
+  };
+  const partBlur = () => {
+    partsBlurTimer.current = setTimeout(() => {
+      partsBlurTimer.current = null;
+      setBodyEditing(false);
+      setDraft(null);
+      setBeforeDraft(null);
+      setAfterDraft(null);
+    }, 120);
+  };
+  // What a tapped ingredient or step is becoming: the reminder sheet's text.
+  const [remindText, setRemindText] = useState<string | null>(null);
 
   const swipe = useSwipeLeft();
   // The suite's page edit mode: long-press a row to enter, tap away or
@@ -260,6 +322,10 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
   // fires on a device; on web it is a harmless no-op over autoFocus.
   const bodyRef = React.useRef<TextInput | null>(null);
   const titleRef = React.useRef<TextInput | null>(null);
+  // Whether THIS editing session opened on a recipe note — decided when the
+  // editor opens, never re-decided mid-keystroke, or typing markers into a
+  // plain note would swap the field out from under the typing hand.
+  const editAsRecipe = React.useRef(false);
   // The pending body focus, so leaving the note — or a TITLE TAP — can call
   // it off. The cancel-on-title-focus was tried once and rejected ("no hand
   // is that fast"); Sean settled it the other way on 2026-08-18: "tapping
@@ -286,6 +352,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
       // it in the title made you dismiss a keyboard to write anything.
       // The field does not exist until this has rendered, so the focus call
       // waits a tick rather than racing the mount.
+      editAsRecipe.current = false; // a note just made has no marker yet
       setBodyEditing(true);
       freshFocus.current = setTimeout(() => {
         freshFocus.current = null;
@@ -585,6 +652,8 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
                 if (bodyEditing) {
                   setBodyEditing(false);
                   setDraft(null);
+                  setBeforeDraft(null);
+                  setAfterDraft(null);
                 }
               }}
               onBlur={() => {
@@ -670,7 +739,55 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
               {scale !== 1 && <Text style={s.scaleNote}>Scaled — 1× to edit</Text>}
             </View>
           )}
-          {bodyEditing ? (
+          {bodyEditing && editAsRecipe.current ? (
+            (() => {
+              const es = splitRecipeBody(open.payload.body)!;
+              const put = (before: string, after: string) =>
+                mutate((e) => e.put({ ...open, payload: { ...open.payload, body: joinRecipeBody(before, es.recipe, after) } }));
+              return (
+                <View style={s.body}>
+                  <TextInput
+                    ref={bodyRef}
+                    testID="note-body-before"
+                    style={s.bodyBank}
+                    value={beforeDraft ?? es.before}
+                    placeholder="Write above the recipe…"
+                    placeholderTextColor={T.muted}
+                    multiline
+                    onFocus={partFocus}
+                    onBlur={partBlur}
+                    onChangeText={(t) => {
+                      setBeforeDraft(t);
+                      put(t, afterDraft ?? es.after);
+                    }}
+                  />
+                  {/* The recipe, as ONE quiet blob — quoted, italic, small,
+                      and not deletable from here: its content is the Recipe
+                      page's business, which tapping it opens. */}
+                  <Pressable testID="recipe-blob" style={s.recipeBlob} onPress={() => setRecipeOpen(true)}>
+                    <Text style={s.recipeTag}>Recipe</Text>
+                    <Text style={s.recipeBlobHint} numberOfLines={2}>
+                      {es.recipe.split('\n').filter((l) => l.startsWith('- ')).slice(0, 3).map((l) => l.slice(2)).join(' · ') || 'Open the recipe'}
+                    </Text>
+                  </Pressable>
+                  <TextInput
+                    testID="note-body-after"
+                    style={s.bodyBank}
+                    value={afterDraft ?? es.after}
+                    placeholder="Write below the recipe…"
+                    placeholderTextColor={T.muted}
+                    multiline
+                    onFocus={partFocus}
+                    onBlur={partBlur}
+                    onChangeText={(t) => {
+                      setAfterDraft(t);
+                      put(beforeDraft ?? es.before, t);
+                    }}
+                  />
+                </View>
+              );
+            })()
+          ) : bodyEditing ? (
             <TextInput
               ref={bodyRef}
               testID="note-body-edit"
@@ -704,11 +821,13 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
                 // tapping must not drop you into an editor showing something
                 // else. 1× is right there.
                 if (scale !== 1) return;
+                editAsRecipe.current = splitRecipeBody(open.payload.body) !== null;
                 setDraft(open.payload.body);
                 setBodyEditing(true);
                 // The field does not exist until this has rendered — and the
                 // deferred focus rides the SAME ref as the fresh-note one, so
-                // a title tap inside the window calls this off too.
+                // a title tap inside the window calls this off too. A recipe
+                // note opens on its ABOVE bank, which is where prose goes.
                 cancelFreshFocus();
                 freshFocus.current = setTimeout(() => {
                   freshFocus.current = null;
@@ -719,12 +838,18 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
               {shownBody === '' ? (
                 <Text style={s.bodyPlaceholder}>Write…</Text>
               ) : (
-                <RichBody body={shownBody} />
+                <NoteBody body={shownBody} onLine={(t) => setRemindText(t)} />
               )}
             </Pressable>
           )}
 
           {recipeOpen && <RecipeEditor note={open} onClose={() => setRecipeOpen(false)} />}
+          {/* A tapped ingredient or step, on its way to being a reminder —
+              today by default, and the manual-beats-parsed rules apply to
+              whatever is typed over it (Sean, 2026-08-18). */}
+          {remindText !== null && (
+            <ItemModal mode="create" kind="reminder" text0={remindText} date={todayStr()} onClose={() => setRemindText(null)} />
+          )}
           {/* Saved sits bottom-left; the two-press delete bottom-right.
               It READS THE STATE now. It used to be the literal string 'Saved',
               which is a claim this screen was in no position to make: it said
@@ -1182,7 +1307,9 @@ function SharedNotes({ viewKey, partner }: { viewKey: string; partner: string })
                 setSharedBodyEdit(true);
               }}
             >
-              <RichBody body={sharedScale === 1 ? openShared.payload.body : scaleRecipeBody(openShared.payload.body, sharedScale)} />
+              {/* No tap-to-remind here: a reminder made of a partner's line
+                  would write to THEIR store, which a tap must never do. */}
+              <NoteBody body={sharedScale === 1 ? openShared.payload.body : scaleRecipeBody(openShared.payload.body, sharedScale)} />
             </Pressable>
           )}
         </Scroll>
@@ -1350,6 +1477,34 @@ const s = themed(() => StyleSheet.create({
   ocrBusy: { color: T.dim, fontSize: 13, alignSelf: 'center' },
   bodyPlaceholder: { color: T.muted, fontSize: 16, lineHeight: 24 },
   rtLine: { flexDirection: 'row', alignItems: 'flex-start' },
+  rtPress: { flex: 1, flexDirection: 'row', alignItems: 'flex-start' },
+  // The inset the rendered recipe sits in — quoted at the left edge, tagged
+  // in the accent's italic, its rows the tap-to-remind surface.
+  recipeCard: {
+    borderLeftWidth: 3,
+    borderLeftColor: T.accent,
+    backgroundColor: T.surface2,
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginVertical: 6,
+    gap: 2,
+  },
+  recipeTag: { color: T.accent, fontSize: 11, fontWeight: '800', fontStyle: 'italic', textTransform: 'uppercase', letterSpacing: 0.6 },
+  // The editor's version of the same thing, kept SMALL on purpose: one quiet
+  // quoted chip standing where the recipe is, never as tall as the recipe.
+  recipeBlob: {
+    borderLeftWidth: 3,
+    borderLeftColor: T.accent,
+    backgroundColor: T.surface2,
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginVertical: 8,
+    gap: 2,
+  },
+  recipeBlobHint: { color: T.dim, fontSize: 13, fontStyle: 'italic' },
+  bodyBank: { color: T.text, fontSize: 16, lineHeight: 24, minHeight: 56, textAlignVertical: 'top' },
   rtQuote: { borderLeftWidth: 3, borderLeftColor: '#a78bfa', paddingLeft: 10, marginVertical: 2 },
   rtQuoteText: { color: T.dim, fontStyle: 'italic' },
   rtDot: { color: T.dim, fontSize: 16, lineHeight: 24, marginRight: 8 },
