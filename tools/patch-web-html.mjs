@@ -80,10 +80,22 @@ if (add) html = html.replace('</head>', `${add}</head>`);
  * simulator webclip and Safari, 2026-08-19). A late uncaught error in a
  * rendered app is the app's problem to surface; this screen is only for the
  * boot that never drew anything, which is the one case with no other voice.
+ *
+ * AND IT RETRACTS. The desktop shell fires one fully scrubbed error on
+ * every boot — no message, no file, no line, "error undefined:undefined"
+ * on the screen — and whether it lands before or after the first paint is
+ * a race the SIZE OF THE ACCOUNT decides: a fresh profile rendered first
+ * and the guard held; Sean's real snapshot boots slower, the error won,
+ * the screen painted, and the app then finished booting UNDERNEATH it
+ * (2026-08-19, his report; both halves reproduced with a diagnostic build
+ * writing to localStorage). So after painting, the shout watches root: a
+ * render arriving afterwards falsifies "could not start", and the screen
+ * takes itself down. A boot that truly never draws keeps it forever, which
+ * is the case it exists for.
  */
 const ERR_ID = 'calmind-error-shout';
 if (!html.includes(ERR_ID)) {
-  const shout = `<script id="${ERR_ID}">(function(){var shown=0;function say(what){if(shown++)return;var r=document.getElementById('root');if(r&&r.firstChild)return;try{var d=document.createElement('pre');d.setAttribute('data-testid','fatal-error');d.style.cssText='position:fixed;inset:0;z-index:2147483647;margin:0;padding:16px;background:#111;color:#f6b4b2;font:12px/1.4 ui-monospace,monospace;white-space:pre-wrap;overflow:auto';d.textContent='CalMind could not start.\\n\\n'+what;(document.body||document.documentElement).appendChild(d);}catch(_){}}window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&(t.src||t.href)){say('failed to load: '+(t.src||t.href));return;}say((e&&e.message||'error')+'\\n'+((e&&e.error&&e.error.stack)||(e&&e.filename+':'+e.lineno)||''));},true);window.addEventListener('unhandledrejection',function(e){var r=e&&e.reason;say('unhandled rejection: '+((r&&r.message)||r)+'\\n'+((r&&r.stack)||''));});})();</script>`;
+  const shout = `<script id="${ERR_ID}">(function(){var shown=0;function say(what){if(shown++)return;var r=document.getElementById('root');if(r&&r.firstChild)return;try{var d=document.createElement('pre');d.setAttribute('data-testid','fatal-error');d.style.cssText='position:fixed;inset:0;z-index:2147483647;margin:0;padding:16px;background:#111;color:#f6b4b2;font:12px/1.4 ui-monospace,monospace;white-space:pre-wrap;overflow:auto';d.textContent='CalMind could not start.\\n\\n'+what;(document.body||document.documentElement).appendChild(d);var t=setInterval(function(){var r2=document.getElementById('root');if(r2&&r2.firstChild){clearInterval(t);if(d.parentNode)d.parentNode.removeChild(d);}},250);}catch(_){}}window.addEventListener('error',function(e){var t=e&&e.target;if(t&&t!==window&&(t.src||t.href)){say('failed to load: '+(t.src||t.href));return;}say((e&&e.message||'error')+'\\n'+((e&&e.error&&e.error.stack)||(e&&e.filename+':'+e.lineno)||''));},true);window.addEventListener('unhandledrejection',function(e){var r=e&&e.reason;say('unhandled rejection: '+((r&&r.message)||r)+'\\n'+((r&&r.stack)||''));});})();</script>`;
   html = html.replace('<head>', `<head>${shout}`);
 }
 

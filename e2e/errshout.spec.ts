@@ -61,6 +61,27 @@ test('an error AFTER the app rendered paints nothing over it', async ({ page }) 
   await expect(page.getByText('Sign in', { exact: true })).toBeVisible();
 });
 
+test('a shout painted BEFORE the render retracts when the render arrives', async ({ page }) => {
+  // The desktop shell's race (Sean, 2026-08-19): a scrubbed error fires on
+  // every boot, and on a big account it lands before the first paint — the
+  // fatal screen painted, and the app finished booting UNDERNEATH it,
+  // covered forever. The screen's claim is "could not start"; a render
+  // arriving afterwards falsifies it, and the screen must take itself down.
+  await page.goto('.');
+  await expect(page.getByText('Sign in', { exact: true })).toBeVisible({ timeout: 20_000 });
+  await page.evaluate(() => {
+    const root = document.getElementById('root')!;
+    const kids = [...root.childNodes];
+    root.replaceChildren(); // boot not yet drawn
+    setTimeout(() => { throw new Error('early and scrubbed-ish'); }, 0);
+    // The app "finishes booting" a moment later.
+    setTimeout(() => { for (const k of kids) root.appendChild(k); }, 400);
+  });
+  await expect(page.getByTestId('fatal-error')).toBeVisible({ timeout: 2_000 });
+  await expect(page.getByTestId('fatal-error')).toHaveCount(0, { timeout: 3_000 });
+  await expect(page.getByText('Sign in', { exact: true })).toBeVisible();
+});
+
 test('an ordinary page paints nothing at all', async ({ page }) => {
   await page.goto('.');
   await expect(page.getByText('Sign in', { exact: true })).toBeVisible({ timeout: 20_000 });

@@ -2189,3 +2189,33 @@ sibling: a tunnel error is not the only wall behind a tunnel error.
   extra widget can no longer hide a calendar from the wrist. Five new
   checker cases in check-widget-feed.sh, the aging one watched red with the
   filter gutted.
+
+### The mac was broken two ways, and both were checks that could not fail, 2026-08-19 night
+
+Sean: "CalMind could not start. error undefined:undefined" — then, one fix
+later, an app rendered in raw serif with default buttons. Two bugs, both
+mine from the CSP evening, both hidden by verifications that could not
+catch them:
+
+- **The fatal screen never retracted.** The desktop shell fires one fully
+  scrubbed error on every boot, and whether it lands before or after the
+  first paint is a race the size of the account decides: fresh test
+  profiles rendered first; Sean's real snapshot boots slower, the error
+  won, "could not start" painted — and the app finished booting UNDER it.
+  The shout now watches root after painting and takes itself down when a
+  render falsifies its claim (errshout.spec's new case, red before).
+- **The CSP was eating react-native-web's stylesheet.** Tauri appends
+  sha-hashes for the page's inline styles to style-src, and hashes make
+  browsers IGNORE 'unsafe-inline' — so the runtime-injected stylesheet was
+  refused and the app rendered unstyled. The browser replication had not
+  reproduced Tauri's hash injection, and the render beacon only checked
+  root.firstChild — an unstyled page passes both. Fixed with
+  dangerousDisableAssetCspModification: ["style-src"] (script hashing
+  stays), and verified by the check that CAN fail: a diagnostic build
+  reading getComputedStyle(#root>div).display out of the real WKWebView —
+  "flex", styled.
+
+The scrubbed boot error itself is still unexplained — recorded, harmless
+under the retraction, a hunt for a quieter evening. The lesson goes next
+to the others: a verification is only as good as its distance from the
+real thing, and both of tonight's stand-ins were one layer too far out.

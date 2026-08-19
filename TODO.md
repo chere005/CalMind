@@ -47,7 +47,7 @@ Standing rules live in `CLAUDE.md`, not here.
 
 ## Suite counts, as of this commit
 
-core **552** · gesture **230** (+1 skipped) · WebKit **15** · server **55** ·
+core **552** · gesture **231** (+1 skipped) · WebKit **15** · server **55** ·
 live **19** with the API · desktop **7** (+3 in `npm run test:desktop`) · deploy guards **9** · plus the four
 native seam checkers no browser can reach: `npm run test:watch`,
 `npm run test:widget`, `npm run test:deploy`.
@@ -864,7 +864,9 @@ profiles run to 2026-08-26. When a renewal happens again, CHECK
   patched head scripts; `style-src 'unsafe-inline'` because react-native-web
   injects its stylesheet at runtime; `connect-src 'self'
   https://seancheren.com` for the test API; object/base/form/frame all
-  denied), and it was verified by OPENING THE WINDOW, not by reading config:
+  denied; plus dangerousDisableAssetCspModification: ["style-src"], added
+  2026-08-19 night after the hash lesson below), and it was verified by
+  OPENING THE WINDOW, not by reading config:
   the policy was replicated as a meta tag over the staged export in a real
   browser (renders, zero violations, API reachable — status 400 not a CSP
   TypeError), and then the built .app itself was launched with a probe that
@@ -872,7 +874,15 @@ profiles run to 2026-08-26. When a renewal happens again, CHECK
   read back out of the WKWebView store afterwards. A first probe tried an
   http://127.0.0.1 beacon and got silence: WKWebView blocks mixed content
   with no loopback exemption, worth remembering. Desktop smoke 6/6 on the
-  ship build. (Same sweep fixed the Windows workflow: `beforeBuildCommand`
+  ship build. **AMENDED the same night, at Sean's cost**: Tauri appends
+  style hashes to style-src, hashes make engines IGNORE 'unsafe-inline',
+  and react-native-web's runtime stylesheet was refused — the app rendered
+  UNSTYLED under a fatal screen that never retracted (see PARITY, "The mac
+  was broken two ways"). Both stand-ins — the browser replication and the
+  root.firstChild beacon — passed with the bug present. style-src is now
+  exempt from Tauri's modification, and the honest check reads
+  getComputedStyle out of the real webview. (Same sweep fixed the Windows
+  workflow: `beforeBuildCommand`
   used `$(git rev-parse …)`, which Windows mangles — now `sh stage-dist.sh`,
   relative to `desktop/`, where the CLI actually runs it.)
 
