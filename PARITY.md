@@ -2128,3 +2128,18 @@ The passkey probe also ENDED tonight, with Apple's own sentence: "Personal
 development teams … do not support the Associated Domains capability."
 Native passkeys wait for a paid team; the AASA already live on prod loses
 nothing by waiting with it.
+
+### Windows exists now, on the third try, 2026-08-19
+
+The dispatch-only workflow had never once run before tonight, and each
+failure taught something the config had been hiding: `$(git rev-parse)` in
+beforeBuildCommand does not survive Windows (plain relative path now);
+bundle.targets carried only macOS's "app", so the first GREEN run uploaded
+nothing — the upload errors on empty now, because a check that cannot fail
+is worse than none; and the msi bundler wants a .ico that no platform had
+ever asked for (generated from icon.png, six sizes). Third dispatch:
+setup.exe and .msi both real, the msi verifiably embedding a web export.
+Running them wants a Windows machine, which the Mac cannot be — Sean's
+step, whenever he wants it. Build 39 (calsub aboard) went onto the phone
+the moment it was reachable; the wrist is still owed and the loop points
+at dd39.

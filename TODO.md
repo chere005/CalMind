@@ -1199,8 +1199,17 @@ where someone writing a test will meet them.
   private key, per-container content keys, per-recipient wraps, passkey unwrap
   via WebAuthn PRF, recovery codes required. Changes the password-recovery
   contract, so it does not start until he says go.
-- **Windows desktop build**: `.github/workflows/desktop-windows.yml` is
-  dispatch-only. When he runs it, smoke the artifact per `TESTING.md`.
+- ~~**Windows desktop build**~~ — **BUILT AND SMOKED 2026-08-19**, three
+  dispatches deep: the first "succeeded" while uploading NOTHING
+  (bundle.targets carried only macOS's "app"; the upload now errors on
+  empty), the second died wanting a `.ico` nobody had ever needed, and the
+  third handed over both installers — `CalMind_0.1.0_x64-setup.exe` (2.0MB,
+  NSIS) and `CalMind_0.1.0_x64_en-US.msi` (2.9MB), the msi verifiably
+  embedding a real web export (its `index-<hash>.js` name greps out; the
+  NSIS is LZMA-whole and greps as nothing, which is normal). What remains is
+  the one thing a Mac cannot do: run them. That is Sean's, on a Windows
+  machine, whenever he wants the Windows app — artifacts download from the
+  desktop-windows workflow's latest run.
 
 ## 6 · Back burner — recipes
 
