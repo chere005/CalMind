@@ -25,6 +25,37 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         with:
           projectPath: desktop
+      # The runner IS a Windows machine with a desktop session, so the smoke
+      # that used to wait for a human runs here: install the MSI the way a
+      # user's machine would, launch what it installed, and hold it to the
+      # mac smoke's own bar — it launches, it survives eight seconds, it puts
+      # up a real window. A window showing an error page still passes, the
+      # same honest limitation smoke.sh states; the render beacon that closed
+      # that gap on macOS needs a probe build and stays a local tool.
+      - name: Smoke the MSI on the runner
+        shell: pwsh
+        run: |
+          $msi = Get-ChildItem desktop/src-tauri/target/release/bundle/msi/*.msi | Select-Object -First 1
+          if (-not $msi) { throw 'no MSI to smoke' }
+          Write-Host "installing $($msi.Name)"
+          $p = Start-Process msiexec -ArgumentList "/i `"$($msi.FullName)`" /qn" -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "msiexec failed with exit $($p.ExitCode)" }
+          $exe = Get-ChildItem "$env:ProgramFiles","${env:ProgramFiles(x86)}","$env:LOCALAPPDATA\Programs" -Recurse -Include CalMind.exe,calmind-desktop.exe -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $exe) { throw 'the MSI reported success but installed no CalMind binary' }
+          Write-Host "launching $($exe.FullName)"
+          $app = Start-Process $exe.FullName -PassThru
+          Start-Sleep -Seconds 8
+          if ($app.HasExited) { throw "the installed app exited within 8 seconds (code $($app.ExitCode))" }
+          # The window takes a beat to be titled; three looks over six seconds.
+          $title = ''
+          foreach ($i in 1..3) {
+            $title = (Get-Process -Id $app.Id -ErrorAction SilentlyContinue).MainWindowTitle
+            if ($title -like '*CalMind*') { break }
+            Start-Sleep -Seconds 2
+          }
+          if ($title -notlike '*CalMind*') { throw "the app is running but shows no CalMind window - got '$title'" }
+          Write-Host "window up: '$title' - stopping it"
+          Stop-Process -Id $app.Id
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
