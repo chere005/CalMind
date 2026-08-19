@@ -937,9 +937,10 @@ line, not here.
 by a design decision rather than a patch** (Sean: "tapping the title should
 switch to editing the title", so the two orders of the race converge).
 Twelve occurrences, two retracted rate claims, and every measurement on the
-way are preserved in TODO.md's history entry — read it before believing any
-new intermittent WebKit failure is that flake reborn, and before spending
-an evening measuring a rate, which was tried twice and refuted twice.
+way are preserved in the pre-compression TODO (`git show 7eefa6c:TODO.md`,
+§2) — read it before believing any new intermittent WebKit failure is that
+flake reborn, and before spending an evening measuring a rate, which was
+tried twice and refuted twice.
 
 Every one of those signs up a FRESH account and drives half a dozen records,
 which is not the shape the app actually runs against. `e2e/seeded.spec.ts`
