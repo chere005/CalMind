@@ -27,6 +27,16 @@ let TICK_GRACE: Double = 2
 /// read a WidgetKit configuration it otherwise has no access to. The watch's
 /// first page mirrors it. See Provider.build for why the last render wins.
 private let WIDGET_CALS = "widgetCalendars"
+/// Every instance's selection, keyed by widget FAMILY, each entry stamped —
+/// the union of the fresh ones is what the watch mirrors. Sean's word,
+/// 2026-08-19 ("union"), after two differently-configured instances spent an
+/// evening overwriting each other's idea of the selection and the watch
+/// mirrored whichever rendered last. Family is the only identity WidgetKit
+/// exposes, so two same-family instances still share one slot (documented
+/// limitation, much narrower than every-instance-shares-one); a deleted
+/// widget's entry ages out in the bridge's 48h window rather than haunting
+/// the union forever.
+private let WIDGET_CAL_SETS = "widgetCalSets"
 
 // The Scriptable widget's palette, carried over rather than re-invented.
 private let BG = Color(red: 0.067, green: 0.067, blue: 0.067)   // #111111
@@ -350,7 +360,7 @@ struct Provider: AppIntentTimelineProvider {
     }
 
     func snapshot(for configuration: SelectFolders, in context: Context) async -> Entry {
-        build(configuration)
+        build(configuration, family: String(describing: context.family))
     }
 
     func timeline(for configuration: SelectFolders, in context: Context) async -> Timeline<Entry> {
@@ -371,15 +381,15 @@ struct Provider: AppIntentTimelineProvider {
             .filter { $0 > now }
             .sorted()
         guard let due = deadlines.first else {
-            return Timeline(entries: [build(configuration)], policy: .after(next))
+            return Timeline(entries: [build(configuration, family: String(describing: context.family))], policy: .after(next))
         }
         // Entry two is built AT the deadline — `now:` is that moment, not this
         // one — so the row it draws is the row without the ticked line.
         let after = Entry(date: due,
                           days: buildDays(configuration, now: due.timeIntervalSince1970),
-                          clock24: build(configuration).clock24,
+                          clock24: build(configuration, family: String(describing: context.family)).clock24,
                           state: loadFeed())
-        return Timeline(entries: [build(configuration), after], policy: .after(next))
+        return Timeline(entries: [build(configuration, family: String(describing: context.family)), after], policy: .after(next))
     }
 
     /// The day sections as they would be drawn at `now`. Split out so the
@@ -394,7 +404,7 @@ struct Provider: AppIntentTimelineProvider {
                                   tickedAt: tickedAt, now: now)
     }
 
-    private func build(_ configuration: SelectFolders) -> Entry {
+    private func build(_ configuration: SelectFolders, family: String) -> Entry {
         let state = loadFeed()
         guard case let .ok(feed) = state else { return Entry(date: Date(), days: [], state: state) }
         let ticked = Set(UserDefaults(suiteName: GROUP)?.stringArray(forKey: TICKS) ?? [])
@@ -415,7 +425,13 @@ struct Provider: AppIntentTimelineProvider {
         // more than one widget instance the last render wins, which is a real
         // limitation and the honest one to have — a single watch page cannot
         // mirror two differently-configured widgets at once.
-        UserDefaults(suiteName: GROUP)?.set(Array(wanted), forKey: WIDGET_CALS)
+        let store = UserDefaults(suiteName: GROUP)
+        // The legacy last-writer key keeps being written so a phone build
+        // older than the union still mirrors SOMETHING.
+        store?.set(Array(wanted), forKey: WIDGET_CALS)
+        var sets = (store?.dictionary(forKey: WIDGET_CAL_SETS) as? [String: [String: Any]]) ?? [:]
+        sets[family] = ["cals": Array(wanted), "at": Date().timeIntervalSince1970]
+        store?.set(sets, forKey: WIDGET_CAL_SETS)
         return Entry(date: Date(),
                      days: Provider.drawnDays(feed: feed, ticked: ticked, wanted: wanted, today: todayStr(),
                                               tickedAt: tickedAt, now: Date().timeIntervalSince1970),

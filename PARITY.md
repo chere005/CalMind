@@ -2165,3 +2165,27 @@ Two rules earn their keep: "log the MESSAGE, not the code" — the truncated
 tail-5 capture sat on this MIS error for an hour before a full-output
 attempt read it — and "a fresh install is not a reset clock" now has a
 sibling: a tunnel error is not the only wall behind a tunnel error.
+
+### One rhythm for the grid, and the widgets stop fighting, 2026-08-19 evening
+
+- **Every calendar square keeps one vertical rhythm** (Sean: same space from
+  the top of the square to the icons, dates bumped up slightly). The break
+  was structural: a plain date is a bare Text (~16px natural line) while
+  today's sits in an 18px circle, so today's icons started 2px lower —
+  measured red by the new cellrhythm.spec (21.5 vs 23.5) before the fix, one
+  fixed-height slot for both variants after, paddingTop 3 → 2 for the bump.
+  Verified twice: the spec's boxes on the web, and the simulator's pixels on
+  iOS — every digit top identical, the circle rising symmetrically 4.3pt,
+  which is exactly (18 − digit-ink)/2 on a shared midline.
+- **The watch mirrors the UNION of every widget's selection** (Sean's word:
+  "union"), replacing last-render-wins — which was the evening's watch
+  mystery: a second widget instance configured without aki's calendar kept
+  overwriting the App Group key, watched happening live in the plist (four
+  ids at 10:27, three at 10:29). Instances now upsert per-family stamped
+  entries (widgetCalSets); the bridge unions the fresh ones. A 48h age fades
+  a deleted widget's ghost, any fresh empty selection still means ALL, the
+  output sorts so the moved-detector never sees dictionary noise, and the
+  legacy key remains as first-launch fallback. The union can only ADD — an
+  extra widget can no longer hide a calendar from the wrist. Five new
+  checker cases in check-widget-feed.sh, the aging one watched red with the
+  filter gutted.

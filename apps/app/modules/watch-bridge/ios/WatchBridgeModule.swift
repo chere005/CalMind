@@ -37,15 +37,52 @@ public class WatchBridgeModule: Module {
       WatchSession.drainWidgetTicks()
     }
 
-    /// Which calendars the home-screen widget is set to. The widget writes it
-    /// into the App Group as it renders, because a WidgetKit configuration is
+    /// Which calendars the widgets are set to — the UNION of every
+    /// instance's selection (Sean's word, 2026-08-19), each written into the
+    /// App Group as its widget renders, because a WidgetKit configuration is
     /// private to its own instance and there is no API that hands it to the
-    /// containing app. Empty when no widget has ever rendered — which reads
-    /// as "all calendars", the same as an empty selection.
+    /// containing app. Before the union, two differently-configured widgets
+    /// overwrote one shared key and the watch mirrored whichever rendered
+    /// last — an extra widget could silently HIDE a calendar from the wrist.
+    /// A union can only add. Empty when no widget has ever rendered — which
+    /// reads as "all calendars", the same as an empty selection.
     Function("widgetCalendars") { () -> [String] in
-      UserDefaults(suiteName: "group.com.seancheren.calmind")?.stringArray(forKey: "widgetCalendars") ?? []
+      let store = UserDefaults(suiteName: "group.com.seancheren.calmind")
+      let sets = (store?.dictionary(forKey: "widgetCalSets") as? [String: [String: Any]]) ?? [:]
+      return unionWidgetSelections(sets, legacy: store?.stringArray(forKey: "widgetCalendars"),
+                                   now: Date().timeIntervalSince1970)
     }
   }
+}
+
+/// The union rule, pure so tools/check-widget-feed.sh can run it against the
+/// writer in HomeWidget.swift — the same seam-checker arrangement every other
+/// cross-process rule here lives under.
+///
+///  - Entries older than 48 hours are a DELETED widget's ghost, not a voice:
+///    live instances re-render at least daily (the midnight timeline), so a
+///    stale stamp means nobody holds that configuration any more. The ghost's
+///    only possible sin while it lasts is showing EXTRA calendars — the union
+///    can never hide one, which is the property Sean asked for.
+///  - Any fresh EMPTY selection means that widget shows every calendar, so
+///    the union is every calendar — said as [], the rule the watch and the
+///    widget already share.
+///  - Sorted, because the phone's moved-detector compares stringified lists
+///    and a dictionary's iteration order is noise, not a configuration
+///    change.
+///  - No fresh entries at all falls back to the legacy single-selection key,
+///    so the first launch after this update mirrors yesterday's selection
+///    rather than nothing while the widgets wake up and write theirs.
+func unionWidgetSelections(_ sets: [String: [String: Any]], legacy: [String]?, now: Double) -> [String] {
+  let fresh = sets.values.filter { ((($0["at"] as? Double)) ?? 0) > now - 48 * 3600 }
+  if fresh.isEmpty { return legacy ?? [] }
+  var out = Set<String>()
+  for entry in fresh {
+    let cals = (entry["cals"] as? [String]) ?? []
+    if cals.isEmpty { return [] }
+    out.formUnion(cals)
+  }
+  return out.sorted()
 }
 
 /// Owns the WCSession: activates once, remembers the latest list, and re-sends on

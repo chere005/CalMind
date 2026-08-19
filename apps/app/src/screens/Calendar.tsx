@@ -485,14 +485,25 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
                   lineHeight = height, which centres exactly on the web and
                   rides visibly high on iOS — the number was not centred in
                   the circle of the day (Sean, 2026-08-18). Flexbox centres
-                  identically on both. */}
-              {d === today ? (
-                <View style={s.todayWrap}>
-                  <Text style={s.cellTodayNum}>{Number(d.slice(8))}</Text>
-                </View>
-              ) : (
-                <Text style={[s.cellNum, !d.startsWith(ym) && !weekMode && s.cellNumOther]}>{Number(d.slice(8))}</Text>
-              )}
+                  identically on both.
+
+                  BOTH variants sit in one fixed-height slot. A bare Text's
+                  box is its font's natural line (~16px) while the circle is
+                  18, so today's mark well started 2px lower than every other
+                  cell's and the whole column read as pushed down — Sean,
+                  2026-08-19: the top-of-square-to-icons space should be the
+                  same in every cell. The slot is the circle's height, so the
+                  circle defines the rhythm and the plain numbers centre on
+                  its midline; e2e/cellrhythm.spec.ts measures the real boxes. */}
+              <View style={s.numSlot}>
+                {d === today ? (
+                  <View style={s.todayWrap}>
+                    <Text style={s.cellTodayNum}>{Number(d.slice(8))}</Text>
+                  </View>
+                ) : (
+                  <Text style={[s.cellNum, !d.startsWith(ym) && !weekMode && s.cellNumOther]}>{Number(d.slice(8))}</Text>
+                )}
+              </View>
               {cellMark(d)}
             </View>
           </Pressable>
@@ -774,9 +785,14 @@ const s = themed(() => StyleSheet.create({
   grid: { userSelect: 'none', flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 8, paddingVertical: 6 },
   weekday: { width: `${100 / 7}%`, textAlign: 'center', color: T.muted, fontSize: 11, paddingVertical: 2 },
   cell: { width: `${100 / 7}%` },
-  cellInner: { margin: 1.5, minHeight: 46, alignItems: 'center', paddingTop: 3, paddingBottom: 2, borderRadius: 8 },
+  // paddingTop 2, down from 3 — "the dates themselves along with the circle
+  // for the current day needs to be bumped up slightly" (Sean, 2026-08-19).
+  cellInner: { margin: 1.5, minHeight: 46, alignItems: 'center', paddingTop: 2, paddingBottom: 2, borderRadius: 8 },
   cellPicked: { backgroundColor: T.surface2 },
   panelBtns: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  // The one date slot every cell shares: the circle's own height, so the
+  // number-to-icons rhythm cannot differ between today and its neighbours.
+  numSlot: { height: 18, alignItems: 'center', justifyContent: 'center' },
   cellNumOther: { color: T.muted, opacity: 0.55 },
   cellNum: { color: T.text, fontSize: 13 },
   todayWrap: { backgroundColor: T.accent, borderRadius: 9, minWidth: 18, height: 18, paddingHorizontal: 3, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },

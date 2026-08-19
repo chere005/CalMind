@@ -141,6 +141,21 @@ def grab_priv(name):
 _src_all = open('apps/app/targets/appwidget/HomeWidget.swift').read()
 _grace = next(l for l in _src_all.splitlines() if l.startswith('let TICK_GRACE'))
 widget_logic = (_grace + '\n' + grab_func('drawnDays') + '\n' + grab_func('packed') + '\n' + grab_top('toggledTicks') + '\n' + grab_func('drawnHeight') + '\n' + grab_priv('dayHeading') + '\n' + grab_priv('clock12'))
+
+# The union rule lives one file over, in the BRIDGE (the reader of what the
+# widgets write) — grabbed the same way, run against the same generated file,
+# because writer and reader disagreeing about the sets dict is exactly the
+# cross-process seam this checker exists for.
+_bridge_src = open('apps/app/modules/watch-bridge/ios/WatchBridgeModule.swift').read()
+_i = _bridge_src.index('func unionWidgetSelections(')
+_depth, _k = 0, _bridge_src.index('{', _i)
+while True:
+    if _bridge_src[_k] == '{': _depth += 1
+    elif _bridge_src[_k] == '}':
+        _depth -= 1
+        if _depth == 0: break
+    _k += 1
+widget_logic += '\n' + _bridge_src[_i:_k+1]
 # The header is not part of packed() — it is subtracted in the view — so the
 # only way to keep it charged is to read the view. Sean's card sliced its own
 # "Calendar" title through the middle because the day list was handed the FULL
@@ -416,6 +431,29 @@ check(toggledTicks([], "a") == ["a"], "a first tap queues it")
 check(toggledTicks(["a"], "a") == [], "a second tap takes it back")
 check(toggledTicks(["a", "b"], "a") == ["b"], "…and leaves the other queued ticks alone")
 check(toggledTicks(["b"], "a") == ["b", "a"], "queuing a second row keeps the first")
+
+// The widget-selection UNION (Sean, 2026-08-19: "union"). Two instances used
+// to overwrite one key and the watch mirrored whichever rendered last — an
+// extra widget could silently HIDE a calendar from the wrist. The union can
+// only add; these pin its whole rule.
+let NOW: Double = 1_000_000_000
+func entry(_ cals: [String], age: Double) -> [String: Any] { ["cals": cals, "at": NOW - age] }
+check(unionWidgetSelections(["systemMedium": entry(["b", "a"], age: 60),
+                             "accessoryRectangular": entry(["c", "a"], age: 120)],
+                            legacy: nil, now: NOW) == ["a", "b", "c"],
+      "two fresh instances union, sorted — order is configuration, not dictionary noise")
+check(unionWidgetSelections(["systemMedium": entry(["a"], age: 60),
+                             "systemSmall": entry(["ghost"], age: 49 * 3600)],
+                            legacy: nil, now: NOW) == ["a"],
+      "an entry older than 48h is a deleted widget's ghost, not a voice")
+check(unionWidgetSelections(["systemMedium": entry(["a", "b"], age: 60),
+                             "systemSmall": entry([], age: 60)],
+                            legacy: nil, now: NOW) == [],
+      "one widget showing ALL means the union is all — the empty-selection rule, kept")
+check(unionWidgetSelections([:], legacy: ["old"], now: NOW) == ["old"],
+      "no fresh entries falls back to the legacy key, so an update mirrors yesterday, not nothing")
+check(unionWidgetSelections([:], legacy: nil, now: NOW) == [],
+      "nothing anywhere reads as all calendars, the rule an empty selection has always meant")
 
 // The card's real costs, in points, as HomeWidget.swift measures them:
 // a row is 20 (12pt text = 15pt line + 5 padding), a heading 20 (10pt bold =
