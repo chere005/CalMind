@@ -8,6 +8,7 @@
   ],
   "scripts": {
     "test": "npm run test:core && npm run test:server",
+    "test:dev": "sh tools/test-dev.sh",
     "test:core": "npm -w @calmind/core run test -- --run",
     "test:server": "php server/tools/test.php",
     "web": "npm -w app run web",

@@ -9,27 +9,29 @@ neither list and nobody is looking at it.
 ## Every harness, in one place
 
 Eight run against the working tree; two more exist only against a deployed
-instance (`smoke-live.sh` and the live passkey spec, both further down). Three
-of the eight are the deploy gate. The other five have to be *remembered*,
+instance (`smoke-live.sh` and the live passkey spec, both further down). Four
+of the eight are the deploy gate — WebKit joined it after being manual cost a
+real bug (its own section below). The other four have to be *remembered*,
 which is why they are listed here rather than left to be discovered.
 
 | run | what it watches | in the deploy gate? |
 |---|---|---|
+| `npm run test:dev` | the between-runs mini-suite: both typechecks, core, server, counts — ~40s, no browser, no export | (it IS four of the gates, run early) |
 | `npm run test:core` | the behaviour itself, incl. the `spec/*.json` replay | **yes** |
 | `npm run test:server` | the API over real HTTP on a scratch dir | **yes** |
 | `npm run test:e2e` | gestures, real mouse, on the EXPORTED app | **yes** |
-| `npm run test:webkit` | the spine + header rules + scaling, in Sean's engine | no |
+| `npm run test:webkit` | the spine + header rules + scaling, in Sean's engine | **yes** |
 | `npm run test:watch` | both Swift clock copies; core's JSON through the wrist's real decoder, `drawnGroups` and `drawnWidgetDays` | no |
 | `npm run test:widget` | core's JSON through HomeWidget's real decoder and `drawnDays`; every App Group key read has a writer on its own device | no |
 | `npm run test:deploy` | the deploy guards, each proven by breaking a copy | no |
 | `./desktop/smoke.sh` | the macOS shell carries THIS export | no |
 
-The five outside the gate are outside it for a reason each — WebKit needs its
-own browser download, the native checks need `swift` and `python3` (they lift
-the real Swift out of the targets rather than re-typing it), the deploy guards
-rewrite copies of the real scripts, and the desktop smoke compiles Rust — but
-"outside the gate" has already cost a real bug (below). Run them by hand after
-anything they touch. Counts live in TODO.md's steady-state line; a number
+The four outside the gate are outside it for a reason each — the native
+checks need `swift` and `python3` (they lift the real Swift out of the
+targets rather than re-typing it), the deploy guards rewrite copies of the
+real scripts, and the desktop smoke compiles Rust — but "outside the gate"
+has already cost a real bug (below, where WebKit earned its way in). Run
+them by hand after anything they touch. Counts live in TODO.md's steady-state line; a number
 written into prose goes stale, and this file is not exempt.
 
 The three that gate a deploy, spelled out:
@@ -884,8 +886,9 @@ duplicate ⧉; swipe-left delete arriving armed; week mode folding and paging;
 rendered rich text; themes (pick → repaint → reload persists → logout
 midnight); the full sharing handshake ×2 (live ticks from the @partner view
 and the All canvas, shared note editing, recolour swatch, partner-destination
-add); ?tick= quick-done; the rolled flash on and off; the remembered day;
-the widget setup page's pin.
+add); ?tick= quick-done; the rolled flash on and off; the remembered day.
+(The widget setup page's pin went with the Scriptable widget's removal,
+2026-08-12.)
 
 Added since: the day panel's GROUP ORDER (one group per kind and owner, mine
 before theirs, in the legend's kind order — read off the headings themselves);
@@ -922,26 +925,21 @@ behaviour that differs by engine and a red run full of harness noise teaches
 nobody anything. It lives in its own config so the ordinary `npx playwright
 test` neither changes nor needs the WebKit download.
 
-**It is NOT in the deploy gate, and that cost something.** `deploy-test.sh`
-runs core, the PHP specs and the Chromium suite; the WebKit config is
-manual. Through an entire session of shipping to web it was never run — and
-the first run of it found a real defect that Chromium could not see (a 50ms
-deferred focus in the note editor, `TODO.md`). An engine Sean reads the app
-in every day had, in practice, zero coverage.
+**It is IN the deploy gate now** (`deploy-test.sh` runs it after the
+Chromium suite), and the history of it being manual is why: through an
+entire session of shipping to web it was never run — and the first run of
+it found a real defect that Chromium could not see (a 50ms deferred focus
+in the note editor). An engine Sean reads the app in every day had, in
+practice, zero coverage. The suite count lives in TODO.md's steady-state
+line, not here.
 
-Run it by hand after anything touching focus, selection, or layout:
-
-```sh
-npx playwright test -c playwright.webkit.config.ts   # 16/16
-```
-
-**`app.spec.ts:353` here is INTERMITTENT and its cause is open.** Two
-failures in about fifteen runs, both after heavy real work; 7 of 7 idle
-passes; and 5 of 5 passes under deliberate CPU starvation, which is what
-killed the tidy 'it is just load' explanation. Counts are in TODO.md. Repeat
-a red run before believing it, and do not read a green one as proof — the
-note editor does contain a 50ms deferred focus that is a race by
-construction, whoever wins it today.
+**The note-focus flake that haunted this suite is DEAD — fixed 2026-08-18,
+by a design decision rather than a patch** (Sean: "tapping the title should
+switch to editing the title", so the two orders of the race converge).
+Twelve occurrences, two retracted rate claims, and every measurement on the
+way are preserved in TODO.md's history entry — read it before believing any
+new intermittent WebKit failure is that flake reborn, and before spending
+an evening measuring a rate, which was tried twice and refuted twice.
 
 Every one of those signs up a FRESH account and drives half a dozen records,
 which is not the shape the app actually runs against. `e2e/seeded.spec.ts`
@@ -983,7 +981,8 @@ the day Sean said the button placement was broken. It now carries the header
 rules and recipe scaling as well as the original spine, because those are what
 he actually looks at and they had only ever been checked in Chromium — an
 engine he does not use. His daily reading is an iOS home-screen web app, which
-is WebKit, and so is the macOS desktop shell. Nine specs, green.
+is WebKit, and so is the macOS desktop shell. (Its count lives in TODO.md's
+steady-state line — a number written here went stale twice.)
 
 Passkeys are verified TWICE, against different things. `e2e/passkey.spec.ts`
 runs locally and proves the wiring; `e2e/live-passkey.spec.ts` runs against the

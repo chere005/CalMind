@@ -115,6 +115,8 @@ codes land in `data/mail.log`, which is also how the server tests read them.
 
 ```sh
 npm install                                  # once, at the root
+npm run test:dev                             # the between-runs mini-suite: typechecks,
+                                             #   core, server, counts — ~40s, no browser
 npm test                                     # the two fast ones: core + server
 npm run test:core                            # vitest, incl. the spec/*.json replay
 npm run test:server                          # boots php -S on a scratch dir, drives real HTTP
