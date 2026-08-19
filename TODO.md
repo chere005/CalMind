@@ -816,6 +816,15 @@ Across four installs the wrist sat on build 1 while the phone carried 6. A
 direct `devicectl` install fixes it, and only while the watch is awake and
 holding a tunnel. Why the companion path does not update it is unknown; until
 then the watch needs the direct install and the build number is the proof.
+
+**AND THE TUNNEL IS NOT THE ONLY WALL (2026-08-19):** after the 08-18
+profile renewal, every direct install would have failed even connected —
+the re-minted profile listed the phone alone, and the one attempt that got
+a tunnel said so plainly (`0xe8008012`, profile not valid for this
+device). Registration via `-allowProvisioningDeviceRegistration` with the
+watch as the destination fixed it; both devices confirmed on build 39, new
+profiles run to 2026-08-26. When a renewal happens again, CHECK
+`ProvisionedDevices` in the embedded profile before blaming the tunnel.
 ## 3 · Work, not decisions
 
 - **A toast raised while a Modal is open is hidden on the native builds.**

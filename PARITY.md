@@ -2143,3 +2143,25 @@ Running them wants a Windows machine, which the Mac cannot be — Sean's
 step, whenever he wants it. Build 39 (calsub aboard) went onto the phone
 the moment it was reachable; the wrist is still owed and the loop points
 at dd39.
+
+### The wrist gets its build, and the tunnel was never the whole story, 2026-08-19
+
+A hundred-odd install attempts had all died as tunnel errors, so the
+tunnel took the blame — and the ONE attempt that connected told the truth:
+`0xe8008012, this provisioning profile cannot be installed on this device`.
+The 08-18 renewal minted profiles from the devices Xcode could see that
+day, and the watch was not among them: `ProvisionedDevices` in the
+embedded profile listed the phone alone. Every retry since would have
+failed at that wall the moment it stopped failing at the other one.
+
+The fix was one build with the watch as a device-specific destination and
+`-allowProvisioningDeviceRegistration` — which the CLI could do TONIGHT
+because the Apple ID session finally answers it (the same session that
+delivered the associated-domains refusal). Re-mint, rebuild, and the
+profile carries three devices including the wrist. Watch and phone both
+confirmed ON DEVICE at build 39; profiles run to 2026-08-26.
+
+Two rules earn their keep: "log the MESSAGE, not the code" — the truncated
+tail-5 capture sat on this MIS error for an hour before a full-output
+attempt read it — and "a fresh install is not a reset clock" now has a
+sibling: a tunnel error is not the only wall behind a tunnel error.
