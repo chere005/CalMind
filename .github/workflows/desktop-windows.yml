@@ -29,6 +29,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: CalMind-windows
+          # error, not the default warn: this job's first "success" uploaded
+          # NOTHING (bundle.targets said only "app", which is macOS's), and a
+          # green run with no artifact is the kind of check that cannot fail.
+          if-no-files-found: error
           path: |
             desktop/src-tauri/target/release/bundle/msi/*.msi
             desktop/src-tauri/target/release/bundle/nsis/*.exe

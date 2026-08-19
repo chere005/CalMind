@@ -27,7 +27,9 @@
   "bundle": {
     "active": true,
     "targets": [
-      "app"
+      "app",
+      "msi",
+      "nsis"
     ],
     "icon": [
       "icons/icon.icns",

@@ -11,6 +11,7 @@ import { PanResponder, Pressable, StyleSheet, Text, View } from 'react-native';
 import {
   addDays,
   cellMarks,
+  type CellMark,
   dayItems,
   duplicateItem,
   monthGridFilled,
@@ -18,6 +19,7 @@ import {
   newId,
   prefsOf,
   reminderToggle,
+  subOccurrences,
   timeLabel,
   timeRangeLabel,
   todayStr,
@@ -26,6 +28,7 @@ import {
   viewMarkdown,
 } from '@calmind/core';
 import { useStore } from '../store';
+import { useSubIcs } from '../subs';
 import { useClock24 } from '../useClock24';
 import { themed, T } from '../theme';
 import { TopBar } from '../chrome';
@@ -47,7 +50,7 @@ let calDay: string | null = null;
 
 export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => void }) {
   const { recs, mutate, sharedRecs, sharedPartner, sharedPartnerLabel, session } = useStore();
-  const { visible: visibleCals, calendars, visibleShared } = useCalendarView();
+  const { visible: visibleCals, calendars, visibleShared, visibleSubs } = useCalendarView();
   const clock24 = useClock24();
   const today = todayStr();
   const [ym, setYm] = useState((calDay ?? today).slice(0, 7));
@@ -135,9 +138,39 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
   // Week mode is Sean's TWO-week fold: the anchor's week plus the next.
   const monthCells = useMemo(() => monthGridFilled(year, month), [year, month]);
   const cells = useMemo(() => (weekMode ? twoWeeksFrom(wkAnchor) : monthCells), [weekMode, wkAnchor, monthCells]);
+  /**
+   * Subscribed calendars' chips for the visible window — computed from the
+   * fetched ICS, never records, never editable, and gone the moment the
+   * picker's box is unticked (visibleSubs is the filter). The zone is the
+   * DEVICE's: a 02:00Z instant is yesterday evening here, and drawing it on
+   * the UTC day would file the launch party on the wrong night.
+   */
+  const subIcs = useSubIcs(recs, session);
+  const subOccs = useMemo(() => {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Chicago';
+    const from = cells[0]!;
+    const to = cells[cells.length - 1]!;
+    return visibleSubs.flatMap((sub) => {
+      const text = subIcs[sub.id];
+      if (!text) return [];
+      try {
+        return subOccurrences(text, tz, from, to).map((occ) => ({ occ, color: sub.payload.color, subId: sub.id }));
+      } catch {
+        return []; // a feed that stops parsing draws nothing, it does not crash the month
+      }
+    });
+  }, [visibleSubs, subIcs, cells]);
+  const subDay = useMemo(() => subOccs.filter((o) => o.occ.date === day), [subOccs, day]);
   const marks = useMemo(
-    () => new Map(cells.filter(Boolean).map((d) => [d!, [...cellMarks(drawn, d!, today, folderModes), ...cellMarks(sharedDrawn, d!, today, folderModes)]])),
-    [drawn, sharedDrawn, cells, today, folderModes],
+    () => new Map(cells.filter(Boolean).map((d) => [d!, [
+      ...cellMarks(drawn, d!, today, folderModes),
+      ...cellMarks(sharedDrawn, d!, today, folderModes),
+      // Subscribed events wear the event glyph in the subscription's colour —
+      // one glyph per subscription per day, the cell rule's shape.
+      ...[...new Map(subOccs.filter((o) => o.occ.date === d).map((o) => [o.subId, o])).values()]
+        .map((o): CellMark => ({ kind: 'event', color: o.color })),
+    ]])),
+    [drawn, sharedDrawn, cells, today, folderModes, subOccs],
   );
   // Same modes the grid draws through, so the key can only name things the
   // window actually holds.
@@ -587,6 +620,21 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
             <View style={[s.dot, s.rowDot, { backgroundColor: sharedCalById.get(e.payload.calendarId)?.color ?? T.folderBlue }]} />
             <Text style={s.rowText}>{e.payload.text}</Text>
             {e.payload.time && <Text style={s.chip}>{timeRangeLabel(e.payload.time, e.payload.end, clock24)}</Text>}
+          </View>
+        ))}
+        {subDay.length > 0 && (
+          <Pressable testID="dp-group-head" style={s.groupHead} onPress={() => toggleFold('events:sub')}>
+            <Chevron open={!folded.has('events:sub')} />
+            <Text style={s.groupTitle}>Subscribed</Text>
+          </Pressable>
+        )}
+        {!folded.has('events:sub') && subDay.map((o, i) => (
+          <View key={`sub${o.subId}-${o.occ.uid}-${i}`} style={s.row} testID="dp-sub-row">
+            <View style={[s.dot, s.rowDot, { backgroundColor: o.color }]} />
+            {/* No press, no edit cluster, no swipe: read-only is the DESIGN
+                (Sean: "i just want read only access"), not a gap. */}
+            <Text style={s.rowText}>{o.occ.title}</Text>
+            {o.occ.time && <Text style={s.chip}>{timeRangeLabel(o.occ.time, o.occ.endTime, clock24)}</Text>}
           </View>
         ))}
         {myReminders.length > 0 && (

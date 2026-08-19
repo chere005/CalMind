@@ -82,6 +82,7 @@ export type Prefs = {
   lastView?: string; // 'all' or a folderId
   hidden?: string[]; // folderIds switched off in the All view
   hiddenShared?: string[]; // a partner's shared calendar/folder ids switched off
+  hiddenSubs?: string[]; // subscribed (calsub) calendar ids switched off
   sharedColors?: Record<string, string>; // viewer-side recolour of a partner's shared containers, keyed @partner:id
   defaultSectionId?: string; // where new items land from All (reminders/notes)
   defaultCalendarId?: string; // where new events land (calendar)
@@ -105,6 +106,14 @@ export type Prefs = {
 
 export type FolderMode = 'all' | 'dated' | 'none';
 
+/** A calendar subscribed BY LINK, read-only (Sean, 2026-08-18: "subscribe-by-
+ *  link first, i just want read only access to other calendar system"). The
+ *  record is only the pointer — url, name, colour, its place in the picker.
+ *  The EVENTS are never records: the server proxies the ICS (calsub_fetch)
+ *  and core's subOccurrences reads it fresh on the client, so nothing from
+ *  someone else's calendar can ever sync back out. */
+export type CalSub = { url: string; name: string; color: string; ord: string };
+
 export type RecType =
   | 'folder'
   | 'section'
@@ -116,7 +125,8 @@ export type RecType =
   | 'habitsection'
   | 'tick'
   | 'pref'
-  | 'share';
+  | 'share'
+  | 'calsub';
 
 export type PayloadOf = {
   folder: Folder;
@@ -130,6 +140,7 @@ export type PayloadOf = {
   tick: Tick;
   pref: Prefs;
   share: Share;
+  calsub: CalSub;
 };
 
 /** The suite's shares file as one singleton record (id 'share'): who I name

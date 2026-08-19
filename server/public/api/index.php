@@ -56,6 +56,7 @@ match ((string) ($in['action'] ?? '')) {
     'shared_put'      => handle_shared_put($cfg, $in),
     'sync'            => handle_sync($cfg, $in),
     'recipe_fetch'    => handle_recipe_fetch($cfg, $in),
+    'calsub_fetch'    => handle_calsub_fetch($cfg, $in),
     'passkey_register_begin'  => handle_passkey_register_begin($cfg),
     'passkey_register_finish' => handle_passkey_register_finish($cfg, $in),
     'passkey_login_begin'     => handle_passkey_login_begin($cfg),

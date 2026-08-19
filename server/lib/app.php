@@ -846,6 +846,75 @@ function handle_passkey_remove(array $cfg, array $in): never
  *
  * Authed: it makes the server issue requests, so it is not an open proxy.
  */
+/**
+ * A subscribed calendar's ICS, fetched by the server. Sean's call,
+ * 2026-08-18: "subscribe-by-link first, i just want read only access to
+ * other calendar system" — and the fetch HAS to be server-side, because
+ * calendar hosts do not answer CORS and a browser cannot read them.
+ *
+ * The server stays dumb, the suite's way: it hands back the ICS TEXT and
+ * core's parseIcal (234 lines, tested, zone-aware) decides what it means on
+ * the client — a parser change must not need a deploy. fetch_url does the
+ * SSRF work; it was built for exactly this file type and waited months for
+ * this caller.
+ *
+ * Cached briefly, keyed by the URL's hash, through store_read/store_write —
+ * which buys ENC1 at rest (a private feed URL's CONTENT is someone's
+ * calendar) and the atomic temp-file write, for free. Fifteen minutes keeps
+ * a four-device account from hammering a host on every foreground; a fetch
+ * that FAILS falls back to the stale copy when one exists, because last
+ * week's calendar beats an error on a train.
+ *
+ * Authed, like recipe_fetch and for the same reason: this makes the server
+ * issue requests, so it is not an open proxy.
+ */
+const CALSUB_CACHE_TTL = 900;
+
+function handle_calsub_fetch(array $cfg, array $in): never
+{
+    require_auth($cfg);
+    $url = trim((string) ($in['url'] ?? ''));
+    if ($url === '') {
+        fail(400, 'no url');
+    }
+    // webcal:// is how calendar apps hand these links out; it MEANS https.
+    if (stripos($url, 'webcal://') === 0) {
+        $url = 'https://' . substr($url, 9);
+    }
+    $file = $cfg['data_dir'] . '/icscache/' . sha1($url) . '.json';
+    // A cache that will not decrypt is a cache miss, not an outage — unlike
+    // the record store, everything here can be fetched again.
+    try {
+        $cached = store_read($cfg, $file);
+    } catch (Throwable) {
+        $cached = [];
+    }
+    $ics = (string) ($cached['ics'] ?? '');
+    if ($ics !== '' && (int) ($cached['at'] ?? 0) > time() - CALSUB_CACHE_TTL) {
+        reply(200, ['ok' => true, 'ics' => $ics, 'cached' => true]);
+    }
+    $res = fetch_url($url);
+    if (!$res['ok']) {
+        if ($ics !== '') {
+            reply(200, ['ok' => true, 'ics' => $ics, 'cached' => true, 'stale' => true]);
+        }
+        // The reason travels, recipe_fetch's lesson: 'not a public address'
+        // and 'took too long' are different problems for whoever pasted it.
+        $why = trim((string) ($res['error'] ?? ''));
+        if ($why === '') {
+            $code = (int) ($res['status'] ?? 0);
+            $why = $code > 0 ? "that calendar's host answered $code" : 'could not reach that calendar';
+        }
+        fail(400, $why);
+    }
+    $body = (string) $res['body'];
+    if (stripos($body, 'BEGIN:VCALENDAR') === false) {
+        fail(400, 'that link is not a calendar (.ics) feed');
+    }
+    store_write($cfg, $file, ['at' => time(), 'ics' => $body]);
+    reply(200, ['ok' => true, 'ics' => $body, 'cached' => false]);
+}
+
 function handle_recipe_fetch(array $cfg, array $in): never
 {
     require_auth($cfg);

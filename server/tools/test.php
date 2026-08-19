@@ -1070,5 +1070,67 @@ t('a password reset lifts the lockout — recovery proves the mailbox', function
 });
 
 
+t('calsub_fetch: authed, guarded, and webcal:// means https', function () {
+    // Same wiring proof as recipe_fetch's: the guard itself is tested above,
+    // so what matters here is that the ENDPOINT goes through it and through
+    // require_auth, rather than around either.
+    $u = 'cal' . substr((string) mt_rand(), 0, 6);
+    $tok = api(['action' => 'signup', 'username' => $u, 'email' => $u . '@example.com', 'password' => 'calsubpassword'])['body']['token'] ?? '';
+    ok($tok !== '', 'signed up for a token');
+
+    eq(401, api(['action' => 'calsub_fetch', 'url' => 'https://example.com/cal.ics'])['status'], 'refused without a token');
+
+    $r = api(['action' => 'calsub_fetch', 'url' => 'http://127.0.0.1/cal.ics'], $tok);
+    eq(400, $r['status'], 'a private address is refused through the endpoint');
+    ok(str_contains((string) ($r['body']['error'] ?? ''), 'not one this server will fetch'), "for the guard's reason");
+
+    // webcal:// is what calendar apps hand out; it MEANS https. Proven by the
+    // guard refusing the ADDRESS rather than the scheme: a handler that did
+    // not normalise would answer 'only http(s)' here instead.
+    $w = api(['action' => 'calsub_fetch', 'url' => 'webcal://127.0.0.1/cal.ics'], $tok);
+    eq(400, $w['status'], 'webcal to a private address is still refused');
+    ok(str_contains((string) ($w['body']['error'] ?? ''), 'not one this server will fetch'),
+        "and by the address guard, so the scheme was normalised first — got '" . ($w['body']['error'] ?? '') . "'");
+
+    $e = api(['action' => 'calsub_fetch', 'url' => ''], $tok);
+    eq(400, $e['status'], 'an empty url is a 400');
+    ok(trim((string) ($e['body']['error'] ?? '')) !== '', 'and carries a reason');
+});
+
+t('calsub_fetch: a fresh cache answers without fetching; a stale one is the fallback', function () use ($scratch) {
+    // Every reachable test server is on 127.0.0.1, which the SSRF guard
+    // rightly refuses — the fetchurl tests above say so — so the cache is the
+    // one path that CAN be driven end-to-end offline, by seeding the file the
+    // handler reads. That inversion is also the proof that the cache is
+    // consulted BEFORE the network: a handler that fetched first would 400 on
+    // this URL instead of answering.
+    $u = 'cch' . substr((string) mt_rand(), 0, 6);
+    $tok = api(['action' => 'signup', 'username' => $u, 'email' => $u . '@example.com', 'password' => 'cachepassword'])['body']['token'] ?? '';
+    $cfg = ['data_dir' => $scratch];
+    $url = 'https://127.0.0.1/seeded.ics';
+    $ics = "BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nUID:seeded\r\nSUMMARY:Seeded\r\nDTSTART:20260819T170000Z\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n";
+    $file = $scratch . '/icscache/' . sha1($url) . '.json';
+
+    store_write($cfg, $file, ['at' => time(), 'ics' => $ics]);
+    $r = api(['action' => 'calsub_fetch', 'url' => $url], $tok);
+    eq(200, $r['status'], 'a fresh cache answers');
+    eq(true, $r['body']['cached'] ?? null, 'and says it was the cache');
+    ok(str_contains((string) ($r['body']['ics'] ?? ''), 'SUMMARY:Seeded'), 'with the seeded calendar');
+
+    // Stale: the fetch runs, the guard refuses it, and last week's calendar
+    // beats an error on a train.
+    // 960 = CALSUB_CACHE_TTL (900, app.php — not included here; the API is
+    // driven over HTTP) plus a minute of slack.
+    store_write($cfg, $file, ['at' => time() - 960, 'ics' => $ics]);
+    $s = api(['action' => 'calsub_fetch', 'url' => $url], $tok);
+    eq(200, $s['status'], 'a stale cache still answers when the fetch fails');
+    eq(true, $s['body']['stale'] ?? null, 'and admits it is stale');
+    ok(str_contains((string) ($s['body']['ics'] ?? ''), 'SUMMARY:Seeded'), 'with the old copy');
+
+    // And the cache file is ENC1 at rest — a private feed's content is
+    // someone's calendar, and this is the same trade the record store makes.
+    ok(str_starts_with((string) file_get_contents($file), 'ENC1:'), 'the cache is encrypted at rest');
+});
+
 echo "\n────────────────────────────────\n$pass passed, $fail failed\n";
 exit($fail === 0 ? 0 : 1);

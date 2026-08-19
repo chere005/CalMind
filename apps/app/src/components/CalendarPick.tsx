@@ -33,6 +33,9 @@ export type CalendarView = {
   sharedCals: Rec<'calendar'>[];
   hiddenShared: string[];
   visibleShared: Rec<'calendar'>[];
+  subs: Rec<'calsub'>[];
+  hiddenSubs: string[];
+  visibleSubs: Rec<'calsub'>[];
   sharedPartner: string | null; view: string; hidden: string[]; calendars: Rec<'calendar'>[]; visible: Rec<'calendar'>[] };
 
 export function useCalendarView(): CalendarView {
@@ -52,14 +55,20 @@ export function useCalendarView(): CalendarView {
       : [];
     const hiddenShared = (prefs.hiddenShared ?? []).filter((id) => sharedCals.some((c) => c.id === id));
     const visibleShared = sharedCals.filter((c) => !hiddenShared.includes(c.id));
-    return { view, hidden, calendars, visible, sharedCals, hiddenShared, visibleShared, sharedPartner };
+    // Subscribed-by-link calendars: a third list beside mine and the
+    // partner's, same shape, read-only by construction (their events are
+    // never records — see core/calsub.ts).
+    const subs = recs.filter((r): r is Rec<'calsub'> => r.type === 'calsub').sort(byRecOrd);
+    const hiddenSubs = (prefs.hiddenSubs ?? []).filter((id) => subs.some((c) => c.id === id));
+    const visibleSubs = subs.filter((c) => !hiddenSubs.includes(c.id));
+    return { view, hidden, calendars, visible, sharedCals, hiddenShared, visibleShared, subs, hiddenSubs, visibleSubs, sharedPartner };
   }, [recs, sharedRecs, sharedPartner]);
 }
 
 export function CalendarPick() {
   const { recs, mutate, sharedPartnerLabel } = useStore();
   const [manageRem, setManageRem] = useState(false);
-  const { view, hidden, calendars, visible, sharedCals, hiddenShared, visibleShared } = useCalendarView();
+  const { view, hidden, calendars, visible, sharedCals, hiddenShared, visibleShared, subs, hiddenSubs, visibleSubs } = useCalendarView();
   const [open, setOpen] = useState(false);
   const [manage, setManage] = useState(false);
 
@@ -72,7 +81,7 @@ export function CalendarPick() {
             isolating a partner's calendar possible at all: a view holding
             only theirs used to draw a blank button (TODO §1, decided
             2026-08-18: "shared calendars should work on tap"). */}
-        <PieDot rainbow={hidden.length === 0 && hiddenShared.length === 0} colors={[...visible, ...visibleShared].map((c) => c.payload.color)} size={16} />
+        <PieDot rainbow={hidden.length === 0 && hiddenShared.length === 0 && hiddenSubs.length === 0} colors={[...visible, ...visibleShared, ...visibleSubs].map((c) => c.payload.color)} size={16} />
       </Pressable>
 
       {open && (
@@ -83,20 +92,20 @@ export function CalendarPick() {
                 {(() => {
                   // All is the MASTER: ticked only when everything shows; one
                   // tap shows the lot, a second (all already on) hides the lot.
-                  const allOn = hidden.length === 0 && hiddenShared.length === 0;
+                  const allOn = hidden.length === 0 && hiddenShared.length === 0 && hiddenSubs.length === 0;
                   return (
                     <View style={s.row}>
                       <Pressable
                         testID="cal-all-box"
                         hitSlop={8}
                         onPress={() => setPrefs(allOn
-                          ? { hidden: calendars.map((c) => c.id), hiddenShared: sharedCals.map((c) => c.id) }
-                          : { lastView: 'all', hidden: [], hiddenShared: [] })}
+                          ? { hidden: calendars.map((c) => c.id), hiddenShared: sharedCals.map((c) => c.id), hiddenSubs: subs.map((c) => c.id) }
+                          : { lastView: 'all', hidden: [], hiddenShared: [], hiddenSubs: [] })}
                       >
                         <WebHitSlop />
                         <Text style={[s.box, allOn && s.boxOn]}>{allOn ? '☑' : '☐'}</Text>
                       </Pressable>
-                      <Pressable style={s.rowMain} onPress={() => { setPrefs({ lastView: 'all', hidden: [], hiddenShared: [] }); setOpen(false); }}>
+                      <Pressable style={s.rowMain} onPress={() => { setPrefs({ lastView: 'all', hidden: [], hiddenShared: [], hiddenSubs: [] }); setOpen(false); }}>
                         <PieDot rainbow colors={calendars.map((c) => c.payload.color)} size={14} />
                         <Text style={[s.rowText, view === 'all' && s.rowActive]}>All calendars</Text>
                       </Pressable>
@@ -114,7 +123,7 @@ export function CalendarPick() {
                         <WebHitSlop />
                         <Text style={[s.box, !off && s.boxOn]}>{off ? '☐' : '☑'}</Text>
                       </Pressable>
-                      <Pressable style={s.rowMain} onPress={() => { setPrefs({ lastView: c.id, hidden: calendars.filter((x) => x.id !== c.id).map((x) => x.id), hiddenShared: sharedCals.map((x) => x.id) }); setOpen(false); }}>
+                      <Pressable style={s.rowMain} onPress={() => { setPrefs({ lastView: c.id, hidden: calendars.filter((x) => x.id !== c.id).map((x) => x.id), hiddenShared: sharedCals.map((x) => x.id), hiddenSubs: subs.map((x) => x.id) }); setOpen(false); }}>
                         <View style={[s.dot, { backgroundColor: c.payload.color }]} />
                         <Text style={[s.rowText, view === c.id && s.rowActive]}>{c.payload.name}</Text>
                       </Pressable>
@@ -146,6 +155,7 @@ export function CalendarPick() {
                             lastView: 'all',
                             hidden: calendars.map((x) => x.id),
                             hiddenShared: sharedCals.filter((x) => x.id !== c.id).map((x) => x.id),
+                            hiddenSubs: subs.map((x) => x.id),
                           });
                           setOpen(false);
                         }}
@@ -153,6 +163,41 @@ export function CalendarPick() {
                         <View style={[s.dot, { backgroundColor: c.payload.color }]} />
                         <Text style={s.rowText}>{c.payload.name}</Text>
                         <Text style={s.partnerChip}>{sharedPartnerLabel}</Text>
+                      </Pressable>
+                    </View>
+                  );
+                })}
+                {subs.length > 0 && <Text style={s.groupHead}>Subscribed</Text>}
+                {subs.map((c) => {
+                  const off = hiddenSubs.includes(c.id);
+                  return (
+                    <View key={c.id} style={s.row}>
+                      <Pressable
+                        testID={`calsub-box-${c.payload.name}`}
+                        hitSlop={8}
+                        onPress={() => setPrefs({ hiddenSubs: off ? hiddenSubs.filter((id) => id !== c.id) : [...hiddenSubs, c.id] })}
+                      >
+                        <WebHitSlop />
+                        <Text style={[s.box, !off && s.boxOn]}>{off ? '☐' : '☑'}</Text>
+                      </Pressable>
+                      {/* Isolate on tap, said the shared way: everything else
+                          hidden, since lastView can only name one of mine. */}
+                      <Pressable
+                        testID={`calsub-row-${c.payload.name}`}
+                        style={s.rowMain}
+                        onPress={() => {
+                          setPrefs({
+                            lastView: 'all',
+                            hidden: calendars.map((x) => x.id),
+                            hiddenShared: sharedCals.map((x) => x.id),
+                            hiddenSubs: subs.filter((x) => x.id !== c.id).map((x) => x.id),
+                          });
+                          setOpen(false);
+                        }}
+                      >
+                        <View style={[s.dot, { backgroundColor: c.payload.color }]} />
+                        <Text style={s.rowText}>{c.payload.name}</Text>
+                        <Text style={s.subChip}>link</Text>
                       </Pressable>
                     </View>
                   );
@@ -247,10 +292,11 @@ function CalendarManager({ onClose }: { onClose: () => void }) {
   // The viewer's recolour of a partner's shared calendar — my override, my
   // prefs, the lighter shared palette, their data untouched.
   const sharedCalRows = sharedPartner ? sharedRecs.filter((r): r is Rec<'calendar'> => r.type === 'calendar') : [];
-  const { calendars } = useCalendarView();
+  const { calendars, subs } = useCalendarView();
   const [newName, setNewName] = useState('');
   const [renaming, setRenaming] = useState<string | null>(null);
   const [renameText, setRenameText] = useState('');
+  const [subUrl, setSubUrl] = useState('');
   const [err, setErr] = useState('');
   const defaultCalendarId = prefsOf(recs, 'calendar').defaultCalendarId;
 
@@ -281,6 +327,43 @@ function CalendarManager({ onClose }: { onClose: () => void }) {
         payload: { name, color: APP_PALETTES.calendar[calendars.length % APP_PALETTES.calendar.length]!, ord: ordBetween(last?.payload.ord ?? null, null) },
       });
     });
+  };
+
+  /**
+   * Subscribe by link. The NAME is not asked for up front: nearly every feed
+   * URL names its host, and the row can be renamed like any calendar — one
+   * field beats two for a thing pasted from a clipboard. Validation is only
+   * the scheme; whether the link actually answers with a calendar is the
+   * server's question (calsub_fetch says 'that link is not a calendar'), and
+   * the row appearing immediately with events arriving on the next fetch is
+   * the same local-first shape as everything else here.
+   */
+  const subscribe = () => {
+    const url = subUrl.trim();
+    if (!url) return;
+    if (!/^(https?|webcal):\/\//i.test(url)) {
+      flash('a calendar link starts with https:// or webcal://');
+      return;
+    }
+    let name = 'Subscribed';
+    try {
+      name = new URL(url.replace(/^webcal:/i, 'https:')).hostname.replace(/^www\./, '');
+    } catch { /* keep the fallback name */ }
+    setSubUrl('');
+    mutate((e) => {
+      const last = subs[subs.length - 1];
+      e.put({
+        id: newId(), type: 'calsub', updated: 0,
+        payload: { url, name, color: APP_PALETTES.calendar[(calendars.length + subs.length) % APP_PALETTES.calendar.length]!, ord: ordBetween(last?.payload.ord ?? null, null) },
+      });
+    });
+  };
+
+  const commitSubRename = (c: Rec<'calsub'>) => {
+    setRenaming(null);
+    const name = renameText.trim();
+    if (name === '' || name === c.payload.name) return;
+    mutate((e) => e.put({ ...c, payload: { ...c.payload, name } }));
   };
 
   const commitRename = (c: Rec<'calendar'>) => {
@@ -336,6 +419,31 @@ function CalendarManager({ onClose }: { onClose: () => void }) {
               </View>
             ))}
             {drag.slot === calendars.length && <View style={s.dropLine} />}
+            <Text style={s.mlabel}>Subscribed by link</Text>
+            <Text style={s.subhead}>Read-only: another calendar's events, drawn here, never edited here.</Text>
+            <View style={s.addRow}>
+              <Field testID="calsub-url" value={subUrl} onChangeText={setSubUrl} placeholder="https://… or webcal://… (.ics link)" style={s.addField} autoCapitalize="none" onSubmitEditing={subscribe} />
+              <CircleBtn testID="calsub-add" glyph="+" label="Subscribe" color={T.accent} size={34} onPress={subscribe} />
+            </View>
+            {subs.map((c) => (
+              <View key={c.id} style={s.mrow}>
+                <SwatchTray palette={APP_PALETTES.calendar} color={c.payload.color} onPick={(hex) => mutate((e) => e.put({ ...c, payload: { ...c.payload, color: hex } }))} />
+                {renaming === c.id ? (
+                  <Field
+                    value={renameText}
+                    onChangeText={setRenameText}
+                    autoFocus
+                    style={s.renameField}
+                    onBlur={() => commitSubRename(c)}
+                    onSubmitEditing={() => commitSubRename(c)}
+                  />
+                ) : (
+                  <Text style={s.rowText} numberOfLines={1}>{c.payload.name}</Text>
+                )}
+                <CircleBtn glyph="✎" label="Edit" size={26} onPress={() => { setRenaming(c.id); setRenameText(c.payload.name); }} />
+                <ConfirmDelete onDelete={() => mutate((e) => e.del(c.id))} />
+              </View>
+            ))}
             <Text style={s.label}>Default for new events</Text>
             <Dropdown
               value={defaultCalendarId ?? null}
@@ -390,6 +498,7 @@ const s = themed(() => StyleSheet.create({
   box: { color: T.muted, fontSize: 16 },
   boxOn: { color: T.accent },
   partnerChip: { color: '#c4b5fd', backgroundColor: '#3b3355', fontSize: 12, fontWeight: '700', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999, overflow: 'hidden', marginLeft: 'auto' },
+  subChip: { color: T.dim, borderWidth: 1, borderColor: T.line, fontSize: 11, fontWeight: '700', paddingHorizontal: 7, paddingVertical: 2, borderRadius: 999, overflow: 'hidden', marginLeft: 'auto' },
   groupHead: { color: T.muted, fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5, paddingHorizontal: 12, paddingTop: 10 },
   manageRow2: {},
   manageRow: { borderTopWidth: 1, borderTopColor: T.lineSoft, marginTop: 4 },

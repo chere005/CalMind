@@ -47,7 +47,7 @@ Standing rules live in `CLAUDE.md`, not here.
 
 ## Suite counts, as of this commit
 
-core **544** · gesture **226** (+1 skipped) · WebKit **15** · server **53** ·
+core **552** · gesture **229** (+1 skipped) · WebKit **15** · server **55** ·
 live **19** with the API · desktop **7** (+3 in `npm run test:desktop`) · deploy guards **9** · plus the four
 native seam checkers no browser can reach: `npm run test:watch`,
 `npm run test:widget`, `npm run test:deploy`.
@@ -122,7 +122,25 @@ Sean signing in: Xcode → Settings → Accounts. The moment that is done, the
 renewal is `xcodebuild -allowProvisioningUpdates` away and build 37 is
 already staged (app.json and the pbxproj both say 37).
 
-### Passkeys from the native iOS app — INCONCLUSIVE, and two asks
+### ~~Passkeys from the native iOS app~~ — ANSWERED 2026-08-19: NOT on a free team
+The probe finally reached Apple, and the refusal is explicit and by name:
+"Personal development teams, including 'Sean Cheren', do not support the
+Associated Domains capability" — from the provisioning service via
+`xcodebuild -allowProvisioningUpdates`, with the Apple ID session working
+(no "No Accounts" this time). So this is Apple's policy, not a session
+artifact: native passkeys need a PAID Apple Developer membership, and no
+amount of building will change that. The entitlement was reverted; passkeys
+stay web-only by design, exactly as the screens already treat them.
+
+What is ready for the day Sean pays for a team: the AASA pair is LIVE on
+prod and verified correct (`deploy-prod.sh --verify` — application/json,
+matching appID), so the domain half is done; the entitlement is one
+`ios.associatedDomains` key away; what remains then is the Swift credential
+bridge. Until that day this entry is CLOSED, not waiting.
+
+The history below stands, including the silently-ignored-key lesson.
+
+### Passkeys from the native iOS app (history) — was INCONCLUSIVE, two asks
 RESTORED 2026-08-12; the probe key is still reverted from `app.json`, which
 matches what the dropped entry said. Passkeys are web-only by design today —
 the screens hide the button rather than offer something that throws.
@@ -156,7 +174,41 @@ listing is not the test — the connection is. The blocker had been live and
 unwritten-down since 2026-08-09, because the entry recording it was lost in a
 rewrite.
 
-### Calendar integrations — three questions, and code already waiting on them
+### ~~Calendar integrations~~ — SUBSCRIBE-BY-LINK SHIPPED 2026-08-19
+Sean answered two of the three questions on 2026-08-18 ("subscribe-by-link
+first, i just want read only access to other calendar system" — which is
+also the read-only answer), and the third (Gmail's Google Cloud project)
+stays parked until he wants Gmail specifically. What shipped, on the code
+that was waiting:
+
+- **Server**: `calsub_fetch` — the authed ICS proxy `fetchurl.php` was built
+  for, finally wired. SSRF-guarded per redirect hop, webcal:// normalised to
+  https, 15-minute cache through store_read/store_write (ENC1 at rest,
+  atomic), stale copy served when the host is down. 2 tests, the cache one
+  proven by gutting the cache read.
+- **Core**: the `calsub` record (url, name, colour, ord — the pointer syncs,
+  the events never do) and `subOccurrences` in calsub.ts: parseIcal +
+  expandRrule joined into day-chips, exclusive all-day DTEND honoured,
+  multi-day spans capped at 60, window-straddling occurrences kept. 8 tests,
+  the straddle widening proven by mutation.
+- **Client**: Manage calendars grows "Subscribed by link" — one pasted
+  field, named from the host, renamable, recolourable, deletable; picker
+  rows with show/hide and isolate-on-tap like every other row; the pie
+  includes subscription colours; day panel gets a read-only Subscribed
+  group (no tick, no edit, no swipe — the design, not a gap); month cells
+  wear one event glyph per subscription per day. ICS cached per
+  subscription in AsyncStorage OUTSIDE the snapshot (the blob doc's budget
+  rule), refreshed on foreground and every 20 minutes against the server's
+  own 15-minute cache. 3 gesture specs, proven red with the hook gutted.
+
+NOT in v1, recorded as decisions rather than omissions: subscribed events
+stay off the month LEGEND (it reads records), off the watch and widget
+feeds (same reason), and CalDAV/write-back is a different milestone that
+Sean has already de-prioritised ("read only").
+
+The original entry below stands for the Gmail half's constraints.
+
+### Calendar integrations (history) — three questions, and code already waiting on them
 RESTORED 2026-08-12. This was §3d and the rewrite on 2026-08-10 dropped it
 whole, questions and all. That is the SECOND entry the rewrite lost — the
 login-throttling one was recovered earlier the same way — so if something you

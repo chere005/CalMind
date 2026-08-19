@@ -2099,3 +2099,32 @@ Second sweep of "get all of that done":
 - **A deploy died of its own freshness gate** — source edited mid-run makes
   the WebKit suite's staleness check refuse, correctly. The rule the traps
   list already implied, now paid for: no source edits while a deploy runs.
+
+### The other calendars arrive, read-only, 2026-08-19
+
+Subscribe-by-link — the milestone Sean queued on decision night, built on
+the two files that had waited months for a caller:
+
+- `calsub_fetch` wires fetchurl.php at last: authed, SSRF-guarded on every
+  hop, webcal:// meaning https, a 15-minute ENC1 cache whose stale copy
+  outranks an error when the host is down. The server stays dumb — it hands
+  back TEXT, and core's parseIcal decides what it means on the client, so a
+  parser fix never needs a deploy.
+- core/calsub.ts is only the join: parseIcal × expandRrule → day-chips,
+  with the exclusive all-day DTEND honoured (checkout day unpainted), spans
+  capped at 60 so a typo'd DTEND cannot flood a month, and the window
+  widened so a fair that began last month still paints today.
+- The client rides the shared-calendar grooves: a third list in the picker
+  (show/hide, isolate-on-tap, pie colours), "Subscribed by link" in Manage
+  calendars (paste one field, named from the host, rename/recolour/delete),
+  a read-only Subscribed group on the day panel and one glyph per feed per
+  day in the cells. The ICS caches per subscription OUTSIDE the snapshot —
+  the blob design's budget rule, obeyed before the blobs exist.
+- Deliberately absent, not forgotten: the month legend, the watch and the
+  widget read RECORDS, and subscribed events are never records — that is
+  the read-only guarantee itself.
+
+The passkey probe also ENDED tonight, with Apple's own sentence: "Personal
+development teams … do not support the Associated Domains capability."
+Native passkeys wait for a paid team; the AASA already live on prod loses
+nothing by waiting with it.
