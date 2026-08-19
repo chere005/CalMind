@@ -10,7 +10,6 @@ import { showAgain,
   byRecOrd,
   newId,
   ordBetween,
-  parseDateField,
   REPEAT_UNITS,
   parseTimeFromText,
   nowStr,
@@ -29,6 +28,7 @@ import { TopBar } from '../chrome';
 import { CalendarIcon, PageIcon, TickCircleIcon } from '../components/KindIcons';
 import { CircleBtn, Field, Pill, Scroll } from '../ui';
 import { Dropdown } from '../components/Dropdown';
+import { DayPick } from '../components/DayPick';
 
 type Kind = 'reminder' | 'event' | 'note';
 
@@ -44,7 +44,12 @@ export function Add({ done, onNoteCreated }: { done: () => void; onNoteCreated?:
   const [showDest, setShowDest] = useState(false);
   const [showWhen, setShowWhen] = useState(false);
   const [showRepeat, setShowRepeat] = useState(false);
-  const [dateField, setDateField] = useState('');
+  // The date is PICKED, not typed, since 2026-08-19 ("m/d should be a
+  // calendar picker in the add page") — 'YYYY-MM-DD' straight from the grid,
+  // no parse step to disagree with anything. Typing a date still works where
+  // the typing hand already is: the line itself ("Dentist 8/3 2pm").
+  const [datePicked, setDatePicked] = useState<string | null>(null);
+  const [dayPickOpen, setDayPickOpen] = useState(false);
   const [timeField, setTimeField] = useState('');
   const [showEnd, setShowEnd] = useState(false);
   const [endField, setEndField] = useState('');
@@ -89,7 +94,7 @@ export function Add({ done, onNoteCreated }: { done: () => void; onNoteCreated?:
       return false;
     }
     lastFiled.current = { text: raw, at: now };
-    const fd = parseDateField(dateField, today);
+    const fd = datePicked;
     const [, ft] = parseTimeFromText(timeField.trim());
     // Manual-beats-parsed (Sean, 2026-08-18): a category the fields settled
     // is not lifted from the line — the token stays, unused.
@@ -174,7 +179,21 @@ export function Add({ done, onNoteCreated }: { done: () => void; onNoteCreated?:
         <View style={s.revealRow}>
           <Pill label="+ Folder/Section" primary={showDest} onPress={() => setShowDest(!showDest)} />
           <Pill label="+ Date/Time" primary={showWhen} onPress={() => setShowWhen(!showWhen)} />
-          {kind !== 'note' && <Pill label="+ Repeat" primary={showRepeat} onPress={() => setShowRepeat(!showRepeat)} />}
+          {kind !== 'note' && (
+            <Pill
+              label="+ Repeat"
+              primary={showRepeat}
+              onPress={() => {
+                // Revealing FILES a weekly repeat now (Sean, 2026-08-19: "repeat
+                // picker should default to week") — the item window's own
+                // presumption, so the pill below says what will happen. Which
+                // is also why hiding must CLEAR it: a repeat that survived its
+                // panel closing would ride along invisibly.
+                setRepeat(showRepeat ? null : { n: 1, unit: 'week' });
+                setShowRepeat(!showRepeat);
+              }}
+            />
+          )}
         </View>
 
         {showDest && (
@@ -197,7 +216,19 @@ export function Add({ done, onNoteCreated }: { done: () => void; onNoteCreated?:
         )}
         {showWhen && (
           <View style={s.panel}>
-            <Field value={dateField} onChangeText={setDateField} placeholder="m/d" style={s.miniField} />
+            <Pressable
+              testID="add-date"
+              accessibilityRole="button"
+              accessibilityLabel="Pick a date"
+              style={s.dateBtn}
+              onPress={() => setDayPickOpen(true)}
+            >
+              <Text style={datePicked ? s.miniFieldText : s.miniFieldPlaceholder}>
+                {datePicked
+                  ? new Date(`${datePicked}T12:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+                  : 'm/d'}
+              </Text>
+            </Pressable>
             <Field value={timeField} onChangeText={setTimeField} placeholder="2:30pm" style={s.miniField} />
             {/* An end belongs to events only, and revealing it presumes an
                 hour past whatever start is on the line or in the field. */}
@@ -237,12 +268,13 @@ export function Add({ done, onNoteCreated }: { done: () => void; onNoteCreated?:
             <CircleBtn glyph="+" label="Add" size={22} onPress={() => setRepeat({ n: Math.min(999, (repeat?.n ?? 1) + 1), unit: repeat?.unit ?? 'week' })} />
             {/* core's list, in a dropdown — Sean's word, 2026-08-18. The
                 literal-copy trap testids.spec.ts guards still applies. */}
-            {/* value null until a unit is PICKED: revealing this panel files
-                no repeat (unlike the item window, which presumes weekly), so
-                a dropdown claiming "week" here would be lying. */}
+            {/* 'week' from the moment the panel opens (his word again,
+                2026-08-19): revealing files a weekly repeat, so the pill
+                claiming "week" is now telling the truth — the reveal handler
+                above is what keeps it honest. */}
             <Dropdown
               testID="repeat-unit"
-              value={repeat?.unit ?? null}
+              value={repeat?.unit ?? 'week'}
               options={REPEAT_UNITS.map((u) => ({ id: u, label: u }))}
               onPick={(u) => setRepeat({ n: repeat?.n ?? 1, unit: u as Repeat['unit'] })}
             />
@@ -267,6 +299,7 @@ export function Add({ done, onNoteCreated }: { done: () => void; onNoteCreated?:
           <Text style={s.helpNote}>A time on its own lands on today — or tomorrow, if it has already gone by.</Text>
         </View>
       </Scroll>
+      {dayPickOpen && <DayPick value={datePicked} onPick={setDatePicked} onClose={() => setDayPickOpen(false)} />}
     </View>
   );
 }
@@ -297,6 +330,11 @@ const s = themed(() => StyleSheet.create({
   panel: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center' },
   panelLabel: { color: T.dim, fontSize: 13 },
   miniField: { minWidth: 100, paddingVertical: 8 },
+  // The picker trigger, wearing Field's exact dress so the Date/Time row
+  // still reads as one family of boxes.
+  dateBtn: { backgroundColor: T.surface, borderWidth: 1, borderColor: T.line, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, minWidth: 100 },
+  miniFieldText: { color: T.text, fontSize: 16 },
+  miniFieldPlaceholder: { color: T.muted, fontSize: 16 },
   repN: { color: T.text, fontSize: 14, minWidth: 20, textAlign: 'center' },
   err: { color: T.danger, fontSize: 13 },
   doneBtn: {

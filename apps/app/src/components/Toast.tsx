@@ -8,27 +8,21 @@
  * the page down by its own height, and vanishing pulled it back up, so copying
  * something made the list you were reading jump twice.
  *
- * ONE HOST, AT THE ROOT, and that is the part that matters rather than the
- * styling. Two things follow from it that a per-screen overlay cannot give:
- *
- *   - It draws over everything. A sibling laid out before the page content is
- *     painted UNDER it on the native builds, which is where the top bar's
- *     notice sits — so a toast owned by TopBar would have been behind the very
- *     list it was reporting on.
- *   - It costs no layout and eats no taps. `pointerEvents: 'none'` on the fill
- *     means the popup is not in the way of the next thing you press, which a
- *     Modal would be: a transparent RN Modal is its own window and swallows
- *     touches over its whole area whatever its children say, so two undos in a
- *     row — which undodelete.spec.ts does — would have had the second one
- *     land on the first one's toast.
- *
- * It is deliberately NOT a Modal for that second reason. The cost is that a
- * real Modal open at the same time covers it, since a modal window is above
- * the whole app; the two callers both close theirs first, and a confirmation
- * for something you did inside a sheet belongs in the sheet.
+ * ONE HOST, AT THE ROOT — and since 2026-08-19, ALWAYS ON TOP (Sean: "just
+ * make the toast always on top"), which closed the one gap the old design
+ * accepted: a toast raised while a Modal was open drew BEHIND it, because a
+ * modal is its own window above the whole app. HOW it gets on top differs
+ * by surface — ToastHost.tsx (native: a transparent Modal window of its
+ * own, tap-to-dismiss) and ToastHost.web.tsx (a body-level portal at max
+ * z-index, click-through) carry the two mechanisms and their reasoning,
+ * including why the web half is neither an in-tree fill (capped at 0 by
+ * react-native-web's own wrappers — the spec caught it) nor the RNW Modal
+ * (traps focus, would blur the note editor mid-typing). This file owns
+ * WHAT is said and for how long.
  */
 import React, { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { ToastHost } from './ToastHost';
 import { themed, T } from '../theme';
 
 type Show = (message: string, ms?: number) => void;
@@ -50,22 +44,24 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     clearTimeout(timer.current);
     timer.current = setTimeout(() => setMsg(null), ms);
   }, []);
+  const dismiss = useCallback(() => {
+    clearTimeout(timer.current);
+    setMsg(null);
+  }, []);
+  const card = msg !== null && (
+    <View style={s.card}>
+      <Text testID="toast" style={s.text}>{msg}</Text>
+    </View>
+  );
   return (
     <ToastCtx.Provider value={show}>
       {children}
-      {msg !== null && (
-        <View style={s.fill} pointerEvents="none">
-          <View style={s.card}>
-            <Text testID="toast" style={s.text}>{msg}</Text>
-          </View>
-        </View>
-      )}
+      {msg !== null && <ToastHost onDismiss={dismiss}>{card}</ToastHost>}
     </ToastCtx.Provider>
   );
 }
 
 const s = themed(() => StyleSheet.create({
-  fill: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' },
   card: {
     backgroundColor: T.surface2,
     borderWidth: 1,

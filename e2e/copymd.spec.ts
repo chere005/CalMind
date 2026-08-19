@@ -86,6 +86,58 @@ test('the note editor has its own Copy, since it has no dropdown', async ({ page
     .toHaveText(/Copied as Markdown|Could not copy/, { timeout: 10_000 });
 });
 
+test('the toast stays on top of a sheet (Sean: "just make the toast always on top")', async ({ page }) => {
+  // The old design accepted the opposite: a modal is a portal'd window above
+  // the app, so a toast raised under one drew behind it. On the web the fix
+  // is the maximum z-index on the toast's fill. The first draft of this test
+  // asserted the portal carries NO z-index — and failed, which is how we
+  // know it carries 9999: the investigation that said "none" was wrong, the
+  // spec was not. The max beats 9999 in the root stacking context, PROVIDED
+  // no ancestor of the fill establishes a stacking context of its own —
+  // that would cap the fill at the ancestor's level, under the portal, with
+  // the max z-index sitting right there in the styles looking correct.
+  //
+  // So the honest mechanism assertions are: fill at the max, portal below
+  // it numerically, and NO capping ancestor. Raw paint stays unattestable:
+  // elementFromPoint SKIPS pointer-events:none layers — which the fill
+  // deliberately is, so clicks fall through — so a hit-test would "miss"
+  // the toast with the fix working perfectly.
+  test.setTimeout(120_000);
+  await signup(page);
+  await page.getByTestId('tab-notes').click();
+  await page.getByTestId('secadd-General').first().click();
+  await page.getByTestId('note-title').fill('Pancakes');
+  // Fire the toast, then open a real sheet inside its two-second life.
+  await page.getByTestId('note-copymd').click();
+  await expect(page.getByTestId('toast')).toBeVisible();
+  await page.getByTestId('recipe-import').click();
+  await expect(page.getByTestId('recipe-save'), 'the sheet is open').toBeVisible({ timeout: 10_000 });
+  await expect(page.getByTestId('toast'), 'and the toast outlives its arrival').toBeVisible();
+  const zs = await page.getByTestId('toast').evaluate((el) => {
+    let fill: HTMLElement | null = el as HTMLElement;
+    while (fill && getComputedStyle(fill).zIndex !== '2147483647') fill = fill.parentElement;
+    const capping: string[] = [];
+    for (let a = fill?.parentElement; a && a !== document.body; a = a.parentElement) {
+      const cs = getComputedStyle(a);
+      const makesContext =
+        (cs.position !== 'static' && cs.zIndex !== 'auto') ||
+        cs.transform !== 'none' || cs.filter !== 'none' || Number(cs.opacity) < 1 ||
+        cs.isolation === 'isolate' || cs.contain.includes('paint') || cs.contain.includes('strict');
+      if (makesContext) capping.push(`${a.tagName}:${cs.zIndex}`);
+    }
+    const modal = [...document.body.children].find((c) => c !== document.querySelector('#root') && c.querySelector('[data-testid="recipe-save"]'));
+    return {
+      fillZ: fill ? getComputedStyle(fill).zIndex : null,
+      capping,
+      modalZ: modal ? getComputedStyle(modal.firstElementChild as HTMLElement).zIndex : 'no-portal',
+    };
+  });
+  expect(zs.fillZ, 'the toast fill wears the max z-index').toBe('2147483647');
+  expect(zs.capping, 'no ancestor caps the fill inside a lower stacking context').toEqual([]);
+  const portalZ = zs.modalZ === 'auto' || zs.modalZ === 'no-portal' ? 0 : Number(zs.modalZ);
+  expect(portalZ, "and the sheet's portal sits below it").toBeLessThan(2147483647);
+});
+
 // NO "the sean-only button is gone" TEST. It was written, and testids.spec.ts
 // was right to reject it: `rem-copymd` is rendered by nothing now, so an
 // absence assertion on it cannot fail — the exact trap CLAUDE.md lists. The

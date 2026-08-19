@@ -258,6 +258,9 @@ breaking a copy and requiring the copy to fail.
 5. **Store builds (EAS)** — **not started**; there is no `eas.json`. iOS and
    Android install from local builds, signed by the free Personal Team, which
    is why provisioning profiles expire every seven days.
-6. **Calendar integrations** — groundwork only, on purpose. Core parses
-   iCalendar and expands RRULEs, both fully tested; nothing yet commits to
-   OAuth or CalDAV, and the questions are with Sean.
+6. **Calendar integrations** — subscribe-by-link shipped 2026-08-19:
+   read-only ICS subscriptions end to end (an authed server proxy with
+   per-hop SSRF guards and a 15-minute cache, core's iCalendar + RRULE
+   expansion into day-chips, and Manage calendars grows "Subscribed by
+   link"). OAuth, CalDAV and Gmail remain not started, deliberately — the
+   Gmail question (his own Google Cloud project) is still with Sean.

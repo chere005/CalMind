@@ -1,6 +1,6 @@
 /** The OCR-to-note heuristics: humble, but pinned. */
 import { describe, it, expect } from 'vitest';
-import { formatRecipe, ingredientParts, recipeFromHtml, looksLikeChrome, parseIngredient, precleanOcrLine, recipeBody, recipeFromPages, scaleIngredient, scaleRecipeBody, scrubLine } from '../src/recipe';
+import { formatRecipe, ingredientParts, isRecipeNote, recipeFromHtml, looksLikeChrome, parseIngredient, precleanOcrLine, recipeBody, recipeFromPages, scaleIngredient, scaleRecipeBody, scrubLine } from '../src/recipe';
 
 describe('formatRecipe', () => {
   it('finds the obvious title, bullets the ingredients, keeps the steps', () => {
@@ -232,6 +232,23 @@ describe('the leftovers keep their shape', () => {
   });
 });
 
+describe('isRecipeNote — the treatment is opt-in, not a shape', () => {
+  const MARKED = '**Ingredients**\n- 2 cups flour\n\n**Directions**\n1. Mix.';
+  it('the flag and the shape together are a recipe', () => {
+    expect(isRecipeNote({ body: MARKED, recipe: true })).toBe(true);
+  });
+  it('the shape alone is NOT — Sean\'s hand-written notes carry it', () => {
+    // Every one of his 19 original recipe notes matches the marker shape,
+    // written by hand before the card existed (2026-08-19). They render as
+    // plain notes; only the Recipe page's save mints the flag.
+    expect(isRecipeNote({ body: MARKED })).toBe(false);
+    expect(isRecipeNote({ body: MARKED, recipe: undefined })).toBe(false);
+  });
+  it('the flag alone is not either — no markers, nothing to draw a card around', () => {
+    expect(isRecipeNote({ body: 'milk\neggs', recipe: true })).toBe(false);
+  });
+});
+
 describe('a saved recipe read back — ours is read as ours', () => {
   const SAVED = [
     '**Ingredients**',
@@ -356,6 +373,25 @@ describe('scaling — the one arithmetic a recipe asks of you', () => {
     expect(scaleIngredient('600 g fresh tagliatelle (see Pasta all\u2019Uovo)', 2))
       .toBe('1200 g fresh tagliatelle (see Pasta all\u2019Uovo)');
     expect(scaleIngredient('3 egg yolks', 2)).toBe('6 egg yolks');
+  });
+
+  it('an adjective between the number and the noun does not hide it either', () => {
+    // Every line here is off Sean's own cards, not invented. The participle
+    // rule above let 'chopped' through but stopped at plain adjectives, so
+    // 'large yellow onion' and 'free range egg' kept their singular through
+    // a doubling — the quantity moved and the name did not.
+    expect(scaleIngredient('1 large free range egg', 2)).toBe('2 large free range eggs');
+    expect(scaleIngredient('1 finely chopped onion', 2)).toBe('2 finely chopped onions');
+    expect(scaleIngredient('1 large yellow onion', 2)).toBe('2 large yellow onions');
+    expect(scaleIngredient('1 finely diced garlic clove', 2)).toBe('2 finely diced garlic cloves');
+    // Halving finds the singular through the same gap.
+    expect(scaleIngredient('2 dried persian limes, stabbed with a fork', 0.5))
+      .toBe('1 dried persian lime, stabbed with a fork');
+    // What holds the line instead of the -ed test: no word on the way to the
+    // noun may itself be a measure or a unit. 'handful' still blocks exactly
+    // as it did above, and a participle is never a measure word, so nothing
+    // the old rule protected is given up.
+    expect(scaleIngredient('1 small handful parsley', 2)).toBe('2 small handful parsley');
   });
 
   it('a unit somebody spelled out still counts, off Sean\'s own cards', () => {

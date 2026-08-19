@@ -31,8 +31,39 @@ async function makeRecipeNote(page: Page, title: string, body: string) {
   await page.getByTestId('note-body-view').click();
   await page.getByTestId('note-body-edit').fill(body);
   await page.getByPlaceholder('Title').click();
+  // A recipe is a note the Recipe page SAVED (2026-08-19): the typed marker
+  // shape alone no longer dresses a note in the card — Sean's own
+  // hand-written notes wear that shape and must stay plain. Convert.
+  await page.getByTestId('recipe-import').click();
+  await expect(page.getByTestId('recipe-save')).toBeVisible({ timeout: 10_000 });
+  await page.getByTestId('recipe-save').click();
   await expect(page.getByTestId('note-body-view')).toBeVisible();
 }
+
+test('typed markers alone stay a plain note — the card is opt-in', async ({ page }) => {
+  test.setTimeout(90_000);
+  await signup(page);
+  // The same shape makeRecipeNote types, WITHOUT the Recipe page's save.
+  await page.getByTestId('tab-notes').click();
+  await page.getByTestId('secadd-General').first().click();
+  await page.getByTestId('note-title').fill('hand-written');
+  await page.getByTestId('note-body-view').click();
+  await page.getByTestId('note-body-edit').fill(RECIPE);
+  await page.getByPlaceholder('Title').click();
+  const view = page.getByTestId('note-body-view');
+  await expect(view).toBeVisible();
+  // No card, no scale row, no badges — and every word exactly as typed,
+  // which is what Sean's 19 hand-written recipe notes turned out to need
+  // (2026-08-19: "make the non-recipe set the raw text like it was").
+  await expect(page.getByTestId('recipe-card')).toHaveCount(0);
+  await expect(page.getByTestId('scale-row')).toHaveCount(0);
+  await expect(view.getByTestId('ing-badge')).toHaveCount(0);
+  expect(await view.innerText()).toContain('2 cups flour');
+  // And the plain editor, not the banks-and-blob one.
+  await view.click({ position: { x: 10, y: 10 } });
+  await expect(page.getByTestId('note-body-edit')).toBeVisible();
+  await expect(page.getByTestId('recipe-blob')).toHaveCount(0);
+});
 
 test('the rendered recipe sits in an inset card, prose on its banks', async ({ page }) => {
   test.setTimeout(90_000);

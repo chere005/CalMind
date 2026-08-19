@@ -37,6 +37,11 @@ test('scaling reads the recipe differently and writes nothing', async ({ page })
   await page.getByTestId('note-body-view').click();
   await page.getByTestId('note-body-edit').fill(BODY);
   await page.getByTestId('note-title').click();
+  // A recipe is a note the Recipe page SAVED (2026-08-19) — typed markers
+  // alone stay plain, so convert before expecting the scale row.
+  await page.getByTestId('recipe-import').click();
+  await expect(page.getByTestId('recipe-save')).toBeVisible({ timeout: 10_000 });
+  await page.getByTestId('recipe-save').click();
 
   const body = page.getByTestId('note-body-view');
   await expect(page.getByTestId('scale-row')).toBeVisible();
@@ -89,6 +94,10 @@ test('scaling never reaches the stored recipe, even through the Recipe editor', 
   await page.getByTestId('note-body-view').click();
   await page.getByTestId('note-body-edit').fill(BODY);
   await page.getByTestId('note-title').click();
+  // Convert — a recipe is a note the Recipe page saved (2026-08-19).
+  await page.getByTestId('recipe-import').click();
+  await expect(page.getByTestId('recipe-save')).toBeVisible({ timeout: 10_000 });
+  await page.getByTestId('recipe-save').click();
 
   // Double it, then open the structured editor and save from there. This is
   // the path where a doubling could be written back permanently: the editor

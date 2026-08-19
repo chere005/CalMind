@@ -6,7 +6,7 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { defaultNoteTitle, looksLikeDefaultNoteTitle, deleteSection, renameSection, sectionNameTaken, byRecOrd, ingredientParts, joinRecipeBody, richLines, scaleRecipeBody, splitRecipeBody, duplicateItem, prefsPut, moveNote, moveSection, moveSectionEmptyingFolder, newId, nowStr, ordBetween, parseDateField, parseWhenFromText, todayStr, type Rec } from '@calmind/core';
+import { defaultNoteTitle, looksLikeDefaultNoteTitle, deleteSection, renameSection, sectionNameTaken, byRecOrd, ingredientParts, isRecipeNote, joinRecipeBody, richLines, scaleRecipeBody, splitRecipeBody, duplicateItem, prefsPut, moveNote, moveSection, moveSectionEmptyingFolder, newId, nowStr, ordBetween, parseDateField, parseWhenFromText, todayStr, type Rec } from '@calmind/core';
 import * as Clipboard from 'expo-clipboard';
 import { useStore } from '../store';
 import { UnitBadge } from '../components/IngredientBadge';
@@ -66,8 +66,12 @@ function useNoteScoped<T>(noteId: string | null, initial: T): [T, React.Dispatch
  * fromMarkers makes, done here on richLines' output. Scaling costs nothing:
  * the caller hands in the already-scaled body, so the badge reads "3 cups"
  * at 1½× exactly as the text used to.
+ *
+ * `badges` is passed only by the recipe CARD. A plain note that happens to
+ * carry the heading — Sean's hand-written ones do — keeps every word of its
+ * lines exactly as typed (2026-08-19: the raw text, like it was).
  */
-function RichBody({ body, onLine }: { body: string; onLine?: (text: string) => void }) {
+function RichBody({ body, onLine, badges }: { body: string; onLine?: (text: string) => void; badges?: boolean }) {
   let inIngredients = false;
   return (
     <>
@@ -75,7 +79,7 @@ function RichBody({ body, onLine }: { body: string; onLine?: (text: string) => v
         const boldHead = ln.kind === 'plain' && ln.runs.length === 1 && !!ln.runs[0]!.bold;
         if (boldHead) inIngredients = /^ingredients$/i.test(ln.runs[0]!.text.trim());
         const raw = ln.runs.map((r) => r.text).join('');
-        const parts = !boldHead && inIngredients && ln.kind === 'bullet' ? ingredientParts(raw) : null;
+        const parts = badges && !boldHead && inIngredients && ln.kind === 'bullet' ? ingredientParts(raw) : null;
         // Tap an ingredient or a step and it becomes a REMINDER (Sean,
         // 2026-08-18) — only where the caller offers the handler, which is
         // the recipe card of your own note and nowhere else.
@@ -117,18 +121,20 @@ function RichBody({ body, onLine }: { body: string; onLine?: (text: string) => v
 /**
  * The whole rendered body: prose on its banks, the recipe as an INSET card
  * (Sean, 2026-08-18: "recipes should have a nice inset formatting in the
- * note"). A note with no marker renders exactly as before; the tap-to-remind
- * handler reaches only the card's rows.
+ * note"). The card is for notes the Recipe page SAVED — `recipe` here is
+ * core's isRecipeNote — not for any body wearing the marker shape: Sean's
+ * hand-written notes wear it and stay plain (2026-08-19). The tap-to-remind
+ * handler and the badges reach only the card's rows.
  */
-function NoteBody({ body, onLine }: { body: string; onLine?: (text: string) => void }) {
-  const split = splitRecipeBody(body);
+function NoteBody({ body, recipe, onLine }: { body: string; recipe: boolean; onLine?: (text: string) => void }) {
+  const split = recipe ? splitRecipeBody(body) : null;
   if (!split) return <RichBody body={body} />;
   return (
     <>
       {split.before !== '' && <RichBody body={split.before} />}
       <View testID="recipe-card" style={s.recipeCard}>
         <Text style={s.recipeTag}>Recipe</Text>
-        <RichBody body={split.recipe} onLine={onLine} />
+        <RichBody body={split.recipe} onLine={onLine} badges />
       </View>
       {split.after !== '' && <RichBody body={split.after} />}
     </>
@@ -454,7 +460,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
   const generatedTitle = !!open && looksLikeDefaultNoteTitle(open.payload.title);
   // Only OUR bodies scale — the markers are what say the ingredients have
   // been read and separated from the prose around them.
-  const isRecipe = open ? /^\*\*Ingredients\*\*$/im.test(open.payload.body) : false;
+  const isRecipe = open ? isRecipeNote(open.payload) : false;
   const shownBody = open ? (scale === 1 ? open.payload.body : scaleRecipeBody(open.payload.body, scale)) : '';
 
   const goesChoices = useMemo(() => {
@@ -821,7 +827,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
                 // tapping must not drop you into an editor showing something
                 // else. 1× is right there.
                 if (scale !== 1) return;
-                editAsRecipe.current = splitRecipeBody(open.payload.body) !== null;
+                editAsRecipe.current = isRecipeNote(open.payload);
                 setDraft(open.payload.body);
                 setBodyEditing(true);
                 // The field does not exist until this has rendered — and the
@@ -838,7 +844,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
               {shownBody === '' ? (
                 <Text style={s.bodyPlaceholder}>Write…</Text>
               ) : (
-                <NoteBody body={shownBody} onLine={(t) => setRemindText(t)} />
+                <NoteBody body={shownBody} recipe={isRecipe} onLine={(t) => setRemindText(t)} />
               )}
             </Pressable>
           )}
@@ -1269,7 +1275,7 @@ function SharedNotes({ viewKey, partner }: { viewKey: string; partner: string })
         <Scroll contentContainerStyle={s.editor}>
           <Text style={s.sharedTitle}>{openShared.payload.title}</Text>
           {openShared.payload.date && <Text style={s.sharedDate}>{openShared.payload.date}</Text>}
-          {/^\*\*Ingredients\*\*$/im.test(openShared.payload.body) && (
+          {isRecipeNote(openShared.payload) && (
             <View testID="shared-scale-row" style={s.scaleRow}>
               {SCALES.map(([f, label, id]) => (
                 <Pressable
@@ -1309,7 +1315,7 @@ function SharedNotes({ viewKey, partner }: { viewKey: string; partner: string })
             >
               {/* No tap-to-remind here: a reminder made of a partner's line
                   would write to THEIR store, which a tap must never do. */}
-              <NoteBody body={sharedScale === 1 ? openShared.payload.body : scaleRecipeBody(openShared.payload.body, sharedScale)} />
+              <NoteBody body={sharedScale === 1 ? openShared.payload.body : scaleRecipeBody(openShared.payload.body, sharedScale)} recipe={isRecipeNote(openShared.payload)} />
             </Pressable>
           )}
         </Scroll>

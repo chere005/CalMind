@@ -465,6 +465,21 @@ export function joinRecipeBody(before: string, recipe: string, after: string): s
   return [before.trim(), recipe.trim(), after.trim()].filter(Boolean).join('\n\n');
 }
 
+/**
+ * Whether a note gets the recipe TREATMENT — the inset card, the measure
+ * badges, the scale row, the blob editor. The marker shape alone is not the
+ * test: Sean's own hand-written notes carry an **Ingredients** heading and
+ * bullets from before the recipe feature existed, and the day the card
+ * landed they all started rendering as recipes he never made ("i wanted the
+ * recipes to be a copy but in proper recipe form" — 2026-08-19). A recipe is
+ * a note the Recipe page SAVED, which is the one place `recipe: true` is
+ * written. The shape still has to hold too, or a flagged note whose markers
+ * were edited away would draw a card around nothing.
+ */
+export function isRecipeNote(n: { body: string; recipe?: boolean }): boolean {
+  return n.recipe === true && splitRecipeBody(n.body) !== null;
+}
+
 /* ── Scaling ──────────────────────────────────────────────────────────────
  * Halving or doubling is the one arithmetic a recipe actually asks of you,
  * and it is exactly the arithmetic nobody wants to do holding a phone with
@@ -637,21 +652,26 @@ export function scaleIngredient(text: string, factor: number): string {
   } else if (unit !== '' && !knownUnit(unit)) {
     const cut = rest.search(/[,;(]/);
     const front = (cut < 0 ? rest : rest.slice(0, cut)).trim();
-    // A single bare word is the thing. So is the last of several when every
-    // word before it is a participle — '1 medium chopped onion' doubling to
-    // '2 medium chopped onion' is off Sean's Pastitsio, and 'chopped' is the
-    // only thing standing between the count and 'onion'.
+    // A single bare word is the thing. So is the last of several when the
+    // words before it only describe it — '1 medium chopped onion' is off
+    // Sean's Pastitsio, and '1 large free range egg', '1 large yellow
+    // onion' and '1 finely diced garlic clove' are off his cards too. A
+    // participle-only (-ed) test used to stand guard here and stopped at
+    // plain adjectives: 'free', 'range' and 'yellow' kept each of those
+    // nouns singular through a doubling.
     //
-    // The -ed test is what keeps this safe, and it is why the rule is not
-    // simply "take the last word". '1 small handful parsley' has 'handful'
-    // in that position, which is a measure and not a participle, so nothing
-    // is counted and 'parsley' — which has no plural — is left alone.
+    // What keeps this safe, and why the rule is still not "take the last
+    // word": no word on the way to the noun may itself be a measure or a
+    // unit. '1 small handful parsley' has 'handful' in that position, so
+    // nothing is counted and 'parsley' — which has no plural — is left
+    // alone. That guards everything the -ed test did, since a participle
+    // is never a measure word.
     const words = front.split(/\s+/);
     const countable =
       /^[A-Za-z]+$/.test(front) ||
       (words.length > 1 &&
         words.every((w) => /^[A-Za-z]+$/.test(w)) &&
-        words.slice(0, -1).every((w) => /ed$/i.test(w)));
+        words.slice(0, -1).every((w) => !knownUnit(w)));
     if (countable) {
       const lead = words.slice(0, -1).join(' ');
       const counted = countWord(words[words.length - 1]!, count);

@@ -47,7 +47,7 @@ Standing rules live in `CLAUDE.md`, not here.
 
 ## Suite counts, as of this commit
 
-core **552** · gesture **231** (+1 skipped) · WebKit **15** · server **55** ·
+core **556** · gesture **235** (+1 skipped) · WebKit **15** · server **55** ·
 live **19** with the API · desktop **7** (+3 in `npm run test:desktop`) · deploy guards **9** · plus the four
 native seam checkers no browser can reach: `npm run test:watch`,
 `npm run test:widget`, `npm run test:deploy`.
@@ -437,7 +437,18 @@ Not chosen here: inventing merge semantics for someone's notes is not a
 tidy-up, and this repo has already paid once for a remote edit landing on a
 sentence being typed.
 
-### Login has no throttling of any kind — needs a policy, not a patch
+### ~~Login has no throttling of any kind~~ — POLICY DECIDED AND SHIPPED 2026-08-18
+The word this entry was waiting on arrived on decision night: five wrong
+guesses lock the account, and each further round holds longer — 5m, 10m,
+1h, 2h, 3h, then +1h a round. The gate holds against the RIGHT password
+too; unknown names never mint an entry (that would confirm which names
+exist); a clean sign-in or a password reset clears the slate; and the
+manual override is exactly what he asked for — backend-only, by deleting
+the entry from `data/lockouts.json`. Five server tests, and the gate was
+mutation-checked: disabled, four go red. PARITY.md's decision-night entry
+has the story. The original finding stands below.
+
+### Login has no throttling of any kind (history)
 Read rather than grepped, 2026-08-11: `handle_login` does a `password_verify`
 and a `login_fail` log on every attempt, with no counter, no delay and no
 lockout. `handle_recover` has `RECOVER_TRIES = 5`, so there is precedent in the
@@ -466,20 +477,20 @@ It was then dropped entirely when §3 was cut back — recovered from git.)
   date FIELD accepts them too. Eight vectors in spec/parse.json. The known
   cost, accepted with the ask: "sat" and "sun" are ordinary words and will
   now be read as days in a title that uses them as prose.
-- "Adding a note should go straight to the note editor" — it already does
-  (`app.spec.ts:157`), so he either means native-only or means it should land
-  in TYPING mode. Awaiting which. Cannot test it myself: it writes to his data.
-- Ok to make a throwaway account on the TEST server? It would let the watch
-  tick round-trip be verified end to end without touching his data.
-- **Habit sections recolour by CYCLING; folders and calendars use the tray.**
-  Tapping a habit section's swatch advances one step through the palette, so
-  reaching a specific colour means tapping until it comes round. Folders and
-  calendars open `SwatchTray` and let you pick. Found 2026-08-12 because
-  `HabitSectionManager` still IMPORTED SwatchTray without rendering it —
-  a migration that stopped one file short, and the import was the only thing
-  that remembered. Removing the dead import erased that evidence, which is
-  why it is written down here. Which interaction he wants everywhere is his
-  call; they should not stay different.
+- ~~"Adding a note should go straight to the note editor"~~ — **CLOSED
+  2026-08-19, his word ("is done")**: the behavior it already had is the
+  behavior he meant. `app.spec.ts:157` keeps it pinned; no code change.
+- ~~Ok to make a throwaway account on the TEST server?~~ — **YES, 2026-08-19.**
+  That unblocks verifying the watch tick round-trip end to end without
+  touching his data; the check itself is still unbuilt and stays owed.
+- ~~**Habit sections recolour by CYCLING; folders and calendars use the
+  tray.**~~ — **UNIFIED 2026-08-18, decision night**: habit sections open
+  `SwatchTray` now like everything else; the cycling swatch is gone and the
+  tray spec watches it. The history is worth keeping: found 2026-08-12
+  because `HabitSectionManager` still IMPORTED SwatchTray without rendering
+  it — a migration that stopped one file short, and the import was the only
+  thing that remembered (the comment at `HabitSectionManager.tsx:88` marks
+  the spot now that the migration finished its last file).
 
 ## 2 · Open bugs
 
@@ -576,7 +587,21 @@ never re-reads it, so Sean's older install keeps "SC" until he deletes the
 webclip and re-adds it. One re-add fixes the icon AND guarantees the
 freshest page in one go; nothing left to ship.
 
-### The new-note focus is a 50ms race (NOT WebKit only — see below)
+### ~~The new-note focus is a 50ms race~~ — FIXED 2026-08-18, and it took a decision, not a patch
+The design question this entry kept arriving at got its answer on decision
+night: "tapping the title should switch to editing the title." A title
+focus now cancels the pending 50ms body focus AND collapses the body to its
+view, so the two orders of the old race CONVERGE instead of diverging —
+deterministic, which is the only way a flake actually dies. Fifteen specs
+moved to the human choreography (title, then tap the body view, then
+write); `Notes.tsx:334` marks the spot in code, and PARITY.md's
+decision-night entry has the story. This is what the entry itself predicted:
+"It is not a patch" — the four one-at-a-time patches each fixed one spec and
+broke another, and the fix that held changed the design. The investigation
+below stands as history: the record of twelve occurrences, two retracted
+rate claims, and everything measured and ruled out on the way.
+
+### The new-note focus is a 50ms race (history — NOT WebKit only, see below)
 
 **A CHROMIUM OCCURRENCE, 2026-08-13**, which is what took "(WebKit only)" out
 of this heading. `recipehand.spec.ts:71` ("an ingredient typed by hand lands at
@@ -827,9 +852,46 @@ profiles run to 2026-08-26. When a renewal happens again, CHECK
 `ProvisionedDevices` in the embedded profile before blaming the tunnel.
 ## 3 · Work, not decisions
 
+- ~~**The Add page's m/d field should be a calendar picker**~~ — **SHIPPED
+  2026-08-19**, the day it was asked. `DayPick` is the new month-grid Modal
+  (the note editor's "full picker" turned out to be a parsed text field, so
+  there was nothing to reuse); the Add tab's m/d box opens it, Clear takes
+  the date back, and the picked day is stored as YYYY-MM-DD with no parse
+  step. The ITEM SHEET's m/d box is deliberately untouched — it accepts
+  "tomorrow" and has a spec saying so. adddefaults.spec pins the picker.
+
+- ~~**The repeat picker should default to week**~~ — **SHIPPED 2026-08-19.**
+  Revealing + Repeat on Add now FILES a weekly repeat (the item window's
+  own presumption), which is what keeps the 'week' pill honest — and hiding
+  the panel clears it, so a repeat cannot ride along invisibly. The
+  2026-08-18 starts-empty design is overturned by his word; its honesty
+  argument survives in the clear-on-hide rule. Pinned in app.spec by the
+  roll-vs-check-off difference.
+
+- ~~**No shared-calendar selection on the Add screens**~~ — **SHIPPED
+  2026-08-19.** The item sheet's partner pair offers sections only; the
+  shared-EVENT write path went with it. The sharing spec asserts the badge
+  present on NOTE and absent on EVENT so the absence cannot pass vacuously.
+
+- ~~**A toast raised while a Modal is open is hidden on the native builds.**~~
+  — **DECIDED AND SHIPPED 2026-08-19, Sean: "just make the toast always on
+  top."** His word supersedes the sheet-says-its-own-piece design below. Two
+  implementations because the surfaces allow different things: the WEB keeps
+  the in-tree fill with the maximum z-index (react-native-web's sheet
+  portals sit at 9999 — the spec measured it after an investigation claimed
+  "none" — and NOT the RNW Modal, which traps focus and would
+  blur the note editor mid-typing); NATIVE becomes a transparent Modal
+  window, the only thing that draws over another Modal there, dismissing on
+  first touch so its window-level tap-swallowing costs one tap at worst.
+  The web's click-through is untouched, so undodelete's two-in-a-row still
+  lands. copymd.spec pins the stacking mechanism and says honestly what a
+  browser cannot attest (elementFromPoint skips pointer-events:none). The
+  native half is a simulator-glance item. The original analysis stands
+  below.
+
 - **A toast raised while a Modal is open is hidden on the native builds.**
-  Written down at the moment it was built (2026-08-12) rather than left to be
-  discovered. `ToastProvider` is a plain absolutely-filled View at the root
+  (history) Written down at the moment it was built (2026-08-12) rather than
+  left to be discovered. `ToastProvider` is a plain absolutely-filled View at the root
   with `pointerEvents: 'none'`, which is exactly why it costs no layout and
   eats no taps — but an RN Modal is its OWN WINDOW and sits above the whole
   app, so a confirmation raised from inside a sheet would be drawn behind it.
@@ -840,6 +902,21 @@ profiles run to 2026-08-26. When a renewal happens again, CHECK
   this design exists to avoid, and would have made the second of two
   consecutive undos land on the first one's popup. A sheet should say its own
   piece inside itself.
+
+  HOW IT WOULD BE TESTED — settled 2026-08-19 so nobody re-derives it. The
+  bug IS web-visible, unlike the safe-area class of Modal bugs: on the web,
+  react-native-web's Modal is a real `createPortal` into a `position:fixed`
+  div appended to `document.body` — its own stacking context, painted above
+  the app root whatever the source order — while the toast relies on paint
+  order alone. So a Playwright spec asserting `document.elementFromPoint`
+  at the toast's centre (the `hitarea.spec.ts:153` pattern, this repo's
+  proven tool for one element stealing another's spot) would catch it in a
+  plain browser today. Deliberately NOT written yet: both live callers were
+  read and neither raises a toast under an open Modal, so the spec would
+  need a test-only trigger — a synthetic path validating a hypothetical —
+  and the eventual fix is the sheet saying its own piece, which that spec
+  would not even exercise. Write the local notice AND its regression spec
+  together, in the first real feature that needs one.
 
 - **The circular complication shows a bare time for an event days away.**
   `whenShort` (ComplicationWidget.swift) drives accessoryCorner and
@@ -912,9 +989,18 @@ profiles run to 2026-08-26. When a renewal happens again, CHECK
   its own .htaccess carrying `CGIPassAuth On`, without which every bearer
   token would arrive empty.
 
-- **A shared calendar cannot be isolated; a shared folder can.** Found
-  2026-08-12, and left alone because the fix needs one visual decision that
-  is Sean's.
+- ~~**A shared calendar cannot be isolated; a shared folder can.**~~ —
+  **DECIDED AND SHIPPED 2026-08-18**: a partner's calendar isolates on tap.
+  The visual decision below got its answer the way the entry laid it out —
+  `lastView` can only ever name one of mine, so isolation is said the other
+  way it can be said (everything else hidden), and the pie button learned to
+  draw visible SHARED colours, which is what made a theirs-only view
+  possible at all (`CalendarPick.tsx:82` marks it; PARITY.md decision
+  night). The analysis stands below as the record of the decision space.
+
+- **A shared calendar cannot be isolated; a shared folder can.** (history)
+  Found 2026-08-12, and left alone because the fix needs one visual decision
+  that is Sean's.
 
   Every other row in every picker isolates on a tap — press a folder, a
   shared folder, a calendar, or (since today) a habit section, and you see
@@ -960,7 +1046,10 @@ profiles run to 2026-08-26. When a renewal happens again, CHECK
   the suite's clear-completed footer is deliberately not wanted. No code
   change; recorded so nobody re-opens it as a gap.
 
-- **Larger notes, with images** (Sean asked, 2026-08-11). Not a bigger cap:
+- **Larger notes, with images** — **P2, 2026-08-19: "we'll address bigger
+  notes separately"**, so this is parked for a later conversation, not
+  queued work. Everything below stays as the reference for when that
+  conversation happens. (Sean asked, 2026-08-11). Not a bigger cap:
   the shape cannot carry it. The client persists the WHOLE snapshot as one
   JSON string through AsyncStorage — localStorage on the web, ~5MB for the
   entire origin — and the server decrypts, mutates and rewrites the WHOLE
@@ -1214,12 +1303,18 @@ where someone writing a test will meet them.
 
 ## 5 · Gated — waiting on his explicit word
 
-- **E2EE envelopes** (design settled, build gated): X25519 + Argon2id-wrapped
+- **E2EE envelopes** (design settled, build gated; **P2 as of 2026-08-19 —
+  Sean: "lets discuss e2ee and larger notes later"**): X25519 + Argon2id-wrapped
   private key, per-container content keys, per-recipient wraps, passkey unwrap
   via WebAuthn PRF, recovery codes required. Changes the password-recovery
   contract, so it does not start until he says go.
-- ~~**Windows desktop build**~~ — **BUILT AND SMOKED 2026-08-19**, three
-  dispatches deep: the first "succeeded" while uploading NOTHING
+- ~~**Windows desktop build**~~ — **BUILT AND SMOKED 2026-08-19**, and his
+  word later that day settles the posture: "i don't need to test on windows
+  anytime soon, i just want it to stay up to date so when i do want it we
+  can fix whatever small issues." So the workflow gets dispatched as part
+  of DTP (after the push, since CI builds the pushed tree), the human run
+  stays deferred indefinitely, and nobody should list it as a blocker.
+  Originally three dispatches deep: the first "succeeded" while uploading NOTHING
   (bundle.targets carried only macOS's "app"; the upload now errors on
   empty), the second died wanting a `.ico` nobody had ever needed, and the
   third handed over both installers — `CalMind_0.1.0_x64-setup.exe` (2.0MB,
@@ -1236,11 +1331,20 @@ where someone writing a test will meet them.
   pattern is visible. Imperfect text is fine (the user fixes it); junk
   non-letter characters are not — `scrubLine()` in `packages/core/src/recipe.ts`
   is the gate, extend it there.
-- Known and deliberate: '1 large free range egg' and '1 finely chopped onion'
-  are still missed — the quantity IS found, it is the name that keeps its
-  adjectives. Nothing is pluralised there either, because the rule only counts
-  a word whose preceding words are participles ('2 dried chili' → '4 dried
-  chilis', which the entry here used to say did not happen; it does).
+- ~~Known and deliberate: '1 large free range egg' and '1 finely chopped
+  onion' are still missed~~ — **the pluralisation half is FIXED 2026-08-19**,
+  on Sean's "make a plan for ocr parsing fixes". The countable test in
+  `scaleIngredient` now asks "is any word on the way to the noun a measure
+  or a unit?" instead of "does every one end in -ed?" — a participle is
+  never a measure word, so everything the old rule protected still blocks
+  ('1 small handful parsley' stays unpluralised, pinned). Validated the
+  strong way: A/B over all 134 ingredient lines in his real recipes, ×2 and
+  ×0.5 — 4 of 268 scalings changed, every one an improvement ('2 finely
+  diced garlic cloves', '2 large yellow onions', '1 dried persian lime',
+  '¾ yellow or red onion'), zero regressions. The NAME half stands as
+  designed, not as a miss: 'large free range egg' keeps its adjectives in
+  the name because that is what the thing is called. ('2 dried chili' →
+  '4 dried chilis' also stands — both spellings are real English.)
 - The '1 x 400g tin' shape is CONFIRMED, 2026-08-12, along with the other
   three ways to write it — see `packages/core/test/tinsize.test.ts`. Driving
   the claim instead of re-filing it found a real bug: the bare
@@ -1252,4 +1356,17 @@ where someone writing a test will meet them.
   four-times shape. Recognising it means calling every bare 'COUNT SIZE NOUN'
   a count of sized items, which is a guess about lines that are not in Sean's
   recipes. Pinned as current behaviour in that test rather than changed.
+  **Re-checked 2026-08-19 against every ingredient line in his real recipes:
+  the shape appears in none of them, so the decision stands on the same
+  evidence it was made on.** If it ever turns up in a card of his, that is
+  new evidence and a question for him, not a green light.
 - Keep `recipe-incnotes` honored on every save path if the editor grows new ones.
+- **His recipes' layout, settled 2026-08-19**: BOTH sets stay — originals
+  raw in Recipes·General (his word: "keep both sets.. make the non-recipe
+  set the raw text like it was"; they already were, see PARITY — the card
+  had started dressing them and the recipe flag undressed them), curated
+  copies flagged `recipe: true` in Recipe Form. The empty "Aug 18, 2026 at
+  5:50pm" note stays on his word. The curated Gohrme Sabzi still sits in
+  the "Pasta" section rather than Recipe Form — noticed, not moved, since
+  "keep both sets" was the whole instruction; one drag fixes it if he
+  minds.

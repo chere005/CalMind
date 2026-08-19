@@ -113,13 +113,15 @@ export function ItemModal({
   // The partner's shared destinations, the suite's second picker pair: ids
   // wear a '~' so a shared choice can never be mistaken for one of mine —
   // exactly one owner is ever selected, and a shared pick writes THEIR store.
+  // SECTIONS only: a partner's CALENDAR is never offered as a target (Sean,
+  // 2026-08-19 — "there shouldn't be a selection for shared calendars in the
+  // add screens"), so an event can only ever be filed on a calendar of mine.
   const sharedChoices = useMemo(() => {
-    if (mode !== 'create' || !sharedPartner) return { cals: [] as Rec<'calendar'>[], secs: [] as { sec: Rec<'section'>; label: string }[] };
+    if (mode !== 'create' || !sharedPartner || kind === 'event') return { secs: [] as { sec: Rec<'section'>; label: string }[] };
     const folders = sharedRecs.filter((r): r is Rec<'folder'> => r.type === 'folder').sort(byRecOrd);
     const sections = sharedRecs.filter((r): r is Rec<'section'> => r.type === 'section').sort(byRecOrd);
     const app = kind === 'note' ? 'notes' : 'reminders';
     return {
-      cals: sharedRecs.filter((r): r is Rec<'calendar'> => r.type === 'calendar').sort(byRecOrd),
       secs: folders
         .filter((f) => (f.payload.app ?? 'reminders') === app)
         .flatMap((f) => sections.filter((x) => x.payload.folderId === f.id).map((x) => ({ sec: x, label: `${f.payload.name} · ${x.payload.name}` }))),
@@ -128,8 +130,8 @@ export function ItemModal({
   const sharedDest = useMemo(() => {
     if (!dest?.startsWith('~')) return null;
     const id = dest.slice(1);
-    return kind === 'event' ? sharedChoices.cals.find((c) => c.id === id) ?? null : sharedChoices.secs.find((c) => c.sec.id === id)?.sec ?? null;
-  }, [dest, kind, sharedChoices]);
+    return sharedChoices.secs.find((c) => c.sec.id === id)?.sec ?? null;
+  }, [dest, sharedChoices]);
 
   // The record can go while this sheet is open — deleted on the phone while
   // the desktop still has it up, which the 30s pull brings in underneath.
@@ -242,13 +244,12 @@ export function ItemModal({
       return;
     }
     if (sharedDest) {
+      // Never an event: a partner's calendar is not offered (2026-08-19).
       const id = newId();
       const record: AnyRec =
-        kind === 'event'
-          ? { id, type: 'event', updated: 0, payload: { text: title, date: finalDate ?? today, time: finalTime, end: finalEnd, repeat: finalRepeat, calendarId: sharedDest.id, ord: ordBetween(null, null) } }
-          : kind === 'reminder'
-            ? { id, type: 'reminder', updated: 0, payload: { text: title, due: finalDate, time: finalTime, done: false, repeat: finalRepeat, folderId: (sharedDest as Rec<'section'>).payload.folderId, sectionId: sharedDest.id, indent: 0, ord: ordBetween(null, null) } }
-            : { id, type: 'note', updated: 0, payload: { title: title, body: '', date: finalDate, folderId: (sharedDest as Rec<'section'>).payload.folderId, sectionId: sharedDest.id, ord: ordBetween(null, null) } };
+        kind === 'reminder'
+          ? { id, type: 'reminder', updated: 0, payload: { text: title, due: finalDate, time: finalTime, done: false, repeat: finalRepeat, folderId: sharedDest.payload.folderId, sectionId: sharedDest.id, indent: 0, ord: ordBetween(null, null) } }
+          : { id, type: 'note', updated: 0, payload: { title: title, body: '', date: finalDate, folderId: sharedDest.payload.folderId, sectionId: sharedDest.id, ord: ordBetween(null, null) } };
       void sharedPut(record);
       onClose();
       return;
@@ -393,7 +394,7 @@ export function ItemModal({
                 />
               )}
             </View>
-            {mode === 'create' && sharedPartner && (kind === 'event' ? sharedChoices.cals.length : sharedChoices.secs.length) > 0 && (
+            {mode === 'create' && sharedPartner && kind !== 'event' && sharedChoices.secs.length > 0 && (
               <>
                 <Text style={s.ownerBadge}>{sharedPartner}</Text>
                 <View style={s.rowWrap}>
@@ -401,9 +402,7 @@ export function ItemModal({
                     value={sharedDest ? `~${sharedDest.id}` : null}
                     options={[
                       { id: '', label: '—' },
-                      ...(kind === 'event'
-                        ? sharedChoices.cals.map((c) => ({ id: `~${c.id}`, label: c.payload.name }))
-                        : sharedChoices.secs.map((c) => ({ id: `~${c.sec.id}`, label: c.label }))),
+                      ...sharedChoices.secs.map((c) => ({ id: `~${c.sec.id}`, label: c.label })),
                     ]}
                     onPick={(id) => setDest(id === '' ? null : id)}
                   />

@@ -2219,3 +2219,78 @@ The scrubbed boot error itself is still unexplained — recorded, harmless
 under the retraction, a hunt for a quieter evening. The lesson goes next
 to the others: a verification is only as good as its distance from the
 real thing, and both of tonight's stand-ins were one layer too far out.
+
+### The recipes answer for themselves, 2026-08-19 midday
+
+Sean's morning batch — OCR fixes, "clean up my recipes", and three walk-
+through asks that arrived mid-session.
+
+- **The scaler counts through adjectives now.** The countable test asked
+  "does every word before the noun end in -ed?", which let 'chopped' through
+  and stopped at 'yellow' — so '1 large free range egg' doubled with its
+  noun still singular. It asks "is any word on the way a measure or a unit?"
+  instead: everything the participle rule protected still blocks ('handful
+  parsley' stays unpluralised — a participle is never a measure word), and
+  the adjectives stop hiding the noun. Validated the strong way: the old and
+  new scaler A/B'd over all 134 ingredient lines in his real recipes at ×2
+  and ×½ — 4 of 268 scalings changed, each one an improvement, zero
+  regressions. The bare 'COUNT SIZE NOUN' non-fix was re-checked against the
+  same corpus: the shape appears nowhere in his cards, so the won't-guess
+  decision stands on the evidence it was made on.
+- **"They got upgraded" — they had not, and the proof is in the stamps.**
+  His suspicion that the originals were structured when only the copies
+  should have been: every one of the 19 originals still wears its
+  2026-08-08 04:59 stamp, byte-untouched. What changed was the APP — the
+  Aug-18 card renders on any body wearing the marker shape, and his
+  hand-written notes wear it. So the treatment became opt-in: a note is a
+  recipe when the Recipe page SAVED it (`recipe: true`, core's
+  isRecipeNote), not when its text happens to match. His originals render
+  as the raw text they always were; the 19 curated duplicates were flagged
+  through the sync API (originals' stamps verified unmoved after the
+  write). recipecard.spec pins the rule both ways, watched red with the
+  gate gutted.
+- **The Add page's m/d box is a calendar picker** (his ask, verbatim). A
+  compact month-grid Modal — ‹ Aug 2026 ›, out-of-month cells lightened and
+  pickable without paging, Clear when a date is set. The picked day goes in
+  as YYYY-MM-DD with no parse step; typed dates keep their home in the line
+  itself, which still reads "Vet 8/3 2pm". The item sheet's little box is
+  deliberately untouched — it accepts "tomorrow", and that seam is pinned
+  by its own spec.
+- **Revealing + Repeat files weekly** ("repeat picker should default to
+  week"), overturning the 18th's starts-empty design — and because the old
+  design's honesty argument was real, hiding the panel now CLEARS the
+  repeat, so nothing rides along invisibly. Pinned by the visible
+  difference: a ticked repeat rolls, a ticked one-off checks off.
+- **A partner's calendar is never an add target** ("there shouldn't be a
+  selection for shared calendars in the add screens"). The item sheet's
+  shared pair offers sections only; the shared-event write path went with
+  it. The sharing spec asserts the badge present on NOTE and absent on
+  EVENT, so the absence cannot pass vacuously.
+
+### The toast goes on top, and its spec kills two wrong fixes first, 2026-08-19 afternoon
+
+Sean: "just make the toast always on top" — overriding the 08-12 design's
+deliberate refusal (a sheet was to say its own piece). Two mechanisms,
+because the surfaces allow different things: native wraps the card in its
+own transparent Modal window — the only thing that draws over another Modal
+there — dismissing on first touch so the window-level tap-swallow costs one
+tap at worst; the web portals the card to a body-level div at maximum
+z-index with pointer-events none, so clicks still fall straight through and
+undodelete's two-in-a-row still lands.
+
+The story is the spec. Its first draft asserted the sheet portal carries no
+z-index, as the investigation had reported — red: the portal wears 9999.
+The second draft asserted the in-tree fill's max z-index therefore wins —
+red again: react-native-web wraps the app in TWO divs that establish
+z-index:0 stacking contexts, so anything inside the tree is capped at 0,
+under the portal, with the max z-index sitting in the styles looking
+correct. The fix that ships is the one the spec stopped being able to
+refute: the toast's own body-level portal. Neither wrongness was visible in
+a passing suite before the spec existed, and both would have shipped as
+"fixed". A new check is worth nothing until it has been watched failing —
+this one was watched failing at the truth, twice, before it ever passed.
+
+Not the RNW Modal on web, deliberately: it traps focus, and a toast fired
+mid-keystroke would blur the note editor and collapse it — the exact bug
+family the title-tap rule just killed. @types/react-dom joined the dev
+deps for the portal's types.

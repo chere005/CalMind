@@ -1004,8 +1004,17 @@ test("sharing: a calendar shows under the partner's day-panel group; notes read 
   // B files an event of their own, and the panel's groups fall in the suite's
   // fixed order: one group per kind AND owner, mine before theirs, kinds in
   // the legend's order — never reshuffled by what the day happens to hold.
+  // While the sheet is open on EVENT: no partner destination is offered — a
+  // shared calendar is never a target (Sean, 2026-08-19), where a reminder
+  // or note still offers the partner's sections below the badge.
   await pageB.getByText('+ Add', { exact: true }).click();
+  // The positive half first, so the absence below cannot pass vacuously:
+  // on NOTE the partner's badge and sections are offered…
+  await pageB.getByTestId('kind-note').click();
+  await expect(pageB.getByText(userA, { exact: true })).toBeVisible();
+  // …and on EVENT they are gone, not merely empty.
   await pageB.getByTestId('kind-event').click();
+  await expect(pageB.getByText(userA, { exact: true })).toHaveCount(0);
   await pageB.getByPlaceholder(/What\?/).fill('my own thing');
   await pageB.getByText('Save', { exact: true }).click();
   await pageB.getByText('+ Add', { exact: true }).click();
@@ -1039,6 +1048,11 @@ test("sharing: a calendar shows under the partner's day-panel group; notes read 
   await pageA.getByTestId('note-body-view').click();
   await pageA.getByTestId('note-body-edit').fill('**Ingredients**\n- 2 cups flour\n- 3 egg yolks');
   await pageA.getByTestId('note-title').click();
+  // A recipe is a note the Recipe page SAVED (2026-08-19) — the flag rides
+  // the payload through sync, which is what dresses the partner's copy.
+  await pageA.getByTestId('recipe-import').click();
+  await expect(pageA.getByTestId('recipe-save')).toBeVisible({ timeout: 10_000 });
+  await pageA.getByTestId('recipe-save').click();
   await pageA.waitForTimeout(2_000);
   await pageB.reload();
   await pageB.getByTestId('tab-notes').click();
@@ -1708,12 +1722,13 @@ test('every repeat editor draws core’s unit list — the Add screen and the it
     await expect(page.getByTestId('repeat-unit')).toContainText('month');
   };
 
-  // 1 — the Add screen's editor. Its dropdown starts EMPTY on purpose:
-  // revealing the panel files no repeat there, so a pill claiming "week"
-  // before anything is picked would be lying.
+  // 1 — the Add screen's editor. Revealing the panel FILES a weekly repeat
+  // now (Sean, 2026-08-19: "repeat picker should default to week"), so the
+  // dropdown opens already saying so — the reveal handler is what keeps the
+  // pill honest, where the old design kept it honest by staying empty.
   await page.getByTestId('tab-add').click();
   await page.getByText('+ Repeat', { exact: true }).click();
-  await expect(page.getByTestId('repeat-unit')).toContainText('—');
+  await expect(page.getByTestId('repeat-unit')).toContainText('week');
   await pickMonth();
 
   // 2 — the item window's, reached the way a Reminders row reaches it: hold to
@@ -1729,4 +1744,35 @@ test('every repeat editor draws core’s unit list — the Add screen and the it
   await expect(page.getByPlaceholder(/What\?/)).toBeVisible();
   await page.getByText('+ Repeat', { exact: true }).click();
   await pickMonth();
+});
+
+test("the Add screen's revealed repeat FILES weekly, and hiding it un-files", async ({ page }) => {
+  // The label saying 'week' is the smaller half of the 2026-08-19 rule; the
+  // filed record is the claim. A ticked repeat ROLLS (the row stays), a
+  // ticked one-off checks off (the row hides) — that visible difference is
+  // how both halves are read without reaching into storage.
+  await signup(page);
+  await page.getByTestId('tab-add').click();
+  // Reminder, not the default Event — only reminders draw tickable rows.
+  await page.getByTestId('add-kind-reminder').click();
+  await page.getByTestId('add-text').fill('water plants');
+  await page.getByText('+ Repeat', { exact: true }).click();
+  await page.getByText('Done', { exact: true }).click();
+  await page.getByTestId('tab-reminders').click();
+  const row = page.getByTestId('rem-row').filter({ hasText: 'water plants' });
+  await row.getByTestId('tick').click();
+  await expect(row, 'a repeat rolls instead of checking off').toBeVisible();
+
+  // Reveal, hide, file: the panel closing takes its weekly default with it —
+  // a repeat that survived the panel would ride along invisibly.
+  await page.getByTestId('tab-add').click();
+  await page.getByTestId('add-kind-reminder').click();
+  await page.getByTestId('add-text').fill('one-off errand');
+  await page.getByText('+ Repeat', { exact: true }).click();
+  await page.getByText('+ Repeat', { exact: true }).click();
+  await page.getByText('Done', { exact: true }).click();
+  await page.getByTestId('tab-reminders').click();
+  const oneOff = page.getByTestId('rem-row').filter({ hasText: 'one-off errand' });
+  await oneOff.getByTestId('tick').click();
+  await expect(oneOff, 'no repeat rode along after the panel closed').toBeHidden();
 });

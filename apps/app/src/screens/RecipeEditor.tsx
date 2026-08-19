@@ -239,7 +239,10 @@ export function RecipeEditor({ note, onClose }: { note: Rec<'note'>; onClose: ()
 
   const save = () => {
     const body = [recipeBody(ingredients, steps), includeNotes ? extra.join('\n') : ''].filter(Boolean).join('\n\n');
-    mutate((e) => e.put({ ...note, payload: { ...note.payload, title: title || note.payload.title, body } }));
+    // Save is the ONE place a note becomes a recipe. The marker shape alone
+    // is not the test — Sean's hand-written notes carry it and stay plain
+    // (isRecipeNote, 2026-08-19).
+    mutate((e) => e.put({ ...note, payload: { ...note.payload, title: title || note.payload.title, body, recipe: true } }));
     onClose();
   };
 

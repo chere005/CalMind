@@ -57,8 +57,13 @@ export type Event = {
 };
 
 /** Note bodies are plain text, as in the native apps (the web suite's rich text
- *  is a later milestone). An optional date puts the note on the calendar. */
-export type Note = { title: string; body: string; date: string | null; folderId: string; sectionId: string; ord: string };
+ *  is a later milestone). An optional date puts the note on the calendar.
+ *  `recipe` marks a note the Recipe page saved — the only kind that renders
+ *  the inset card and its trappings. Optional because every note written
+ *  before it existed has none, and reads as a plain note — which is exactly
+ *  what Sean's hand-typed marker-shaped notes turned out to be (2026-08-19);
+ *  see isRecipeNote in recipe.ts. */
+export type Note = { title: string; body: string; date: string | null; folderId: string; sectionId: string; ord: string; recipe?: boolean };
 
 export type HabitSection = { name: string; color: string; ord: string };
 /**

@@ -36,6 +36,11 @@ test('an ingredient bullet wears the measure as a badge, name-only text', async 
     .getByTestId('note-body-edit')
     .fill('**Ingredients**\n- 2 cups flour\n- a pinch of salt\n\n**Directions**\n1. Mix 2 cups of patience.');
   await page.getByPlaceholder('Title').click();
+  // The badge is the recipe card's dress, and a recipe is a note the Recipe
+  // page SAVED (2026-08-19) — typed markers alone stay plain text.
+  await page.getByTestId('recipe-import').click();
+  await expect(page.getByTestId('recipe-save')).toBeVisible({ timeout: 10_000 });
+  await page.getByTestId('recipe-save').click();
   const view = page.getByTestId('note-body-view');
   await expect(view).toBeVisible();
 
