@@ -2,8 +2,9 @@
  * The PUBLIC meeting-request page (Sean, 2026-08-19): <app>/request is a
  * link to hand out — deliberately absent from the app's own navigation — that
  * shows his open hours and takes a request. Meetings run ABOUT AN HOUR and
- * only the start is chosen; requestable 10am–8pm unless his calendar says
- * otherwise. The open/closed arithmetic is the SERVER'S (the same rule that
+ * only the start is chosen; requestable inside the day's window (his week:
+ * 10am–8pm, Tuesdays from 2pm, Friday/Saturday to 11pm) unless his calendar
+ * says otherwise. The open/closed arithmetic is the SERVER'S (the same rule that
  * validates the create — see app.php's meetreq section); this page only draws
  * what it is told and asks.
  *

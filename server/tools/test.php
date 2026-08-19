@@ -1138,9 +1138,13 @@ t('calsub_fetch: a fresh cache answers without fetching; a stale one is the fall
 t('the public slot list is the window minus the calendar, and only open/closed leaves', function () use ($scratch) {
     $u = 'mru' . time();
     $tok = api(['action' => 'signup', 'username' => $u, 'email' => "$u@x.com", 'password' => 'meetreq-pw-1'])['body']['token'];
-    // Two events tomorrow: a timed one at 14:00 (blocks 14:00), and one with
-    // an end that spans two slots (10:30-12:10 blocks 10:00, 11:00 and 12:00).
-    $d = date('Y-m-d', strtotime('+1 day'));
+    // Two events on a fixed weekday — the window varies by day now, so the
+    // expectation below is only right on a 10am–8pm day. 'next monday' is
+    // always strictly in the future (from a Monday it means +7), so no
+    // passed-hours-today arithmetic can leak in. A timed event at 14:00
+    // blocks 14:00; one with an end spanning two slots (10:30–12:10) blocks
+    // 10:00, 11:00 and 12:00.
+    $d = date('Y-m-d', strtotime('next monday'));
     api(['action' => 'sync', 'cursor' => 0, 'changes' => [
         ['id' => 'ev1', 'type' => 'event', 'updated' => 1, 'payload' => ['text' => 'SECRET-TITLE', 'date' => $d, 'time' => '14:00', 'repeat' => null, 'calendarId' => 'c', 'ord' => 'a']],
         ['id' => 'ev2', 'type' => 'event', 'updated' => 2, 'payload' => ['text' => 'x', 'date' => $d, 'time' => '10:30', 'end' => '12:10', 'repeat' => null, 'calendarId' => 'c', 'ord' => 'b']],
@@ -1190,10 +1194,39 @@ t('a create is validated against the same rule, lands as a record, and syncs bac
     eq(200, $ghost['status'], 'an unknown user answers ok');
 });
 
+t('the window is Sean\'s week: Tuesday from 2pm, Friday and Saturday to 11pm', function () {
+    // A user that does not exist is fine here: the slot list computes over an
+    // empty calendar (the full window), and a window refusal happens BEFORE
+    // the account check and BEFORE the throttle — so this block spends none
+    // of the hour's per-IP budget the throttle test below counts on.
+    $u = 'mrw' . time();
+    $day = fn(string $when) => date('Y-m-d', strtotime($when));
+    $slots = fn(string $d) => api(['action' => 'meetreq_slots', 'user' => $u, 'from' => $d, 'days' => 1])['body']['days'][$d];
+    eq(['14:00', '15:00', '16:00', '17:00', '18:00', '19:00'], $slots($day('next tuesday')), 'Tuesday opens at 2pm');
+    $fri = $slots($day('next friday'));
+    eq('10:00', $fri[0], 'Friday still opens at 10am');
+    eq('22:00', end($fri), 'and its last ~1h start is 10pm');
+    eq(13, count($fri), 'thirteen starts, 10am through 10pm');
+    eq($fri, $slots($day('next saturday')), 'Saturday keeps Friday\'s hours');
+    $sun = $slots($day('next sunday'));
+    eq(['10:00', '19:00'], [$sun[0], end($sun)], 'Sunday is the plain 10am–8pm day');
+    // The create refuses OUTSIDE the day's own window, and says which window.
+    $early = api(['action' => 'meetreq_create', 'user' => $u, 'name' => 'W', 'email' => 'w@x.com', 'date' => $day('next tuesday'), 'time' => '10:00']);
+    eq(400, $early['status'], 'Tuesday 10am refuses');
+    ok(str_contains((string) $early['body']['error'], '2pm to 8pm'), 'naming Tuesday\'s hours');
+    $late = api(['action' => 'meetreq_create', 'user' => $u, 'name' => 'W', 'email' => 'w@x.com', 'date' => $day('next sunday'), 'time' => '22:00']);
+    eq(400, $late['status'], 'Sunday 10pm refuses');
+    ok(str_contains((string) $late['body']['error'], '10am to 8pm'), 'naming Sunday\'s hours');
+    // 11pm is the CLOSE, not a start — the end stays exclusive on late days.
+    $close = api(['action' => 'meetreq_create', 'user' => $u, 'name' => 'W', 'email' => 'w@x.com', 'date' => $day('next friday'), 'time' => '23:00']);
+    eq(400, $close['status'], 'Friday 11pm refuses — it is the close');
+});
+
 t('the create throttle holds, per IP, and the mail stub logs without sending', function () use ($scratch) {
     $u = 'mrt' . time();
     $tok = api(['action' => 'signup', 'username' => $u, 'email' => "$u@x.com", 'password' => 'meetreq-pw-1'])['body']['token'];
-    $d = date('Y-m-d', strtotime('+3 day'));
+    // A fixed weekday again: these morning starts are only in Monday's window.
+    $d = date('Y-m-d', strtotime('next monday'));
     // MEETREQ_IP_MAX is 5 and the two tests above spent three of this hour\'s
     // budget (harness = one IP): two more land, the sixth refuses.
     $landed = 0;

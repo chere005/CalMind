@@ -953,7 +953,8 @@ function handle_recipe_fetch(array $cfg, array $in): never
 // ---------------------------------------------------------------- meeting requests
 //
 // The public request page (Sean, 2026-08-19): anyone with the link may ask
-// for ~1 hour between 10am and 8pm, on any day his calendar leaves open. The
+// for ~1 hour inside the day's open window, on any day his calendar leaves
+// open. The window is HIS WEEK, not one number — see meetreq_window(). The
 // slot arithmetic lives HERE rather than in core — a deliberate exception to
 // "behavior lives in core": an anonymous create must be validated by the
 // server against the same rule the page drew, and a rule the server cannot
@@ -965,10 +966,27 @@ function handle_recipe_fetch(array $cfg, array $in): never
 // no polling endpoint, and accept/decline/new-time are ordinary record edits
 // made by his client.
 
-const MEETREQ_START = 10;      // requestable window, local hours
-const MEETREQ_END   = 20;      // exclusive: the last ~1h slot starts at 19:00
 const MEETREQ_IP_MAX = 5;      // creates per IP per hour — it is a public write
 const MEETREQ_PENDING_MAX = 200; // a flood must not balloon the store
+
+/** The day's requestable window as [startHour, endHourExclusive) — Sean's
+ *  hours (2026-08-19, settled on the third pass): every day 10am–8pm, except
+ *  Tuesday opens at 2pm and Friday/Saturday run to 11pm. The end is
+ *  exclusive, so the last ~1h slot starts one hour before close. */
+function meetreq_window(string $date): array
+{
+    $dow = (int) date('N', strtotime($date)); // 1 = Monday … 7 = Sunday
+    if ($dow === 2) { return [14, 20]; }
+    if ($dow === 5 || $dow === 6) { return [10, 23]; }
+    return [10, 20];
+}
+
+/** '10am', '2pm', '11pm' — how a window edge reads in a refusal. */
+function meetreq_hour_label(int $h): string
+{
+    $h12 = $h % 12 === 0 ? 12 : $h % 12;
+    return $h12 . ($h < 12 ? 'am' : 'pm');
+}
 
 function meetreq_user(array $cfg): string
 {
@@ -1016,8 +1034,9 @@ function meetreq_slots_for(array $cfg, string $user, string $date): array
     if ($date < $today) { return []; }
     $nowMin = $date === $today ? ((int) date('G')) * 60 + (int) date('i') : -1;
     $busy = meetreq_busy($cfg, $user, $date);
+    [$open, $close] = meetreq_window($date);
     $out = [];
-    for ($h = MEETREQ_START; $h < MEETREQ_END; $h++) {
+    for ($h = $open; $h < $close; $h++) {
         $s = $h * 60;
         if ($s <= $nowMin) { continue; }
         $blocked = false;
@@ -1044,7 +1063,7 @@ function handle_meetreq_slots(array $cfg, array $in): never
         $out[$d] = meetreq_slots_for($cfg, $user, $d);
     }
     usage_log($cfg, 'meetreq_slots', $user);
-    reply(200, ['ok' => true, 'start' => MEETREQ_START, 'end' => MEETREQ_END, 'days' => $out]);
+    reply(200, ['ok' => true, 'days' => $out]);
 }
 
 /** PUBLIC: create a request. Validated against the same slot rule the page
@@ -1060,8 +1079,11 @@ function handle_meetreq_create(array $cfg, array $in): never
     if ($name === '' || mb_strlen($name) > 80) { fail(400, 'a name is required (up to 80 characters)'); }
     if (strlen($email) > 120 || !filter_var($email, FILTER_VALIDATE_EMAIL)) { fail(400, 'a real email is required'); }
     if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) { fail(400, 'bad date'); }
-    if (!preg_match('/^(\d{2}):00$/', $time, $m) || (int) $m[1] < MEETREQ_START || (int) $m[1] >= MEETREQ_END) {
-        fail(400, 'meetings run 10am to 8pm, on the hour');
+    if (!preg_match('/^(\d{2}):00$/', $time, $m)) { fail(400, 'meetings start on the hour'); }
+    [$open, $close] = meetreq_window($date);
+    if ((int) $m[1] < $open || (int) $m[1] >= $close) {
+        fail(400, sprintf('meetings run %s to %s that day, on the hour',
+            meetreq_hour_label($open), meetreq_hour_label($close)));
     }
 
     // A public write gets a per-IP throttle — the same posture as login's

@@ -1,8 +1,11 @@
 /**
  * Meeting requests (Sean's ask, 2026-08-19): a PUBLIC page at
  * <app>/request offers his open hours to anyone with the link — requestable
- * 10am–8pm unless his calendar says otherwise, about an hour each, only the
- * start time is chosen. A request arrives as a `meetreq` RECORD in his own
+ * inside the day's window unless his calendar says otherwise, about an hour
+ * each, only the start time is chosen. The window is his week, not one
+ * number: every day 10am–8pm, except Tuesday opens at 2pm and Friday and
+ * Saturday run to 11pm (settled on the third pass, 2026-08-19).
+ * A request arrives as a `meetreq` RECORD in his own
  * store, appended server-side by the anonymous endpoint, so it reaches every
  * device through ordinary sync with no new plumbing.
  *
@@ -16,9 +19,10 @@
 import type { AnyRec, Event, Rec } from './types';
 import { timePlus } from './parse';
 
-/** The requestable window, shared vocabulary with the server's MEETREQ_*. */
-export const MEETREQ_START = 10;
-export const MEETREQ_END = 20; // exclusive — the last ~1h slot starts at 19:00
+// The requestable hours themselves live in app.php's meetreq_window() — per
+// weekday, and only the server can enforce them against an anonymous create.
+// Nothing client-side needs the numbers: the page draws whatever slot list
+// the server answers with.
 
 /**
  * Accepting a request puts a ONE-HOUR event on the calendar ("if i accept it

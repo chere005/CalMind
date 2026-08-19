@@ -72,17 +72,21 @@ test('a stranger requests, the busy hour is not offered, and the owner answers a
   // No login gate, no tab bar — this is the public page, not the app.
   await expect(pub.getByTestId('tab-reminders')).toHaveCount(0);
 
-  // Tomorrow is open; its 2pm is not on offer, its neighbours are.
+  // Tomorrow is open; its 2pm is not on offer, its neighbours are. Every
+  // hour this spec touches sits in 15:00–19:00 — the one stretch open on
+  // EVERY weekday (Tuesday opens at 2pm; the busy event takes 14:00), so
+  // the test cannot care which day it runs on. The weekday windows
+  // themselves are pinned server-side (server/tools/test.php).
   const cell = pub.getByLabel(tomorrow, { exact: true }).first();
   await expect
     .poll(async () => (await cell.getAttribute('aria-disabled')) !== 'true', { timeout: 15_000 })
     .toBe(true);
   await cell.click();
   await expect(pub.getByLabel(`${tomorrow} 15:00`)).toBeVisible();
-  await expect(pub.getByLabel(`${tomorrow} 10:00`)).toBeVisible();
+  await expect(pub.getByLabel(`${tomorrow} 16:00`)).toBeVisible();
   await expect(pub.getByLabel(`${tomorrow} 14:00`)).toHaveCount(0);
 
-  // Three requests: Aki at 3pm, Bob at 10am, Cee at 5pm.
+  // Three requests: Aki at 3pm, Bob at 4pm, Cee at 5pm.
   const request = async (name: string, hm: string) => {
     await cell.click();
     await pub.getByLabel(`${tomorrow} ${hm}`).click();
@@ -93,7 +97,7 @@ test('a stranger requests, the busy hour is not offered, and the owner answers a
     await pub.getByText('Request another time', { exact: true }).click();
   };
   await request('Aki', '15:00');
-  await request('Bob', '10:00');
+  await request('Bob', '16:00');
   await request('Cee', '17:00');
   await anon.close();
 
@@ -105,8 +109,8 @@ test('a stranger requests, the busy hour is not offered, and the owner answers a
   await page.getByTestId('menu-requests').click();
   const rows = page.getByTestId('request-row');
   await expect(rows).toHaveCount(3, { timeout: 20_000 });
-  await expect(rows.nth(0)).toContainText('Bob');
-  await expect(rows.nth(1)).toContainText('Aki');
+  await expect(rows.nth(0)).toContainText('Aki');
+  await expect(rows.nth(1)).toContainText('Bob');
   await expect(rows.nth(2)).toContainText('Cee');
   await expect(rows.nth(0)).toContainText('about an hour');
 

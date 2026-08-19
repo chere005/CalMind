@@ -2454,3 +2454,25 @@ under TimelineView. Old feeds carry no `end` and expire nothing. Both seam
 checkers now pin both directions — still there a minute before, gone at the
 minute, <= not < — and the memberwise-init breakage they caught mid-change
 is the proof they lift the real code.
+
+### The request window becomes his week, 2026-08-19 evening
+
+Three passes in one sitting, last word wins: every day runs 10am–8pm,
+except Tuesday opens at 2pm and Friday/Saturday run to 11pm. (The 8am
+report that opened the conversation was a false alarm — the window never
+started before 10.) One function owns it — `meetreq_window($date)` in
+app.php, weekday in, `[open, close)` out — and both consumers ask it: the
+slot list draws it, the create refuses outside it and names the day's own
+hours in the refusal ("meetings run 2pm to 8pm that day"). The reply's
+global `start`/`end` fields left with the scalars they reported; nothing
+read them. Core's mirror constants went the same way — nothing client-side
+needs the numbers, the page draws whatever the server answers.
+
+The suite had quietly depended on every day being the same day: the slot
+test's expectations only held on a 10–8 day and the throttle test's morning
+creates only exist in Monday's window, so both now pin `next monday`; the
+e2e stranger books 3/4/5pm — the stretch open on EVERY weekday once the
+busy 2pm is gone — instead of a 10am that stops existing on Tuesdays. A new
+server block pins each edge (Tuesday's late open, Friday/Saturday's 10pm
+last start, Sunday's plain day, 11pm refusing as the close), and each half
+was broken and watched go red before being believed. Server 58 → 59.
