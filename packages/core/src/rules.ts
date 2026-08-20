@@ -135,22 +135,18 @@ function dateToken(ymd: string, today: string): string {
  * An event as one line — the row's Copy on the calendar's day panel (Sean,
  * 2026-08-20), and `reminderLine`'s sibling.
  *
- * ONE DELIBERATE DIFFERENCE, and it is a real trade rather than an oversight:
- * this carries the END time, and the end is the one thing here that does NOT
- * survive a paste back. There is no token for a range in parseWhenFromText —
- * TIME_RE matches a single time — so pasting "standup 9/3 9am–10am" into an
- * add field lifts 9/3 and 9am and leaves "–10am" sitting in the title.
+ * It carries the END time as a range, and that round-trips like everything
+ * else here — but only since the same day. This shipped first with the end
+ * in the line and no parser able to read it back: "standup 9/3 9am–10am"
+ * pasted into an add field became a reminder called "standup –10am". The
+ * trade was recorded rather than hidden, and Sean's answer was to remove it:
+ * parseTimeRangeFromText now reads a range in every field, so the line and
+ * the parser agree again.
  *
- * It goes in anyway. A copy's job is to represent the thing, and an event
- * shorn of its end is misrepresented: "standup 9am" says something different
- * from "standup 9am–10am" to whoever you paste it to, which is what copying
- * an event is mostly FOR. The reminder line round-trips because it costs
- * nothing there — every token it emits is one the parser already reads.
- *
- * `eventpaste.test.ts` pins the paste behaviour as it stands, so the loss is
- * a known property and not a surprise. Teaching the parser to read a range
- * ("lunch 12-1pm" would then work in every field) is the fix that removes the
- * trade entirely — Sean's call, flagged 2026-08-20, not done here.
+ * The lesson worth keeping is the ordering. Putting the end in was right on
+ * its own terms — an event shorn of its end is misrepresented to whoever you
+ * paste it to, which is what copying an event is mostly FOR — and pinning
+ * what that cost is what made the cost visible enough to be worth fixing.
  */
 export function eventLine(p: Event, today: string): string {
   const parts = [shieldWords(p.text, today), dateToken(p.date, today)];

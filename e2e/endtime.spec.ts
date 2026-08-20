@@ -101,3 +101,59 @@ test('a weekday word dates the line and leaves the title, preposition and all', 
   // The chip names a Saturday: whatever the date, its weekday label is Sat.
   await expect(row.getByText(/Sat.*8pm/)).toBeVisible();
 });
+
+test('a typed range sets both ends, with no panel opened', async ({ page }) => {
+  // Sean, 2026-08-20: "add range parsing to time specifications everywhere".
+  // The end field lives behind "+ Date/Time" → "+ End"; a range typed on the
+  // line must not need either, or it is a half-feature.
+  test.setTimeout(120_000);
+  await signup(page);
+  await page.getByTestId('tab-calendar').click();
+  await page.getByTestId('tab-add').click();
+  await page.getByTestId('add-kind-event').click();
+  await page.getByTestId('add-text').fill('Lunch with Ada 12-1pm');
+  await page.getByText('Done', { exact: true }).click();
+  await expect(page.getByTestId('cal-day-title')).toBeVisible();
+
+  const row = page.getByTestId('dp-ev-body').filter({ hasText: 'Lunch' }).first();
+  await expect(row, 'the range left the title').toHaveText('Lunch with Ada');
+  // The chip is the panel's own range label, so it proves BOTH ends landed.
+  await expect(page.getByText('12pm–1pm', { exact: true })).toBeVisible();
+});
+
+test('and the round trip closes: copy an event, paste it, get the same event', async ({ page, context }) => {
+  // The reason the parser learned ranges — eventLine emitted one and nothing
+  // could read it back. Both halves through the real UI, not through core.
+  test.setTimeout(120_000);
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await signup(page);
+  await page.getByTestId('tab-calendar').click();
+  await page.getByTestId('tab-add').click();
+  await page.getByTestId('add-kind-event').click();
+  await page.getByTestId('add-text').fill('Standup 9-10am');
+  await page.getByText('Done', { exact: true }).click();
+  await expect(page.getByTestId('cal-day-title')).toBeVisible();
+  await expect(page.getByText('9am–10am', { exact: true })).toBeVisible();
+
+  const body = page.getByTestId('dp-ev-body').first();
+  const b = (await body.boundingBox())!;
+  await page.mouse.move(b.x + 15, b.y + b.height / 2);
+  await page.mouse.down();
+  await page.waitForTimeout(700);
+  await page.mouse.up();
+  await page.getByTestId('dp-ev-copy').first().click();
+  await expect(page.getByTestId('toast')).toHaveText('Copied', { timeout: 10_000 });
+  const clip = await page.evaluate(() => navigator.clipboard.readText());
+
+  await page.getByTestId('tab-add').click();
+  await page.getByTestId('add-kind-event').click();
+  await page.getByTestId('add-text').fill(clip);
+  await page.getByText('Done', { exact: true }).click();
+  await expect(page.getByTestId('cal-day-title')).toBeVisible();
+
+  // Two events, same words, same range — nothing left behind in a title.
+  const rows = page.getByTestId('dp-ev-body').filter({ hasText: 'Standup' });
+  await expect(rows).toHaveCount(2);
+  for (const r of await rows.all()) await expect(r).toHaveText('Standup');
+  await expect(page.getByText('9am–10am', { exact: true })).toHaveCount(2);
+});

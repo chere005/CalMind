@@ -16,11 +16,11 @@
           "group.com.seancheren.calmind"
         ]
       },
-      "buildNumber": "47"
+      "buildNumber": "48"
     },
     "android": {
       "package": "com.seancheren.calmind",
-      "versionCode": 47,
+      "versionCode": 48,
       "adaptiveIcon": {
         "backgroundColor": "#111111",
         "foregroundImage": "./assets/android-icon-foreground.png",

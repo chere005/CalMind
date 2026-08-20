@@ -170,7 +170,7 @@ export function ItemModal({
     // A category the hand settled is not lifted: the token stays in the
     // title, unused. A category left to the line is lifted and wins over
     // the incumbent — which is what makes editing parse like adding.
-    const [clean, pd, pt] = parseWhenFromText(raw, today, nowStr(), { date: !manualDate, time: !manualTime });
+    const [clean, pd, pt, pe] = parseWhenFromText(raw, today, nowStr(), { date: !manualDate, time: !manualTime });
     // …but only an EXPLICIT date token outranks the sheet's own date. A bare
     // "2pm" IMPLIES a day (today, or tomorrow once 2pm has gone) and that
     // implication is a fallback, not an instruction — letting it beat the
@@ -182,7 +182,9 @@ export function ItemModal({
     // An end only means something after a start; an empty field keeps the
     // presumed one (+1 hour, set when the row was revealed).
     const [, fe] = parseTimeFromText(endField.trim());
-    const finalEnd = kind === 'event' && finalTime !== null && showEnd ? fe ?? end : null;
+    // A typed range carries its end, as on the Add screen; a hand-set end
+    // still outranks it.
+    const finalEnd = kind === 'event' && finalTime !== null ? (showEnd ? fe ?? end : null) ?? pe : null;
     const finalRepeat = kind === 'note' ? null : showRepeat ? repeat : null;
     const title = clean || raw;
     if (!resolvedDest) {

@@ -114,7 +114,7 @@ export function Add({
     const [, ft] = parseTimeFromText(timeField.trim());
     // Manual-beats-parsed (Sean, 2026-08-18): a category the fields settled
     // is not lifted from the line — the token stays, unused.
-    const [clean, pd, pt] = parseWhenFromText(raw, today, nowStr(), { date: fd === null, time: ft === null });
+    const [clean, pd, pt, pe] = parseWhenFromText(raw, today, nowStr(), { date: fd === null, time: ft === null });
     // The launch day (date0) is an INCUMBENT, ranked as ItemModal ranks its
     // own: an explicit typed token beats it, but a bare "2pm" only IMPLIES a
     // day and that implication is a fallback, not an instruction — it must
@@ -126,7 +126,12 @@ export function Add({
     // Only events carry an end, and only after a start (Sean, 2026-08-18).
     // An empty field keeps the presumption made when the row was revealed.
     const [, fe] = parseTimeFromText(endField.trim());
-    const end = kind === 'event' && time !== null && showEnd ? fe ?? endPresumed : null;
+    // A typed RANGE ("lunch 12-1pm") brings its own end and needs no panel:
+    // the field is only reachable behind "+ Date/Time", and asking someone to
+    // open it to keep an end they already typed would make the range a
+    // half-feature. An end put in BY HAND still wins, like every other
+    // manual-beats-parsed pair here.
+    const end = kind === 'event' && time !== null ? (showEnd ? fe ?? endPresumed : null) ?? pe : null;
     const title = clean || raw;
     let createdNoteId: string | null = null;
     mutate((e) => {

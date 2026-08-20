@@ -46,6 +46,77 @@ export function parseTimeFromText(text: string): [string, string | null] {
   return [lift(text, m.index, m[0].length), `${pad(h)}:${pad(min)}`];
 }
 
+/**
+ * A time RANGE — "9am-10am", "9–10am", "lunch 12-1pm", "3pm to 4:30pm".
+ *
+ * Sean, 2026-08-20, after the event Copy shipped a line the parser could not
+ * read back: "add range parsing to time specifications everywhere". It goes
+ * here because here is everywhere — parseWhenFromText is the one door the add
+ * line, the section add row, the item sheet, the inline row edit and the
+ * shared add all go through.
+ *
+ * ONE side must say am/pm; the other may lean on it, because that is how
+ * people write these. Which side leans is decided by the clock rather than by
+ * a rule about word order:
+ *
+ *   · "12-1pm"  → the start borrows 'pm'. 12pm then 1pm reads forward, so it
+ *                 stands.
+ *   · "11-1pm"  → borrowing 'pm' would put the start at 23:00 and the end at
+ *                 13:00, which runs backwards. The start flips to 11am.
+ *   · "11am-1"  → the end borrows 'am' and lands at 01:00, before its own
+ *                 start; it flips to 1pm.
+ *
+ * An end EQUAL to its start gets the same treatment ("12-12pm" is midday to
+ * midnight, not a zero-length event) — the flip triggers on `<=`, not `<`.
+ *
+ * Deliberately NOT matched: a range where neither side says am/pm ("9-10").
+ * A bare number pair is a score, a page range, a quantity — and this parser
+ * has never read a bare 24-hour time either ("2/3 cup" reads as Feb 3 is the
+ * same family of documented limit). One meridiem is the whole signal that a
+ * range of CLOCK times is what was meant.
+ */
+const RANGE_RE =
+  /\b(\d{1,2})(?::(\d{2}))?\s*([apAP])?\.?[mM]?\.?\s*(?:-|–|—|to|until|till)\s*(\d{1,2})(?::(\d{2}))?\s*([apAP])?\.?[mM]?\.?\b/;
+
+const clampHM = (h: number, min: number, ap: 'a' | 'p'): string => {
+  let hh = h;
+  if (ap === 'p' && hh < 12) hh += 12;
+  if (ap === 'a' && hh === 12) hh = 0;
+  return `${pad(hh)}:${pad(min)}`;
+};
+
+/** Pull a range out; returns [cleanedText, 'HH:MM' | null, 'HH:MM' | null]. */
+export function parseTimeRangeFromText(text: string): [string, string | null, string | null] {
+  const m = RANGE_RE.exec(text);
+  if (!m) return [text, null, null];
+  const h1 = parseInt(m[1]!, 10);
+  const n1 = m[2] ? parseInt(m[2], 10) : 0;
+  const a1 = m[3]?.toLowerCase() as 'a' | 'p' | undefined;
+  const h2 = parseInt(m[4]!, 10);
+  const n2 = m[5] ? parseInt(m[5], 10) : 0;
+  const a2 = m[6]?.toLowerCase() as 'a' | 'p' | undefined;
+  // Both bare is not a time range — see the note above.
+  if (!a1 && !a2) return [text, null, null];
+  if (h1 < 1 || h1 > 12 || h2 < 1 || h2 > 12 || n1 >= 60 || n2 >= 60) return [text, null, null];
+
+  let start: string;
+  let end: string;
+  if (a1 && a2) {
+    start = clampHM(h1, n1, a1);
+    end = clampHM(h2, n2, a2);
+  } else if (a2) {
+    // The start leans on the end, and flips if that reads backwards.
+    end = clampHM(h2, n2, a2);
+    start = clampHM(h1, n1, a2);
+    if (start >= end) start = clampHM(h1, n1, a2 === 'p' ? 'a' : 'p');
+  } else {
+    end = clampHM(h2, n2, a1!);
+    start = clampHM(h1, n1, a1!);
+    if (end <= start) end = clampHM(h2, n2, a1 === 'p' ? 'a' : 'p');
+  }
+  return [lift(text, m.index, m[0].length), start, end];
+}
+
 /** Pull m/d, m/d/yy, m/d/yyyy out; bare m/d = next occurrence from `today`. */
 export function parseDateFromText(text: string, today: string): [string, string | null] {
   const m = DATE_RE.exec(text);
@@ -241,20 +312,30 @@ export function parseWhenFromText(
   today: string,
   now?: string,
   lift: { date?: boolean; time?: boolean } = {},
-): [string, string | null, string | null] {
+): [string, string | null, string | null, string | null] {
   const liftDate = lift.date ?? true;
   const liftTime = lift.time ?? true;
   const [protectedText, held] = protectEscapes(text);
   let out = protectedText;
   let d: string | null = null;
   let t: string | null = null;
+  let e: string | null = null;
   if (liftDate) {
     const [t1, date] = parseDateFromText(out, today);
     out = t1;
     d = date;
   }
   if (liftTime) {
-    const [t2, time] = parseTimeFromText(out);
+    // The RANGE first, and it has to be: TIME_RE would take "9am" out of
+    // "9am–10am" and leave "–10am" sitting in the title, which is exactly the
+    // bug the event Copy ran into.
+    const [tr, rStart, rEnd] = parseTimeRangeFromText(out);
+    if (rStart !== null) {
+      out = tr;
+      t = rStart;
+      e = rEnd;
+    }
+    const [t2, time] = t === null ? parseTimeFromText(out) : [out, t];
     out = t2;
     t = time;
     if (t === null) {
@@ -277,7 +358,11 @@ export function parseWhenFromText(
   // unless the day is not this parser's to say (lift.date off means the
   // caller holds a manual date that outranks any implication).
   if (liftDate && t !== null && d === null) d = now && t < now ? shiftDate(today, 1, 'day') : today;
-  return [restoreEscapes(out, held), d, t];
+  // A FOURTH element, appended rather than inserted: every existing caller
+  // destructures three and is untouched by this. Only the kinds that HAVE an
+  // end (events) reach for it — a reminder has no end field, and the range
+  // still earns its keep there by taking both tokens out of the title.
+  return [restoreEscapes(out, held), d, t, e];
 }
 
 /** Local 'HH:MM' — the `now` a caller passes so a bare time can tell whether

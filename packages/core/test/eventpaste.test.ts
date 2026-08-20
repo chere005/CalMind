@@ -61,14 +61,28 @@ describe('an event written back out as a line', () => {
     expect(time).toBe('09:00');
   });
 
-  it('but the END does not, and this is the pinned cost', () => {
-    // No range token exists in the parser: TIME_RE matches ONE time. So a
-    // pasted range leaves its tail in the title. Recorded deliberately —
-    // teaching the parser ranges is the fix, and it is Sean's call.
-    const line = eventLine(ev({ time: '09:00', end: '10:00' }), TODAY);
-    const [text, date, time] = parseWhenFromText(line, TODAY, NOW);
-    expect(date).toBe('2026-09-03');
-    expect(time).toBe('09:00');
-    expect(text, 'the end time is left behind in the words').toBe('standup –10am');
+  it('and so does the END, now the parser reads ranges', () => {
+    // This test spent one commit pinning the OPPOSITE — that "standup
+    // 9am–10am" pasted back as a reminder called "standup –10am", because
+    // TIME_RE matched one time and left the tail in the title. That was the
+    // recorded cost of putting the end in the line at all; Sean's answer
+    // (2026-08-20) was to remove the cost rather than the end. Kept as a
+    // round trip so the two halves can never drift apart again.
+    const p = ev({ time: '09:00', end: '10:00' });
+    const line = eventLine(p, TODAY);
+    expect(line).toBe('standup 9/3 9am–10am');
+    const [text, date, time, end] = parseWhenFromText(line, TODAY, NOW);
+    expect(text).toBe('standup');
+    expect(date).toBe(p.date);
+    expect(time).toBe(p.time);
+    expect(end, 'the end survives the round trip now').toBe(p.end);
+  });
+
+  it('an afternoon range round-trips through the em-dash form too', () => {
+    const p = ev({ time: '13:00', end: '14:30' });
+    const [text, , time, end] = parseWhenFromText(eventLine(p, TODAY), TODAY, NOW);
+    expect(text).toBe('standup');
+    expect(time).toBe('13:00');
+    expect(end).toBe('14:30');
   });
 });
