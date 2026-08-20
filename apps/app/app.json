@@ -20,6 +20,7 @@
     },
     "android": {
       "package": "com.seancheren.calmind",
+      "versionCode": 47,
       "adaptiveIcon": {
         "backgroundColor": "#111111",
         "foregroundImage": "./assets/android-icon-foreground.png",

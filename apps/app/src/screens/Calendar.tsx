@@ -7,6 +7,7 @@
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Clipboard from 'expo-clipboard';
 import { PanResponder, Pressable, StyleSheet, Text, View } from 'react-native';
 import {
   addDays,
@@ -14,6 +15,7 @@ import {
   type CellMark,
   dayItems,
   duplicateItem,
+  eventLine,
   monthGridFilled,
   monthLegend,
   newId,
@@ -40,6 +42,7 @@ import { BalancedRow } from '../components/BalancedRow';
 import { Chevron } from '../components/Chevron';
 import { useSharedTick, useTickGrace } from '../components/tickgrace';
 import { EditExit } from '../components/EditExit';
+import { useToast } from '../components/Toast';
 import { CircleBtn, CollapseAllBtn, ConfirmDelete, Rule, Scroll, TOPBAR_CTRL, WebHitSlop } from '../ui';
 
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
@@ -59,6 +62,7 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
   const { recs, mutate, sharedRecs, sharedPartner, sharedPartnerLabel, session } = useStore();
   const { visible: visibleCals, calendars, visibleShared, visibleSubs } = useCalendarView();
   const clock24 = useClock24();
+  const toast = useToast();
   const today = todayStr();
   const [ym, setYm] = useState((calDay ?? today).slice(0, 7));
   const [day, setDayState] = useState(calDay ?? today);
@@ -620,13 +624,22 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
         {!folded.has('events') && items.events.map((e) => (
           <View key={e.id} {...swipe.handlersFor(e.id)} style={[s.row, s.rowNoSelect]}>
             <View style={[s.dot, s.rowDot, { backgroundColor: calById.get(e.payload.calendarId)?.color ?? T.folderBlue }]} />
-            <Pressable style={s.rowBodyFlex} onPress={() => rowPress(e.id)} onLongPress={() => setPanelEdit(true)} delayLongPress={350}>
-              <Text style={s.rowText}>{e.payload.text}</Text>
+            <Pressable testID="dp-ev-body" style={s.rowBodyFlex} onPress={() => rowPress(e.id)} onLongPress={() => setPanelEdit(true)} delayLongPress={350}>
+              {/* One line, elided — the last row kind still wrapping after
+                  reminders (2026-08-20) and note titles took the same rule. */}
+              <Text numberOfLines={1} style={s.rowText}>{e.payload.text}</Text>
             </Pressable>
             {e.payload.time && <Text style={s.chip}>{timeRangeLabel(e.payload.time, e.payload.end, clock24)}</Text>}
             {panelEdit ? (
               <View style={s.editCluster}>
                 <CircleBtn glyph="✎" label="Edit" size={24} onPress={() => setModal({ mode: 'edit', kind: 'event', rec: e })} />
+                {/* Copy, as the reminder rows have (Sean, 2026-08-20). Core's
+                    eventLine — the words, the date, and the time RANGE. */}
+                <CircleBtn testID="dp-ev-copy" glyph="clipboard" label="Copy" size={24} onPress={() => {
+                  Clipboard.setStringAsync(eventLine(e.payload, today))
+                    .then(() => toast('Copied'))
+                    .catch(() => toast('Could not copy'));
+                }} />
                 <CircleBtn glyph="⧉" label="Duplicate" size={24} onPress={() => { const res = duplicateItem(recs, e.id, newId); if (!('error' in res)) mutate((en) => res.put.forEach((p) => en.put(p))); }} />
                 <ConfirmDelete onDelete={() => { swipe.clear(); mutate((en) => en.del(e.id)); }} />
               </View>
@@ -646,7 +659,7 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
         {!folded.has('events:@') && sharedItems.events.map((e) => (
           <View key={`sh${e.id}`} style={s.row}>
             <View style={[s.dot, s.rowDot, { backgroundColor: sharedCalById.get(e.payload.calendarId)?.color ?? T.folderBlue }]} />
-            <Text style={s.rowText}>{e.payload.text}</Text>
+            <Text numberOfLines={1} style={s.rowText}>{e.payload.text}</Text>
             {e.payload.time && <Text style={s.chip}>{timeRangeLabel(e.payload.time, e.payload.end, clock24)}</Text>}
           </View>
         ))}
@@ -661,7 +674,7 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
             <View style={[s.dot, s.rowDot, { backgroundColor: o.color }]} />
             {/* No press, no edit cluster, no swipe: read-only is the DESIGN
                 (Sean: "i just want read only access"), not a gap. */}
-            <Text style={s.rowText}>{o.occ.title}</Text>
+            <Text numberOfLines={1} style={s.rowText}>{o.occ.title}</Text>
             {o.occ.time && <Text style={s.chip}>{timeRangeLabel(o.occ.time, o.occ.endTime, clock24)}</Text>}
           </View>
         ))}

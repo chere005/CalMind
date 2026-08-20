@@ -168,3 +168,23 @@ test('a long note title is one line high in the day panel too', async ({ page })
   expect(rows.length, 'both notes are on the day').toBe(2);
   expect(Math.max(...rows), 'the long title did not become a paragraph').toBe(Math.min(...rows));
 });
+
+test('a long event is one line high in the day panel', async ({ page }) => {
+  // The last row kind still wrapping (Sean, 2026-08-20), after reminders and
+  // note titles took the rule.
+  test.setTimeout(120_000);
+  await signup(page);
+  await page.getByTestId('tab-calendar').click();
+  for (const text of ['Standup', LONG_PLAIN]) {
+    await page.getByTestId('tab-add').click();
+    await page.getByTestId('add-kind-event').click();
+    await page.getByTestId('add-text').fill(text);
+    await page.getByText('Done', { exact: true }).click();
+  }
+  await expect(page.getByTestId('cal-day-title')).toBeVisible();
+
+  const rows = await page.getByTestId('dp-ev-body').evaluateAll((els) =>
+    els.map((e) => Math.round(e.getBoundingClientRect().height)));
+  expect(rows.length, 'both events are on the day').toBe(2);
+  expect(Math.max(...rows), 'the long one did not become a paragraph').toBe(Math.min(...rows));
+});

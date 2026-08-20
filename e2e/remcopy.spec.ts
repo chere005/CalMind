@@ -123,3 +123,42 @@ test('what it copies pastes back as the same reminder', async ({ page, context }
     await expect(row).toContainText('Sep 4');
   }
 });
+
+test('an event row copies too, with its time range', async ({ page, context }) => {
+  // Sean, 2026-08-20: "copy on events". Core's eventLine, and unlike the
+  // reminder it carries the END — see rules.ts for why that is worth not
+  // round-tripping, and eventpaste.test.ts for the pinned cost.
+  test.setTimeout(120_000);
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await signup(page);
+  await page.getByTestId('tab-calendar').click();
+  await page.getByTestId('tab-add').click();
+  await page.getByTestId('add-kind-event').click();
+  await page.getByTestId('add-text').fill('Standup 9am');
+  // "+ End" presumes the hour past the start — an event with an end is the
+  // shape worth copying, and a quick add makes none. It lives inside the
+  // Date/Time panel, which is shut until asked for.
+  await page.getByText('+ Date/Time', { exact: true }).click();
+  await page.getByText('+ End', { exact: true }).click({ timeout: 5_000 });
+  await page.getByText('Done', { exact: true }).click();
+  await expect(page.getByTestId('cal-day-title')).toBeVisible();
+
+  // The panel's edit mode is a long-press on a row, as on the reminders list.
+  const body = page.getByTestId('dp-ev-body').first();
+  const b = (await body.boundingBox())!;
+  await page.mouse.move(b.x + 15, b.y + b.height / 2);
+  await page.mouse.down();
+  await page.waitForTimeout(700);
+  await page.mouse.up();
+
+  const btn = page.getByTestId('dp-ev-copy').first();
+  await expect(btn).toBeVisible();
+  await expect(btn.locator('svg'), 'the same drawn clipboard').toHaveCount(1);
+  await btn.click();
+  await expect(page.getByTestId('toast')).toHaveText('Copied', { timeout: 10_000 });
+
+  const clip = await page.evaluate(() => navigator.clipboard.readText());
+  // Today's date, the start, and the presumed hour's end — the whole event,
+  // which is what makes it worth pasting into a message.
+  expect(clip).toMatch(/^Standup \d{1,2}\/\d{1,2} 9am–10am$/);
+});

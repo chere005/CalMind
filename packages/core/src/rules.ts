@@ -3,9 +3,9 @@
  * rule is that a rule living in a screen is a bug even when it renders
  * correctly. Ported from the suite and pinned by tests.
  */
-import type { AnyRec, Rec, Reminder } from './types';
+import type { AnyRec, Event, Rec, Reminder } from './types';
 import { repeatAdvances, repeatNext } from './repeats';
-import { parseDateFromText, parseWhenFromText, timeLabel } from './parse';
+import { parseDateFromText, parseWhenFromText, timeLabel, timeRangeLabel } from './parse';
 
 /**
  * Ticking a reminder: a repeating, dated, open reminder rolls its due date to
@@ -107,14 +107,53 @@ function parserEats(word: string, today: string): boolean {
  * the clipboard string itself is right either way.
  */
 export function reminderLine(p: Reminder, today: string): string {
-  const words = p.text.trim().split(/\s+/).filter(Boolean);
-  const parts = [words.map((w) => (parserEats(w, today) ? `\\${w}` : w)).join(' ')];
-  if (p.due) {
-    const [, mo, dy] = p.due.split('-') as [string, string, string];
-    const bare = `${Number(mo)}/${Number(dy)}`;
-    const [, readBack] = parseDateFromText(bare, today);
-    parts.push(readBack === p.due ? bare : `${bare}/${p.due.slice(2, 4)}`);
-  }
+  const parts = [shieldWords(p.text, today)];
+  if (p.due) parts.push(dateToken(p.due, today));
   if (p.time) parts.push(timeLabel(p.time));
+  return parts.filter(Boolean).join(' ');
+}
+
+/** Every word the parser would eat, escaped so it survives a paste back. */
+function shieldWords(text: string, today: string): string {
+  return text
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((w) => (parserEats(w, today) ? `\\${w}` : w))
+    .join(' ');
+}
+
+/** 'YYYY-MM-DD' as the shortest token that reads back as THAT day. */
+function dateToken(ymd: string, today: string): string {
+  const [, mo, dy] = ymd.split('-') as [string, string, string];
+  const bare = `${Number(mo)}/${Number(dy)}`;
+  const [, readBack] = parseDateFromText(bare, today);
+  return readBack === ymd ? bare : `${bare}/${ymd.slice(2, 4)}`;
+}
+
+/**
+ * An event as one line — the row's Copy on the calendar's day panel (Sean,
+ * 2026-08-20), and `reminderLine`'s sibling.
+ *
+ * ONE DELIBERATE DIFFERENCE, and it is a real trade rather than an oversight:
+ * this carries the END time, and the end is the one thing here that does NOT
+ * survive a paste back. There is no token for a range in parseWhenFromText —
+ * TIME_RE matches a single time — so pasting "standup 9/3 9am–10am" into an
+ * add field lifts 9/3 and 9am and leaves "–10am" sitting in the title.
+ *
+ * It goes in anyway. A copy's job is to represent the thing, and an event
+ * shorn of its end is misrepresented: "standup 9am" says something different
+ * from "standup 9am–10am" to whoever you paste it to, which is what copying
+ * an event is mostly FOR. The reminder line round-trips because it costs
+ * nothing there — every token it emits is one the parser already reads.
+ *
+ * `eventpaste.test.ts` pins the paste behaviour as it stands, so the loss is
+ * a known property and not a surprise. Teaching the parser to read a range
+ * ("lunch 12-1pm" would then work in every field) is the fix that removes the
+ * trade entirely — Sean's call, flagged 2026-08-20, not done here.
+ */
+export function eventLine(p: Event, today: string): string {
+  const parts = [shieldWords(p.text, today), dateToken(p.date, today)];
+  if (p.time) parts.push(timeRangeLabel(p.time, p.end));
   return parts.filter(Boolean).join(' ');
 }

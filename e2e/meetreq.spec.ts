@@ -151,3 +151,63 @@ test('a stranger requests, the busy hour is not offered, and the owner answers a
   expect(reqs[0]!.payload.time).toBe('11:00');
   expect(reqs[0]!.payload.status).toBe('proposed');
 });
+
+test('the account button wears the number of new requests', async ({ page, browser }) => {
+  // Sean, 2026-08-20: "add a badge to the username when there are meeting
+  // requests". core's meetreqBadgeCount has carried the number since the stub
+  // went in on 08-19 with nothing rendering it; this is the surface.
+  test.setTimeout(180_000);
+  const user = await signup(page);
+  const tomorrow = tomorrowISO();
+
+  // Nothing waiting, nothing shown — the half that makes the next assertion
+  // mean something.
+  await expect(page.getByTestId('who-badge'), 'no badge on a quiet account').toHaveCount(0);
+
+  const anon = await browser.newContext({ viewport: { width: 420, height: 900 } });
+  const pub = await anon.newPage();
+  await pub.goto(`request?u=${user}`);
+  await expect(pub.getByText('Request a meeting')).toBeVisible({ timeout: 20_000 });
+  const cell = pub.getByLabel(tomorrow, { exact: true }).first();
+  await expect
+    .poll(async () => (await cell.getAttribute('aria-disabled')) !== 'true', { timeout: 15_000 })
+    .toBe(true);
+  const request = async (name: string, hm: string) => {
+    await cell.click();
+    await pub.getByLabel(`${tomorrow} ${hm}`).click();
+    await pub.getByTestId('req-name').fill(name);
+    await pub.getByTestId('req-email').fill(`${name.toLowerCase()}@example.com`);
+    await pub.getByTestId('req-send').click();
+    await expect(pub.getByText('Request sent')).toBeVisible();
+    await pub.getByText('Request another time', { exact: true }).click();
+  };
+  await request('Aki', '15:00');
+  await request('Bob', '16:00');
+  await anon.close();
+
+  await page.reload();
+  await expect(page.getByTestId('tab-reminders')).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByTestId('who-badge'), 'two waiting').toHaveText('2', { timeout: 25_000 });
+
+  // The button is the same size with the badge on it: a request arriving
+  // mid-session must not nudge the top bar (absolute positioning, as the
+  // edit cluster and the swipe park both had to learn).
+  const withBadge = (await page.getByTestId('topbar-sync').boundingBox())!;
+
+  // The menu row behind it carries the count too — the account button is shut
+  // while you are reading the menu, so the number has to be here as well.
+  await page.getByTestId('topbar-sync').click();
+  await expect(page.getByTestId('menu-requests-badge')).toHaveText('2');
+
+  // Answering one takes the count down: the badge is the LIVE number, not a
+  // flag that something once arrived.
+  await page.getByTestId('menu-requests').click();
+  await page.getByTestId('request-row').filter({ hasText: 'Aki' }).getByTestId('request-accept').click();
+  await expect(page.getByTestId('requests-msg')).toContainText('Accepted');
+  await page.getByTestId('requests-back').click({ timeout: 3_000 }).catch(() => {});
+  await expect(page.getByTestId('who-badge'), 'one left').toHaveText('1', { timeout: 20_000 });
+
+  const noBadge = (await page.getByTestId('topbar-sync').boundingBox())!;
+  expect(Math.round(noBadge.width), 'the button never changes size').toBe(Math.round(withBadge.width));
+  expect(Math.round(noBadge.height), 'nor its height').toBe(Math.round(withBadge.height));
+});

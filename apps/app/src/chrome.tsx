@@ -5,10 +5,11 @@
  * yellow offline), then the folder picker slot, then the username — whose tap
  * opens Settings. Every screen gets Settings for free.
  */
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { logout } from './api';
+import { meetreqBadgeCount } from '@calmind/core';
 import { useStore } from './store';
 import { themed, T } from './theme';
 import { CircleBtn, Rule, TOPBAR_CTRL, TOPBAR_MARGIN_TOP } from './ui';
@@ -50,7 +51,12 @@ export function TopBar({
 }) {
   const nav = useNav();
   const insets = useSafeAreaInsets();
-  const { session, signOut, undoLastDelete, syncState, persistFailed, refusedLabels } = useStore();
+  const { recs, session, signOut, undoLastDelete, syncState, persistFailed, refusedLabels } = useStore();
+  // The badge Sean asked for on 2026-08-20, wearing the number core has
+  // carried since the stub went in: new meeting requests from the public
+  // /request link. The account button is where the stub always said it
+  // would go, because that is the door the Requests row is behind.
+  const requests = useMemo(() => meetreqBadgeCount(recs), [recs]);
   const [menuOpen, setMenuOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [requestsOpen, setRequestsOpen] = useState(false);
@@ -143,10 +149,25 @@ export function TopBar({
             onPress={openMenu}
             hitSlop={8}
             accessibilityRole="button"
-            accessibilityLabel={`${session?.username ?? ''} — account menu. ${look.text}`}
+            accessibilityLabel={
+              `${session?.username ?? ''} — account menu. ${look.text}` +
+              (requests > 0 ? ` ${requests} new meeting request${requests === 1 ? '' : 's'}.` : '')
+            }
             style={[s.whoBtn, { borderColor: look.color }]}
           >
             <Text style={s.whoLetter}>{(session?.username ?? '?').slice(0, 1).toUpperCase()}</Text>
+            {/* The count, not a bare dot: "3 waiting" and "1 waiting" are
+                different enough to answer now or later, and the number is
+                already computed. Absolutely positioned so appearing cannot
+                move the button or the row — the lesson the edit cluster and
+                the swipe park both taught. It sits OUTSIDE the ring, where
+                the ring's own colour (sync state) cannot be confused with
+                it. 99+ rather than a widening pill. */}
+            {requests > 0 && (
+              <View testID="who-badge" style={s.whoBadge} pointerEvents="none">
+                <Text style={s.whoBadgeText}>{requests > 99 ? '99+' : requests}</Text>
+              </View>
+            )}
           </Pressable>
         </View>
       </View>
@@ -199,11 +220,18 @@ export function TopBar({
                 <Text style={s.menuText}>Settings</Text>
               </Pressable>
               {/* What the public /request link brought in (Sean, 2026-08-19).
-                  STUB: no badge on this row or the account button yet ("no
-                  notifications or badges for now") — core's meetreqBadgeCount
-                  is the number either would wear when they arrive. */}
+                  The badge landed 2026-08-20 — on the account button and here
+                  on the row behind it, since the button is shut when you are
+                  reading this menu. Notifications are still the stub. */}
               <Pressable testID="menu-requests" style={s.menuRow} onPress={() => { setMenuOpen(false); setRequestsOpen(true); }}>
-                <Text style={s.menuText}>Requests</Text>
+                <View style={s.menuRowInner}>
+                  <Text style={s.menuText}>Requests</Text>
+                  {requests > 0 && (
+                    <View testID="menu-requests-badge" style={s.menuBadge}>
+                      <Text style={s.whoBadgeText}>{requests > 99 ? '99+' : requests}</Text>
+                    </View>
+                  )}
+                </View>
               </Pressable>
               {/* Sean, 2026-08-11. It says what came BACK rather than just
                   closing: the deleted thing is by definition not on screen,
@@ -282,6 +310,20 @@ const s = themed(() => StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   whoLetter: { color: T.accent, fontSize: 15, fontWeight: '700' },
+  // Out of the flex flow entirely: the button is TOPBAR_CTRL square whether
+  // or not anything is waiting, so a request arriving mid-session cannot
+  // nudge the top bar. Overhangs the top-right corner, as a badge does.
+  whoBadge: {
+    position: 'absolute', top: -5, right: -6,
+    minWidth: 16, height: 16, borderRadius: 8,
+    paddingHorizontal: 4,
+    backgroundColor: T.overdue,
+    alignItems: 'center', justifyContent: 'center',
+    // A ring in the bar's own colour, so the badge reads as ON the button
+    // rather than as a loose dot behind it.
+    borderWidth: 1.5, borderColor: T.bg,
+  },
+  whoBadgeText: { color: '#fff', fontSize: 10, fontWeight: '700' },
   menuBackdrop: { flex: 1, backgroundColor: '#0007' },
   menu: {
     position: 'absolute',
@@ -294,5 +336,21 @@ const s = themed(() => StyleSheet.create({
     paddingVertical: 4,
   },
   menuRow: { paddingHorizontal: 16, paddingVertical: 11 },
+  /**
+   * The Requests row's label and count, side by side — an INNER view rather
+   * than flexDirection on menuRow itself.
+   *
+   * Putting it on menuRow re-laid-out all six rows: a Text that had been a
+   * block filling the row became a flex item as wide as its words, and
+   * menuanchor.spec went red at all three widths. That spec measures the "Log
+   * out" TEXT as its stand-in for the menu's right edge — so a change made
+   * for the badge moved the thing it measures. The menu was still anchored
+   * correctly; the proxy had shifted. Scoped here, no other row is touched.
+   */
+  menuRowInner: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   menuText: { color: T.text, fontSize: 15 },
+  menuBadge: {
+    minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 5,
+    backgroundColor: T.overdue, alignItems: 'center', justifyContent: 'center',
+  },
 }));
