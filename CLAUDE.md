@@ -8,7 +8,7 @@ shipped, `TODO.md` is the live list.
 
 - **Behavior lives in `packages/core`.** A screen holds plumbing. If you can
   describe a rule in a sentence, it belongs in core with a test.
-- **The old suite is the spec.** `/Users/s/GIT/seancheren-reminders` — grep its
+- **The old suite is the spec.** `/Users/s/GIT/seancheren-site` — grep its
   CSS and PHP before guessing at a visual. It is right more often than memory
   is, and it settles arguments that would otherwise cost Sean a message.
   Where its code and its own CLAUDE.md disagree, that is a question for Sean,
