@@ -33,7 +33,7 @@ import { useRowDrag } from '../components/rowdrag';
 import { useSwipeLeft } from '../components/swiperow';
 import { useSharedTick, useTickGrace } from '../components/tickgrace';
 import { Chevron } from '../components/Chevron';
-import { EditExit } from '../components/EditExit';
+import { EditExit, stayInEdit } from '../components/EditExit';
 import { useSectionDrag, type SectionSlot } from '../components/sectiondrag';
 import { ItemModal } from '../components/ItemModal';
 import { CircleBtn, CollapseAllBtn, ConfirmDelete, Field, Pill, Scroll, TOPBAR_CTRL, WebHitSlop } from '../ui';
@@ -465,12 +465,14 @@ export function Reminders() {
       />
 
       {/* A live drag holds the scroll still — see Habits for the why. */}
-      <Scroll contentContainerStyle={s.scroll} scrollEnabled={drag.dragIdx === null && secDrag.dragging === null}>
+      <Scroll contentContainerStyle={s.scrollWrap} scrollEnabled={drag.dragIdx === null && secDrag.dragging === null}>
         {/* On a PHONE this wrapper is what makes a tap outside leave edit
             mode: the web's document listener needs a document, so until now
-            the only way out on iOS was the Done button. See EditExit for why
-            native needs the opposite mechanism to the web's. */}
-        <EditExit active={pageEdit} onExit={exitEdit}>
+            the only way out on iOS was the Done button. It CARRIES the
+            content layout (s.scroll) so that arming edit mode cannot move
+            anything and the padding gutters are its own tappable surface —
+            see EditExit for both stories. */}
+        <EditExit active={pageEdit} onExit={exitEdit} style={s.scroll}>
         {folders.map((f) => (
           <View key={f.id} style={s.folderBlock}>
             {/* The header ROW is the reliable way out: always on screen, full
@@ -595,7 +597,7 @@ export function Reminders() {
                         <View
                           testID="rem-row"
                           ref={drag.registerRow(flatIdxOf(r.id))}
-                          {...(pageEdit ? {} : swipe.handlersFor(r.id))}
+                          {...(pageEdit ? stayInEdit : swipe.handlersFor(r.id))}
                           style={[
                             s.row,
                             rolledId === r.id && s.rowRolled,
@@ -881,6 +883,11 @@ const s = themed(() => StyleSheet.create({
   // flexGrow so the edit backdrop below the list can actually take the
   // leftover height; without it the content container is only as tall as
   // its content and the backdrop's flexGrow has nothing to grow into.
+  scrollWrap: { flexGrow: 1 },
+  // The content layout lives on EditExit, NOT on the scroll's container:
+  // the wrapper must render identically in and out of edit mode (or arming
+  // it shifts the list — it did), and owning the padding is what makes a
+  // tap in the gutter beside a row land on something that can exit.
   // paddingTop 0 — the gap below the divider is TopBar's now (chrome.tsx).
   scroll: { padding: 16, paddingTop: 0, paddingBottom: 48, gap: 18, flexGrow: 1 },
   folderBlock: { gap: 8 },

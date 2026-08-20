@@ -8,7 +8,7 @@ import { ToastProvider } from './src/components/Toast';
 import { TabBar, NavCtx, type Tab } from './src/nav';
 import { Login } from './src/screens/Login';
 import { Reminders } from './src/screens/Reminders';
-import { Calendar } from './src/screens/Calendar';
+import { Calendar, calSelectedDay } from './src/screens/Calendar';
 import { Notes } from './src/screens/Notes';
 import { Habits } from './src/screens/Habits';
 import { Add } from './src/screens/Add';
@@ -31,7 +31,12 @@ function Root() {
   });
   const backStack = React.useRef<Tab[]>([]);
   const [canBack, setCanBack] = useState(false);
+  // The day the Add tab was launched FROM: set at the moment of the switch,
+  // and only when the calendar is what you were looking at — an Add opened
+  // from Reminders or Notes still means today (Sean, 2026-08-20).
+  const [addFrom, setAddFrom] = useState<string | null>(null);
   const setTab = (t: Tab) => {
+    if (t === 'add') setAddFrom(tab === 'calendar' ? calSelectedDay() : null);
     if (t !== tab) {
       backStack.current.push(tab);
       setCanBack(true);
@@ -88,6 +93,7 @@ function Root() {
           )}
           {tab === 'add' && (
             <Add
+              date0={addFrom}
               done={() => setTab('calendar')}
               onNoteCreated={(id) => {
                 setNoteToOpen(id);

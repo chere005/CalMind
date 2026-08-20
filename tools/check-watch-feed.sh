@@ -114,6 +114,30 @@ while True:
     k += 1
 fallback += '\n' + tabs[i:k+1].replace('static func', 'func')
 
+# The COMPLICATION's half of the same seam: its own Ev decoder (a separate
+# binary's deliberate copy) and the stillOn filter that finally taught the
+# face the leave rule (Sean, 2026-08-20 — "still seeing events in watch past
+# their default end time"). Lifted, not re-typed, like everything above.
+comp = open('apps/app/targets/watchwidget/ComplicationWidget.swift').read()
+ci = comp.index('struct Ev')
+depth, ck = 0, comp.index('{', ci)
+while True:
+    if comp[ck] == '{': depth += 1
+    elif comp[ck] == '}':
+        depth -= 1
+        if depth == 0: break
+    ck += 1
+fallback += '\n' + comp[ci:ck+1]
+cf = comp.index('func stillOn(')
+depth, ck = 0, comp.index('{', cf)
+while True:
+    if comp[ck] == '{': depth += 1
+    elif comp[ck] == '}':
+        depth -= 1
+        if depth == 0: break
+    ck += 1
+fallback += '\n' + comp[cf:ck+1]
+
 # The Events page's own leave rule (Sean, 2026-08-19) — static and pure for
 # exactly this reason.
 u = tabs.index('static func upcoming(')
@@ -281,6 +305,32 @@ check(!events1800.contains { $0.id == "e1" }, "the Events page lets it go at the
 check(events1800.contains { $0.id == "e2" }, "…and keeps the other day's event")
 let eventsNoEnd = upcoming(list.events ?? [], today: "2026-08-09", nowHM: "17:59")
 check(eventsNoEnd.contains { $0.id == "e1" }, "at 17:59 the Events page still shows it")
+
+// A STALE cache holds finished days — the watch may not have fetched for
+// hours (Sean, 2026-08-20). Judged from the day after the fixture:
+// yesterday's EVENT is over, its reminder is overdue and stays.
+let staleMirror = drawnWidgetDays(days: days, wanted: [], today: "2026-08-10", nowHM: "08:00")
+let staleIds = staleMirror.flatMap { $0.lines }.map { $0.id }
+check(!staleIds.contains("e1"), "yesterday's EVENT is over however the stale cache remembers it")
+check(staleIds.contains("r1"), "…but yesterday's reminder stays — overdue, not done")
+check(staleIds.contains("e2"), "…and a coming day's event is untouched")
+let staleEvents = upcoming(list.events ?? [], today: "2026-08-10", nowHM: "08:00")
+check(!staleEvents.contains { $0.id == "e1" }, "the Events page drops yesterday's event from a stale cache")
+check(staleEvents.contains { $0.id == "e2" }, "…without touching tomorrow's")
+
+// THE FACE (Sean, 2026-08-20: "still seeing events in watch past their
+// default end time"): the complication's own Ev decodes the same feed —
+// `end` included — and stillOn is the filter its timeline entries draw
+// through. Decoded here through the complication's real struct.
+struct CompFeed: Codable { let events: [Ev]? }
+let compEvs = (try JSONDecoder().decode(CompFeed.self, from: data)).events ?? []
+check(compEvs.first?.end == "18:00",
+      "the complication's Ev reads core's resolved end — got \(String(describing: compEvs.first?.end))")
+check(stillOn(compEvs[0], today: "2026-08-09", nowHM: "17:59"), "the face still shows it at 17:59")
+check(!stillOn(compEvs[0], today: "2026-08-09", nowHM: "18:00"), "and lets it go at 18:00 — <=, not <")
+check(!stillOn(compEvs[0], today: "2026-08-10", nowHM: "08:00"), "a finished day is over on the face too")
+check(stillOn(Ev(id: "x", text: "x", date: "2026-08-09", time: nil, color: "#fff", end: nil),
+              today: "2026-08-09", nowHM: "23:59"), "no end means it never leaves — old feeds expire nothing")
 
 print(bad == 0
       ? "watch feed: the phone's JSON and the wrist's decoder agree"

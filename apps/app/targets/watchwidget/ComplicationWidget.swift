@@ -17,13 +17,18 @@ struct Ev: Codable {
     let date: String    // "YYYY-MM-DD"
     let time: String?   // "HH:MM"
     let color: String
+    /// When the event LEAVES the wrist — core's eventLeave answer (the end,
+    /// or an hour past a bare start; nil never leaves). Optional so a cache
+    /// written by an older phone build still decodes and expires nothing.
+    let end: String?
 }
 
 /// Sean's spec for this module, verbatim: "just show the next two events."
 /// Events mean CALENDAR events — in this suite a dated reminder is never an
 /// event, and the feed keeps them apart on purpose. The phone sends the next
-/// 30 already sorted, so the next two are the first two.
-func nextEvents() -> [Ev] {
+/// 30 already sorted — but "next" is judged NOW, not when the cache was
+/// written; `showing` below is what turns this list into the next two.
+func allEvents() -> [Ev] {
     struct List: Codable { let items: [Row]; let events: [Ev]?; let clock24: Bool? }
     guard let d = UserDefaults(suiteName: "group.com.seancheren.calmind")?.data(forKey: "watchlist.json") else {
         return []
@@ -34,7 +39,7 @@ func nextEvents() -> [Ev] {
         // formats a time. Optional, so a cache written before the setting
         // existed still decodes and reads as 12-hour, which is what it was.
         CLOCK24 = list.clock24 ?? false
-        return Array((list.events ?? []).prefix(2))
+        return list.events ?? []
     } catch {
         // A complication has one line and no room to explain itself, so this
         // cannot surface the way the app's screens do. It can at least leave a
@@ -43,6 +48,33 @@ func nextEvents() -> [Ev] {
         NSLog("[Complication] decode FAILED: %@", String(describing: error))
         return []
     }
+}
+
+/// An event LEAVES the wrist when it is over (Sean, 2026-08-19), and the
+/// FACE was the one surface still ignoring that: it drew the cached feed's
+/// first two whatever the clock said, so a 3pm meeting was still "next" at
+/// half past four (Sean, 2026-08-20 — "still seeing events in watch past
+/// their default end time"). The feed's `end` is core's resolved answer;
+/// this only compares. A stale cache also still holds finished DAYS — the
+/// watch may not have fetched for hours — so past days go too. Both sides
+/// of each compare are zero-padded ISO strings, so '<' is 'earlier'.
+func stillOn(_ e: Ev, today: String, nowHM: String) -> Bool {
+    if e.date < today { return false }
+    if e.date == today, let leave = e.end { return leave > nowHM }
+    return true
+}
+
+private let hmFmt: DateFormatter = {
+    let f = DateFormatter(); f.dateFormat = "HH:mm"; return f
+}()
+
+/// The next two AS OF a moment — the timeline below pre-renders one entry
+/// per leave boundary, so the face swaps at the minute an event is over
+/// without waiting for a fresh feed (HomeWidget's mechanism, same day).
+func showing(_ evs: [Ev], at d: Date) -> [Ev] {
+    let today = ymdFmt.string(from: d)
+    let hm = hmFmt.string(from: d)
+    return Array(evs.filter { stillOn($0, today: today, nowHM: hm) }.prefix(2))
 }
 
 /**
@@ -194,19 +226,39 @@ struct Entry: TimelineEntry {
 struct Provider: TimelineProvider {
     func placeholder(in context: Context) -> Entry {
         Entry(date: .now, events: [
-            Ev(id: "a", text: "Chase", date: "2026-08-12", time: "15:30", color: "#71d99c"),
-            Ev(id: "b", text: "Dinner", date: "2026-08-13", time: "18:00", color: "#60a5fa"),
+            Ev(id: "a", text: "Chase", date: "2026-08-12", time: "15:30", color: "#71d99c", end: nil),
+            Ev(id: "b", text: "Dinner", date: "2026-08-13", time: "18:00", color: "#60a5fa", end: nil),
         ])
     }
 
     func getSnapshot(in context: Context, completion: @escaping (Entry) -> Void) {
-        completion(Entry(date: .now, events: nextEvents()))
+        completion(Entry(date: .now, events: showing(allEvents(), at: .now)))
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<Entry>) -> Void) {
-        // The phone pushes fresh data through WatchStore, which pokes
-        // WidgetCenter — so this timeline only needs a lazy safety refresh.
-        completion(Timeline(entries: [Entry(date: .now, events: nextEvents())], policy: .after(.now.addingTimeInterval(30 * 60))))
+        // Fresh data reloads through WidgetCenter (WatchStore.take), so the
+        // 30-minute policy is only a lazy safety net. What it can NEVER cover
+        // is the minute an event ends — so each of today's remaining leave
+        // moments gets its own pre-rendered entry, built as of that moment,
+        // and the system swaps to it on time (HomeWidget's tick-grace
+        // mechanism, reused for the same rule).
+        let now = Date()
+        let evs = allEvents()
+        let today = ymdFmt.string(from: now)
+        let cal = Calendar.current
+        var deadlines: [Date] = []
+        for e in evs where e.date == today {
+            guard let leave = e.end, leave.count == 5,
+                  let h = Int(leave.prefix(2)), let m = Int(leave.suffix(2)),
+                  let d = cal.date(bySettingHour: h, minute: m, second: 0, of: now), d > now
+            else { continue }
+            deadlines.append(d)
+        }
+        var entries = [Entry(date: now, events: showing(evs, at: now))]
+        for d in Array(Set(deadlines)).sorted().prefix(4) {
+            entries.append(Entry(date: d, events: showing(evs, at: d)))
+        }
+        completion(Timeline(entries: entries, policy: .after(now.addingTimeInterval(30 * 60))))
     }
 }
 

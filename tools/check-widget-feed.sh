@@ -314,6 +314,14 @@ check(at1100.first?.lines.contains { $0.id == "e1" } == false, "at 11:00, gone �
 check(at1100.first?.lines.contains { $0.id == "late" } == true, "a reminder never expires")
 check(at1100.flatMap { $0.lines }.contains { $0.id == "e2" }, "another DAY's event is untouched by today's clock")
 check(all.first?.lines.contains { $0.id == "e1" } == true, "a caller with no clock expires nothing — the old call shape is unchanged")
+// A STALE feed after midnight still holds yesterday (Sean, 2026-08-20):
+// judged from the day after the fixture, yesterday's EVENT is over — but its
+// reminder is overdue, not done, and a reminder never expires.
+let nextDay = drawnDays(feed: feed, ticked: [], wanted: [], today: "2026-08-10", nowHM: "08:00")
+let nextIds = nextDay.flatMap { $0.lines }.map { $0.id }
+check(!nextIds.contains("e1"), "yesterday's EVENT is over however the stale cache remembers it")
+check(nextIds.contains("late"), "…but yesterday's reminder stays — overdue, not done")
+check(nextIds.contains("e2"), "…and a coming day's event is untouched")
 
 // A queued tick STAYS, drawn done, until the app drains it. This asserted the
 // opposite until 2026-08-11 — the row vanished the instant it was tapped, and

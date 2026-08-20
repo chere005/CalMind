@@ -45,10 +45,10 @@ test('a long line does not push the page sideways', async ({ page }) => {
   // The calendar's day panel draws the same text in a narrower row, beside a
   // tick, a chip and an edit cluster — the tightest place it has to fit.
   await page.getByTestId('tab-calendar').click();
-  await page.getByText('+ Add', { exact: true }).click();
-  await page.getByTestId('kind-reminder').click();
-  await page.getByPlaceholder(/What\?/).fill(LONG);
-  await page.getByText('Save', { exact: true }).click();
+  await page.getByTestId('tab-add').click();
+  await page.getByTestId('add-kind-reminder').click();
+  await page.getByTestId('add-text').fill(LONG);
+  await page.getByText('Done', { exact: true }).click();
   await expect(page.getByTestId('cal-day-title')).toBeVisible();
   expect(await overflow(page), 'the day panel stays inside the screen').toBeLessThanOrEqual(0);
 

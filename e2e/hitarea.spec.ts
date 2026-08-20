@@ -80,10 +80,10 @@ test('extra tap area stays near its control, and off its neighbours', async ({ p
   // An empty account shows almost none of them, and a sweep across five blank
   // screens would agree with itself and prove nothing.
   await page.getByTestId('tab-calendar').click();
-  await page.getByText('+ Add', { exact: true }).click();
-  await page.getByTestId('kind-reminder').click();
-  await page.getByPlaceholder(/What\?/).fill('buy bread');
-  await page.getByText('Save', { exact: true }).click();
+  await page.getByTestId('tab-add').click();
+  await page.getByTestId('add-kind-reminder').click();
+  await page.getByTestId('add-text').fill('buy bread');
+  await page.getByText('Done', { exact: true }).click();
   await expect(page.getByTestId('day-tick').first()).toBeVisible({ timeout: 10_000 });
 
   // A LANDMARK PER TAB, because both scans below report violations and an empty

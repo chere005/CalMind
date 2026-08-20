@@ -32,7 +32,20 @@ import { DayPick } from '../components/DayPick';
 
 type Kind = 'reminder' | 'event' | 'note';
 
-export function Add({ done, onNoteCreated }: { done: () => void; onNoteCreated?: (id: string) => void }) {
+export function Add({
+  done,
+  onNoteCreated,
+  date0 = null,
+}: {
+  done: () => void;
+  onNoteCreated?: (id: string) => void;
+  /** The day this screen was launched FROM — the calendar's selected day
+   *  when the Add tab is pressed there (Sean, 2026-08-20: "the add app when
+   *  launched from a particular day should default from that day"). An
+   *  INCUMBENT, not a manual choice: the picker and an explicit typed date
+   *  both outrank it, exactly as ItemModal ranks its own date. */
+  date0?: string | null;
+}) {
   const { recs, mutate } = useStore();
   const clock24 = useClock24();
   // EVENT first, on Sean's word (2026-08-12). The + used to open on Reminder
@@ -63,7 +76,10 @@ export function Add({ done, onNoteCreated }: { done: () => void; onNoteCreated?:
   const lastFiled = useRef<{ text: string; at: number } | null>(null);
 
   const today = todayStr();
-  const todayLabel = new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
+  // The date line names the day this Add will file on — today, unless the
+  // screen was launched from another day on the calendar.
+  const baseDay = date0 ?? today;
+  const todayLabel = new Date(`${baseDay}T12:00:00`).toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
 
   const { sectionChoices, calendars } = useMemo(() => {
     const folders = recs.filter((r): r is Rec<'folder'> => r.type === 'folder').sort(byRecOrd);
@@ -99,7 +115,13 @@ export function Add({ done, onNoteCreated }: { done: () => void; onNoteCreated?:
     // Manual-beats-parsed (Sean, 2026-08-18): a category the fields settled
     // is not lifted from the line — the token stays, unused.
     const [clean, pd, pt] = parseWhenFromText(raw, today, nowStr(), { date: fd === null, time: ft === null });
-    const date = fd ?? pd;
+    // The launch day (date0) is an INCUMBENT, ranked as ItemModal ranks its
+    // own: an explicit typed token beats it, but a bare "2pm" only IMPLIES a
+    // day and that implication is a fallback, not an instruction — it must
+    // not drag an add made from Aug 25 back to today. The time-less parse
+    // cannot imply, so its date is the explicit token alone.
+    const [, pdExplicit] = parseWhenFromText(raw, today, nowStr(), { date: fd === null, time: false });
+    const date = fd ?? pdExplicit ?? date0 ?? pd;
     const time = ft ?? pt;
     // Only events carry an end, and only after a start (Sean, 2026-08-18).
     // An empty field keeps the presumption made when the row was revealed.
@@ -167,7 +189,7 @@ export function Add({ done, onNoteCreated }: { done: () => void; onNoteCreated?:
     <View style={s.page}>
       <TopBar title="Add" />
       <Scroll contentContainerStyle={s.scroll}>
-        <Text style={s.dateLine}>{todayLabel}</Text>
+        <Text testID="add-date-line" style={s.dateLine}>{todayLabel}</Text>
         <Field testID="add-text" value={text} onChangeText={(t) => { setText(t); setErr(''); }} placeholder="e.g. Dentist 8/3 2pm…" autoFocus onSubmitEditing={() => add() && done()} />
 
         <View style={s.cards}>
@@ -200,6 +222,7 @@ export function Add({ done, onNoteCreated }: { done: () => void; onNoteCreated?:
           <View style={s.panel}>
             {kind === 'event' ? (
               <Dropdown
+                testID="add-dest"
                 value={destId ?? calendars[0]?.id ?? null}
                 options={calendars.map((c) => ({ id: c.id, label: c.payload.name }))}
                 onPick={setDestId}

@@ -919,9 +919,11 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
         picker={<FolderPick app="notes" />}
       />
       {/* A live drag holds the scroll still — see Habits for the why. */}
-      <Scroll contentContainerStyle={s.scroll} scrollEnabled={drag.dragIdx === null && secDrag.dragging === null}>
-        {/* The phone's tap-to-exit; the web keeps its document listener. */}
-        <EditExit active={pageEdit} onExit={() => setPageEdit(false)}>
+      <Scroll contentContainerStyle={s.scrollWrap} scrollEnabled={drag.dragIdx === null && secDrag.dragging === null}>
+        {/* The phone's tap-to-exit; the web keeps its document listener.
+            EditExit carries the content layout (s.scroll) so arming edit
+            mode cannot move anything — see EditExit for the story. */}
+        <EditExit active={pageEdit} onExit={() => setPageEdit(false)} style={s.scroll}>
         {folders.map((f) => (
           <View key={f.id} style={s.folderBlock}>
             {/* The header ROW is the reliable way out: always on screen, full
@@ -1366,6 +1368,10 @@ const s = themed(() => StyleSheet.create({
   // paddingTop 0 — the gap below the divider is TopBar's now (chrome.tsx).
   // This screen's 8 was the value that MATCHED the suite; it moved rather
   // than changed, and the other four came to it.
+  // scroll lives on EditExit, not the scroll container — the wrapper must
+  // render identically in and out of edit mode, and owning the padding is
+  // what lets a gutter tap exit on the phone. scrollWrap is the container's.
+  scrollWrap: { flexGrow: 1 },
   scroll: { padding: 16, paddingTop: 0, paddingBottom: 48, gap: 18, flexGrow: 1 },
   folderBlock: { gap: 8 },
   folderHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },

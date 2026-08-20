@@ -489,6 +489,12 @@ struct Provider: AppIntentTimelineProvider {
                           nowHM: String? = nil) -> [DaySection] {
         let days: [DaySection] = (feed.days ?? []).compactMap { day in
             let lines = day.lines.compactMap { l -> Line? in
+                // An EVENT on a finished day is over however a stale cache
+                // remembers it (Sean, 2026-08-20) — the feed may be hours
+                // old after midnight. Events only: a reminder on that day is
+                // not done, it is overdue, and a reminder never expires.
+                // Same clause as the watch's drawnWidgetDays.
+                if !l.isReminder, day.date < today { return nil }
                 // An event leaves the card once its resolved end has passed
                 // (Sean, 2026-08-19) — core already decided WHEN (line.end:
                 // the end, or an hour past a bare start; nil never leaves).

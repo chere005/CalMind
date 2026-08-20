@@ -35,17 +35,19 @@ test('an event end presumes start+1h, renders as a range, and can be removed', a
   test.setTimeout(90_000);
   await signup(page);
 
-  // Through the day panel's + Add, so the date is the selected day and the
-  // time is an explicit field — nothing here depends on the wall clock.
-  await page.getByTestId('cal-add').click();
-  await page.getByPlaceholder(/What\?/).fill('movie');
-  await page.getByText('+ Time', { exact: true }).click();
+  // Through the Add tab from the calendar (the day panel's own + Add is gone,
+  // 2026-08-20) — the date defaults to the selected day and the time is an
+  // explicit field, so nothing here depends on the wall clock.
+  await page.getByTestId('tab-calendar').click();
+  await page.getByTestId('tab-add').click();
+  await page.getByTestId('add-text').fill('movie');
+  await page.getByText('+ Date/Time', { exact: true }).click();
   await page.getByPlaceholder('2:30pm').fill('3pm');
   // Revealing End presumes an hour past the start; the presumption sits as
   // the placeholder and saves without being typed.
   await page.getByText('+ End', { exact: true }).click();
   await expect(page.getByPlaceholder('4pm')).toBeVisible();
-  await page.getByText('Save', { exact: true }).click();
+  await page.getByText('Done', { exact: true }).click();
 
   const row = page.getByText('3pm–4pm', { exact: true });
   await expect(row, 'the chip reads the range').toBeVisible();
@@ -64,22 +66,23 @@ test('an event end presumes start+1h, renders as a range, and can be removed', a
 test('an overtyped end beats the presumption', async ({ page }) => {
   test.setTimeout(90_000);
   await signup(page);
-  await page.getByTestId('cal-add').click();
-  await page.getByPlaceholder(/What\?/).fill('dinner');
-  await page.getByText('+ Time', { exact: true }).click();
+  await page.getByTestId('tab-calendar').click();
+  await page.getByTestId('tab-add').click();
+  await page.getByTestId('add-text').fill('dinner');
+  await page.getByText('+ Date/Time', { exact: true }).click();
   await page.getByPlaceholder('2:30pm').fill('6pm');
   await page.getByText('+ End', { exact: true }).click();
   await page.getByPlaceholder('7pm').fill('8:30pm');
-  await page.getByText('Save', { exact: true }).click();
+  await page.getByText('Done', { exact: true }).click();
   await expect(page.getByText('6pm–8:30pm', { exact: true })).toBeVisible();
 });
 
 test('reminders offer no end row', async ({ page }) => {
   test.setTimeout(90_000);
   await signup(page);
-  await page.getByTestId('cal-add').click();
-  await page.getByTestId('kind-reminder').click();
-  await page.getByText('+ Time', { exact: true }).click();
+  await page.getByTestId('tab-add').click();
+  await page.getByTestId('add-kind-reminder').click();
+  await page.getByText('+ Date/Time', { exact: true }).click();
   await expect(page.getByText('+ End', { exact: true }), 'reminders have no end times').toBeHidden();
 });
 

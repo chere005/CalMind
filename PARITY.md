@@ -2476,3 +2476,56 @@ busy 2pm is gone — instead of a 10am that stops existing on Tuesdays. A new
 server block pins each edge (Tuesday's late open, Friday/Saturday's 10pm
 last start, Sunday's plain day, 11pm refusing as the close), and each half
 was broken and watched go red before being believed. Server 58 → 59.
+
+### Seven complaints, one morning, 2026-08-20
+
+"Items are shifting around when entering edit mode across multiple apps, and
+tap to exit isn't working faithfully.. the add app when launched from a
+particular day should default from that day. Remove the additional add button
+on calendar. Adding events or reminders shouldn't show shared lists.. the
+circle for the reminder got too big and is off on the calendar app.. was
+still seeing events in watch past their default end time.. i'm disappointed
+testing hasn't caught that."
+
+The shift and the unfaithful tap were ONE file. EditExit — the phone's
+tap-out — mounted its Pressable only when edit mode armed, so arming
+reparented every block into a single child and the screens' `gap` collapsed:
+the whole list rode up, on all four screens, for ten days, and every browser
+test stayed green because the web branch rendered a fragment either way
+(editmode.spec's no-shift test was measuring the one engine that never had
+the bug). The wrapper now renders identically in both states and CARRIES the
+screen's content layout, which also fixes half the faithfulness: the padding
+gutters beside rows were dead on the phone (a non-responder took the tap)
+where the web exits. The other half went the other way — a tap landing on a
+reminder row's padding EXITED on the phone where the web's allow-list keeps
+rows — so a row in edit mode now claims those taps (stayInEdit). The lesson
+is in ui-changes-no-eye-check.md: green browser specs prove nothing about a
+Platform.OS fork; make the bug class structurally impossible or look.
+
+The Add tab inherits the calendar's selected day — an INCUMBENT, ranked
+exactly as ItemModal ranks its own: the picker and an explicit typed date
+beat it, a bare time's implied today does not (addfromday.spec pins all
+three). With that, the day panel's "+ Add" pill was the "additional add
+button" and is gone; thirteen specs that entered through it now enter
+through the Add tab, and the two that needed the SHEET itself (the
+double-save guard, the m/d box) reach it through the recipe line and the
+edit pencil — the doors that still exist. The sheet's partner-pair dropdown
+went with it ("shouldn't show shared lists"): adding into a partner's list
+now happens only where their list is on screen, the shared view's own +.
+
+The day panel's reminder circle: 22px against the suite's 17 (.dp-check) —
+the panel is the small scale and the circle had drifted to nearly the list's
+24. 18 now, level with its words, pinned in daytick.spec against both drifts.
+
+The watch: the pages learned the leave rule on the 19th; the FACE never did.
+The complication's Ev had no `end`, nothing filtered its cache by time, and
+its timeline lazily re-read the same stale bytes every 30 minutes — so a 3pm
+meeting was "next" at half past four, and a cache from yesterday offered
+yesterday. It decodes `end` now, filters through stillOn (past DAYS included),
+and pre-renders an entry at each of today's remaining leave moments —
+HomeWidget's tick-grace mechanism, third user. The widget and both watch
+pages also drop a stale cache's finished-day EVENTS (a reminder on that day
+is overdue, not done, and a reminder never expires — the first cut dropped
+whole days and the existing pin caught it). check-watch-feed.sh lifts the
+complication's real Ev and stillOn beside everything else it lifts; every
+new pin was broken once and watched go red.

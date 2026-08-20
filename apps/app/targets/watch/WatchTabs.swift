@@ -73,6 +73,12 @@ struct SummaryView: View {
                                 today: String? = nil, nowHM: String? = nil) -> [WatchDay] {
         days.compactMap { day in
             let lines = day.lines.filter { l in
+                // An EVENT on a finished day is over however a stale cache
+                // remembers it (Sean, 2026-08-20) — the watch may not have
+                // fetched for hours. Events only: a reminder on that day is
+                // overdue, not done, and a reminder never expires. Same
+                // clause as HomeWidget's drawnDays.
+                if !l.isReminder, let t = today, day.date < t { return false }
                 // An event leaves the wrist once its resolved end has passed
                 // (Sean, 2026-08-19) — the same clause, word for word, as the
                 // widget's drawnDays; check-watch-feed.sh runs both. `nowHM`
@@ -251,6 +257,9 @@ struct EventListView: View {
     /// check-watch-feed.sh can run it beside the widget-mirror's copy.
     static func upcoming(_ evs: [WatchEvent], today: String, nowHM: String) -> [WatchEvent] {
         evs.filter { e in
+            // A finished DAY goes whole — a stale feed still holds yesterday
+            // (Sean, 2026-08-20); the fresh-feed case never sends one.
+            if e.date < today { return false }
             guard let leave = e.end, e.date == today else { return true }
             return leave > nowHM
         }

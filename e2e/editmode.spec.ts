@@ -79,11 +79,13 @@ async function makeHabit(page: Page) {
 }
 
 async function makeDayRow(page: Page, text = 'vet visit') {
+  // Through the Add tab from the calendar — the panel's own "+ Add" is gone
+  // (Sean, 2026-08-20), and the tab inherits the selected day.
   await page.getByTestId('tab-calendar').click();
-  await page.getByText('+ Add', { exact: true }).click();
-  await page.getByTestId('kind-reminder').click();
-  await page.getByPlaceholder(/What\?/).fill(text);
-  await page.getByText('Save', { exact: true }).click();
+  await page.getByTestId('tab-add').click();
+  await page.getByTestId('add-kind-reminder').click();
+  await page.getByTestId('add-text').fill(text);
+  await page.getByText('Done', { exact: true }).click();
   await expect(page.getByTestId('day-tick').first()).toBeVisible({ timeout: 10_000 });
 }
 
@@ -144,6 +146,12 @@ test('entering edit mode does not move anything', async ({ page }) => {
   await longPress(page, (await page.getByTestId('rem-body').first().boundingBox())!);
   const remAfter = (await remRow.boundingBox())!;
   expect(Math.round(remAfter.x), 'reminders row holds its place').toBe(Math.round(remBefore.x));
+  // BOTH axes. The native build had a vertical version of this bug the web
+  // could never see: EditExit used to mount its wrapper only when edit mode
+  // armed, so the screen's `gap` between blocks collapsed and the whole list
+  // rode up (Sean, 2026-08-20). The wrapper renders identically in both
+  // states now — this holds the web half; the structure holds the native.
+  expect(Math.round(remAfter.y), 'and does not ride up or down').toBe(Math.round(remBefore.y));
   await tapAway(page);
 
   await makeHabit(page);

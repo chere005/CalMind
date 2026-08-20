@@ -504,15 +504,11 @@ test('edit mode is left by tapping out — there is no Done button', async ({ pa
 test("the calendar panel's edit mode can be left at all", async ({ page }) => {
   // Once the worst of the three: setPanelEdit(false) appeared exactly once in
   // the whole file, in the Escape handler, so a phone had no way out at all.
-  // There is no Done button here either — "+ Add" stays put, since swapping
-  // it was a control appearing and disappearing in the row Sean did not want
-  // moving.
   await signup(page);
   await page.getByTestId('tab-calendar').click();
-  await page.getByText('+ Add', { exact: true }).click();
-  await page.getByTestId('kind-event').click();
-  await page.getByPlaceholder(/What\?/).fill('dentist');
-  await page.getByText('Save', { exact: true }).click();
+  await page.getByTestId('tab-add').click();
+  await page.getByTestId('add-text').fill('dentist');
+  await page.getByText('Done', { exact: true }).click();
   await expect(page.getByText('dentist')).toBeVisible();
 
   await longPress(page, page.getByText('dentist'));
@@ -521,7 +517,7 @@ test("the calendar panel's edit mode can be left at all", async ({ page }) => {
   await page.getByTestId('cal-day-title').click();
   // The row controls are gone again — the panel is out of edit mode.
   await expect(page.getByTestId('dp-note-row')).toHaveCount(0);
-  await expect(page.getByTestId('cal-add')).toBeVisible();
+  await expect(page.getByTestId('cal-day-title')).toBeVisible();
 });
 
 test('Notes edit mode is left by tapping out, exactly as Reminders is', async ({ page }) => {
@@ -553,11 +549,10 @@ test('the 12/24-hour setting reaches the screens, and survives a reload', async 
   // tab only.
   const user = await signup(page);
   await page.getByTestId('tab-calendar').click();
-  await page.getByText('+ Add', { exact: true }).click();
-  await page.getByTestId('kind-event').click();
+  await page.getByTestId('tab-add').click();
   // The time goes in the text, which is how a person types it here.
-  await page.getByPlaceholder(/What\?/).fill('standup 2pm');
-  await page.getByText('Save', { exact: true }).click();
+  await page.getByTestId('add-text').fill('standup 2pm');
+  await page.getByText('Done', { exact: true }).click();
   await expect(page.getByText('2pm', { exact: true })).toBeVisible({ timeout: 10_000 });
 
   // Switch to 24-hour in Settings — through the username menu, as a person
@@ -659,19 +654,18 @@ test('the CALENDAR day panel leaves edit mode by tapping out, like the other thr
   await expect(dup).toBeHidden();
 
   // The panel HEAD's dead space — the always-present surface, and the one
-  // that has to work when the day is full and no blank space is left. The
-  // sweep measured this row at 32pt tall with ~145pt of dead space between
-  // the title and the first button, which is a larger target than the header
-  // strips the other three screens exit through.
+  // that has to work when the day is full and no blank space is left. With
+  // the "+ Add" pill gone (2026-08-20) the head is the title alone, so the
+  // dead space runs from the title's right edge to the row's — wider than
+  // ever, and still an exit.
   await longPress(page, row);
   await expect(dup).toBeVisible();
   const gap = await page.evaluate(() => {
     const t = document.querySelector('[data-testid="cal-day-title"]')!;
     const head = t.parentElement!;
-    const btns = [...head.querySelectorAll('[role="button"]')].map((e) => e.getBoundingClientRect().left);
     const r = head.getBoundingClientRect();
     const tr = t.getBoundingClientRect();
-    return { x: (tr.right + Math.min(...btns)) / 2, y: r.top + r.height / 2 };
+    return { x: (tr.right + r.right) / 2, y: r.top + r.height / 2 };
   });
   await page.mouse.click(gap.x, gap.y);
   await expect(dup).toBeHidden();
@@ -779,10 +773,9 @@ test('collapse-all folds and unfolds, on the list AND on the calendar', async ({
 
   // Calendar: the same control folds the day panel's groups.
   await page.getByTestId('tab-calendar').click();
-  await page.getByText('+ Add', { exact: true }).click();
-  await page.getByTestId('kind-event').click();
-  await page.getByPlaceholder(/What\?/).fill('fold this event');
-  await page.getByText('Save', { exact: true }).click();
+  await page.getByTestId('tab-add').click();
+  await page.getByTestId('add-text').fill('fold this event');
+  await page.getByText('Done', { exact: true }).click();
   await expect(page.getByText('fold this event')).toBeVisible();
   await page.getByLabel('Collapse all').click();
   await expect(page.getByText('fold this event')).toBeHidden();
@@ -932,15 +925,16 @@ test('sharing: mutual handshake, @partner view, a tick lands in their store', as
   await expect.poll(() => swatch.evaluate((el) => getComputedStyle(el).backgroundColor)).toBe('rgb(246, 180, 178)');
   await pageB.getByText('Done', { exact: true }).click();
 
-  // The add window's partner pair: a reminder dropped straight into A's
-  // shared section, exactly one owner selected.
-  await pageB.getByTestId('tab-calendar').click();
-  await pageB.getByText('+ Add', { exact: true }).click();
-  await pageB.getByTestId('kind-reminder').click();
-  await pageB.getByPlaceholder(/What\?/).fill('buy bread');
-  await pageB.getByText('—', { exact: true }).click();
-  await pageB.getByText('Reminders · General', { exact: true }).last().click();
-  await pageB.getByText('Save', { exact: true }).click();
+  // A reminder dropped straight into A's shared section — through the shared
+  // folder view's own +, which is the ONE remaining door: the add window's
+  // partner pair was removed on Sean's word (2026-08-20, "adding events or
+  // reminders shouldn't show shared lists in the dropdown").
+  await pageB.getByTestId('tab-reminders').click();
+  await pageB.getByTestId('pick-reminders').click();
+  await pageB.getByTestId('pick-shared-Reminders').click();
+  await pageB.getByRole('button', { name: 'Add' }).first().click();
+  await pageB.getByTestId('shared-add-field').fill('buy bread');
+  await pageB.getByTestId('shared-add-field').press('Enter');
   await pageA.reload();
   await pageA.getByTestId('tab-reminders').click();
   await expect(pageA.getByTestId('rem-row').filter({ hasText: 'buy bread' })).toBeVisible({ timeout: 10_000 });
@@ -956,18 +950,18 @@ test("sharing: a calendar shows under the partner's day-panel group; notes read 
   const userB = await signup(pageB);
   const userA = await signup(pageA);
 
-  // A: an event today (the add modal defaults to the selected day = today)
-  // and a note, then share the starter calendar and note folder with B.
-  await pageA.getByText('+ Add', { exact: true }).click();
-  await pageA.getByTestId('kind-event').click();
-  await pageA.getByPlaceholder(/What\?/).fill('joint dinner');
-  await pageA.getByText('Save', { exact: true }).click();
-  // A dated note, filed from the day panel so it lands on today: the suite
-  // shows a partner's dated notes on their day exactly like my own.
-  await pageA.getByText('+ Add', { exact: true }).click();
-  await pageA.getByTestId('kind-note').click();
-  await pageA.getByPlaceholder(/What\?/).fill('shopping list');
-  await pageA.getByText('Save', { exact: true }).click();
+  // A: an event today (the Add tab inherits the calendar's selected day —
+  // the panel's own "+ Add" is gone, 2026-08-20) and a note, then share the
+  // starter calendar and note folder with B.
+  await pageA.getByTestId('tab-add').click();
+  await pageA.getByTestId('add-text').fill('joint dinner');
+  await pageA.getByText('Done', { exact: true }).click();
+  // A dated note, filed from the calendar's day so it lands on today: the
+  // suite shows a partner's dated notes on their day exactly like my own.
+  await pageA.getByTestId('tab-add').click();
+  await pageA.getByTestId('add-kind-note').click();
+  await pageA.getByTestId('add-text').fill('shopping list');
+  await pageA.getByText('Done', { exact: true }).click();
   await pageA.getByTestId('note-back').click();
   await pageA.getByTestId('tab-notes').click();
   await pageA.getByTestId('secadd-General').first().click();
@@ -1004,23 +998,21 @@ test("sharing: a calendar shows under the partner's day-panel group; notes read 
   // B files an event of their own, and the panel's groups fall in the suite's
   // fixed order: one group per kind AND owner, mine before theirs, kinds in
   // the legend's order — never reshuffled by what the day happens to hold.
-  // While the sheet is open on EVENT: no partner destination is offered — a
-  // shared calendar is never a target (Sean, 2026-08-19), where a reminder
-  // or note still offers the partner's sections below the badge.
-  await pageB.getByText('+ Add', { exact: true }).click();
-  // The positive half first, so the absence below cannot pass vacuously:
-  // on NOTE the partner's badge and sections are offered…
-  await pageB.getByTestId('kind-note').click();
-  await expect(pageB.getByText(userA, { exact: true })).toBeVisible();
-  // …and on EVENT they are gone, not merely empty.
-  await pageB.getByTestId('kind-event').click();
+  // NO partner destination is offered anywhere in the add flow any more
+  // (Sean, 2026-08-20: "adding events or reminders shouldn't show shared
+  // lists in the dropdown") — with a live partner attached, revealing the
+  // reminder's Folder/Section offers only B's own sections. Adding INTO A's
+  // list still exists where A's list is on screen (the shared view's +,
+  // pinned above).
+  await pageB.getByTestId('tab-add').click();
+  await pageB.getByTestId('add-kind-reminder').click();
+  await pageB.getByText('+ Folder/Section', { exact: true }).click();
   await expect(pageB.getByText(userA, { exact: true })).toHaveCount(0);
-  await pageB.getByPlaceholder(/What\?/).fill('my own thing');
-  await pageB.getByText('Save', { exact: true }).click();
-  await pageB.getByText('+ Add', { exact: true }).click();
-  await pageB.getByTestId('kind-reminder').click();
-  await pageB.getByPlaceholder(/What\?/).fill('my own errand');
-  await pageB.getByText('Save', { exact: true }).click();
+  await pageB.getByTestId('add-text').fill('my own errand');
+  await pageB.getByText('Done', { exact: true }).click();
+  await pageB.getByTestId('tab-add').click();
+  await pageB.getByTestId('add-text').fill('my own thing');
+  await pageB.getByText('Done', { exact: true }).click();
   const heads = (await pageB.getByTestId('dp-group-head').allTextContents()).map((h) => h.replace(/^[▸▾]\s*/, ''));
   expect(heads).toEqual(['Events', `${userA}'s events`, 'Reminders', `${userA}'s notes`]);
 
@@ -1221,12 +1213,13 @@ test("a folder's colour is one source of truth: manage menu → legend chip → 
   // the legend chip and the marker on the day must both read it, and both
   // must follow when it changes.
   await signup(page);
-  // Filed from the day panel so it is DUE today and therefore lands on the
-  // grid — an undated reminder never reaches a cell to be coloured.
-  await page.getByText('+ Add', { exact: true }).click();
-  await page.getByTestId('kind-reminder').click();
-  await page.getByPlaceholder(/What\?/).fill('paint the day');
-  await page.getByText('Save', { exact: true }).click();
+  // Filed from the Add tab off the calendar so it is DUE today and therefore
+  // lands on the grid — an undated reminder never reaches a cell to be
+  // coloured.
+  await page.getByTestId('tab-add').click();
+  await page.getByTestId('add-kind-reminder').click();
+  await page.getByTestId('add-text').fill('paint the day');
+  await page.getByText('Done', { exact: true }).click();
 
   // The mark on a day and the chip in the key, as the SVG strokes they are.
   const markColor = async () =>
@@ -1261,13 +1254,13 @@ test("a folder's colour is one source of truth: manage menu → legend chip → 
   // suite paints the icon its folder's colour and lets the `overdue` class
   // change nothing; only a finished colour greys, and that hides anyway.
   // A bare m/d means the NEXT such date, so a past day needs its year said
-  // out loud or it lands a year ahead and is never overdue at all.
+  // out loud or it lands a year ahead and is never overdue at all. The date
+  // rides in the line — the Add tab's parser reads a full date.
   const n = new Date();
-  await page.getByText('+ Add', { exact: true }).click();
-  await page.getByTestId('kind-reminder').click();
-  await page.getByPlaceholder(/What\?/).fill('late thing');
-  await page.getByPlaceholder('m/d').fill(`${n.getMonth() + 1}/${n.getDate()}/${n.getFullYear() - 1}`);
-  await page.getByText('Save', { exact: true }).click();
+  await page.getByTestId('tab-add').click();
+  await page.getByTestId('add-kind-reminder').click();
+  await page.getByTestId('add-text').fill(`late thing ${n.getMonth() + 1}/${n.getDate()}/${n.getFullYear() - 1}`);
+  await page.getByText('Done', { exact: true }).click();
 
   await expect(page.getByText('late thing')).toBeVisible();
   expect(await markColor()).toBe(picked);
@@ -1375,10 +1368,9 @@ test('the month cell keeps a fixed two-row mark well, busy day or empty', async 
   // stands the same height however busy its day. A one-row minimum let a
   // quiet day's cell sit shorter than a busy one's.
   await signup(page);
-  await page.getByText('+ Add', { exact: true }).click();
-  await page.getByTestId('kind-event').click();
-  await page.getByPlaceholder(/What\?/).fill('one mark');
-  await page.getByText('Save', { exact: true }).click();
+  await page.getByTestId('tab-add').click();
+  await page.getByTestId('add-text').fill('one mark');
+  await page.getByText('Done', { exact: true }).click();
 
   const wells = page.getByTestId('cal-mark-well');
   const heights = new Set<number>();
@@ -1391,23 +1383,22 @@ test('the month cell keeps a fixed two-row mark well, busy day or empty', async 
   expect([...heights]).toEqual([23.5]);
 });
 
-test('a fresh add through the day-panel modal is visible immediately', async ({ page }) => {
+test('a fresh add from the calendar is visible immediately', async ({ page }) => {
   // showAgain's single-view and hidden cases are pinned in core tests; this
   // holds the visible outcome end-to-end.
   await signup(page);
-  await page.getByText('+ Add', { exact: true }).click();
-  await page.getByTestId('kind-event').click();
-  await page.getByPlaceholder(/What\?/).fill('resurfaced');
-  await page.getByText('Save', { exact: true }).click();
+  await page.getByTestId('tab-add').click();
+  await page.getByTestId('add-text').fill('resurfaced');
+  await page.getByText('Done', { exact: true }).click();
   await expect(page.getByText('resurfaced')).toBeVisible();
 });
 
 test('a fully-done colour leaves the month cell unless Completed is shown', async ({ page }) => {
   await signup(page);
-  await page.getByText('+ Add', { exact: true }).click();
-  await page.getByTestId('kind-reminder').click();
-  await page.getByPlaceholder(/What\?/).fill('cellgate');
-  await page.getByText('Save', { exact: true }).click();
+  await page.getByTestId('tab-add').click();
+  await page.getByTestId('add-kind-reminder').click();
+  await page.getByTestId('add-text').fill('cellgate');
+  await page.getByText('Done', { exact: true }).click();
   const cellIcons = page.locator('[data-testid="cal-cell"] svg');
   await expect.poll(() => cellIcons.count()).toBeGreaterThan(0); // the open box marks today
   await page.getByTestId('day-tick').first().click(); // its colour is fully done now
@@ -1419,10 +1410,9 @@ test('a fully-done colour leaves the month cell unless Completed is shown', asyn
 
 test('the day panel cluster waits for a double-click, like the suite', async ({ page }) => {
   await signup(page);
-  await page.getByText('+ Add', { exact: true }).click();
-  await page.getByTestId('kind-event').click();
-  await page.getByPlaceholder(/What\?/).fill('two step');
-  await page.getByText('Save', { exact: true }).click();
+  await page.getByTestId('tab-add').click();
+  await page.getByTestId('add-text').fill('two step');
+  await page.getByText('Done', { exact: true }).click();
   await expect(page.getByText('two step')).toBeVisible();
   await expect(page.getByText('✎')).toBeHidden();
   await page.getByText('two step').dblclick();
@@ -1521,10 +1511,15 @@ test('the Add page tells you the words it understands', async ({ page }) => {
 test('the little date box takes "tomorrow" too, not just 8/3', async ({ page }) => {
   // The text field beside it learned the relative words this run; a box that
   // refused what its neighbour accepts is a seam a person walks straight into.
+  // The box lives in the item sheet — reached through EDIT now that the day
+  // panel's create door is gone (2026-08-20).
   await signup(page);
-  await page.getByText('+ Add', { exact: true }).click();
-  await page.getByTestId('kind-reminder').click();
-  await page.getByPlaceholder(/What\?/).fill('call the vet');
+  await page.getByTestId('tab-add').click();
+  await page.getByTestId('add-kind-reminder').click();
+  await page.getByTestId('add-text').fill('call the vet');
+  await page.getByText('Done', { exact: true }).click();
+  await page.getByText('call the vet').dblclick();
+  await page.getByRole('button', { name: 'Edit' }).first().click();
   await page.getByPlaceholder('m/d').fill('tomorrow');
   await page.getByText('Save', { exact: true }).click();
 

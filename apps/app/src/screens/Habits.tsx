@@ -429,15 +429,17 @@ export function Habits() {
       {/* A live drag holds the scroll still. Refusing the responder hand-over
           is what keeps the gesture, but on a touch device a list that also
           scrolls under the finger fights the drop line for the same pixels. */}
-      <Scroll contentContainerStyle={s.scroll} scrollEnabled={drag.dragIdx === null && secDrag.dragging === null}>
+      <Scroll contentContainerStyle={s.scrollWrap} scrollEnabled={drag.dragIdx === null && secDrag.dragging === null}>
         {/* On a PHONE this wrapper is what makes a tap outside leave edit
             mode. The two exits above it — Escape and the document
             pointerdown listener — both sit behind `typeof document ===
             'undefined'`, so on iOS neither exists, and Habits was the one
             screen of the four that never got this. Reminders, Notes and the
             Calendar have had it; here a long press opened edit mode and
-            nothing but leaving the tab closed it again. */}
-        <EditExit active={edit} onExit={() => setEdit(false)}>
+            nothing but leaving the tab closed it again. EditExit carries the
+            content layout (s.scroll) so arming edit mode cannot move
+            anything — see EditExit for the story. */}
+        <EditExit active={edit} onExit={() => setEdit(false)} style={s.scroll}>
         <View testID="habits-pan" {...pan.panHandlers}>
         {view === 'week' && (
           <>
@@ -729,6 +731,9 @@ const s = themed(() => StyleSheet.create({
   // the last habit, and a tap on the empty space below did nothing. Verified
   // on a simulator: edit mode would not close. Reminders and Notes have
   // carried this all along; this screen and the calendar panel had not.
+  // scroll lives on EditExit, not the scroll container — the wrapper must
+  // render identically in and out of edit mode. scrollWrap is the container's.
+  scrollWrap: { flexGrow: 1 },
   scroll: { padding: 16, paddingTop: 13, paddingBottom: 48, gap: 16, flexGrow: 1 },
   headRow: { flexDirection: 'row', alignItems: 'flex-end' },
   nameCol: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, paddingRight: 8 },

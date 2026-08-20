@@ -81,14 +81,15 @@ test('reminders remembers Completed across a tab switch and a reload', async ({ 
 test('the calendar remembers Completed across a tab switch and a reload', async ({ page }) => {
   await signup(page);
 
-  // Added through the CALENDAR, so it lands on the selected day. A reminder
-  // made on the Reminders screen has no due date and never reaches a day
-  // panel at all — which is how the first attempt at this test "failed".
+  // Added through the Add TAB from the calendar, so it lands on the selected
+  // day (the panel's own "+ Add" is gone, 2026-08-20). A reminder made on the
+  // Reminders screen has no due date and never reaches a day panel at all —
+  // which is how the first attempt at this test "failed".
   await page.getByTestId('tab-calendar').click();
-  await page.getByText('+ Add', { exact: true }).click();
-  await page.getByTestId('kind-reminder').click();
-  await page.getByPlaceholder(/What\?/).fill('cal done');
-  await page.getByText('Save', { exact: true }).click();
+  await page.getByTestId('tab-add').click();
+  await page.getByTestId('add-kind-reminder').click();
+  await page.getByTestId('add-text').fill('cal done');
+  await page.getByText('Done', { exact: true }).click();
   const tick = page.getByTestId('day-tick').first();
   await expect(tick).toBeVisible({ timeout: 10_000 });
 

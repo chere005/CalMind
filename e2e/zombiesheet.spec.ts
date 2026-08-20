@@ -55,10 +55,10 @@ test('a sheet whose record was deleted elsewhere leaves, and cannot put it back'
 
   const user = await signup(a);
   await a.getByTestId('tab-calendar').click();
-  await a.getByText('+ Add', { exact: true }).click();
-  await a.getByTestId('kind-reminder').click();
-  await a.getByPlaceholder(/What\?/).fill('call the vet');
-  await a.getByText('Save', { exact: true }).click();
+  await a.getByTestId('tab-add').click();
+  await a.getByTestId('add-kind-reminder').click();
+  await a.getByTestId('add-text').fill('call the vet');
+  await a.getByText('Done', { exact: true }).click();
   await expect(a.getByTestId('day-tick').first()).toBeVisible({ timeout: 20_000 });
   // A's push has to land BEFORE B logs in: B pulls once at sign-in and then
   // only every 30s, so a race here shows up as B never seeing the row at all.

@@ -60,11 +60,12 @@ test("New Year's Eve: the calendar pages December into January", async ({ page, 
   await page.getByTestId('cal-prev').click();
   await expect(page.getByTestId('cal-ym')).toHaveText(/Dec 2026/);
 
-  // A reminder filed "today" lands on the 31st and reads back as today.
-  await page.getByText('+ Add', { exact: true }).click();
-  await page.getByTestId('kind-reminder').click();
-  await page.getByPlaceholder(/What\?/).fill('see the year out');
-  await page.getByText('Save', { exact: true }).click();
+  // A reminder filed "today" lands on the 31st and reads back as today —
+  // through the Add tab, which inherits the calendar's day (2026-08-20).
+  await page.getByTestId('tab-add').click();
+  await page.getByTestId('add-kind-reminder').click();
+  await page.getByTestId('add-text').fill('see the year out');
+  await page.getByText('Done', { exact: true }).click();
   await expect(page.getByTestId('cal-day-title')).toContainText('Dec 31');
   await expect(page.getByText('see the year out')).toBeVisible();
 

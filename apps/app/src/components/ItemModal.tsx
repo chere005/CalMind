@@ -25,7 +25,6 @@ import {
   timeLabel,
   timePlus,
   todayStr,
-  type AnyRec,
   type Rec,
   type Repeat,
 } from '@calmind/core';
@@ -57,7 +56,7 @@ export function ItemModal({
   onClose: () => void;
   onSaved?: (id: string, kind: ItemKind) => void;
 }) {
-  const { recs, mutate, sharedRecs, sharedPartner, sharedPut } = useStore();
+  const { recs, mutate, sharedRecs } = useStore();
   const clock24 = useClock24();
   const today = todayStr();
   const [kind, setKind] = useState<ItemKind>(kind0);
@@ -110,28 +109,13 @@ export function ItemModal({
     };
   }, [recs, kind]);
 
-  // The partner's shared destinations, the suite's second picker pair: ids
-  // wear a '~' so a shared choice can never be mistaken for one of mine —
-  // exactly one owner is ever selected, and a shared pick writes THEIR store.
-  // SECTIONS only: a partner's CALENDAR is never offered as a target (Sean,
-  // 2026-08-19 — "there shouldn't be a selection for shared calendars in the
-  // add screens"), so an event can only ever be filed on a calendar of mine.
-  const sharedChoices = useMemo(() => {
-    if (mode !== 'create' || !sharedPartner || kind === 'event') return { secs: [] as { sec: Rec<'section'>; label: string }[] };
-    const folders = sharedRecs.filter((r): r is Rec<'folder'> => r.type === 'folder').sort(byRecOrd);
-    const sections = sharedRecs.filter((r): r is Rec<'section'> => r.type === 'section').sort(byRecOrd);
-    const app = kind === 'note' ? 'notes' : 'reminders';
-    return {
-      secs: folders
-        .filter((f) => (f.payload.app ?? 'reminders') === app)
-        .flatMap((f) => sections.filter((x) => x.payload.folderId === f.id).map((x) => ({ sec: x, label: `${f.payload.name} · ${x.payload.name}` }))),
-    };
-  }, [mode, sharedPartner, sharedRecs, kind]);
-  const sharedDest = useMemo(() => {
-    if (!dest?.startsWith('~')) return null;
-    const id = dest.slice(1);
-    return sharedChoices.secs.find((c) => c.sec.id === id)?.sec ?? null;
-  }, [dest, sharedChoices]);
+  // NO shared destinations here any more. The suite's second picker pair —
+  // the partner's folders under mine, ids wearing a '~' — was carried over
+  // and then removed on Sean's word (2026-08-20: "adding events or reminders
+  // shouldn't show shared lists in the dropdown"). Adding INTO a partner's
+  // list still exists where the partner's list is what you are looking at:
+  // the shared folder view's own + (SharedReminders, sharedPut). Shared
+  // calendars were never offered (his earlier word, 2026-08-19).
 
   // The record can go while this sheet is open — deleted on the phone while
   // the desktop still has it up, which the 30s pull brings in underneath.
@@ -240,17 +224,6 @@ export function ItemModal({
       });
       mutate((e) => edited.forEach((r) => e.put(r)));
       onSaved?.(freshId, kind);
-      onClose();
-      return;
-    }
-    if (sharedDest) {
-      // Never an event: a partner's calendar is not offered (2026-08-19).
-      const id = newId();
-      const record: AnyRec =
-        kind === 'reminder'
-          ? { id, type: 'reminder', updated: 0, payload: { text: title, due: finalDate, time: finalTime, done: false, repeat: finalRepeat, folderId: sharedDest.payload.folderId, sectionId: sharedDest.id, indent: 0, ord: ordBetween(null, null) } }
-          : { id, type: 'note', updated: 0, payload: { title: title, body: '', date: finalDate, folderId: sharedDest.payload.folderId, sectionId: sharedDest.id, ord: ordBetween(null, null) } };
-      void sharedPut(record);
       onClose();
       return;
     }
@@ -381,34 +354,19 @@ export function ItemModal({
               {kind === 'event' ? (
                 <Dropdown
                   testID="item-dest"
-                  value={sharedDest ? null : resolvedDest?.id ?? null}
+                  value={resolvedDest?.id ?? null}
                   options={calendars.map((c) => ({ id: c.id, label: c.payload.name }))}
                   onPick={setDest}
                 />
               ) : (
                 <Dropdown
-                  value={sharedDest ? null : resolvedDest?.id ?? null}
+                  value={resolvedDest?.id ?? null}
                   options={sectionChoices.map((c) => ({ id: c.sec.id, label: c.label }))}
                   onPick={setDest}
                   gold
                 />
               )}
             </View>
-            {mode === 'create' && sharedPartner && kind !== 'event' && sharedChoices.secs.length > 0 && (
-              <>
-                <Text style={s.ownerBadge}>{sharedPartner}</Text>
-                <View style={s.rowWrap}>
-                  <Dropdown
-                    value={sharedDest ? `~${sharedDest.id}` : null}
-                    options={[
-                      { id: '', label: '—' },
-                      ...sharedChoices.secs.map((c) => ({ id: `~${c.sec.id}`, label: c.label })),
-                    ]}
-                    onPick={(id) => setDest(id === '' ? null : id)}
-                  />
-                </View>
-              </>
-            )}
 
             {err !== '' && <Text style={s.err}>{err}</Text>}
             <View style={s.actions}>
@@ -430,7 +388,6 @@ const s = themed(() => StyleSheet.create({
   card: { width: '100%', maxWidth: 440, maxHeight: '90%', backgroundColor: T.surface, borderWidth: 1, borderColor: T.line, borderRadius: 16 },
   scroll: { padding: 18, gap: 12 },
   h2: { color: T.text, fontSize: 18, fontWeight: '700' },
-  ownerBadge: { alignSelf: 'flex-start', color: T.accent, fontSize: 12, fontWeight: '700', backgroundColor: T.accentSoft, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3, overflow: 'hidden' },
   label: { color: T.dim, fontSize: 13 },
   rowWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center' },
   miniField: { minWidth: 90, paddingVertical: 6 },

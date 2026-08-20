@@ -36,13 +36,14 @@ async function signup(page: Page): Promise<string> {
   return user;
 }
 
-/** A reminder on today, added through the calendar so the day panel holds it. */
+/** A reminder on today, added through the Add tab from the calendar — the
+ *  panel's own "+ Add" is gone (2026-08-20), and the tab inherits the day. */
 async function addReminder(page: Page, text: string) {
   await page.getByTestId('tab-calendar').click();
-  await page.getByText('+ Add', { exact: true }).click();
-  await page.getByTestId('kind-reminder').click();
-  await page.getByPlaceholder(/What\?/).fill(text);
-  await page.getByText('Save', { exact: true }).click();
+  await page.getByTestId('tab-add').click();
+  await page.getByTestId('add-kind-reminder').click();
+  await page.getByTestId('add-text').fill(text);
+  await page.getByText('Done', { exact: true }).click();
   await expect(page.getByTestId('day-tick').first()).toBeVisible({ timeout: 10_000 });
 }
 

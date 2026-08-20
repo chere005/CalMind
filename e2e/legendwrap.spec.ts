@@ -33,14 +33,15 @@ test('a legend with many calendars wraps, balances, and names only what is in vi
   }
   await page.getByText('Done', { exact: true }).click();
 
-  // One event on each, so every calendar has an occurrence in the month.
+  // One event on each, so every calendar has an occurrence in the month —
+  // through the Add tab; the day panel's own "+ Add" is gone (2026-08-20).
   for (const n of names) {
-    await page.getByText('+ Add', { exact: true }).click();
-    await page.getByTestId('kind-event').click();
-    await page.getByPlaceholder(/What\?/).fill(`${n} thing`);
-    await page.getByTestId('item-dest').click();
+    await page.getByTestId('tab-add').click();
+    await page.getByTestId('add-text').fill(`${n} thing`);
+    await page.getByText('+ Folder/Section', { exact: true }).click();
+    await page.getByTestId('add-dest').click();
     await page.getByText(n, { exact: true }).last().click();
-    await page.getByText('Save', { exact: true }).click();
+    await page.getByText('Done', { exact: true }).click();
     await page.waitForTimeout(300);
   }
 

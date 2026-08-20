@@ -40,13 +40,20 @@ import { BalancedRow } from '../components/BalancedRow';
 import { Chevron } from '../components/Chevron';
 import { useSharedTick, useTickGrace } from '../components/tickgrace';
 import { EditExit } from '../components/EditExit';
-import { CircleBtn, CollapseAllBtn, ConfirmDelete, Pill, Rule, Scroll, TOPBAR_CTRL, WebHitSlop } from '../ui';
+import { CircleBtn, CollapseAllBtn, ConfirmDelete, Rule, Scroll, TOPBAR_CTRL, WebHitSlop } from '../ui';
 
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
 // The suite's remembered day (calDay): restored when you come back to the
 // tab, reset by a fresh load — deliberate paging never rewrites it.
 let calDay: string | null = null;
+
+/** The day the calendar is showing right now — what the Add tab defaults to
+ *  when it is opened FROM this screen (Sean, 2026-08-20: "the add app when
+ *  launched from a particular day should default from that day"). */
+export function calSelectedDay(): string {
+  return calDay ?? todayStr();
+}
 
 export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => void }) {
   const { recs, mutate, sharedRecs, sharedPartner, sharedPartnerLabel, session } = useStore();
@@ -109,7 +116,10 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
     if (on) setWkAnchor(day.startsWith(ym) ? day : `${ym}-01`);
     AsyncStorage.setItem('calmind.calWeekMode', on ? '1' : '').catch(() => {});
   };
-  const [modal, setModal] = useState<null | { mode: 'create' } | { mode: 'edit'; kind: ItemKind; rec: Rec<'event'> | Rec<'reminder'> | Rec<'note'> }>(null);
+  // Edit only: the panel's own "+ Add" pill is gone (Sean, 2026-08-20 —
+  // "remove the additional add button on calendar"). Creating on a day is
+  // the Add tab's job now, and it defaults to this screen's selected day.
+  const [modal, setModal] = useState<null | { mode: 'edit'; kind: ItemKind; rec: Rec<'event'> | Rec<'reminder'> | Rec<'note'> }>(null);
 
   const [year, month] = ym.split('-').map(Number) as [number, number];
   // The picker's ticks are what's on screen: events on switched-off calendars
@@ -346,7 +356,7 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
     const KEEP = [
       '[role="button"]', 'input', 'textarea', 'select',
       '[data-testid^="dp-"]', '[data-testid^="day-"]', '[data-testid="cal-grid"]',
-      '[data-testid="cal-completed"]', '[data-testid="cal-add"]', '[data-testid="cal-edit-done"]',
+      '[data-testid="cal-completed"]', '[data-testid="cal-edit-done"]',
       '[data-testid="cal-prev"]', '[data-testid="cal-next"]',
       '[data-testid^="pick-"]', '[data-testid^="tab-"]',
     ].join(',');
@@ -584,17 +594,16 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
           legend drawing in week mode with no line under it. */}
       {(legend.length > 0 || sharedLegend.length > 0) && <Rule />}
 
-      <Scroll style={s.panel} contentContainerStyle={s.panelInner}>
-        {/* The phone's tap-to-exit; the web keeps its document listener. */}
-        <EditExit active={panelEdit} onExit={() => setPanelEdit(false)}>
+      <Scroll style={s.panel} contentContainerStyle={s.panelWrap}>
+        {/* The phone's tap-to-exit; the web keeps its document listener.
+            EditExit carries the panel's layout (s.panelInner) so arming edit
+            mode cannot move anything — see EditExit for the story. */}
+        <EditExit active={panelEdit} onExit={() => setPanelEdit(false)} style={s.panelInner}>
         <View style={s.panelHead}>
+          {/* Just the day now: the "+ Add" pill that sat beside it was "the
+              additional add button" (Sean, 2026-08-20) — the Add tab, which
+              defaults to this selected day, is the one way to add. */}
           <Text testID="cal-day-title" style={s.panelTitle}>{dayLabel}</Text>
-          <View style={s.panelBtns}>
-            {/* "+ Add" stays put in edit mode too: swapping it for a Done was
-                a second control appearing and disappearing in the one row
-                Sean did not want moving. */}
-            <Pill testID="cal-add" label="+ Add" primary compact onPress={() => setModal({ mode: 'create' })} />
-          </View>
         </View>
         {items.events.length > 0 && (
           <Pressable testID="dp-group-head" style={s.groupHead} onPress={() => toggleFold('events')}>
@@ -756,16 +765,7 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
         )}
         </EditExit>
       </Scroll>
-      {modal?.mode === 'create' && (
-        <ItemModal
-          mode="create"
-          kind="event"
-          date={day}
-          onClose={() => setModal(null)}
-          onSaved={(id, kind) => kind === 'note' && onNoteCreated?.(id)}
-        />
-      )}
-      {modal?.mode === 'edit' && <ItemModal mode="edit" kind={modal.kind} rec={modal.rec} onClose={() => setModal(null)} onSaved={(id, kind) => kind === 'note' && onNoteCreated?.(id)} />}
+      {modal && <ItemModal mode="edit" kind={modal.kind} rec={modal.rec} onClose={() => setModal(null)} onSaved={(id, kind) => kind === 'note' && onNoteCreated?.(id)} />}
     </View>
   );
 }
@@ -789,7 +789,6 @@ const s = themed(() => StyleSheet.create({
   // for the current day needs to be bumped up slightly" (Sean, 2026-08-19).
   cellInner: { margin: 1.5, minHeight: 46, alignItems: 'center', paddingTop: 2, paddingBottom: 2, borderRadius: 8 },
   cellPicked: { backgroundColor: T.surface2 },
-  panelBtns: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   // The one date slot every cell shares: the circle's own height, so the
   // number-to-icons rhythm cannot differ between today and its neighbours.
   numSlot: { height: 18, alignItems: 'center', justifyContent: 'center' },
@@ -850,7 +849,12 @@ const s = themed(() => StyleSheet.create({
    * flexGrow: the day panel's EditExit is flexGrow: 1 inside this, and needs
    * height to grow into or the tap-out stops at the last row. Same fix as
    * Habits, same day.
+   *
+   * panelInner lives on EDITEXIT now, not the scroll container: the wrapper
+   * must render identically in and out of edit mode, and owning the padding
+   * is what lets a gutter tap exit on the phone. panelWrap is the container's.
    */
+  panelWrap: { flexGrow: 1 },
   panelInner: { paddingTop: 10, paddingHorizontal: 16, paddingBottom: 16, gap: 8, flexGrow: 1 },
   /**
    * CENTRE, and it is centre because Sean looked at the alternative.
@@ -914,9 +918,15 @@ const s = themed(() => StyleSheet.create({
   rowText: { color: T.text, fontSize: 15, flex: 1 },
   rowDone: { color: T.muted, textDecorationLine: 'line-through' },
   chip: { color: T.dim, fontSize: 12 },
-  tickBox: { width: 22, height: 22, borderRadius: 11, borderWidth: 1.5, borderColor: T.line, alignItems: 'center', justifyContent: 'center' },
+  // 18, down from 22 — "the circle for the reminder got too big" (Sean,
+  // 2026-08-20). The suite's day panel draws its check at 17px (.dp-check,
+  // calendar/index.php) against the 24px of the main reminders list — the
+  // panel's rows are the SMALL scale, and this circle had drifted to nearly
+  // the big one. 18 keeps the border on whole pixels; daytick.spec.ts pins
+  // the size and that the circle sits centred on its row.
+  tickBox: { width: 18, height: 18, borderRadius: 9, borderWidth: 1.5, borderColor: T.line, alignItems: 'center', justifyContent: 'center' },
   tickDone: { backgroundColor: T.accentInk, borderColor: T.accent },
   tickOverdue: { borderColor: T.overdue },
-  tickMark: { color: T.accent, fontSize: 12, fontWeight: '700' },
+  tickMark: { color: T.accent, fontSize: 10, fontWeight: '700' },
   empty: { color: T.muted, fontSize: 13, marginTop: 8 },
 }));
