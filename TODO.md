@@ -120,6 +120,14 @@ read the note-focus flake's twelve-occurrence history first
   what the thing is called) and **'chili' pluralises to 'chilis'** (real
   English, nothing broken). The pluralisation-through-adjectives bug itself
   was fixed 2026-08-19.
+- **Reminders and events will never notify.** Sean, 2026-08-20: "i don't
+  want notifications for reminders or events." Not a gap, not deferred, and
+  not a thing to re-propose — it was suggested as the biggest functional
+  hole in the app and answered directly. This is a calendar you LOOK at:
+  the widget, the complication and the day panel are the surfaces, which is
+  why they get the care they do. Note the scope — it is reminders and
+  events. The MEETING-REQUEST notification is a separate stub (§1) and
+  stays on its own switch; its badge shipped 2026-08-20.
 - **The native toast eats one tap at worst** while showing (its window
   dismisses on first touch). The cost of "always on top" on a surface where
   nothing else draws over a Modal; the web keeps full click-through.
