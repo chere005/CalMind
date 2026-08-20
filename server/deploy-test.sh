@@ -10,16 +10,26 @@
 #   --no-web       skip the Expo web export (API only)
 #   --no-gestures  skip the Playwright run (the escape hatch — a harness that
 #                  flakes must never be able to strand a deploy)
+#   --quick        Sean's fast lane (2026-08-20: "dramatically speed up the
+#                  deployment for in between smaller fixes … even if it means
+#                  some things could occasionally break"). Keeps every gate
+#                  that costs seconds — lint, both typechecks, core, server —
+#                  and swaps the ~20-minute gesture+WebKit run for a SPOT
+#                  test: sign up, land on the calendar, add a reminder into a
+#                  section, against the exported dist. The full suites run on
+#                  a tdtp, which is where anything this lane lets through gets
+#                  caught — and a failure here is still a failed deploy.
 
 set -e
 cd "$(dirname "$0")/.."
 
-DRY=""; WEB=1; GESTURES=1
+DRY=""; WEB=1; GESTURES=1; QUICK=0
 for a in "$@"; do
   case "$a" in
     --dry-run)     DRY="--dry-run" ;;
     --no-web)      WEB=0 ;;
     --no-gestures) GESTURES=0 ;;
+    --quick)       QUICK=1 ;;
     *) echo "unknown flag: $a" >&2; exit 1 ;;
   esac
 done
@@ -149,7 +159,21 @@ if [ "$WEB" = 1 ]; then
   # one, and humans in a hurry are exactly who it exists for. It runs AFTER the
   # export because the specs drive dist, not the source. --no-gestures is the
   # way out if the harness itself is the thing that's broken.
-  if [ "$GESTURES" = 1 ]; then
+  if [ "$GESTURES" = 1 ] && [ "$QUICK" = 1 ]; then
+    # The spot test, not no test: the two specs that prove the exported
+    # bundle boots, makes an account against the real API, and writes a
+    # record that renders. A broken export, a broken head patch, or a broken
+    # store all fail here in under a minute.
+    echo "==> spot gestures (--quick: the full suites wait for a tdtp)"
+    QLOG=$(mktemp -t calmind-quick)
+    if ! npx playwright test e2e/app.spec.ts -g "signing up lands on the calendar|a reminder adds into its section" >"$QLOG" 2>&1; then
+      echo "spot test failed — not deploying. Last lines:" >&2
+      grep -E '✘|Error:|Timeout|[0-9]+ failed|webServer' "$QLOG" | tail -15 >&2
+      echo "full output: $QLOG" >&2
+      exit 1
+    fi
+    rm -f "$QLOG"
+  elif [ "$GESTURES" = 1 ]; then
     echo "==> gestures (--no-gestures to skip)"
     # Kept, not discarded. This gate stopped a deploy once with its output
     # going to /dev/null, so all anyone had was "gesture suite failed" — and

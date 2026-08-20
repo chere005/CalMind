@@ -625,7 +625,9 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
                 <ConfirmDelete onDelete={() => { swipe.clear(); mutate((en) => en.del(e.id)); }} />
               </View>
             ) : swipe.swiped === e.id ? (
-              <ConfirmDelete forceArmed onDelete={() => { swipe.clear(); mutate((en) => en.del(e.id)); }} />
+              <View style={s.swipePark}>
+                <ConfirmDelete forceArmed onDelete={() => { swipe.clear(); mutate((en) => en.del(e.id)); }} />
+              </View>
             ) : null}
           </View>
         ))}
@@ -691,7 +693,11 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
                 <ConfirmDelete onDelete={() => mutate((en) => en.del(r.id))} />
               </View>
             )}
-            {swipe.swiped === r.id && <ConfirmDelete forceArmed onDelete={() => { swipe.clear(); mutate((en) => en.del(r.id)); }} />}
+            {swipe.swiped === r.id && (
+              <View style={s.swipePark}>
+                <ConfirmDelete forceArmed onDelete={() => { swipe.clear(); mutate((en) => en.del(r.id)); }} />
+              </View>
+            )}
           </View>
         ))}
         {theirReminders.length > 0 && (
@@ -744,7 +750,11 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
                 <ConfirmDelete onDelete={() => mutate((en) => en.del(n.id))} />
               </View>
             )}
-            {swipe.swiped === n.id && <ConfirmDelete forceArmed onDelete={() => { swipe.clear(); mutate((en) => en.del(n.id)); }} />}
+            {swipe.swiped === n.id && (
+              <View style={s.swipePark}>
+                <ConfirmDelete forceArmed onDelete={() => { swipe.clear(); mutate((en) => en.del(n.id)); }} />
+              </View>
+            )}
           </View>
         ))}
         {sharedItems.notes.length > 0 && (
@@ -876,7 +886,10 @@ const s = themed(() => StyleSheet.create({
    */
   panelHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   panelTitle: { color: T.gold, fontSize: 15, fontWeight: '700' },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 4 },
+  // paddingLeft 14: the rows sit slightly INSIDE their group heads ("things
+  // under sections in the calendar app should be slightly indented, not the
+  // same level" — Sean, 2026-08-20). The heads stay flush with the panel.
+  row: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 4, paddingLeft: 14 },
   rowNoSelect: { userSelect: 'none' } as import('react-native').ViewStyle,
   rowRolled: { backgroundColor: T.accentSoft, borderRadius: 8 },
   /**
@@ -903,6 +916,15 @@ const s = themed(() => StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 10,
     paddingLeft: 10, backgroundColor: T.bg,
   },
+  // The parked swipe-delete floats over the row's right edge exactly as the
+  // edit cluster does, and for the same reason: as a flex child it squeezed
+  // the body and every chip slid left the moment the × parked ("things shift
+  // with slide to delete" — Sean, 2026-08-20).
+  swipePark: {
+    position: 'absolute', right: 0, top: 0, bottom: 0,
+    flexDirection: 'row', alignItems: 'center',
+    paddingLeft: 10, backgroundColor: T.bg,
+  },
   // STRETCH for the same reason as Notes' and Reminders' row bodies: this is
   // the Pressable that opens an item and long-presses into edit mode, and as a
   // centred flex child it was only as tall as its one line of text while the
@@ -918,15 +940,16 @@ const s = themed(() => StyleSheet.create({
   rowText: { color: T.text, fontSize: 15, flex: 1 },
   rowDone: { color: T.muted, textDecorationLine: 'line-through' },
   chip: { color: T.dim, fontSize: 12 },
-  // 18, down from 22 — "the circle for the reminder got too big" (Sean,
-  // 2026-08-20). The suite's day panel draws its check at 17px (.dp-check,
-  // calendar/index.php) against the 24px of the main reminders list — the
-  // panel's rows are the SMALL scale, and this circle had drifted to nearly
-  // the big one. 18 keeps the border on whole pixels; daytick.spec.ts pins
-  // the size and that the circle sits centred on its row.
-  tickBox: { width: 18, height: 18, borderRadius: 9, borderWidth: 1.5, borderColor: T.line, alignItems: 'center', justifyContent: 'center' },
+  // 16, down from 22 in two steps — "the circle for the reminder got too
+  // big" (2026-08-19 build), then "is now huge" again (Sean, 2026-08-20).
+  // The suite's day panel draws its check at 17px OUTER (.dp-check, a native
+  // checkbox whose drawn glyph sits inside that box) against the 24px of the
+  // main reminders list — the panel's rows are the SMALL scale. 16 drawn is
+  // the suite's visual weight; the tap target keeps hitSlop 8 and the web
+  // its WebHitSlop. daytick.spec.ts pins the size and the centring.
+  tickBox: { width: 16, height: 16, borderRadius: 8, borderWidth: 1.5, borderColor: T.line, alignItems: 'center', justifyContent: 'center' },
   tickDone: { backgroundColor: T.accentInk, borderColor: T.accent },
   tickOverdue: { borderColor: T.overdue },
-  tickMark: { color: T.accent, fontSize: 10, fontWeight: '700' },
+  tickMark: { color: T.accent, fontSize: 9, fontWeight: '700' },
   empty: { color: T.muted, fontSize: 13, marginTop: 8 },
 }));

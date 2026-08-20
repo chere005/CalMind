@@ -54,6 +54,13 @@ failing on purpose; a guard nobody has seen fire is a guard nobody should
 trust. `--no-gestures` is the way past the slow one when the harness itself is
 what's broken. After uploading, it proves the page it just served.
 
+`--quick` is Sean's fast lane for small fixes (2026-08-20): every gate that
+costs seconds stays — lint, both typechecks, core, server — and the
+twenty-minute gesture+WebKit run becomes a ~40s spot test (sign up, land on
+the calendar, add a reminder into a section, against the exported dist).
+"dtp" means this lane; "tdtp" means the full one, and it is where anything
+the quick lane let through gets caught. A red spot test still ships nothing.
+
 And one AFTER it:
 
 ```sh

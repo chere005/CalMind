@@ -1076,7 +1076,9 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
                         </>
                       )}
                       {swipe.swiped === n.id && !pageEdit && (
-                        <ConfirmDelete forceArmed onDelete={() => { swipe.clear(); mutate((e) => e.del(n.id)); }} />
+                        <View style={s.swipePark}>
+                          <ConfirmDelete forceArmed onDelete={() => { swipe.clear(); mutate((e) => e.del(n.id)); }} />
+                        </View>
                       )}
                     </View>
                   </View>
@@ -1417,6 +1419,15 @@ const s = themed(() => StyleSheet.create({
   // as "the notes gap is huge" — the divider spacing was 8 here, the smallest
   // of the five screens, and this row was hiding above everything.
   row: { flexDirection: 'row', alignItems: 'center', gap: 8, height: 44 },
+  // The parked swipe-delete floats over the row's right edge, out of the
+  // flex flow — as a flex child it squeezed the title and chevron sideways
+  // the moment the × parked ("things shift with slide to delete" — Sean,
+  // 2026-08-20). Same arrangement as Reminders' and the Calendar's.
+  swipePark: {
+    position: 'absolute', right: 0, top: 0, bottom: 0,
+    flexDirection: 'row', alignItems: 'center',
+    paddingLeft: 10, backgroundColor: T.bg,
+  },
   // alignSelf STRETCH, not the parent's default 'center'. The row is 44pt and
   // this Pressable is what answers a tap in it; as a centred flex child it
   // collapsed to its one line of text — about 18pt — and the 26pt around it

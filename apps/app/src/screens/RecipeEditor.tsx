@@ -344,7 +344,9 @@ export function RecipeEditor({ note, onClose }: { note: Rec<'note'>; onClose: ()
               </Pressable>
             )}
             {swipe.swiped === `ing-${i}` && (
-              <ConfirmDelete testID="ing-del" size={22} forceArmed onDelete={() => { swipe.clear(); setIngredients(ingredients.filter((_x, j) => j !== i)); }} />
+              <View style={s.swipePark}>
+                <ConfirmDelete testID="ing-del" size={22} forceArmed onDelete={() => { swipe.clear(); setIngredients(ingredients.filter((_x, j) => j !== i)); }} />
+              </View>
             )}
             </View>
           </View>
@@ -390,7 +392,9 @@ export function RecipeEditor({ note, onClose }: { note: Rec<'note'>; onClose: ()
               </Pressable>
             )}
             {swipe.swiped === `step-${i}` && (
-              <ConfirmDelete testID="step-del" size={22} forceArmed onDelete={() => { swipe.clear(); setSteps(steps.filter((_x, j) => j !== i)); }} />
+              <View style={s.swipePark}>
+                <ConfirmDelete testID="step-del" size={22} forceArmed onDelete={() => { swipe.clear(); setSteps(steps.filter((_x, j) => j !== i)); }} />
+              </View>
             )}
             </View>
           </View>
@@ -455,6 +459,14 @@ const s = themed(() => StyleSheet.create({
   secHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 14 },
   secName: { color: T.gold, fontSize: 16, lineHeight: 20, fontWeight: '600', flex: 1 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 9, paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: T.lineSoft },
+  // The parked swipe-delete floats over the row's right edge, out of the
+  // flex flow — as a flex child it squeezed the line sideways the moment the
+  // × parked ("things shift with slide to delete" — Sean, 2026-08-20).
+  swipePark: {
+    position: 'absolute', right: 0, top: 0, bottom: 0,
+    flexDirection: 'row', alignItems: 'center',
+    paddingLeft: 10, backgroundColor: T.bg,
+  },
   dot: { color: T.dim, fontSize: 15 },
   stepNum: { color: T.gold, fontSize: 14, fontWeight: '700', width: 22, textAlign: 'right' },
   rowText: { color: T.text, fontSize: 15, flexShrink: 1 },

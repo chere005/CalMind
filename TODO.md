@@ -29,7 +29,7 @@ file, and run this as part of ANY future compression.
 
 ## Suite counts, as of this commit
 
-core **587** · gesture **245** (+2 skipped: the two live specs) · WebKit **15** · server **59** ·
+core **597** · gesture **250** (+2 skipped: the two live specs) · WebKit **15** · server **59** ·
 live **19** with the API · desktop **7** (+3 in `npm run test:desktop`) · deploy guards **9** · plus the four
 native seam checkers no browser can reach: `npm run test:watch`,
 `npm run test:widget`, `npm run test:deploy`.
@@ -128,11 +128,14 @@ read the note-focus flake's twelve-occurrence history first
 
 - `git pull --autostash` first; stage explicit paths; never `git add -A`.
   Two sessions share this repo.
-- **Web first, always**: deploy to test before any device build. DTP =
-  deploy, tag, push — and since 2026-08-19 it also dispatches the
-  `desktop-windows` workflow AFTER the push (CI builds the pushed tree).
-  Windows stays untested by hand on his word: "i just want it to stay up
-  to date."
+- **Web first, always**: deploy to test before any device build. Two lanes
+  since 2026-08-20: **dtp** = `./server/deploy-test.sh --quick` (seconds-cost
+  gates plus a spot test; his word: "even if it means some things could
+  occasionally break"), then tag and push; **tdtp** = the same script with
+  every suite. A failed deploy in either lane gets fixed BEFORE tagging and
+  pushing, never tagged around. Both lanes dispatch the `desktop-windows`
+  workflow AFTER the push (CI builds the pushed tree). Windows stays
+  untested by hand on his word: "i just want it to stay up to date."
 - Keep every suite in the counts above green, including the native four.
   `npm run test:dev` between runs; the deploy runs the browser gates
   itself. One Playwright suite at a time.

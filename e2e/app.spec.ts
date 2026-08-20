@@ -110,10 +110,13 @@ test('deleting takes two presses, never one', async ({ page }) => {
   await expect(doomed).toBeHidden();
 });
 
-test('a long-press opens edit mode, and a tap in it opens the item window', async ({ page }) => {
-  // It used to open an inline field over the row's text. Sean removed that,
-  // 2026-08-12 — the row is never a text input now, and the two ways to edit a
-  // name (the pencil, and a tap on the row) both reach the same window.
+test('a long-press opens edit mode; a tap opens the inline field, the pencil the window', async ({ page }) => {
+  // This test has now pinned three eras. The inline field left on Sean's
+  // word (2026-08-12/18: "the row is never a text input") and RETURNED on
+  // his word (2026-08-20: "tapping on a reminder … should go into the edit
+  // reminder text mode that it used to"). The division of labour today: a
+  // tap retypes in place, the pencil opens the full window —
+  // inlineedit.spec.ts holds what the retype MEANS.
   await signup(page);
   await page.getByTestId('tab-reminders').click();
   await page.getByTestId('secadd-General').first().click();
@@ -128,7 +131,14 @@ test('a long-press opens edit mode, and a tap in it opens the item window', asyn
   await expect(page.getByTestId('rem-pencil').first(), 'edit mode is armed').toBeVisible();
 
   await body.click();
-  await expect(page.getByPlaceholder(/What\?/), 'and a tap opens the window on that row')
+  await expect(page.getByTestId('rem-edit'), 'a tap opens the row for retyping')
+    .toHaveValue('hold me');
+
+  // The pencil, pressed while the field is still focused — the holdCluster
+  // machinery is exactly for this press, whose pointerdown lands before the
+  // field's blur unmounts anything.
+  await page.getByTestId('rem-pencil').first().click();
+  await expect(page.getByPlaceholder(/What\?/), 'the pencil opens the window on that row')
     .toHaveValue('hold me', { timeout: 10_000 });
 });
 

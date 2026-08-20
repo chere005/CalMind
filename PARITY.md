@@ -2529,3 +2529,40 @@ is overdue, not done, and a reminder never expires — the first cut dropped
 whole days and the existing pin caught it). check-watch-feed.sh lifts the
 complication's real Ev and stillOn beside everything else it lifts; every
 new pin was broken once and watched go red.
+
+### The afternoon round: the editor returns, the parser gets a back door, and the deploy gets a fast lane, 2026-08-20
+
+Six more from Sean before the morning's build was cold. The parked
+swipe-delete was an ordinary flex child, so sliding a row squeezed its body
+and everything slid left — the same disease the edit cluster was cured of,
+cured the same way on all four screens that park one (swipePark, pinned by
+swipepark.spec, broken once and watched go red on exactly the screen
+broken). The day panel's circle came down again, 18 to 16 ("is now huge" —
+the suite's 17px is a native checkbox's OUTER box, and its drawn glyph is
+the weight to match); its rows now sit 14pt inside their group heads
+("slightly indented, not the same level").
+
+The INLINE ROW EDIT is back, two days after leaving on his own word — both
+directions his call. A tap on a row in edit mode swaps the text for a
+focused field; the pencil still opens the window; the frequency pills stay
+gone. The merge is core's now (editReminderLine): typed tokens OVERWRITE
+the stored date and time, a token-less rename leaves them alone — the
+suite's sentence, "a line with no date in it must leave the date alone
+rather than clear it" — and the returned machinery is the proven 08-13
+code: the blur-time save, the holdCluster press-outlives-blur ref.
+
+And the parser learned an escape (his ask, verbatim: "anything can always
+be escaped with a \ … \2pm would be a literal string 2pm"). It lives INSIDE
+parseWhenFromText — the one door every line field goes through: the add
+line, the section add row, the item sheet, the shared add, the new inline
+edit — behind a NUL-fenced sentinel no date pattern can cross, so no screen
+ever sees a backslash. Ten core tests pin it, escape.test.ts, including the
+sentinel-leaks-nothing case. Centralising it needed no move: the parsing
+already had one home, which is what made the feature an afternoon.
+
+The deploy grew Sean's fast lane: `--quick` keeps every gate that costs
+seconds (lint, both typechecks, core, server) and swaps the twenty-minute
+browser suites for a spot test — sign up, land on the calendar, add a
+reminder, against the exported dist. "dtp" now means the quick lane;
+"tdtp" runs everything. A failed quick deploy still deploys nothing and
+tags nothing.

@@ -211,6 +211,31 @@ export function parseDateField(text: string, today: string): string | null {
  * lying about where the date came from. Both default ON, which is every
  * caller that predates the rule.
  */
+/**
+ * The escape hatch, app-wide (Sean, 2026-08-20: "anything can always be
+ * escaped with a \ to not be caught in the parser"): a backslash protects
+ * the token after it from every matcher, so "\2pm" survives as the literal
+ * text "2pm" in the title, un-lifted, on ANY field that reads dates and
+ * times out of a line. It lives HERE because parseWhenFromText is the one
+ * door those fields all go through — the add line, the section add row, the
+ * item sheet, the inline row edit, the shared add — so no screen ever
+ * handles a backslash itself. The token hides behind a NUL-fenced sentinel
+ * (untypeable, and no date or time pattern crosses it), is parsed around,
+ * and comes back without its backslash.
+ */
+function protectEscapes(text: string): [string, string[]] {
+  const held: string[] = [];
+  const out = text.replace(/\\(\S+)/g, (_, tok: string) => {
+    held.push(tok);
+    return `\u0000${held.length - 1}\u0000`;
+  });
+  return [out, held];
+}
+
+function restoreEscapes(text: string, held: string[]): string {
+  return text.replace(/\u0000(\d+)\u0000/g, (_, i: string) => held[Number(i)] ?? '');
+}
+
 export function parseWhenFromText(
   text: string,
   today: string,
@@ -219,7 +244,8 @@ export function parseWhenFromText(
 ): [string, string | null, string | null] {
   const liftDate = lift.date ?? true;
   const liftTime = lift.time ?? true;
-  let out = text;
+  const [protectedText, held] = protectEscapes(text);
+  let out = protectedText;
   let d: string | null = null;
   let t: string | null = null;
   if (liftDate) {
@@ -251,7 +277,7 @@ export function parseWhenFromText(
   // unless the day is not this parser's to say (lift.date off means the
   // caller holds a manual date that outranks any implication).
   if (liftDate && t !== null && d === null) d = now && t < now ? shiftDate(today, 1, 'day') : today;
-  return [out, d, t];
+  return [restoreEscapes(out, held), d, t];
 }
 
 /** Local 'HH:MM' — the `now` a caller passes so a bare time can tell whether

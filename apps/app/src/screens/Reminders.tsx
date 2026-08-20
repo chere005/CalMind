@@ -5,25 +5,25 @@
  * two-press ×. All behavior comes from @calmind/core; this file is layout and
  * gestures.
  *
- * NOTHING IS EDITED IN PLACE HERE. Sean, 2026-08-12: "no inline name editing
- * from the main screen; no frequency tabs in edit mode". Both were the same
- * piece of state — a row held open as a focused field, with the repeat pills
- * unfolded beneath it — and the whole apparatus is gone. A name and a repeat
- * are changed in the item window, which the pencil and a tap in edit mode both
- * open, so this screen and the Calendar's day panel now agree about what
- * editing a reminder means.
+ * INLINE EDITING IS BACK (Sean, 2026-08-20: "tapping on a reminder in the
+ * reminders app should go into the edit reminder text mode that it used to
+ * and we took away at one point"). It was removed on his own word on
+ * 2026-08-18 and returned on his own word two days later — both are his
+ * calls, neither was a misreading. A tap on a row in edit mode swaps the
+ * text for a focused field; retyping re-parses THE SAME WAY ADDING DOES
+ * (core's editReminderLine — typed tokens overwrite the stored date and
+ * time, a token-less rename leaves them alone, and \2pm is the literal
+ * words), and the frequency pills stay gone — a repeat is still the item
+ * window's business, which the pencil opens.
  *
- * That took a fair amount of machinery with it, and this is the list, because
- * the absence is the point rather than an oversight: the blur-time save, the
- * held-open cluster that let a button outlive the field's blur
- * (clusterhold.spec.ts, retired with it), the re-parse of dates out of retyped
- * text, and the reason this screen's tap-out listener had to run on the bubble
- * phase rather than capture.
+ * The machinery that came back with it is the proven 08-13 code, not a
+ * rewrite: the blur-time save, and the held-open cluster (holdCluster) that
+ * lets a cluster button's press outlive the field's blur.
  */
 import React, { useEffect, useMemo, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { byRecOrd, ordGap, deleteSection, duplicateItem, moveReminderBlock, moveSection, moveSectionEmptyingFolder, newId, nowStr, ordBetween, parseWhenFromText, reminderToggle, remindersMarkdown, renameSection, repeatLabel, sectionNameTaken, sortByDate, timeLabel, todayStr, type Rec } from '@calmind/core';
+import { byRecOrd, ordGap, deleteSection, duplicateItem, editReminderLine, moveReminderBlock, moveSection, moveSectionEmptyingFolder, newId, nowStr, ordBetween, parseWhenFromText, reminderToggle, remindersMarkdown, renameSection, repeatLabel, sectionNameTaken, sortByDate, timeLabel, todayStr, type Rec } from '@calmind/core';
 import { useStore } from '../store';
 import { useClock24 } from '../useClock24';
 import { themed, T } from '../theme';
@@ -63,6 +63,9 @@ export function Reminders() {
   };
   const [adding, setAdding] = useState<string | null>(null); // sectionId with the open add row
   const [addText, setAddText] = useState('');
+  const [editing, setEditing] = useState<string | null>(null); // reminder id in inline edit
+  const [editText, setEditText] = useState('');
+  const holdCluster = React.useRef(false);
   const swipe = useSwipeLeft();
   const grace = useTickGrace();
   // The All view draws a partner's rows too, and they tick through their own
@@ -70,7 +73,7 @@ export function Reminders() {
   const shTick = useSharedTick();
   const clock24 = useClock24();
   const [pageEdit, setPageEdit] = useState(false);
-  const exitEdit = () => setPageEdit(false);
+  const exitEdit = () => { setPageEdit(false); setEditing(null); };
   useEffect(() => {
     if (!pageEdit || typeof document === 'undefined') return;
     const onKey = (ev: KeyboardEvent) => { if (ev.key === 'Escape') exitEdit(); };
@@ -302,6 +305,29 @@ export function Reminders() {
     });
     setAddText('');
     setAdding(null);
+  };
+
+  /**
+   * Saves the inline retype, and RETURNS what it wrote.
+   *
+   * The return is the fix for a real bug, not a convenience. mutate() applies
+   * to the engine synchronously but `recs` and `r` are this render's props —
+   * stale until React re-renders. Every cluster button saves first and then
+   * acted on that stale copy, so duplicating a row you had just retyped made
+   * a copy of the text you had REPLACED, and outdenting one wrote the
+   * pre-edit payload straight back over the save.
+   *
+   * The MERGE is core's (editReminderLine): typed tokens overwrite the stored
+   * date and time, a token-less rename leaves them alone — the suite's rule,
+   * word for word — and the \-escape works because the parse is the same
+   * parseWhenFromText every add goes through.
+   */
+  const saveEdit = (r: ReminderRec): ReminderRec => {
+    const raw = editText.trim();
+    if (!raw || raw === r.payload.text) return r;
+    const next: ReminderRec = { ...r, payload: editReminderLine(r.payload, raw, todayStr(), nowStr()) };
+    mutate((e) => e.put(next));
+    return next;
   };
 
   // Ticking rolls a repeat instead of finishing it — the rule lives in core.
@@ -621,18 +647,34 @@ export function Reminders() {
                             <WebHitSlop />
                             {r.payload.done && <Text style={s.tickMark}>✓</Text>}
                           </Pressable>
-                          {/* One body, always. It used to swap itself for a
-                              focused Field in edit mode; a tap in edit mode
-                              opens the item window now, which is what the
-                              pencil beside it does and what a tap on a habit
-                              does. The row is never a text input. */}
+                          {editing === r.id ? (
+                            <Field
+                              testID="rem-edit"
+                              value={editText}
+                              onChangeText={setEditText}
+                              autoFocus
+                              style={s.editField}
+                              onBlur={() => {
+                                saveEdit(r);
+                                // A pointer already down on a cluster button: keep the
+                                // cluster mounted so its press can land (blur fires between
+                                // pointerdown and click, and unmounting kills the tap).
+                                if (holdCluster.current) { holdCluster.current = false; return; }
+                                setEditing(null);
+                              }}
+                              onSubmitEditing={() => { saveEdit(r); setEditing(null); }}
+                            />
+                          ) : (
                           <Pressable
                             testID="rem-body"
                             style={s.rowBody}
                             onPress={() => {
                               if (swipe.justSwiped()) return;
                               if (swipe.swiped) { swipe.clear(); return; }
-                              if (pageEdit) { setModalRec(r); return; }
+                              // A tap in edit mode opens the row for RETYPING
+                              // — the inline field Sean asked back (2026-08-20).
+                              // The pencil still opens the item window.
+                              if (pageEdit) { setEditing(r.id); setEditText(r.payload.text); return; }
                               // Double-click on desktop, as prod: two taps inside 300ms.
                               const now = Date.now();
                               if (lastTap.current.id === r.id && now - lastTap.current.at < 300) enterEdit();
@@ -645,7 +687,8 @@ export function Reminders() {
                                 word over the suite's grey, 2026-08-18. */}
                             <Text style={[s.rowText, r.payload.done && s.rowTextDone, r.payload.done && { color: f.payload.color + '77' }]}>{r.payload.text || '…'}</Text>
                           </Pressable>
-                          {dueChip(r)}
+                          )}
+                          {editing !== r.id && dueChip(r)}
                           {/* The edit cluster FLOATS over the row's right edge
                               rather than taking layout space in it.
 
@@ -658,17 +701,20 @@ export function Reminders() {
                               positioned cluster with an opaque background does:
                               nothing reflows, and the text it covers is simply
                               not shown. */}
-                          {/* No onPressIn on any of these any more. Each one
-                              carried `holdCluster.current = true` so its press
-                              could outlive the field's blur, and each saved the
-                              in-flight text before acting on it — machinery that
-                              existed entirely for the inline editor and went
-                              with it. `r` is just the row now. */}
+                          {/* onPressIn on every cluster button: each carries
+                              `holdCluster.current = true` so its press can
+                              outlive the inline field's blur, and each saves
+                              the in-flight text before acting on it — the
+                              machinery that returned with the editor. */}
                           {pageEdit && (
                             <View style={s.editCluster}>
-                              <CircleBtn testID="rem-pencil" glyph="✎" label="Edit" size={24} onPress={() => setModalRec(r)} />
+                              <CircleBtn testID="rem-pencil" glyph="✎" label="Edit" size={24} onPressIn={() => { holdCluster.current = true; }} onPress={() => { const saved = editing === r.id ? saveEdit(r) : r; setEditing(null); setModalRec(saved); }} />
                               {r.payload.indent === 0 && (
-                                <CircleBtn testID="rem-dup" glyph="⧉" label="Duplicate" size={24} onPress={() => {
+                                <CircleBtn testID="rem-dup" glyph="⧉" label="Duplicate" size={24} onPressIn={() => { holdCluster.current = true; }} onPress={() => {
+                                  if (editing === r.id) saveEdit(r);
+                                  setEditing(null);
+                                  // e.all(), not recs: the save above has already
+                                  // landed in the engine and not yet in this render.
                                   mutate((e) => {
                                     const res = duplicateItem(e.all(), r.id, newId);
                                     if (!('error' in res)) res.put.forEach((p) => e.put(p));
@@ -676,19 +722,21 @@ export function Reminders() {
                                 }} />
                               )}
                               {r.payload.indent === 0 ? (
-                                <CircleBtn glyph="+" label="Add" size={24} onPress={() => addSubtask(r)} />
+                                <CircleBtn glyph="+" label="Add" size={24} onPressIn={() => { holdCluster.current = true; }} onPress={() => { if (editing === r.id) saveEdit(r); setEditing(null); addSubtask(r); }} />
                               ) : (
-                                <CircleBtn glyph="‹" label="Previous" size={24} onPress={() => outdent(r)} />
+                                <CircleBtn glyph="‹" label="Previous" size={24} onPressIn={() => { holdCluster.current = true; }} onPress={() => { const saved = editing === r.id ? saveEdit(r) : r; setEditing(null); outdent(saved); }} />
                               )}
-                              <ConfirmDelete onDelete={() => mutate((e) => e.del(r.id))} />
+                              <ConfirmDelete onPressIn={() => { holdCluster.current = true; }} onDelete={() => { setEditing(null); mutate((e) => e.del(r.id)); }} />
                             </View>
                           )}
                           {swipe.swiped === r.id && !pageEdit && (
-                            <ConfirmDelete
-                              testID="swipe-del"
-                              forceArmed
-                              onDelete={() => { swipe.clear(); mutate((e) => e.del(r.id)); }}
-                            />
+                            <View style={s.swipePark}>
+                              <ConfirmDelete
+                                testID="swipe-del"
+                                forceArmed
+                                onDelete={() => { swipe.clear(); mutate((e) => e.del(r.id)); }}
+                              />
+                            </View>
                           )}
                         </View>
                       </View>
@@ -970,6 +1018,19 @@ const s = themed(() => StyleSheet.create({
   editDone: { marginLeft: 'auto' },
   rowIndented: { paddingLeft: 28 },
   rowBody: { flex: 1, alignSelf: 'stretch', paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
+  // The inline field wears the row's own height so swapping text for input
+  // cannot change a single measurement — the row is minHeight 36 and stays 36.
+  editField: { flex: 1, height: 20, paddingVertical: 0, paddingHorizontal: 6, borderRadius: 6 },
+  // The parked swipe-delete floats over the row's right edge, OUT of the flex
+  // flow, exactly as the edit cluster does and for the same reason: as a flex
+  // child it squeezed the body and every chip slid left the moment the ×
+  // parked ("things shift with slide to delete" — Sean, 2026-08-20). The
+  // opaque background makes what it covers read as elided, not overlapped.
+  swipePark: {
+    position: 'absolute', right: 0, top: 0, bottom: 0,
+    flexDirection: 'row', alignItems: 'center',
+    paddingLeft: 10, backgroundColor: T.bg,
+  },
   rowText: { color: T.text, fontSize: 16, flexShrink: 1 },
   rowTextDone: { color: T.muted, textDecorationLine: 'line-through' },
   tick: {

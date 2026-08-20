@@ -1,12 +1,13 @@
 /**
  * The day panel's reminder circle: the suite's small scale, sitting level.
  *
- * Sean, 2026-08-20: "the circle for the reminder got too big and is off on
- * the calendar app". It was 22px — nearly the main reminders list's 24 —
- * where the suite draws the day panel's check at 17px (.dp-check,
- * calendar/index.php): the panel is the SMALL scale, and the circle had
- * drifted to the big one. 18 now, and pinned, because a size that drifts
- * once drifts again.
+ * Sean, 2026-08-20, twice in one day: "the circle for the reminder got too
+ * big and is off on the calendar app", then — after the first fix took it
+ * from 22 to 18 — "is now huge". The suite draws the day panel's check at
+ * 17px OUTER (.dp-check, calendar/index.php — a native checkbox whose glyph
+ * sits inside that box) against the main list's 24: the panel is the SMALL
+ * scale. 16 drawn now, the suite's visual weight, and pinned, because a
+ * size that drifts once drifts again.
  *
  * "Off" is the other half: the circle must sit centred on its row's text,
  * measured as two independent boxes — an offset from the circle's own edge
@@ -39,8 +40,8 @@ test('the day-panel tick is the small scale, and level with its words', async ({
   const tick = page.getByTestId('day-tick').first();
   await expect(tick).toBeVisible({ timeout: 10_000 });
   const t = (await tick.boundingBox())!;
-  expect(Math.round(t.width), 'the suite’s day-panel scale, not the list’s 24').toBe(18);
-  expect(Math.round(t.height)).toBe(18);
+  expect(Math.round(t.width), 'the suite’s day-panel scale, not the list’s 24').toBe(16);
+  expect(Math.round(t.height)).toBe(16);
 
   // Level: the circle's centre and the row text's centre agree within a
   // pixel of rounding — two boxes, compared to each other.
