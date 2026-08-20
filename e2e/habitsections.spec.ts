@@ -103,3 +103,49 @@ test('a habit section swatch opens the TRAY, and a pick recolours it', async ({ 
   const after = await swatch.evaluate((el) => getComputedStyle(el).backgroundColor);
   expect(after, 'the picked colour landed on the section').not.toBe(before);
 });
+
+test('the dot on the habits page is a KEY — tapping it does not recolour the section', async ({ page }) => {
+  // Sean, 2026-08-20: "tapping the colour icon shouldn't change colours in
+  // the habits page, only through the edit menu colour picker". The dot was
+  // the last cycler left after the 2026-08-18 tray migration — eleven drawn
+  // pixels carrying ten more of hitSlop, sitting between the fold chevron and
+  // the section name, so the commonest way to recolour a section was to miss
+  // something else.
+  //
+  // Both halves matter and both are here: the tap does NOTHING, and the tray
+  // still works — a dot that had simply stopped rendering would pass the
+  // first claim on its own.
+  test.setTimeout(90_000);
+  const user = `hd${String(Date.now()).slice(-6)}`;
+  await page.goto('.');
+  await page.getByText('Sign up', { exact: true }).click();
+  await page.getByPlaceholder('Username').fill(user);
+  await page.getByPlaceholder('Email').fill(user + '@example.com');
+  await page.getByPlaceholder('Password', { exact: true }).fill('e2epassword');
+  await page.getByPlaceholder('Confirm password').fill('e2epassword');
+  await page.getByText('Sign up', { exact: true }).click();
+  await expect(page.getByTestId('tab-reminders')).toBeVisible({ timeout: 20_000 });
+  await page.getByTestId('tab-habits').click();
+
+  const dot = page.getByTestId('hsec-dot-Habits');
+  await expect(dot).toBeVisible();
+  const colour = () => dot.evaluate((el) => getComputedStyle(el).backgroundColor);
+  const before = await colour();
+
+  // Its own centre, three times — a cycle would have moved three steps.
+  const box = (await dot.boundingBox())!;
+  for (let i = 0; i < 3; i++) {
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+    await page.waitForTimeout(150);
+  }
+  expect(await colour(), 'three taps on the dot and the colour has not moved').toBe(before);
+
+  // …and the way that IS meant to work still does.
+  await page.getByTestId('pick-habits').click();
+  await page.getByText('Manage sections…').click();
+  const swatch = page.getByTestId('habit-swatch-Habits');
+  await swatch.click();
+  await page.getByTestId(/^habit-swatch-Habits-/).last().click();
+  await page.getByText('Done', { exact: true }).click();
+  await expect.poll(colour, { timeout: 10_000 }).not.toBe(before);
+});

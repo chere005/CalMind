@@ -5,7 +5,7 @@
  */
 import type { AnyRec, Rec, Reminder } from './types';
 import { repeatAdvances, repeatNext } from './repeats';
-import { parseWhenFromText } from './parse';
+import { parseDateFromText, parseWhenFromText, timeLabel } from './parse';
 
 /**
  * Ticking a reminder: a repeating, dated, open reminder rolls its due date to
@@ -63,4 +63,58 @@ export function editReminderLine(p: Reminder, raw: string, today: string, now: s
   if (!line) return p;
   const [text, due, time] = parseWhenFromText(line, today, now);
   return { ...p, text: text || line, due: due ?? p.due, time: time ?? p.time };
+}
+
+/**
+ * Would the parser take this single word back out of a line? Asked by ASKING
+ * IT — no second copy of the token grammar to drift from the first, which is
+ * the whole point of parseWhenFromText being one door.
+ */
+function parserEats(word: string, today: string): boolean {
+  const [clean, due, time] = parseWhenFromText(word, today, '00:00');
+  return due !== null || time !== null || clean !== word;
+}
+
+/**
+ * A reminder written back out as ONE typed line — `editReminderLine`'s
+ * inverse, and what the row's Copy puts on the clipboard.
+ *
+ * Copying a dated reminder as its bare text would drop the half of it that is
+ * hardest to retype, so the date and time come along as the tokens that MADE
+ * them: "vet visit 9/3 2pm" reads as a sentence in a message and parses back
+ * into the same reminder in the add field. Two details make that round trip
+ * hold rather than nearly hold:
+ *
+ *  · A bare m/d means the NEXT one, so a due date already past (or more than
+ *    a year out) would come back as a different day. The year is spelled
+ *    exactly when it has to be, and which case that is comes from asking
+ *    parseDateFromText rather than from a rule about it.
+ *  · The time is always the am/pm form, even for a 24-hour reader: '14:00' is
+ *    not a token this parser reads, and a line that cannot be pasted back is
+ *    the thing this function exists to avoid. The screen's clock preference
+ *    governs what is DISPLAYED; the clipboard carries what can be re-typed.
+ *
+ * And the words are shielded: a reminder whose text really does contain '2pm'
+ * only got that way through Sean's \-escape (2026-08-20), so re-escaping is
+ * how the copy stays faithful. Word-level is exactly right, not a
+ * simplification — `\` protects one `\S+` run by construction, so any escape
+ * that got INTO a payload came from a single word.
+ *
+ * The limit, stated: a multi-word phrase in the text that the parser would
+ * read ("call Bob in 2 weeks", typeable only through the item sheet's title
+ * field) is not shielded, and pasting it back re-reads the phrase. That is
+ * the add field doing its job on a line a person typed, not a lossy copy —
+ * the clipboard string itself is right either way.
+ */
+export function reminderLine(p: Reminder, today: string): string {
+  const words = p.text.trim().split(/\s+/).filter(Boolean);
+  const parts = [words.map((w) => (parserEats(w, today) ? `\\${w}` : w)).join(' ')];
+  if (p.due) {
+    const [, mo, dy] = p.due.split('-') as [string, string, string];
+    const bare = `${Number(mo)}/${Number(dy)}`;
+    const [, readBack] = parseDateFromText(bare, today);
+    parts.push(readBack === p.due ? bare : `${bare}/${p.due.slice(2, 4)}`);
+  }
+  if (p.time) parts.push(timeLabel(p.time));
+  return parts.filter(Boolean).join(' ');
 }

@@ -23,7 +23,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { byRecOrd, ordGap, deleteSection, duplicateItem, editReminderLine, moveReminderBlock, moveSection, moveSectionEmptyingFolder, newId, nowStr, ordBetween, parseWhenFromText, reminderToggle, remindersMarkdown, renameSection, repeatLabel, sectionNameTaken, sortByDate, timeLabel, todayStr, type Rec } from '@calmind/core';
+import * as Clipboard from 'expo-clipboard';
+import { byRecOrd, ordGap, deleteSection, duplicateItem, editReminderLine, moveReminderBlock, moveSection, moveSectionEmptyingFolder, newId, nowStr, ordBetween, parseWhenFromText, reminderLine, reminderToggle, remindersMarkdown, renameSection, repeatLabel, sectionNameTaken, sortByDate, timeLabel, todayStr, type Rec } from '@calmind/core';
 import { useStore } from '../store';
 import { useClock24 } from '../useClock24';
 import { themed, T } from '../theme';
@@ -36,6 +37,7 @@ import { Chevron } from '../components/Chevron';
 import { EditExit, stayInEdit } from '../components/EditExit';
 import { useSectionDrag, type SectionSlot } from '../components/sectiondrag';
 import { ItemModal } from '../components/ItemModal';
+import { useToast } from '../components/Toast';
 import { CircleBtn, CollapseAllBtn, ConfirmDelete, Field, Pill, Scroll, TOPBAR_CTRL, WebHitSlop } from '../ui';
 
 type FolderRec = Rec<'folder'>;
@@ -72,6 +74,7 @@ export function Reminders() {
   // grace — a shared tick is a round trip, not a local write. See useSharedTick.
   const shTick = useSharedTick();
   const clock24 = useClock24();
+  const toast = useToast();
   const [pageEdit, setPageEdit] = useState(false);
   const exitEdit = () => { setPageEdit(false); setEditing(null); };
   useEffect(() => {
@@ -697,8 +700,16 @@ export function Reminders() {
                             delayLongPress={350}
                           >
                             {/* Done keeps the folder's hue, faded — Sean's
-                                word over the suite's grey, 2026-08-18. */}
-                            <Text style={[s.rowText, r.payload.done && s.rowTextDone, r.payload.done && { color: f.payload.color + '77' }]}>{r.payload.text || '…'}</Text>
+                                word over the suite's grey, 2026-08-18.
+
+                                ONE LINE, elided (Sean, 2026-08-20: "elide
+                                long reminders, don't wrap"). A wrapped row
+                                grew to whatever its text needed — a pasted
+                                URL made a row six lines tall — so the list
+                                stopped being a list of rows and the tick,
+                                the chip and the cluster all floated in the
+                                middle of a paragraph. */}
+                            <Text numberOfLines={1} style={[s.rowText, r.payload.done && s.rowTextDone, r.payload.done && { color: f.payload.color + '77' }]}>{r.payload.text || '…'}</Text>
                           </Pressable>
                           )}
                           {editing !== r.id && dueChip(r)}
@@ -722,6 +733,40 @@ export function Reminders() {
                           {pageEdit && (
                             <View style={s.editCluster}>
                               <CircleBtn testID="rem-pencil" glyph="✎" label="Edit" size={24} onPressIn={() => { holdCluster.current = true; }} onPress={() => { const saved = editing === r.id ? saveEdit(r) : r; setEditing(null); setModalRec(saved); }} />
+                              {/* Copy (Sean, 2026-08-20). The clipboard gets
+                                  core's reminderLine — the words plus the
+                                  date and time as the TOKENS that made them,
+                                  so "vet visit 9/3 2pm" both reads as a
+                                  sentence in a message and pastes back into
+                                  the add field as the same reminder. Copying
+                                  the bare text would drop the half that is
+                                  hardest to retype.
+
+                                  It saves an in-flight inline edit FIRST, and
+                                  copies what was saved: every other button in
+                                  this cluster learned that lesson the hard
+                                  way (a duplicate made from the pre-edit
+                                  payload), and a copy of the text you had
+                                  just replaced is the same bug, quieter.
+
+                                  The glyph is an EMOJI in a cluster of thin
+                                  outline marks, which is a deliberate loss.
+                                  Copy and Duplicate are the same picture in
+                                  every icon set — two overlapping squares —
+                                  and ⧉ next door is already that, so the
+                                  monochrome candidates (⎘ ❐ ❏) all read as a
+                                  second duplicate button. Drawing one through
+                                  DrawnGlyph was the other way out and the
+                                  canvas is 13px: a clipboard at that size is
+                                  mush. Rendered and compared before choosing;
+                                  🔗 and 📷 already sit in CircleBtns here. */}
+                              <CircleBtn testID="rem-copy" glyph="📋" label="Copy" size={24} onPressIn={() => { holdCluster.current = true; }} onPress={() => {
+                                const saved = editing === r.id ? saveEdit(r) : r;
+                                setEditing(null);
+                                Clipboard.setStringAsync(reminderLine(saved.payload, todayStr()))
+                                  .then(() => toast('Copied'))
+                                  .catch(() => toast('Could not copy'));
+                              }} />
                               {r.payload.indent === 0 && (
                                 <CircleBtn testID="rem-dup" glyph="⧉" label="Duplicate" size={24} onPressIn={() => { holdCluster.current = true; }} onPress={() => {
                                   if (editing === r.id) saveEdit(r);
@@ -813,7 +858,7 @@ export function Reminders() {
                           >
                             {shTick.done(r) && <Text style={s.tickMark}>✓</Text>}
                           </Pressable>
-                          <Text style={s.rowText}>{r.payload.text}</Text>
+                          <Text numberOfLines={1} style={s.rowText}>{r.payload.text}</Text>
                           {dueChipStatic(r, todayStr(), clock24)}
                         </View>
                       ))}
@@ -922,7 +967,7 @@ function SharedReminders({ viewKey, partner }: { viewKey: string; partner: strin
                 >
                   {shTick.done(r) && <Text style={s.tickMark}>✓</Text>}
                 </Pressable>
-                <Text style={s.rowText}>{r.payload.text}</Text>
+                <Text numberOfLines={1} style={s.rowText}>{r.payload.text}</Text>
                 {dueChipStatic(r, today, clock24)}
               </View>
             ))}

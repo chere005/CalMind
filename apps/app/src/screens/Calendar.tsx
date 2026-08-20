@@ -682,8 +682,10 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
                 tells the two arrangements apart. */}
             <Pressable testID="dp-rem-body" style={s.rowBodyFlex} onPress={() => rowPress(r.id)} onLongPress={() => setPanelEdit(true)} delayLongPress={350}>
               {/* Done keeps the folder's hue, faded — Sean's word over the
-                  suite's grey, 2026-08-18. The strike still says finished. */}
-              <Text style={[s.rowText, r.payload.done && s.rowDone, r.payload.done && { color: (folderColor.get(r.payload.folderId) ?? T.muted) + '77' }]}>{r.payload.text}</Text>
+                  suite's grey, 2026-08-18. The strike still says finished.
+                  One line, elided (2026-08-20) — same rule as the Reminders
+                  list, and this is the narrower row of the two. */}
+              <Text numberOfLines={1} style={[s.rowText, r.payload.done && s.rowDone, r.payload.done && { color: (folderColor.get(r.payload.folderId) ?? T.muted) + '77' }]}>{r.payload.text}</Text>
             </Pressable>
             {overdue && <Text style={[s.chip, { color: T.overdue }]}>{dueLabel(r.payload.due!)}</Text>}
             {/* The ride-along folder's reminders sit under TODAY every day
@@ -722,7 +724,7 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
             >
               {shTick.done(r) && <Text style={s.tickMark}>✓</Text>}
             </Pressable>
-            <Text style={s.rowText}>{r.payload.text}</Text>
+            <Text numberOfLines={1} style={s.rowText}>{r.payload.text}</Text>
             {overdue && <Text style={[s.chip, { color: T.overdue }]}>{dueLabel(r.payload.due!)}</Text>}
             {r.payload.time && <Text style={s.chip}>{timeLabel(r.payload.time, clock24)}</Text>}
           </View>

@@ -61,7 +61,13 @@ test('edit mode does NOT retype: the row waits for the pencil there', async ({ p
   await page.mouse.up();
   await expect(page.getByTestId('rem-pencil').first(), 'edit mode is armed').toBeVisible();
 
-  await body.click();
+  // On the WORDS, not the row's centre. The edit cluster floats over the
+  // row's right end and grew a fifth button on 2026-08-20 (Copy), which put
+  // the body's midpoint underneath it — a centre click then hits the
+  // cluster's opaque backing and never reaches the row, so the assertion
+  // below would pass for the wrong reason. Tapping the text is what a person
+  // does and what the claim is about.
+  await body.click({ position: { x: 15, y: 10 } });
   await expect(page.getByTestId('rem-edit'), 'no inline field in edit mode').toHaveCount(0);
 
   // …and the pencil still opens the full sheet from there.

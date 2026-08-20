@@ -30,7 +30,7 @@ import {
   viewMarkdown,
 } from '@calmind/core';
 import { useStore } from '../store';
-import { APP_PALETTES, themed, T } from '../theme';
+import { themed, T } from '../theme';
 import { TopBar } from '../chrome';
 import { Chevron } from '../components/Chevron';
 import { SectionPick, useHabitSections } from '../components/SectionPick';
@@ -488,20 +488,27 @@ export function Habits() {
                     <WebHitSlop />
                     <Chevron open={!folded.has(sec.id)} />
                   </Pressable>
-                  <Pressable
+                  {/* A KEY, not a control (Sean, 2026-08-20: "tapping the
+                      colour icon shouldn't change colours in the habits page,
+                      only through the edit menu colour picker").
+
+                      This was the last cycler in the app. The 2026-08-18
+                      migration gave every manager a SwatchTray — pick the
+                      colour you want, see them all at once — and this dot
+                      kept the old behaviour it replaced: one palette step per
+                      tap, on an eleven-pixel target with ten more of slop, so
+                      the commonest way to reach it was by accident while
+                      aiming at the chevron or the name. Recolouring lives in
+                      the section manager's tray now, and nowhere else.
+
+                      pointerEvents none rather than a Pressable with no
+                      handler: a bare dot must not swallow a press meant for
+                      what it sits between. */}
+                  <View
                     testID={`hsec-dot-${sec.payload.name}`}
-                    hitSlop={10}
+                    pointerEvents="none"
                     style={[s.secDot, { backgroundColor: sec.payload.color }]}
-                    onPress={() => {
-                      const pal = APP_PALETTES.habits;
-                      const at = pal.indexOf(sec.payload.color);
-                      mutate((e) => e.put({ ...sec, payload: { ...sec.payload, color: pal[(at + 1) % pal.length]! } }));
-                    }}
-                  >
-                    {/* Eleven pixels drawn, and the only control in the app
-                        that small. The slop is what makes it tappable. */}
-                    <WebHitSlop slop={10} />
-                  </Pressable>
+                  />
                   <Pressable
                     testID={`hsec-name-${sec.payload.name}`}
                     onLongPress={() => setEdit(true)}
