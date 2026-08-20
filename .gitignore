@@ -29,3 +29,7 @@ test-results/
 desktop/dist-desktop/
 .claude/*
 !.claude/launch.json
+
+# Claude Code: local machine state; launch.json is repo config and IS tracked
+.claude/*
+!.claude/launch.json

@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "calmind-e2e",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": ["-c", "mkdir -p /tmp/calmind-dev-data && CALMIND_DATA_DIR=/tmp/calmind-dev-data php -S 127.0.0.1:8791 e2e/router.php"],
+      "port": 8791
+    }
+  ]
+}
