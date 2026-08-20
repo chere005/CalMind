@@ -59,7 +59,17 @@ test('the copy button belongs to edit mode, and says so when it has copied', asy
   await expect(page.getByTestId('rem-copy'), 'no cluster outside edit mode').toHaveCount(0);
 
   await enterEdit(page, 'vet visit');
-  await page.getByTestId('rem-copy').first().click();
+
+  // The mark is DRAWN, not typed (Sean, 2026-08-20: "monochrome simple
+  // clipboard"). CircleBtn falls back to rendering the glyph string as TEXT
+  // when it is not in ui's DRAWN map — so renaming the key would put the
+  // literal word "clipboard" in the button, and it would still be clickable,
+  // still pass every other test here, and look absurd.
+  const btn = page.getByTestId('rem-copy').first();
+  await expect(btn.locator('svg'), 'the clipboard is geometry, not a glyph').toHaveCount(1);
+  await expect(btn, 'and no stray text fell through').toHaveText('');
+
+  await btn.click();
   // Either answer is acceptable — the browser may refuse the clipboard — but
   // SOME answer is the point. A button that stays silent is pressed twice.
   await expect(page.getByTestId('toast'), 'it tells you what happened')

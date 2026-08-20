@@ -749,18 +749,13 @@ export function Reminders() {
                                   payload), and a copy of the text you had
                                   just replaced is the same bug, quieter.
 
-                                  The glyph is an EMOJI in a cluster of thin
-                                  outline marks, which is a deliberate loss.
-                                  Copy and Duplicate are the same picture in
-                                  every icon set — two overlapping squares —
-                                  and ⧉ next door is already that, so the
-                                  monochrome candidates (⎘ ❐ ❏) all read as a
-                                  second duplicate button. Drawing one through
-                                  DrawnGlyph was the other way out and the
-                                  canvas is 13px: a clipboard at that size is
-                                  mush. Rendered and compared before choosing;
-                                  🔗 and 📷 already sit in CircleBtns here. */}
-                              <CircleBtn testID="rem-copy" glyph="📋" label="Copy" size={24} onPressIn={() => { holdCluster.current = true; }} onPress={() => {
+                                  The glyph is DRAWN (ui's DrawnGlyph), not
+                                  typed: it shipped as 📋 and Sean asked for
+                                  "monochrome simple clipboard" the same day,
+                                  which no text glyph provides — the nearest
+                                  ones are all two overlapping squares, i.e.
+                                  the ⧉ two buttons along. */}
+                              <CircleBtn testID="rem-copy" glyph="clipboard" label="Copy" size={24} onPressIn={() => { holdCluster.current = true; }} onPress={() => {
                                 const saved = editing === r.id ? saveEdit(r) : r;
                                 setEditing(null);
                                 Clipboard.setStringAsync(reminderLine(saved.payload, todayStr()))

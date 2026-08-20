@@ -72,7 +72,34 @@ const DRAWN: Record<string, (c: number) => string[]> = {
   // and every remove/dismiss in the app wears it. Two diagonals of the +'s
   // weight, spanning 0.30–0.70 so the diagonal reads as wide as the + does.
   '×': (c) => [`${c * 0.3},${c * 0.3} ${c * 0.7},${c * 0.7}`, `${c * 0.7},${c * 0.3} ${c * 0.3},${c * 0.7}`],
+  /**
+   * The reminder row's Copy, and the first entry here for a reason other than
+   * centring: there is no monochrome text glyph for a clipboard. The nearest
+   * ones (⎘ ❐ ❏) are all two overlapping squares, which is exactly what ⧉
+   * Duplicate already is two buttons along — so the drawn shape is what keeps
+   * the two apart. It shipped as 📋 first and Sean asked for monochrome
+   * (2026-08-20).
+   *
+   * A board and its clip, two closed rectangles, the clip standing ON the
+   * board's top edge. The keys are semantic rather than a character because
+   * nothing should ever fall back to typing this one.
+   */
+  clipboard: (c) => [
+    `${c * 0.18},${c * 0.26} ${c * 0.82},${c * 0.26} ${c * 0.82},${c * 0.92} ${c * 0.18},${c * 0.92} ${c * 0.18},${c * 0.26}`,
+    `${c * 0.34},${c * 0.26} ${c * 0.34},${c * 0.13} ${c * 0.66},${c * 0.13} ${c * 0.66},${c * 0.26}`,
+  ],
 };
+
+/**
+ * Stroke weight, where 0.16 is wrong for the shape.
+ *
+ * 0.16 is a stroke for marks made of two or three lines — a +, an ×. The
+ * clipboard is an OUTLINE, and an outline at 0.16 on a 13px canvas leaves
+ * about five pixels of interior: the clip comes out shorter than the line
+ * drawing it and the whole thing reads as a blob. Measured on the render,
+ * not guessed at.
+ */
+const STROKE: Record<string, number> = { clipboard: 0.11 };
 
 /** `size` is the CANVAS, not the button: a caller that is not a CircleBtn
  *  (the tab bar's big '+') has its own idea of how large the mark should be. */
@@ -86,7 +113,7 @@ export function DrawnGlyph({ glyph, size, color }: { glyph: string; size: number
           points={points}
           fill="none"
           stroke={color}
-          strokeWidth={c * 0.16}
+          strokeWidth={c * (STROKE[glyph] ?? 0.16)}
           strokeLinecap="round"
           strokeLinejoin="round"
         />

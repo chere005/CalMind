@@ -749,7 +749,11 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
               onLongPress={() => setPanelEdit(true)}
               delayLongPress={350}
             >
-              <Text style={s.rowText}>{n.payload.title}</Text>
+              {/* One line, elided — Sean, 2026-08-20: "note titles should
+                  elide". The Notes list has done this since it was written
+                  (rowTitle carries numberOfLines there); the day panel drew
+                  the same title in a narrower row and wrapped it. */}
+              <Text numberOfLines={1} style={s.rowText}>{n.payload.title}</Text>
             </Pressable>
             {panelEdit && (
               <View style={s.editCluster}>
@@ -774,7 +778,7 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
         {!folded.has('notes:@') && sharedItems.notes.map((n) => (
           <View key={`sh${n.id}`} style={s.row}>
             <Text style={[s.markGlyph, { color: T.dim }]}>▤</Text>
-            <Text style={s.rowText}>{n.payload.title}</Text>
+            <Text numberOfLines={1} style={s.rowText}>{n.payload.title}</Text>
           </View>
         ))}
         {items.events.length + items.reminders.length + items.notes.length +

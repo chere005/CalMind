@@ -144,3 +144,27 @@ test('a long reminder is one line high, in the list and in the day panel', async
   expect(panel.length, 'both reminders are in the panel').toBe(2);
   expect(Math.max(...panel), 'the day panel row stays one line too').toBe(Math.min(...panel));
 });
+
+test('a long note title is one line high in the day panel too', async ({ page }) => {
+  // Sean, 2026-08-20: "note titles should elide". The Notes LIST has always
+  // done this; the day panel drew the same title in a narrower row and let it
+  // wrap, so one long-titled note pushed the rest of the day down the page.
+  test.setTimeout(120_000);
+  await signup(page);
+  await page.getByTestId('tab-calendar').click();
+  for (const title of ['Pancakes', LONG_PLAIN]) {
+    await page.getByTestId('tab-add').click();
+    await page.getByTestId('add-kind-note').click();
+    await page.getByTestId('add-text').fill(title);
+    await page.getByText('Done', { exact: true }).click();
+    // A new note opens its editor — come back to the calendar for the next.
+    await page.getByTestId('note-back').click({ timeout: 3_000 }).catch(() => {});
+    await page.getByTestId('tab-calendar').click();
+  }
+  await expect(page.getByTestId('cal-day-title')).toBeVisible();
+
+  const rows = await page.getByTestId('dp-note-row').evaluateAll((els) =>
+    els.map((e) => Math.round(e.getBoundingClientRect().height)));
+  expect(rows.length, 'both notes are on the day').toBe(2);
+  expect(Math.max(...rows), 'the long title did not become a paragraph').toBe(Math.min(...rows));
+});
