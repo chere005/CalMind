@@ -2566,3 +2566,34 @@ browser suites for a spot test — sign up, land on the calendar, add a
 reminder, against the exported dist. "dtp" now means the quick lane;
 "tdtp" runs everything. A failed quick deploy still deploys nothing and
 tags nothing.
+
+### Four corrections to the corrections, 2026-08-20 evening
+
+The morning's inline editor moved house the same day it arrived: a plain tap
+opens a reminder for retyping, and EDIT MODE no longer does — "in edit mode
+one would still hit the pencil to edit the reminder with the full edit
+screen". So edit mode is for arranging (drag, duplicate, subtask, delete,
+pencil) and a tap is for the words. The row's double-tap-to-arm went with
+it: a second tap would land in the field it just opened. Four eras of that
+one gesture now, every one his call; app.spec's test carries the history.
+
+The parked swipe-delete puts itself away on any tap elsewhere ("tap to exit
+swipe to delete doesn't work"). One rule, two homes because the platforms
+differ: a capture-phase pointerdown listener inside useSwipeLeft for the
+web, and the screens' EditExit wrapper armed while a swipe is parked for the
+phone — the same division EditExit already documents. NO time window on the
+listener, which cost a red test to learn: the gesture's own pointerdown
+fires before `swiped` exists, so every pointerdown reaching the listener is
+a fresh press, and the 400ms guard copied by reflex from justSwiped
+swallowed exactly the quick change-of-mind tap it was meant to protect.
+
+The typed m/d box is gone from the whole app — "it should be a circle icon
+with a calendar", so DayPickBtn is one shared control (ringed circle, the
+calendar glyph, the chosen day named beside it) opening the same DayPick in
+the Add screen, the item sheet, the note editor and the notes list's date
+card. It also killed a whole bug class by construction: picking a cell
+stores YYYY-MM-DD, so nothing can write "8/12" into a field every comparison
+in the app reads as ISO. Typed dates keep their home in the LINE, where the
+typing hand already is. And the item sheet's delete is now the note
+editor's, literally — ui's DeletePill, one component wearing the word in a
+pill and arming red for 2.5s.

@@ -6,7 +6,7 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { defaultNoteTitle, looksLikeDefaultNoteTitle, deleteSection, renameSection, sectionNameTaken, byRecOrd, ingredientParts, isRecipeNote, joinRecipeBody, richLines, scaleRecipeBody, splitRecipeBody, duplicateItem, prefsPut, moveNote, moveSection, moveSectionEmptyingFolder, newId, nowStr, ordBetween, parseDateField, parseWhenFromText, todayStr, type Rec } from '@calmind/core';
+import { defaultNoteTitle, looksLikeDefaultNoteTitle, deleteSection, renameSection, sectionNameTaken, byRecOrd, ingredientParts, isRecipeNote, joinRecipeBody, richLines, scaleRecipeBody, splitRecipeBody, duplicateItem, prefsPut, moveNote, moveSection, moveSectionEmptyingFolder, newId, nowStr, ordBetween, parseWhenFromText, todayStr, type Rec } from '@calmind/core';
 import * as Clipboard from 'expo-clipboard';
 import { useStore } from '../store';
 import { UnitBadge } from '../components/IngredientBadge';
@@ -14,7 +14,8 @@ import { useNav } from '../nav';
 import { themed, T } from '../theme';
 import { TopBar } from '../chrome';
 import { FolderPick, useFolderView } from '../components/FolderPick';
-import { CircleBtn, CollapseAllBtn, ConfirmDelete, Field, Pill, Scroll, TOPBAR_CTRL, TOPBAR_DOT_TOP, WebHitSlop } from '../ui';
+import { CircleBtn, CollapseAllBtn, ConfirmDelete, DayPickBtn, DeletePill, Field, Pill, Scroll, TOPBAR_CTRL, TOPBAR_DOT_TOP, WebHitSlop } from '../ui';
+import { DayPick } from '../components/DayPick';
 import { Dropdown } from '../components/Dropdown';
 import { useRowDrag } from '../components/rowdrag';
 import { useSectionDrag, type SectionSlot } from '../components/sectiondrag';
@@ -203,7 +204,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
   /** Which note the mini date editor is open for, or null. */
   const [dateFor, setDateFor] = useState<string | null>(null);
   /** What is being TYPED in that sheet, before it parses into a real date. */
-  const [dateDraft, setDateDraft] = useState('');
+  const [listPickOpen, setListPickOpen] = useState(false);
   /**
    * Was this editor reached from another TAB (the calendar's day panel, the
    * Add sheet) rather than from the notes list?
@@ -316,8 +317,9 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
       document.removeEventListener('pointerdown', onDown, true);
     };
   }, [pageEdit]);
-  const [dateField, setDateField] = useNoteScoped(openId, '');
-  const [delArmed, setDelArmed] = useNoteScoped(openId, false);
+  // The date is PICKED from a calendar now, never typed into an m/d box
+  // (Sean, 2026-08-20) — one open/closed flag is all the state left here.
+  const [edPickOpen, setEdPickOpen] = useState(false);
 
   // A note we JUST made should open ready to type, not just open. The scoped
   // states reset on the render where openId changes, so setting bodyEditing
@@ -687,7 +689,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
                 <Text style={s.addDateText}>{open.payload.date} ×</Text>
               </Pressable>
             ) : (
-              <Pressable style={s.addDate} onPress={() => { setDateOpen(!dateOpen); setDateField(''); }}>
+              <Pressable style={s.addDate} onPress={() => setDateOpen(!dateOpen)}>
                 <Text style={s.addDateText}>+ Add date</Text>
               </Pressable>
             )}
@@ -718,18 +720,17 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
                 label="Today"
                 onPress={() => { mutate((e) => e.put({ ...open, payload: { ...open.payload, date: todayStr() } })); setDateOpen(false); }}
               />
-              <Field
-                value={dateField}
-                onChangeText={setDateField}
-                placeholder="m/d"
-                style={s.dateField}
-                onSubmitEditing={() => {
-                  const d = parseDateField(dateField, todayStr());
-                  if (d) mutate((e) => e.put({ ...open, payload: { ...open.payload, date: d } }));
-                  setDateOpen(false);
-                }}
-              />
+              {/* The circle-with-a-calendar — "the m/d text box should be a
+                  calendar picker in add date on notes app" (Sean, 2026-08-20). */}
+              <DayPickBtn testID="note-ed-date" value={open.payload.date} onPress={() => setEdPickOpen(true)} />
             </View>
+          )}
+          {edPickOpen && (
+            <DayPick
+              value={open.payload.date}
+              onPick={(d) => { mutate((e) => e.put({ ...open, payload: { ...open.payload, date: d } })); setDateOpen(false); }}
+              onClose={() => setEdPickOpen(false)}
+            />
           )}
 
           {isRecipe && (
@@ -894,14 +895,11 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
               >
                 <Text style={s.copyBtnText}>Copy</Text>
               </Pressable>
-              <Pressable
-                onPress={() => {
-                  if (delArmed) { setOpenId(null); mutate((e) => e.del(open.id)); setDelArmed(false); }
-                  else { setDelArmed(true); setTimeout(() => setDelArmed(false), 2500); }
-                }}
-              >
-                <Text style={[s.delText, delArmed && s.delArmed]}>Delete</Text>
-              </Pressable>
+              {/* ui's DeletePill — the same control the item sheet wears now
+                  (Sean, 2026-08-20). Keyed by note so arming one can never
+                  prime the next (armeddelete.spec), which useNoteScoped did
+                  for the old inline version. */}
+              <DeletePill key={open.id} onDelete={() => { setOpenId(null); mutate((e) => e.del(open.id)); }} />
             </View>
           </View>
         </Scroll>
@@ -923,7 +921,13 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
         {/* The phone's tap-to-exit; the web keeps its document listener.
             EditExit carries the content layout (s.scroll) so arming edit
             mode cannot move anything — see EditExit for the story. */}
-        <EditExit active={pageEdit} onExit={() => setPageEdit(false)} style={s.scroll}>
+        {/* Armed while a swipe-delete is parked too — the native half of the
+            unpark rule; the web's lives in useSwipeLeft (Sean, 2026-08-20). */}
+        <EditExit
+          active={pageEdit || swipe.swiped !== null}
+          onExit={() => { if (swipe.swiped !== null) swipe.clear(); else setPageEdit(false); }}
+          style={s.scroll}
+        >
         {folders.map((f) => (
           <View key={f.id} style={s.folderBlock}>
             {/* The header ROW is the reliable way out: always on screen, full
@@ -1050,7 +1054,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
                       {/* The date itself is the other way in: Sean asked that
                           tapping a date in edit mode open the same editor. */}
                       {pageEdit && n.payload.date && (
-                        <Pressable testID={`note-datechip-${n.payload.title}`} onPress={() => { setDateDraft(n.payload.date ?? ''); setDateFor(n.id); }} hitSlop={6}>
+                        <Pressable testID={`note-datechip-${n.payload.title}`} onPress={() => setDateFor(n.id)} hitSlop={6}>
                           <WebHitSlop slop={6} />
                           <Text style={s.dateChip}>{n.payload.date}</Text>
                         </Pressable>
@@ -1066,7 +1070,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
                             label={n.payload.date ? 'Change date' : 'Add a date'}
                             size={22}
                             color={n.payload.date ? T.accent : T.dim}
-                            onPress={() => { setDateDraft(n.payload.date ?? ''); setDateFor(n.id); }}
+                            onPress={() => setDateFor(n.id)}
                           />
                           <CircleBtn testID="note-dup" glyph="⧉" label="Duplicate" size={22} onPress={() => {
                             const res = duplicateItem(recs, n.id, newId);
@@ -1158,39 +1162,27 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
             <Pressable style={s.dateBackdrop} onPress={() => setDateFor(null)}>
               <Pressable style={s.dateCard} onPress={() => {}}>
                 <Text style={s.dateTitle} numberOfLines={1}>{note.payload.title}</Text>
-                {/* PARSED, not stored raw. This wrote whatever was typed
-                    straight into payload.date, so "8/12" was stored as
-                    "8/12" — and every date comparison in the app is against
-                    YYYY-MM-DD, so the note simply never appeared on the day
-                    it said. The note editor's own field has always gone
-                    through parseDateField; this is the same function, so the
-                    two cannot disagree about what "8/12" means.
-
-                    Committed on SUBMIT rather than on every keystroke: parsing
-                    a half-typed "8/" and writing the result back into the
-                    field fights the person typing it. */}
-                <Field
-                  testID="note-date-field"
-                  value={dateDraft}
-                  onChangeText={setDateDraft}
-                  placeholder="m/d or 2026-08-12"
-                  style={s.dateMiniField}
-                  onSubmitEditing={() => {
-                    const d = parseDateField(dateDraft, todayStr());
-                    if (d) setDate(d);
-                  }}
-                  onBlur={() => {
-                    const d = parseDateField(dateDraft, todayStr());
-                    if (d) setDate(d);
-                  }}
-                />
+                {/* The circle-with-a-calendar, replacing the typed m/d box
+                    everywhere (Sean, 2026-08-20). Picking through the grid
+                    stores YYYY-MM-DD by construction — the class of bug the
+                    old parse-on-submit comment guarded is unreachable now. */}
+                <View style={s.dateRow}>
+                  <DayPickBtn testID="note-date-pick" value={note.payload.date} onPress={() => setListPickOpen(true)} />
+                </View>
+                {listPickOpen && (
+                  <DayPick
+                    value={note.payload.date}
+                    onPick={(d) => setDate(d)}
+                    onClose={() => setListPickOpen(false)}
+                  />
+                )}
                 <View style={s.dateRow}>
                   <CircleBtn
                     testID="note-date-clear"
                     glyph="×"
                     label="Remove the date"
                     size={36}
-                    onPress={() => { setDate(null); setDateDraft(''); setDateFor(null); }}
+                    onPress={() => { setDate(null); setDateFor(null); }}
                   />
                   <CircleBtn
                     testID="note-date-today"
@@ -1198,7 +1190,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
                     label="Today"
                     size={36}
                     color={T.gold}
-                    onPress={() => { setDate(todayStr()); setDateDraft(todayStr()); }}
+                    onPress={() => setDate(todayStr())}
                   />
                   <CircleBtn
                     testID="note-date-done"
@@ -1445,7 +1437,6 @@ const s = themed(() => StyleSheet.create({
   dateBackdrop: { flex: 1, backgroundColor: '#0009', alignItems: 'center', justifyContent: 'center', padding: 24 },
   dateCard: { width: '100%', maxWidth: 340, backgroundColor: T.surface, borderRadius: 14, borderWidth: 1, borderColor: T.line, padding: 16, gap: 12 },
   dateTitle: { color: T.text, fontSize: 15, fontWeight: '600' },
-  dateMiniField: { marginTop: 0 },
   dateRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', marginTop: 4 },
   rowGrip: { width: 16, alignItems: 'center', justifyContent: 'center' },
   rowGripText: { color: T.lineSoft, fontSize: 13, userSelect: 'none' },
@@ -1478,8 +1469,6 @@ const s = themed(() => StyleSheet.create({
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   addDate: { borderWidth: 1, borderColor: T.accent, borderStyle: 'dashed', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10 },
   addDateText: { color: T.accent, fontSize: 14, fontWeight: '600' },
-  delText: { color: T.dim, fontSize: 15, borderWidth: 1, borderColor: T.line, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 5, overflow: 'hidden' },
-  delArmed: { color: '#fff', backgroundColor: T.danger, borderColor: T.danger },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   dateField: { minWidth: 90, paddingVertical: 6 },
   footRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 },

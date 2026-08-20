@@ -110,13 +110,14 @@ test('deleting takes two presses, never one', async ({ page }) => {
   await expect(doomed).toBeHidden();
 });
 
-test('a long-press opens edit mode; a tap opens the inline field, the pencil the window', async ({ page }) => {
-  // This test has now pinned three eras. The inline field left on Sean's
-  // word (2026-08-12/18: "the row is never a text input") and RETURNED on
-  // his word (2026-08-20: "tapping on a reminder … should go into the edit
-  // reminder text mode that it used to"). The division of labour today: a
-  // tap retypes in place, the pencil opens the full window —
-  // inlineedit.spec.ts holds what the retype MEANS.
+test('a long-press opens edit mode, where the row waits for the pencil', async ({ page }) => {
+  // This test has now pinned four eras of the same gesture, all Sean's calls:
+  // the inline field left (2026-08-12/18, "the row is never a text input"),
+  // returned (2026-08-20 morning), and then moved OUT of edit mode the same
+  // afternoon — "tap to edit in reminders should work when not in edit
+  // mode.. in edit mode one would still hit the pencil". So edit mode is for
+  // ARRANGING and a plain tap is for the words; inlineedit.spec.ts holds
+  // both halves and what the retype means.
   await signup(page);
   await page.getByTestId('tab-reminders').click();
   await page.getByTestId('secadd-General').first().click();
@@ -130,13 +131,6 @@ test('a long-press opens edit mode; a tap opens the inline field, the pencil the
   await page.mouse.up();
   await expect(page.getByTestId('rem-pencil').first(), 'edit mode is armed').toBeVisible();
 
-  await body.click();
-  await expect(page.getByTestId('rem-edit'), 'a tap opens the row for retyping')
-    .toHaveValue('hold me');
-
-  // The pencil, pressed while the field is still focused — the holdCluster
-  // machinery is exactly for this press, whose pointerdown lands before the
-  // field's blur unmounts anything.
   await page.getByTestId('rem-pencil').first().click();
   await expect(page.getByPlaceholder(/What\?/), 'the pencil opens the window on that row')
     .toHaveValue('hold me', { timeout: 10_000 });
@@ -733,15 +727,27 @@ test('a note takes a date from the LIST, and the calendar opens it for editing',
   await expect(page.getByTestId('note-row').filter({ hasText: 'dated note' })).toBeVisible({ timeout: 10_000 });
   await expect(page.getByTestId('cal-grid')).toHaveCount(0);
 
-  // A TYPED date has to parse. It was written into payload.date verbatim, so
-  // "8/12" stayed "8/12" while every comparison in the app is against
-  // YYYY-MM-DD — the note simply never appeared on the day it claimed. It
-  // goes through the same parseDateField the note editor's own field uses.
+  // The date is PICKED from a calendar grid now, never typed (Sean,
+  // 2026-08-20: "the m/d shouldn't look like a text input field … anywhere").
+  // What this still pins is the STORED SHAPE: the old typed box wrote
+  // payload.date verbatim, so "8/12" stayed "8/12" while every comparison in
+  // the app is against YYYY-MM-DD, and the note never appeared on the day it
+  // claimed. Picking a cell stores the ISO day by construction — this holds
+  // that the value on the chip really is one.
   await page.getByTestId('tab-notes').click();
   await longPress(page, page.getByTestId('note-row').filter({ hasText: 'dated note' }));
   await page.getByTestId('note-datechip-dated note').click();
-  await page.getByTestId('note-date-field').fill('12/25');
-  await page.getByTestId('note-date-field').press('Enter');
+  await page.getByTestId('note-date-pick').click();
+  const dec25 = `${new Date().getFullYear()}-12-25`;
+  await page.getByTestId('daypick-ym').waitFor();
+  // Page to December of this year, however far off it is.
+  for (let i = 0; i < 24; i++) {
+    const label = await page.getByTestId('daypick-ym').textContent();
+    if (label?.includes('Dec') && label.includes(String(new Date().getFullYear()))) break;
+    const behind = new Date(`${label!.replace(/(\w+) (\d+)/, '$1 1, $2')}`) < new Date(dec25);
+    await page.getByTestId(behind ? 'daypick-next' : 'daypick-prev').click();
+  }
+  await page.getByLabel(dec25, { exact: true }).click();
   await page.getByTestId('note-date-done').click();
   // Stored as a real date, not as the characters typed.
   await expect(page.getByTestId('note-datechip-dated note')).toHaveText(/^\d{4}-12-25$/);
@@ -1518,11 +1524,13 @@ test('the Add page tells you the words it understands', async ({ page }) => {
   await expect(block).toContainText('already gone by');
 });
 
-test('the little date box takes "tomorrow" too, not just 8/3', async ({ page }) => {
-  // The text field beside it learned the relative words this run; a box that
-  // refused what its neighbour accepts is a seam a person walks straight into.
-  // The box lives in the item sheet — reached through EDIT now that the day
-  // panel's create door is gone (2026-08-20).
+test('the item sheet dates a reminder from the calendar picker', async ({ page }) => {
+  // This used to pin a typed "tomorrow" in the sheet's m/d box. That box is
+  // gone — every date is picked from the grid now (Sean, 2026-08-20) — and
+  // the relative WORDS did not go with it: they live in the line, which is
+  // where a typing hand already is ("call the vet tomorrow" still parses,
+  // pinned in escape.test.ts and inlineedit.spec.ts). What the sheet owes is
+  // that a picked day reaches the row.
   await signup(page);
   await page.getByTestId('tab-add').click();
   await page.getByTestId('add-kind-reminder').click();
@@ -1530,10 +1538,13 @@ test('the little date box takes "tomorrow" too, not just 8/3', async ({ page }) 
   await page.getByText('Done', { exact: true }).click();
   await page.getByText('call the vet').dblclick();
   await page.getByRole('button', { name: 'Edit' }).first().click();
-  await page.getByPlaceholder('m/d').fill('tomorrow');
-  await page.getByText('Save', { exact: true }).click();
 
   const tomorrow = new Date(Date.now() + 86_400_000);
+  const iso = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}`;
+  await page.getByTestId('item-date').click();
+  await page.getByLabel(iso, { exact: true }).click();
+  await page.getByText('Save', { exact: true }).click();
+
   const chip = tomorrow.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
   await page.getByTestId('tab-reminders').click();
   const row = page.getByTestId('rem-row').filter({ hasText: 'call the vet' });

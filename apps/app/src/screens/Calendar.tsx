@@ -598,7 +598,13 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
         {/* The phone's tap-to-exit; the web keeps its document listener.
             EditExit carries the panel's layout (s.panelInner) so arming edit
             mode cannot move anything — see EditExit for the story. */}
-        <EditExit active={panelEdit} onExit={() => setPanelEdit(false)} style={s.panelInner}>
+        {/* Armed while a swipe-delete is parked too — the native half of the
+            unpark rule; the web's lives in useSwipeLeft (Sean, 2026-08-20). */}
+        <EditExit
+          active={panelEdit || swipe.swiped !== null}
+          onExit={() => { if (swipe.swiped !== null) swipe.clear(); else setPanelEdit(false); }}
+          style={s.panelInner}
+        >
         <View style={s.panelHead}>
           {/* Just the day now: the "+ Add" pill that sat beside it was "the
               additional add button" (Sean, 2026-08-20) — the Add tab, which

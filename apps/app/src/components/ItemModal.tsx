@@ -17,7 +17,6 @@ import {
   convertToNote,
   newId,
   ordBetween,
-  parseDateField,
   parseTimeFromText,
   nowStr,
   parseWhenFromText,
@@ -31,7 +30,8 @@ import {
 import { useStore } from '../store';
 import { useClock24 } from '../useClock24';
 import { themed, T } from '../theme';
-import { CircleBtn, ConfirmDelete, Field, Pill, Scroll } from '../ui';
+import { CircleBtn, DayPickBtn, DeletePill, Field, Pill, Scroll } from '../ui';
+import { DayPick } from './DayPick';
 import { Dropdown } from './Dropdown';
 
 export type ItemKind = 'event' | 'reminder' | 'note';
@@ -79,7 +79,7 @@ export function ItemModal({
 
   const [text, setText] = useState(init.text);
   const [date, setDate] = useState<string | null>(init.date);
-  const [dateField, setDateField] = useState('');
+  const [pickOpen, setPickOpen] = useState(false);
   const [time, setTime] = useState<string | null>(init.time);
   const [timeField, setTimeField] = useState('');
   // Manual-beats-parsed (Sean, 2026-08-18): what the hand chose IN THIS
@@ -161,9 +161,11 @@ export function ItemModal({
       if (lastFiled.current && lastFiled.current.text === raw && now - lastFiled.current.at < 1500) return;
       lastFiled.current = { text: raw, at: now };
     }
-    const fd = parseDateField(dateField, today);
+    // The date is PICKED now, never typed into a box (Sean, 2026-08-20) —
+    // dateTouched is the whole story of "the hand chose in this sheet".
+    // Typing a date still works where the typing hand already is: the line.
     const [, ft] = parseTimeFromText(timeField.trim());
-    const manualDate = dateTouched || fd !== null;
+    const manualDate = dateTouched;
     const manualTime = timeTouched || ft !== null;
     // A category the hand settled is not lifted: the token stays in the
     // title, unused. A category left to the line is lifted and wins over
@@ -175,7 +177,7 @@ export function ItemModal({
     // selected day sent a day-panel event to tomorrow. The time-less parse
     // cannot imply, so its date is the explicit token alone.
     const [, pdExplicit] = parseWhenFromText(raw, today, nowStr(), { date: !manualDate, time: false });
-    const finalDate = manualDate ? fd ?? date : pdExplicit ?? date ?? pd;
+    const finalDate = manualDate ? date : pdExplicit ?? date ?? pd;
     const finalTime = manualTime ? (showTime ? ft ?? time : null) : pt ?? (showTime ? time : null);
     // An end only means something after a start; an empty field keeps the
     // presumed one (+1 hour, set when the row was revealed).
@@ -270,7 +272,6 @@ export function ItemModal({
     onClose();
   };
 
-  const dateLabel = (d: string) => new Date(`${d}T12:00:00`).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
 
   return (
     <Modal transparent animationType="fade" onRequestClose={onClose}>
@@ -289,10 +290,11 @@ export function ItemModal({
 
             <Text style={s.label}>Date</Text>
             <View style={s.rowWrap}>
-              {kind !== 'event' && <Pill label="None" primary={!date && dateField === ''} onPress={() => { setDate(null); setDateField(''); setDateTouched(true); }} />}
-              <Pill label="Today" primary={date === today && dateField === ''} onPress={() => { setDate(today); setDateField(''); setDateTouched(true); }} />
-              {date && date !== today && dateField === '' && <Pill label={dateLabel(date)} primary onPress={() => {}} />}
-              <Field value={dateField} onChangeText={(v) => { setDateField(v); if (v.trim() !== '') setDateTouched(true); }} placeholder="m/d" style={s.miniField} />
+              {kind !== 'event' && <Pill label="None" primary={!date} onPress={() => { setDate(null); setDateTouched(true); }} />}
+              <Pill label="Today" primary={date === today} onPress={() => { setDate(today); setDateTouched(true); }} />
+              {/* The circle-with-a-calendar, never an m/d box (Sean,
+                  2026-08-20); it names the picked day itself, so no chip. */}
+              <DayPickBtn testID="item-date" value={date && date !== today ? date : null} onPress={() => setPickOpen(true)} />
             </View>
 
             {!showTime ? (
@@ -370,7 +372,11 @@ export function ItemModal({
 
             {err !== '' && <Text style={s.err}>{err}</Text>}
             <View style={s.actions}>
-              {mode === 'edit' && rec ? <ConfirmDelete onDelete={() => { mutate((e) => e.del(rec.id)); onClose(); }} /> : <View />}
+              {/* The note editor's Delete, exactly — a word in a pill, armed
+                  red — on Sean's word (2026-08-20): "make the delete button
+                  on that edit screen match the delete button from the notes
+                  screen." One component now, ui's DeletePill. */}
+              {mode === 'edit' && rec ? <DeletePill onDelete={() => { mutate((e) => e.del(rec.id)); onClose(); }} /> : <View />}
               <View style={s.actRight}>
                 <Pill label="Cancel" onPress={onClose} />
                 <Pill label="Save" primary onPress={save} />
@@ -379,6 +385,13 @@ export function ItemModal({
           </Scroll>
         </Pressable>
       </Pressable>
+      {pickOpen && (
+        <DayPick
+          value={date}
+          onPick={(d) => { setDate(d); setDateTouched(true); }}
+          onClose={() => setPickOpen(false)}
+        />
+      )}
     </Modal>
   );
 }

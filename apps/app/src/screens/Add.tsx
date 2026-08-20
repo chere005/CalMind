@@ -26,7 +26,7 @@ import { useClock24 } from '../useClock24';
 import { themed, T } from '../theme';
 import { TopBar } from '../chrome';
 import { CalendarIcon, PageIcon, TickCircleIcon } from '../components/KindIcons';
-import { CircleBtn, Field, Pill, Scroll } from '../ui';
+import { CircleBtn, DayPickBtn, Field, Pill, Scroll } from '../ui';
 import { Dropdown } from '../components/Dropdown';
 import { DayPick } from '../components/DayPick';
 
@@ -239,19 +239,10 @@ export function Add({
         )}
         {showWhen && (
           <View style={s.panel}>
-            <Pressable
-              testID="add-date"
-              accessibilityRole="button"
-              accessibilityLabel="Pick a date"
-              style={s.dateBtn}
-              onPress={() => setDayPickOpen(true)}
-            >
-              <Text style={datePicked ? s.miniFieldText : s.miniFieldPlaceholder}>
-                {datePicked
-                  ? new Date(`${datePicked}T12:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
-                  : 'm/d'}
-              </Text>
-            </Pressable>
+            {/* A circle wearing the calendar, never a box that looks typed-in
+                — Sean, 2026-08-20. DayPickBtn names the chosen day beside
+                the icon; the picker is the same DayPick as everywhere. */}
+            <DayPickBtn testID="add-date" value={datePicked} onPress={() => setDayPickOpen(true)} />
             <Field value={timeField} onChangeText={setTimeField} placeholder="2:30pm" style={s.miniField} />
             {/* An end belongs to events only, and revealing it presumes an
                 hour past whatever start is on the line or in the field. */}
@@ -353,11 +344,6 @@ const s = themed(() => StyleSheet.create({
   panel: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center' },
   panelLabel: { color: T.dim, fontSize: 13 },
   miniField: { minWidth: 100, paddingVertical: 8 },
-  // The picker trigger, wearing Field's exact dress so the Date/Time row
-  // still reads as one family of boxes.
-  dateBtn: { backgroundColor: T.surface, borderWidth: 1, borderColor: T.line, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, minWidth: 100 },
-  miniFieldText: { color: T.text, fontSize: 16 },
-  miniFieldPlaceholder: { color: T.muted, fontSize: 16 },
   repN: { color: T.text, fontSize: 14, minWidth: 20, textAlign: 'center' },
   err: { color: T.danger, fontSize: 13 },
   doneBtn: {

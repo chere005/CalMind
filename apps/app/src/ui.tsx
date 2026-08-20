@@ -362,7 +362,92 @@ export function Rule() {
   return <View style={s.rule} />;
 }
 
+/**
+ * The date control everywhere a date is PICKED rather than typed — Sean,
+ * 2026-08-20: "the m/d shouldn't look like a text input field here or in
+ * the add app.. (or anywhere) it should be a circle icon with a calendar."
+ * A ringed circle wearing the calendar glyph, the chosen day named beside
+ * it when there is one; the caller opens DayPick. One component so the
+ * next screen cannot quietly draw a fourth date box.
+ */
+export function DayPickBtn({ value, onPress, testID }: {
+  value: string | null;
+  onPress: () => void;
+  testID?: string;
+}) {
+  const label = value
+    ? new Date(`${value}T12:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+    : null;
+  return (
+    <Pressable
+      testID={testID}
+      accessibilityRole="button"
+      accessibilityLabel={label ? `Date: ${label}` : 'Pick a date'}
+      onPress={onPress}
+      hitSlop={6}
+      style={s.dayPickWrap}
+    >
+      <WebHitSlop slop={6} />
+      <View style={s.dayPickCircle}>
+        {/* The kind vocabulary's calendar, drawn inline rather than imported —
+            KindIcons imports nothing of ui's, and keeping it that way means
+            neither file can grow a cycle. Same 24-grid shape. */}
+        <Svg width={15} height={15} viewBox="0 0 24 24">
+          <Polyline points="3,10 21,10" stroke={T.dim} strokeWidth={2} />
+          <Polyline points="8,3 8,7" stroke={T.dim} strokeWidth={2} strokeLinecap="round" />
+          <Polyline points="16,3 16,7" stroke={T.dim} strokeWidth={2} strokeLinecap="round" />
+          <Polyline
+            points="3,5 21,5 21,21 3,21 3,5"
+            stroke={T.dim}
+            strokeWidth={2}
+            fill="none"
+            strokeLinejoin="round"
+          />
+        </Svg>
+      </View>
+      {label && <Text style={s.dayPickLabel}>{label}</Text>}
+    </Pressable>
+  );
+}
+
+/**
+ * The labeled two-press Delete the note editor has always worn — a word in
+ * a pill, armed red for 2.5s — promoted here so the item sheet can wear THE
+ * SAME control (Sean, 2026-08-20: "make the delete button on that edit
+ * screen match the delete button from the notes screen"). ConfirmDelete
+ * stays the row-sized ×; this is the full-screen surfaces' one.
+ */
+export function DeletePill({ onDelete, testID }: { onDelete: () => void; testID?: string }) {
+  const [armed, setArmed] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  return (
+    <Pressable
+      testID={testID}
+      accessibilityRole="button"
+      accessibilityLabel={armed ? 'Confirm delete' : 'Delete'}
+      onPress={() => {
+        clearTimeout(timer.current);
+        if (armed) { setArmed(false); onDelete(); return; }
+        setArmed(true);
+        timer.current = setTimeout(() => setArmed(false), 2500);
+      }}
+    >
+      <Text style={[s.delText, armed && s.delArmed]}>Delete</Text>
+    </Pressable>
+  );
+}
+
 const s = themed(() => StyleSheet.create({
+  dayPickWrap: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  dayPickCircle: {
+    width: 32, height: 32, borderRadius: 16,
+    borderWidth: 1, borderColor: T.line, backgroundColor: T.surface,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  dayPickLabel: { color: T.text, fontSize: 15, fontWeight: '600' },
+  // The note editor's numbers, verbatim — one source now (DeletePill).
+  delText: { color: T.dim, fontSize: 15, borderWidth: 1, borderColor: T.line, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 5, overflow: 'hidden' },
+  delArmed: { color: '#fff', backgroundColor: T.danger, borderColor: T.danger },
   pill: {
     paddingVertical: 6,
     paddingHorizontal: 14,

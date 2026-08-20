@@ -6,8 +6,8 @@
  * Stable per-key responders claiming in the CAPTURE phase on clearly
  * horizontal leftward travel, so taps and the vertical drags never contend.
  */
-import { useRef, useState } from 'react';
-import { PanResponder, type PanResponderInstance } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { PanResponder, Platform, type PanResponderInstance } from 'react-native';
 
 export function useSwipeLeft(): {
   handlersFor: (key: string) => PanResponderInstance['panHandlers'];
@@ -21,6 +21,46 @@ export function useSwipeLeft(): {
   const [swiped, setSwiped] = useState<string | null>(null);
   const swipedAt = useRef(0);
   const responders = useRef(new Map<string, PanResponderInstance>());
+
+  /**
+   * A tap anywhere else puts the parked × away (Sean, 2026-08-20: "tap to
+   * exit swipe to delete doesn't work"). Only the row's own tap handler
+   * cleared it, so a tap on blank space, a heading, or another row left the
+   * armed delete sitting there — a one-press delete parked under a finger
+   * that has moved on, which is the state this app least wants to leave
+   * lying around.
+   *
+   * It lives HERE, in the hook every swipeable list shares, rather than in
+   * five screens — the same argument EditExit's wrapper makes. WEB only,
+   * for the same reason as those document listeners: on native the row's
+   * own responder and the screens' EditExit ancestor already receive the
+   * touch, and `swipe.swiped` is cleared by the row's onPress there.
+   *
+   * `pointerdown` in CAPTURE, not click: a click may never arrive (a press
+   * on a bare View produces none), and capture beats any handler that stops
+   * propagation. The delete control itself is exempt — clearing on the very
+   * press meant to confirm would eat it, which is what the closest() check
+   * is for.
+   *
+   * NO time window, deliberately, and this cost a red test to see: the
+   * gesture's OWN pointerdown fired before `swiped` was set, so it happened
+   * before this listener existed and can never reach it. Every pointerdown
+   * that gets here is a fresh press. A 400ms guard — copied by reflex from
+   * the click-based `justSwiped` — swallowed exactly the quick tap a person
+   * makes right after swiping, which is the commonest way to change your
+   * mind about deleting something.
+   */
+  useEffect(() => {
+    if (swiped === null || Platform.OS !== 'web' || typeof document === 'undefined') return;
+    const onDown = (ev: Event) => {
+      const t = ev.target as Element | null;
+      // The armed × and anything inside it: its own press must reach it.
+      if (t?.closest?.('[data-testid="swipe-del"],[data-testid="ing-del"],[data-testid="step-del"],[aria-label="Confirm delete"]')) return;
+      setSwiped(null);
+    };
+    document.addEventListener('pointerdown', onDown, true);
+    return () => document.removeEventListener('pointerdown', onDown, true);
+  }, [swiped]);
 
   const handlersFor = (key: string) => {
     if (!responders.current.has(key)) {

@@ -37,20 +37,39 @@ async function addRow(page: Page, line: string) {
   await page.waitForTimeout(300);
 }
 
-/** Long-press the row's body to arm edit mode, then tap it to open the field. */
+/** A plain tap opens the field — NOT in edit mode (Sean, 2026-08-20: "tap to
+ *  edit in reminders should work when not in edit mode.. in edit mode one
+ *  would still hit the pencil"). */
 async function openInline(page: Page, text: string) {
-  const body = page.getByTestId('rem-body').filter({ hasText: text }).first();
+  await page.getByTestId('rem-body').filter({ hasText: text }).first().click();
+  await expect(page.getByTestId('rem-edit')).toBeVisible();
+}
+
+test('edit mode does NOT retype: the row waits for the pencil there', async ({ page }) => {
+  test.setTimeout(120_000);
+  await signup(page);
+  await addRow(page, 'sort the shed');
+
+  // Long-press arms edit mode — the arranging mode: grips, duplicate, delete,
+  // and the pencil for the full sheet. A tap on the row there must NOT open
+  // the inline field (his 2026-08-20 correction to the same day's change).
+  const body = page.getByTestId('rem-body').filter({ hasText: 'sort the shed' }).first();
   const b = (await body.boundingBox())!;
   await page.mouse.move(b.x + 15, b.y + b.height / 2);
   await page.mouse.down();
   await page.waitForTimeout(700);
   await page.mouse.up();
-  await page.waitForTimeout(400);
-  await body.click();
-  await expect(page.getByTestId('rem-edit')).toBeVisible();
-}
+  await expect(page.getByTestId('rem-pencil').first(), 'edit mode is armed').toBeVisible();
 
-test('a tap in edit mode opens the row for retyping, and a typed date moves it', async ({ page }) => {
+  await body.click();
+  await expect(page.getByTestId('rem-edit'), 'no inline field in edit mode').toHaveCount(0);
+
+  // …and the pencil still opens the full sheet from there.
+  await page.getByTestId('rem-pencil').first().click();
+  await expect(page.getByPlaceholder(/What\?/)).toHaveValue('sort the shed');
+});
+
+test('a plain tap opens the row for retyping, and a typed date moves it', async ({ page }) => {
   test.setTimeout(120_000);
   await signup(page);
   await addRow(page, 'vet visit');

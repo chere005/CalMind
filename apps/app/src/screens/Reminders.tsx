@@ -176,7 +176,11 @@ export function Reminders() {
     // store.tsx's persistFailed and the shared-write reconcile.
     AsyncStorage.setItem('calmind.foldedFolders.reminders', JSON.stringify([...next])).catch(() => {});
   };
-  const lastTap = React.useRef<{ id: string; at: number }>({ id: '', at: 0 });
+  // No lastTap here any more: the double-tap-to-arm-edit-mode gesture is
+  // gone from a ROW, because a single tap now opens the row for retyping
+  // (Sean, 2026-08-20) and the second tap of a double would land in the
+  // field. The long-press is the way into edit mode; the section head keeps
+  // its own double-tap (lastSecTap) for renaming.
   const [modalRec, setModalRec] = useState<ReminderRec | null>(null); // the full-edit window
   /**
    * A subtask the + has just made and nobody has named yet.
@@ -498,7 +502,15 @@ export function Reminders() {
             content layout (s.scroll) so that arming edit mode cannot move
             anything and the padding gutters are its own tappable surface —
             see EditExit for both stories. */}
-        <EditExit active={pageEdit} onExit={exitEdit} style={s.scroll}>
+        {/* Also armed while a swipe-delete is PARKED, so a tap anywhere puts
+            it away on the phone — the web has its own document listener in
+            useSwipeLeft, and this is the native half of the same rule (Sean,
+            2026-08-20: "tap to exit swipe to delete doesn't work"). */}
+        <EditExit
+          active={pageEdit || swipe.swiped !== null}
+          onExit={() => { if (swipe.swiped !== null) swipe.clear(); else exitEdit(); }}
+          style={s.scroll}
+        >
         {folders.map((f) => (
           <View key={f.id} style={s.folderBlock}>
             {/* The header ROW is the reliable way out: always on screen, full
@@ -671,14 +683,15 @@ export function Reminders() {
                             onPress={() => {
                               if (swipe.justSwiped()) return;
                               if (swipe.swiped) { swipe.clear(); return; }
-                              // A tap in edit mode opens the row for RETYPING
-                              // — the inline field Sean asked back (2026-08-20).
-                              // The pencil still opens the item window.
-                              if (pageEdit) { setEditing(r.id); setEditText(r.payload.text); return; }
-                              // Double-click on desktop, as prod: two taps inside 300ms.
-                              const now = Date.now();
-                              if (lastTap.current.id === r.id && now - lastTap.current.at < 300) enterEdit();
-                              lastTap.current = { id: r.id, at: now };
+                              // A tap OUTSIDE edit mode opens the row for
+                              // retyping (Sean, 2026-08-20: "tap to edit in
+                              // reminders should work when not in edit mode..
+                              // in edit mode one would still hit the pencil").
+                              // So edit mode is for ARRANGING — drag,
+                              // duplicate, subtask, delete, and the pencil for
+                              // the full sheet — and a plain tap is for the
+                              // words. The long-press still arms edit mode.
+                              if (!pageEdit) { setEditing(r.id); setEditText(r.payload.text); }
                             }}
                             onLongPress={enterEdit}
                             delayLongPress={350}

@@ -75,10 +75,13 @@ test('the m/d box is a calendar picker now, and Clear takes the date back', asyn
   const label = target.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
   await expect(page.getByTestId('add-date')).toContainText(label);
 
-  // Clear puts the box back to no date at all.
+  // Clear puts the control back to no date at all — the button is a bare
+  // calendar circle again, naming no day (Sean, 2026-08-20: the m/d box is
+  // "a circle icon with a calendar" now, so there is no placeholder text).
   await page.getByTestId('add-date').click();
   await page.getByText('Clear', { exact: true }).click();
-  await expect(page.getByTestId('add-date')).toContainText('m/d');
+  await expect(page.getByTestId('add-date')).toHaveText('');
+  await expect(page.getByTestId('add-date')).toHaveAttribute('aria-label', 'Pick a date');
 
   // Pick again and file: the reminder wears the picked day, which is the
   // stored claim rather than the label's.

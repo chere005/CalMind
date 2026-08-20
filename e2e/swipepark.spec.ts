@@ -57,6 +57,37 @@ test('a parked delete floats over the reminder row instead of squeezing it', asy
   expect(Math.round(after.x), 'and its place').toBe(Math.round(before.x));
 });
 
+test('a tap anywhere else puts the parked delete away', async ({ page }) => {
+  // Sean, 2026-08-20: "tap to exit swipe to delete doesn't work". Only the
+  // row's own tap cleared it, so a one-press delete sat armed under a finger
+  // that had moved on. The rule lives in useSwipeLeft (web) and the screens'
+  // EditExit (native) — one place each, not five screens.
+  test.setTimeout(120_000);
+  await signup(page);
+  await page.getByTestId('tab-reminders').click();
+  await page.getByTestId('secadd-General').first().click();
+  await page.getByTestId('rem-add-field').fill('take the bins out');
+  await page.getByTestId('rem-add-field').press('Enter');
+  await page.waitForTimeout(300);
+
+  const body = page.getByTestId('rem-body').first();
+  await swipeLeft(page, (await body.boundingBox())!);
+  await expect(page.getByTestId('swipe-del'), 'parked to begin with').toBeVisible();
+
+  // Blank space well below the list — not the row, not the control.
+  const vp = page.viewportSize()!;
+  await page.mouse.click(vp.width / 2, Math.round(vp.height * 0.8));
+  await expect(page.getByTestId('swipe-del'), 'and a tap elsewhere puts it away').toHaveCount(0);
+  // The reminder is still there: putting the × away is not deleting.
+  await expect(page.getByText('take the bins out')).toBeVisible();
+
+  // …and the control still WORKS when it is the thing you press — the guard
+  // that would fail if the unpark listener ate its own confirming press.
+  await swipeLeft(page, (await body.boundingBox())!);
+  await page.getByTestId('swipe-del').click();
+  await expect(page.getByText('take the bins out')).toHaveCount(0);
+});
+
 test('the same on a note row', async ({ page }) => {
   test.setTimeout(120_000);
   await signup(page);
