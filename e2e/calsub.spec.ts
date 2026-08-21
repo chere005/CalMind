@@ -13,7 +13,25 @@ import { expect, test, type Page } from '@playwright/test';
  * them away again.
  */
 
-const today = new Date().toISOString().slice(0, 10);
+/**
+ * The LOCAL date, built from local parts — not `toISOString().slice(0, 10)`,
+ * which is UTC.
+ *
+ * The feed below puts its events on "today" and the day panel shows the
+ * device's today (core's todayStr, local by design). Those are the same date
+ * for most of the day and different after 19:00 in Chicago, when UTC has
+ * already rolled over: the events land on tomorrow, the panel shows today,
+ * the "Subscribed" heading never appears and all three tests in this file
+ * fail together on a timeout.
+ *
+ * Which is exactly how it was found — a full suite that passed at 18:00 and
+ * failed at 19:20, on an idle machine, with nothing between the two runs but
+ * a version bump. A spec that is only true before dinner is worse than no
+ * spec, because it spends its evenings accusing whatever changed last.
+ */
+const pad2 = (n: number) => String(n).padStart(2, '0');
+const now = new Date();
+const today = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`;
 const ymd = today.replace(/-/g, '');
 
 const ICS = [

@@ -15,10 +15,12 @@
 date_default_timezone_set('America/Chicago');
 
 $in = $url = $token = '';
+$onlyNew = false;
 foreach (array_slice($argv, 1) as $a) {
     if (str_starts_with($a, '--in=')) { $in = substr($a, 5); }
     if (str_starts_with($a, '--url=')) { $url = substr($a, 6); }
     if (str_starts_with($a, '--token=')) { $token = substr($a, 8); }
+    if ($a === '--only-new') { $onlyNew = true; }
 }
 if ($in === '' || $url === '' || $token === '') {
     fwrite(STDERR, "usage: --in=export.json --url=…/api/index.php --token=…\n");
@@ -202,6 +204,41 @@ foreach (['reminders', 'notes'] as $app) {
 
 // ---------------------------------------------------------------- push
 echo count($recs), " records converted\n";
+
+/**
+ * --only-new: never overwrite what the destination already holds.
+ *
+ * Every record this tool builds is stamped `now + 120s`, so on a plain run it
+ * WINS last-write-wins against anything edited in CalMind since the first
+ * import. That is right for a first migration onto an empty account and wrong
+ * for every run after it — a second import would silently undo months of
+ * edits on any record that still carries its suite id.
+ *
+ * So: pull the destination's ids first and drop any record that matches. What
+ * is left is exactly the answer to "anything that isn't already there".
+ * Deleted records count as present — a row someone threw away in CalMind must
+ * not come back from the dead.
+ */
+if ($onlyNew) {
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true, CURLOPT_POST => true,
+        CURLOPT_POSTFIELDS => json_encode(['action' => 'sync', 'cursor' => 0, 'changes' => []]),
+        CURLOPT_HTTPHEADER => ['Content-Type: application/json', "Authorization: Bearer $token"],
+    ]);
+    $have = json_decode((string) curl_exec($ch), true);
+    if (!is_array($have) || empty($have['ok'])) {
+        fwrite(STDERR, "could not read the destination — refusing to guess what is new\n");
+        exit(1);
+    }
+    $ids = [];
+    foreach ((array) ($have['changes'] ?? []) as $c) { $ids[(string) ($c['id'] ?? '')] = true; }
+    $before = count($recs);
+    $recs = array_values(array_filter($recs, fn($r) => !isset($ids[(string) $r['id']])));
+    echo 'destination holds ', count($ids), ' records; skipping ', $before - count($recs),
+         ' already there, pushing ', count($recs), "\n";
+    if ($recs === []) { echo "nothing new — nothing pushed\n"; exit(0); }
+}
 $push = function (array $chunk) use ($url, $token): void {
     $ch = curl_init($url);
     curl_setopt_array($ch, [

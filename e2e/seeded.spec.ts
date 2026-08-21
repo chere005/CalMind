@@ -34,8 +34,14 @@ test('the app holds up against a seeded store, not just a fresh one', async ({ p
   expect(marked, 'a seeded month draws marks').toBeGreaterThan(3);
 
   const lines = page.getByTestId('balanced-line');
+  // WAITED FOR, not counted once. BalancedRow measures its chips and then
+  // lays them out, so "how many lines are there" is only true after a measure
+  // pass — and `await lines.count()` is a single snapshot with no retry. It
+  // read 0 once, at spec 229 of a full run on a loaded machine, and passed
+  // every time the file was run on its own. Nothing about the legend was
+  // wrong; the question was asked too early.
+  await expect(lines.first(), 'the legend rendered as balanced lines').toBeVisible({ timeout: 15_000 });
   const n = await lines.count();
-  expect(n, 'the legend rendered as balanced lines').toBeGreaterThan(0);
   if (n > 1) {
     // Sean's rule at real width with real chips: no line left nearly empty
     // while another is full. The first line is never shorter than the last.
