@@ -20,7 +20,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import { SyncEngine, reminderToggle, todayStr, watchFeed, type Rec, type Transport } from '@calmind/core';
 
-const BASE = process.env.CALMIND_LIVE_URL ?? 'https://seancheren.com/test/calmind/';
+const BASE = process.env.CALMIND_LIVE_URL ?? 'https://test.seancheren.com/calmind/';
 
 test.skip(!process.env.CALMIND_LIVE, 'set CALMIND_LIVE=1 to run against the deployed test server');
 

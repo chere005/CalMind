@@ -4,7 +4,7 @@ The same app, in a native window. This is a [Tauri 2](https://tauri.app) shell
 around the identical web export the site serves (`apps/app/dist`) — every
 screen, gesture and sync rule is the shared code; the Rust side only opens
 the window. It talks to the same backend and logins as web
-(`seancheren.com/test/calmind/api`), detected in `apps/app/src/config.ts` by
+(`seancheren.com/calmind/api` — PROD since 2026-08-20), detected in `apps/app/src/config.ts` by
 the `tauri:` origin, and keeps the same local-first snapshot in its own
 storage, so it opens offline like the phones do.
 

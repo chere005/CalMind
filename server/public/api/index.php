@@ -7,9 +7,24 @@
  * holds nothing.
  */
 
-// Repo layout first (local dev, tests); the NFSN test instance keeps lib outside
-// the web root, suite-style — /home/protected/calmind/lib.
-foreach ([dirname(__DIR__, 2) . '/lib', '/home/protected/calmind/lib'] as $__lib) {
+// WHICH lib — and this is per-INSTANCE, not a constant.
+//
+// It used to be [repo, '/home/protected/calmind/lib']. That second entry is
+// the TEST instance's, and on the server no other candidate matched: the API
+// lives at <webroot>/api/, so dirname(__DIR__, 2) is /home/public, and
+// /home/public/lib does not exist. Prod and dev therefore served their own
+// bundles and then talked to TEST's lib and TEST's data — one store behind
+// three front doors. It showed up as Sean being already signed in on prod
+// with his test account, while /home/protected/calmind-prod/data sat empty.
+//
+// instance.php is written BY THE DEPLOY into each instance's api/ directory
+// and names that instance's lib. It comes first, so a deployed instance can
+// never fall back to somebody else's data. The repo path stays ahead of the
+// hardcoded one for local dev and the e2e harness; the hardcoded test path
+// stays last, for an instance deployed before this file existed.
+$__instance = is_file(__DIR__ . '/instance.php') ? (string) require __DIR__ . '/instance.php' : '';
+foreach ([$__instance, dirname(__DIR__, 2) . '/lib', '/home/protected/calmind/lib'] as $__lib) {
+    if ($__lib === '') { continue; }
     if (is_file($__lib . '/app.php')) {
         require_once $__lib . '/app.php';
         break;

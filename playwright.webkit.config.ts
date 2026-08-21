@@ -55,13 +55,13 @@ export default defineConfig({
   globalSetup: './e2e/freshness.ts',
   use: {
     ...devices['Desktop Safari'],
-    baseURL: 'http://127.0.0.1:8791/test/calmind/',
+    baseURL: 'http://127.0.0.1:8791/calmind/',
     viewport: { width: 420, height: 900 },
   },
   webServer: {
     command:
       'rm -rf /tmp/calmind-e2e-webkit && mkdir -p /tmp/calmind-e2e-webkit && CALMIND_DATA_DIR=/tmp/calmind-e2e-webkit php -S 127.0.0.1:8791 e2e/router.php',
-    url: 'http://127.0.0.1:8791/test/calmind/',
+    url: 'http://127.0.0.1:8791/calmind/',
     reuseExistingServer: false,
     timeout: 15_000,
   },

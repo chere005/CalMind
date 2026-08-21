@@ -190,7 +190,9 @@ Only one of them is a deploy.
 | | where | how |
 |---|---|---|
 | **dev** | a local `php -S` on 8788, data in `server/data/` (gitignored, or `$CALMIND_DATA_DIR`) | nothing — it's a process on your Mac |
-| **test** | `https://seancheren.com/test/calmind/` — the only deployed instance of this app | `./server/deploy-test.sh` |
+| **prod** | `https://seancheren.com/calmind/` — what every app and device points at | `./server/deploy.sh prod --yes-prod` |
+| **test** | `https://test.seancheren.com/calmind/` — sandbox, its own data dir | `./server/deploy.sh` (a bare run is test) |
+| **dev** | `https://dev.seancheren.com/calmind/` | `./server/deploy.sh dev` |
 | **prod** | `https://seancheren.com/` is the **old PHP suite**, not this app | `./server/deploy-prod.sh`, which ships the `.well-known` passkey pair and nothing else |
 
 There is no production instance of this app. `/calmind/` and `/dev/calmind/`

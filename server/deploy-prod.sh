@@ -1,9 +1,10 @@
 #!/bin/sh
 # Deploy the PROD-ONLY files — and only those.
 #
-# There is no CalMind production INSTANCE. The app is served from
-# /test/calmind/ and nothing else; https://seancheren.com/calmind/ is the old
-# PHP suite, still live, and this script will not go near it. The one thing
+# THIS FILE PREDATES PROD. As of 2026-08-20 CalMind does have a production
+# instance — https://seancheren.com/calmind/ — deployed by server/deploy.sh,
+# which took that path over from the old PHP suite. This script is unchanged
+# and still does one thing. The one thing
 # CalMind legitimately puts at the production domain is the .well-known pair
 # that makes native passkeys work, because iOS will only fetch it from the
 # apex:

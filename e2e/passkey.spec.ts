@@ -19,7 +19,7 @@ import { expect, test, type Page } from '@playwright/test';
  * So: this file is the wiring, and the PHP suite is the verification. Neither
  * one alone is worth much, and it would be easy to believe otherwise.
  */
-const BASE = 'http://localhost:8790/test/calmind/';
+const BASE = 'http://localhost:8790/calmind/';
 
 async function virtualAuthenticator(page: Page): Promise<void> {
   const client = await page.context().newCDPSession(page);

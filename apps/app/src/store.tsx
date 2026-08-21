@@ -13,9 +13,69 @@ import { SyncEngine, lastDeleted, normalize, prefsOf, folderApp, recLabel, remin
 import { apiPost, type Session, syncTransport, ApiError } from './api';
 import { drainWidgetTicks, onWatchTick, pushWatchIfWidgetMoved, pushWatchList } from './watch';
 import { applyTheme, type ThemeName } from './theme';
+import { defaultServerUrl } from './config';
 
-const SESSION_KEY = 'calmind.session';
-const snapKey = (user: string) => `calmind.snapshot.${user}`;
+/**
+ * Storage is per-INSTANCE, because on the web it is per-ORIGIN and prod, test
+ * and dev share one.
+ *
+ * seancheren.com/calmind, /test/calmind and /dev/calmind differ only by PATH,
+ * and localStorage does not care about paths. So one `calmind.session` key was
+ * read by all three: loading prod restored the session test had written, and
+ * because a Session carries its own serverUrl, the prod page went on talking
+ * to TEST while looking like prod. Sean, 2026-08-20: "my account seems there
+ * at seancheren.com/calmind even on web" — it was, and it was test's.
+ *
+ * The tag is derived from the API this instance would use, so instances are
+ * separated by the one thing that actually distinguishes them. Subdomains will
+ * separate the origins too and make this redundant on the web; it stays
+ * because NATIVE has no origin at all, and a device that switches servers
+ * should not inherit the other one's snapshot either.
+ */
+const instanceTag = (): string => {
+  const url = defaultServerUrl();
+  // Host + path, minus the api filename: short, stable, and readable in a
+  // storage inspector, which a hash would not be.
+  return url.replace(/^https?:\/\//, '').replace(/\/api\/index\.php$/, '').replace(/[^A-Za-z0-9.]+/g, '_');
+};
+
+const SESSION_KEY = `calmind.session@${instanceTag()}`;
+const snapKey = (user: string) => `calmind.snapshot.${user}@${instanceTag()}`;
+
+/** What the keys were before they were per-instance. */
+const LEGACY_SESSION_KEY = 'calmind.session';
+const legacySnapKey = (user: string) => `calmind.snapshot.${user}`;
+
+/**
+ * Adopt the old un-namespaced session — but ONLY if it belongs to this
+ * instance.
+ *
+ * Without this every existing install signs out once, including the browser
+ * tab that has been on test all along, which is a real cost for a bug that is
+ * not its fault. With it, the instance whose serverUrl matches keeps its
+ * session and its snapshot, and everyone else's stays where it is rather than
+ * being deleted — the legacy keys are LEFT ALONE, so whichever instance owns
+ * them can still claim them, and nothing is destroyed if this reasoning turns
+ * out to be wrong.
+ */
+async function adoptLegacySession(): Promise<void> {
+  const already = await AsyncStorage.getItem(SESSION_KEY).catch(() => null);
+  if (already !== null) return;
+  const raw = await AsyncStorage.getItem(LEGACY_SESSION_KEY).catch(() => null);
+  if (!raw || raw === 'signed out') return;
+  let s: { serverUrl?: string; username?: string } | null = null;
+  try {
+    s = JSON.parse(raw) as { serverUrl?: string; username?: string };
+  } catch {
+    return;
+  }
+  if (!s || typeof s.serverUrl !== 'string' || typeof s.username !== 'string') return;
+  // The whole test: does that session belong to the instance now loading?
+  if (s.serverUrl !== defaultServerUrl()) return;
+  await AsyncStorage.setItem(SESSION_KEY, raw).catch(() => {});
+  const snap = await AsyncStorage.getItem(legacySnapKey(s.username)).catch(() => null);
+  if (snap !== null) await AsyncStorage.setItem(snapKey(s.username), snap).catch(() => {});
+}
 
 /**
  * Forget the stored session — and if storage refuses to delete it, leave
@@ -503,6 +563,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       // session means signed out, an unreadable snapshot means a fresh
       // engine. Damaged data costs you a login, never the app.
       try {
+        await adoptLegacySession();
         const raw = await AsyncStorage.getItem(SESSION_KEY).catch(() => null);
         let s: Session | null = null;
         try {

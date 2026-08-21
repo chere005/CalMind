@@ -23,6 +23,13 @@
  */
 import { test, expect, type Page } from '@playwright/test';
 
+/**
+ * Storage keys carry an INSTANCE TAG since 2026-08-20 — prod, test and dev
+ * share one origin on seancheren.com, and an untagged `calmind.session` was
+ * read by all three. A spec that writes the bare name is writing a key the
+ * app no longer reads, which makes it a test of nothing.
+ */
+
 let seq = 0;
 async function signup(page: Page): Promise<string> {
   const user = `so${Date.now()}${seq++}`;
@@ -63,7 +70,7 @@ test('online, the server refuses the leftover token', async ({ page }) => {
   await logOut(page, user);
 
   // The token really is still there — otherwise the rest proves nothing.
-  const onDisk = await page.evaluate(() => localStorage.getItem('calmind.session'));
+  const onDisk = await page.evaluate(() => localStorage.getItem('calmind.session@127.0.0.1_8790_calmind'));
   expect(onDisk, 'the session should still be on disk; the removal was refused').not.toBeNull();
 
   await page.reload();

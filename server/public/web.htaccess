@@ -34,3 +34,32 @@
 # the equivalent for the local harness.
 RewriteEngine On
 RewriteRule ^request$ index.html [L]
+
+# ── Host routing, and it has to live HERE ───────────────────────────────────
+#
+# The site's root .htaccess maps test.seancheren.com/X to /test/X. That rule
+# does NOT reach this directory: the presence of THIS FILE gives
+# /home/public/calmind its own per-directory config, and mod_rewrite does not
+# apply a parent's rules where a child has its own. So the subdomains were
+# being served PROD's directory — identical bundles, so nothing looked wrong,
+# until a signup on test.seancheren.com created its account in prod's store.
+#
+# Deployed to all three instances, so it must be a no-op in two of them. The
+# !^/test/ guard is what does that: under /home/public/test/calmind the
+# request URI already starts with /test/, so the rule skips rather than
+# rewriting to itself for ever.
+RewriteEngine On
+
+RewriteCond %{HTTP_HOST} ^test\. [NC]
+RewriteCond %{REQUEST_URI} !^/test/
+RewriteRule ^(.*)$ /test/calmind/$1 [L]
+
+RewriteCond %{HTTP_HOST} ^dev\. [NC]
+RewriteCond %{REQUEST_URI} !^/dev/
+RewriteRule ^(.*)$ /dev/calmind/$1 [L]
+
+# …and on the APEX, /test/ and /dev/ are gone (Sean: "it should just stop
+# working"). Not a redirect — a 404. seancheren.com is prod and nothing else.
+RewriteCond %{HTTP_HOST} !^(test|dev)\. [NC]
+RewriteCond %{REQUEST_URI} ^/(test|dev)/
+RewriteRule ^ - [R=404,L]

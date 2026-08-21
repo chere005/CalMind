@@ -16,12 +16,12 @@ export default defineConfig({
   retries: 0,
   workers: 1, // one scratch server, serialized specs — state stays explicable
   use: {
-    baseURL: 'http://127.0.0.1:8790/test/calmind/',
+    baseURL: 'http://127.0.0.1:8790/calmind/',
     viewport: { width: 420, height: 900 },
   },
   webServer: {
     command: 'rm -rf /tmp/calmind-e2e-data && mkdir -p /tmp/calmind-e2e-data && CALMIND_DATA_DIR=/tmp/calmind-e2e-data php -S 127.0.0.1:8790 e2e/router.php',
-    url: 'http://127.0.0.1:8790/test/calmind/',
+    url: 'http://127.0.0.1:8790/calmind/',
     reuseExistingServer: false,
     timeout: 15_000,
   },

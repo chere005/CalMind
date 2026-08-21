@@ -9,9 +9,11 @@ import { Platform } from 'react-native';
  *          should point to prod, not test now"). It replaced the old PHP
  *          suite at that path; the suite's pages are in
  *          /home/protected/suite-retired.
- *   TEST   https://seancheren.com/test/calmind/ — a sandbox with its own data
- *          dir, deployed by the same script. Nothing defaults here any more.
- *   DEV    https://seancheren.com/dev/calmind/, plus a local
+ *   TEST   https://test.seancheren.com/calmind/ — a sandbox with its own
+ *          data dir, deployed by the same script. Nothing defaults here any
+ *          more. It served at seancheren.com/test/calmind until 2026-08-20;
+ *          that path 404s now.
+ *   DEV    https://dev.seancheren.com/calmind/, plus a local
  *          `php -S 127.0.0.1:8788 -t server/public` whose data dir is
  *          server/data/ (gitignored) unless $CALMIND_DATA_DIR says otherwise.
  */

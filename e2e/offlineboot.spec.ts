@@ -78,14 +78,14 @@ test('online, the document still comes from the network', async ({ page, context
   // by the service worker. With cache-first it never does.
   const fromWorker: string[] = [];
   context.on('request', (r) => {
-    if (r.serviceWorker() && r.url().includes('/test/calmind/')) fromWorker.push(r.url());
+    if (r.serviceWorker() && r.url().includes('/calmind/')) fromWorker.push(r.url());
   });
   await page.reload();
   await expect(page.getByTestId('cal-grid')).toBeVisible({ timeout: 20_000 });
   await page.waitForTimeout(500);
 
   expect(
-    fromWorker.some((u) => u.endsWith('/test/calmind/') || u.includes('index.html')),
+    fromWorker.some((u) => u.endsWith('/calmind/') || u.includes('index.html')),
     'the worker went to the network for the document rather than serving it blind',
   ).toBe(true);
   await context.setOffline(false);

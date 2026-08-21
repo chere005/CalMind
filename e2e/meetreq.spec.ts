@@ -27,7 +27,7 @@ async function signup(page: Page): Promise<string> {
   return user;
 }
 
-const API = 'http://127.0.0.1:8790/test/calmind/api/index.php';
+const API = 'http://127.0.0.1:8790/calmind/api/index.php';
 async function api<T>(body: object, token?: string): Promise<T> {
   const res = await fetch(API, {
     method: 'POST',

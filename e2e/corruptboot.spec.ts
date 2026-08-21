@@ -1,6 +1,13 @@
 import { expect, test } from '@playwright/test';
 
 /**
+ * Storage keys carry an INSTANCE TAG since 2026-08-20 — prod, test and dev
+ * share one origin on seancheren.com, and an untagged `calmind.session` was
+ * read by all three. A spec that writes the bare name is writing a key the
+ * app no longer reads, which makes it a test of nothing.
+ */
+
+/**
  * Damaged storage must cost you a login, never the app.
  *
  * The boot effect reads the session and its snapshot and then calls
@@ -21,8 +28,8 @@ import { expect, test } from '@playwright/test';
 test('a session and snapshot that will not parse still let the app start', async ({ page }) => {
   await page.goto('.');
   await page.evaluate(() => {
-    localStorage.setItem('calmind.session', '{"token":"abc",BROKEN');
-    localStorage.setItem('calmind.snapshot.someone', '{{{not json');
+    localStorage.setItem('calmind.session@127.0.0.1_8790_calmind', '{"token":"abc",BROKEN');
+    localStorage.setItem('calmind.snapshot.someone@127.0.0.1_8790_calmind', '{{{not json');
   });
   await page.reload();
 
@@ -31,7 +38,7 @@ test('a session and snapshot that will not parse still let the app start', async
 
   // And the unparseable session is GONE, so the next launch is clean rather
   // than meeting the same bytes again.
-  const left = await page.evaluate(() => localStorage.getItem('calmind.session'));
+  const left = await page.evaluate(() => localStorage.getItem('calmind.session' + '@127.0.0.1_8790_calmind'));
   expect(left).toBeNull();
 });
 
@@ -48,7 +55,7 @@ test('a good session with a corrupt snapshot signs in and resyncs', async ({ pag
   await expect(page.getByTestId('tab-reminders')).toBeVisible({ timeout: 15_000 });
 
   await page.evaluate((user) => {
-    localStorage.setItem(`calmind.snapshot.${user}`, 'not json at all');
+    localStorage.setItem(`calmind.snapshot.${user}@127.0.0.1_8790_calmind`, 'not json at all');
   }, u);
   await page.reload();
 

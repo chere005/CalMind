@@ -74,7 +74,18 @@ paths_for() {
   # address. Defaulting to test's would have let a prod upload be "verified"
   # by fetching test, which is the shape of check that passes while the thing
   # it checks is broken.
-  SITE_URL="https://seancheren.com${WEB_DEST#/home/public}"
+  #
+  # NOT derived from WEB_DEST any more. test and dev moved to subdomains on
+  # 2026-08-20 and the apex paths they used to live at now 404 BY DESIGN, so
+  # https://seancheren.com/test/calmind — which is exactly what deriving it
+  # produced — failed all twelve checks the moment that shipped. Where a file
+  # sits on disk and what the world calls it are two different facts now, and
+  # this table holds both.
+  case "$1" in
+    test) SITE_URL="https://test.seancheren.com/calmind" ;;
+    dev)  SITE_URL="https://dev.seancheren.com/calmind" ;;
+    prod) SITE_URL="https://seancheren.com/calmind" ;;
+  esac
   DATA_DEST="$(dirname "$LIB_DEST")/data"
   INST_DIR="$(dirname "$LIB_DEST")"
   WEB_PATH="${WEB_DEST#/home/public}"
@@ -274,6 +285,21 @@ upload_to() {
 
   echo "==> [$INST] api -> $WEB_DEST/api/"
   rsync -avL $DRY server/public/api/ "$SSH_DEST:$WEB_DEST/api/"
+
+  # WHICH lib this instance's API loads. Without it the API falls back to a
+  # hardcoded /home/protected/calmind/lib — the TEST instance's — because the
+  # repo-relative candidate cannot exist on the server. Prod and dev served
+  # their own bundles and then read and wrote TEST's data: one store behind
+  # three front doors, found when prod knew an account it had never been told
+  # about and its own data dir was empty.
+  #
+  # Written here rather than shipped in the repo, because its contents are the
+  # one thing that differs per instance. Uploaded AFTER the api/ rsync, which
+  # would otherwise not delete it but would race it.
+  if [ -z "$DRY" ]; then
+    echo "==> [$INST] api instance -> $LIB_DEST"
+    ssh "$SSH_DEST" "printf '%s\\n' '<?php return \"$LIB_DEST\";' > $WEB_DEST/api/instance.php"
+  fi
 
   if [ "$WEB" = 1 ]; then
     # Not `&& [ -d apps/app/dist ]`: a missing export used to skip this block

@@ -21,7 +21,10 @@ cd "$(dirname "$0")/../.."
 
 STATIC=0
 case "$1" in --static) STATIC=1; shift ;; esac
-BASE="${1:-https://seancheren.com/test/calmind}"
+# PROD by default. It was test's apex path, which stopped existing on
+# 2026-08-20 when test moved to its subdomain — so a bare run checked a URL
+# that 404s and reported eleven failures about the wrong instance.
+BASE="${1:-https://seancheren.com/calmind}"
 API="$BASE/api/index.php"
 U="smoke$(date +%s)"
 PASS=0

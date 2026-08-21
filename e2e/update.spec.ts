@@ -45,7 +45,7 @@ test('a build the server no longer serves is replaced, once', async ({ page }) =
     await route.fulfill({
       status: 200,
       contentType: 'text/html',
-      body: `<!DOCTYPE html><html><body><script src="/test/calmind/_expo/static/js/web/${NEW_BUNDLE}"></script></body></html>`,
+      body: `<!DOCTYPE html><html><body><script src="/calmind/_expo/static/js/web/${NEW_BUNDLE}"></script></body></html>`,
     });
   });
 
@@ -94,7 +94,7 @@ test('a half-typed field stops the update, however stale the page is', async ({ 
     await route.fulfill({
       status: 200,
       contentType: 'text/html',
-      body: `<!DOCTYPE html><html><body><script src="/test/calmind/_expo/static/js/web/${NEW_BUNDLE}"></script></body></html>`,
+      body: `<!DOCTYPE html><html><body><script src="/calmind/_expo/static/js/web/${NEW_BUNDLE}"></script></body></html>`,
     });
   });
 

@@ -12,7 +12,7 @@ import { execFileSync } from 'node:child_process';
  * through the real API, anchored on today so it never goes stale); this points
  * it at the harness and then reads what the screens make of it.
  */
-const API = 'http://127.0.0.1:8790/test/calmind/api/index.php';
+const API = 'http://127.0.0.1:8790/calmind/api/index.php';
 
 test('the app holds up against a seeded store, not just a fresh one', async ({ page }) => {
   test.setTimeout(120_000);

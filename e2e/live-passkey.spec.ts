@@ -17,7 +17,7 @@ import { expect, test, type Page } from '@playwright/test';
  * TEST only. The deploy script refuses non-test destinations and so does this:
  * the URL is asserted below before anything is created.
  */
-const BASE = process.env.CALMIND_LIVE_URL ?? 'https://seancheren.com/test/calmind/';
+const BASE = process.env.CALMIND_LIVE_URL ?? 'https://test.seancheren.com/calmind/';
 
 test.skip(!process.env.CALMIND_LIVE, 'set CALMIND_LIVE=1 to run against the deployed test server');
 

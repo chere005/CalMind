@@ -41,7 +41,7 @@ test('a script that will not load is named, not suffered in silence', async ({ p
   await page.evaluate(() => {
     document.getElementById('root')!.replaceChildren();
     const s = document.createElement('script');
-    s.src = '/test/calmind/_expo/static/js/web/index-doesnotexist.js';
+    s.src = '/calmind/_expo/static/js/web/index-doesnotexist.js';
     document.body.appendChild(s);
   });
   const shout = page.getByTestId('fatal-error');
