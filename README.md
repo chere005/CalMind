@@ -271,3 +271,11 @@ breaking a copy and requiring the copy to fail.
    expansion into day-chips, and Manage calendars grows "Subscribed by
    link"). OAuth, CalDAV and Gmail remain not started, deliberately — the
    Gmail question (his own Google Cloud project) is still with Sean.
+
+## License
+
+BSD 3-Clause — see [LICENSE](LICENSE). Do what you like with it: use it,
+change it, fold it into something else, commercially or not, no permission
+needed and no warranty given. The two things the licence does ask are that
+the copyright notice travels with the source, and that you don't use Sean's
+name to endorse whatever you build from it.
