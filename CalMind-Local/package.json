@@ -1,0 +1,14 @@
+{
+  "name": "calmind-local",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "app"
+  ],
+  "scripts": {
+    "test:core": "npm -w @calmind/core run test -- --run",
+    "ios": "npm -w calmind-local-app run ios",
+    "start": "npm -w calmind-local-app run start",
+    "typecheck": "npm -w calmind-local-app exec tsc -- --noEmit"
+  }
+}
