@@ -62,6 +62,31 @@ try "refuses a DEST that is not well-known" 's|^DEST=.*|DEST="/home/public"|'   
 # The bare form must refuse: this one is about argv, so the copy is unmodified.
 try "refuses to run without --yes"          's|^#unchanged$|#unchanged|'                         deploy-prod.sh
 
+echo "deploy.sh — targets, consent and the path table"
+# The multi-destination lane (2026-08-20). deploy-prod.sh's header argued that
+# a mode flag is one typo away from choosing production; these are the checks
+# that make the typo have to be a different, deliberate typo.
+try "refuses prod without --yes-prod"        's|^#unchanged$|#unchanged|'                         deploy.sh prod --dry-run --no-web
+try "refuses an unknown instance"            's|^#unchanged$|#unchanged|'                         deploy.sh staging --dry-run --no-web
+try "refuses a prod row aimed at the root"   's|WEB_DEST="/home/public/calmind" ;;|WEB_DEST="/home/public" ;;|' deploy.sh prod --yes-prod --dry-run --no-web
+try "refuses a table row that moved"         's|WEB_DEST="/home/public/dev/calmind" ;;|WEB_DEST="/home/public/test/calmind" ;;|' deploy.sh dev --dry-run --no-web
+try "refuses a lib outside its instance"     's|LIB_DEST="/home/protected/calmind-prod/lib"|LIB_DEST="/home/protected/lib"|' deploy.sh prod --yes-prod --dry-run --no-web
+
+# …and the bare form must be TEST, which is the one case here that has to
+# SUCCEED to prove anything. Checked by reading what it announces, since a
+# neutered copy gets all the way through.
+copy="server/_guardcheck-bare-$$.sh"
+sed -e 's|^\( *\)ssh |\1echo "   [guardcheck] would ssh: " |' \
+    -e 's|^\( *\)rsync |\1echo "   [guardcheck] would rsync: " |' \
+    server/deploy.sh > "$copy"
+chmod +x "$copy"
+if "./$copy" --dry-run --no-web --no-gestures >"$TMP/bare" 2>&1 && grep -q '==> targets: test$' "$TMP/bare"; then
+  ok "a bare run is the test instance"
+else
+  bad "a bare run did not announce test alone — check $TMP/bare"
+fi
+rm -f "$copy"
+
 echo "deploy-test.sh — the PHP lint gate"
 # The gate that could not fail. Break a real file, in a copy of the tree the
 # script lints, and require the deploy to stop.
