@@ -15,7 +15,24 @@ const live = (r: { deleted?: boolean }) => !r.deleted;
 const of = <T extends AnyRec['type']>(recs: AnyRec[], t: T) =>
   recs.filter((r) => r.type === t && live(r)) as Rec<T>[];
 
-export type DayReminder = { rec: Rec<'reminder'>; overdue: boolean; rider: boolean };
+export type DayReminder = {
+  rec: Rec<'reminder'>;
+  overdue: boolean;
+  rider: boolean;
+  /**
+   * This row is here because it is LATE, not because it belongs to this day —
+   * its due date is some earlier day and `late` rolled it onto today.
+   *
+   * Reported so the screen can tell the two apart. `overdue` cannot do it: it
+   * means late AND OPEN, so a ticked overdue row has overdue false and looks
+   * exactly like one that belongs here. That mattered the moment Sean turned
+   * Completed on (2026-08-20: "show completed only shows completed reminders
+   * from the day being selected") — today's panel was also showing everything
+   * completed that had been due on other days, because a late row is
+   * collected whether or not it is done.
+   */
+  late: boolean;
+};
 export type DayItems = { events: Rec<'event'>[]; reminders: DayReminder[]; notes: Rec<'note'>[] };
 
 /** Everything on `date`, in the panel's order. `today` decides overdue/riders. */
@@ -64,7 +81,7 @@ export function dayItems(recs: AnyRec[], date: string, today: string, modes?: Re
     // struck through for its two seconds rather than wearing the late colour.
     const late = !!due && due < today && date === today;
     const overdue = late && !done;
-    if (rider || onDate || late) reminders.push({ rec: r, overdue, rider });
+    if (rider || onDate || late) reminders.push({ rec: r, overdue, rider, late: late && !onDate });
   }
   reminders.sort((a, b) => {
     const ka = `${a.rec.payload.due ?? ''}\u0000${a.rec.payload.time ?? ''}`;

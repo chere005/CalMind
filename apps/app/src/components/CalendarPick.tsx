@@ -117,6 +117,11 @@ export function CalendarPick() {
                   return (
                     <View key={c.id} style={s.row}>
                       <Pressable
+                        // The shared and subscribed rows have carried a testID
+                        // since they were written; this one never did, so the
+                        // one box a test most wants to tick was the only one
+                        // it could not name.
+                        testID={`calbox-${c.payload.name}`}
                         hitSlop={8}
                         onPress={() => setPrefs({ hidden: off ? hidden.filter((id) => id !== c.id) : [...hidden, c.id], lastView: 'all' })}
                       >

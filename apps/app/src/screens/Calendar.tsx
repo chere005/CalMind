@@ -107,18 +107,44 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
     AsyncStorage.setItem('calmind.calShowDone', on ? '1' : '').catch(() => {});
   };
   const swipe = useSwipeLeft();
-  // Week mode sticks per device, like the suite's localStorage calWeekMode.
-  const [weekMode, setWeekMode] = useState(false);
+  /**
+   * THREE views, not two (Sean, 2026-08-20: "swiping up again should go to a
+   * list view … grouped by day … go out 3 months by default"). Up folds
+   * month → fortnight → list; down opens it back out. Sticks per device, as
+   * the fortnight always has.
+   *
+   * calWeekMode is still read on boot and never written again: it is what
+   * every existing install has, and dropping it would silently unfold the
+   * fortnight for anyone who had it. The new key supersedes it when present.
+   */
+  type CalView = 'month' | 'week' | 'list';
+  const VIEWS: CalView[] = ['month', 'week', 'list'];
+  const [calView, setCalViewState] = useState<CalView>('month');
+  const weekMode = calView === 'week';
   const [wkAnchor, setWkAnchor] = useState(today);
   useEffect(() => {
-    AsyncStorage.getItem('calmind.calWeekMode').then((raw) => raw === '1' && setWeekMode(true));
+    AsyncStorage.getItem('calmind.calView')
+      .then(async (v) => {
+        if (v === 'month' || v === 'week' || v === 'list') { setCalViewState(v); return; }
+        const legacy = await AsyncStorage.getItem('calmind.calWeekMode').catch(() => null);
+        if (legacy === '1') setCalViewState('week');
+      })
+      .catch(() => {});
   }, []);
-  const setWeek = (on: boolean) => {
-    setWeekMode(on);
+  const setCalView = (v: CalView) => {
+    setCalViewState(v);
     // Fold onto the selected day when it's in the shown month, else onto the
     // shown month itself — folding must never yank the view somewhere else.
-    if (on) setWkAnchor(day.startsWith(ym) ? day : `${ym}-01`);
-    AsyncStorage.setItem('calmind.calWeekMode', on ? '1' : '').catch(() => {});
+    if (v === 'week') setWkAnchor(day.startsWith(ym) ? day : `${ym}-01`);
+    AsyncStorage.setItem('calmind.calView', v).catch(() => {});
+  };
+  /** Up is further in (month → week → list); down is back out. Clamped at
+   *  both ends, so a swipe past the last view does nothing rather than
+   *  wrapping around to the first. */
+  const stepView = (inward: boolean) => {
+    const i = VIEWS.indexOf(calView);
+    const next = VIEWS[Math.min(VIEWS.length - 1, Math.max(0, i + (inward ? 1 : -1)))]!;
+    if (next !== calView) setCalView(next);
   };
   // Edit only: the panel's own "+ Add" pill is gone (Sean, 2026-08-20 —
   // "remove the additional add button on calendar"). Creating on a day is
@@ -198,7 +224,21 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
   const grace = useTickGrace();
   const shTick = useSharedTick();
   const myReminders = useMemo(
-    () => items.reminders.filter(({ rec: r }) => showDone || !r.payload.done || grace.held(r.id)),
+    () =>
+      items.reminders.filter(({ rec: r, late }) => {
+        if (!r.payload.done) return true;
+        // Held by the tick grace: it stays for its two seconds wherever it
+        // is, so the tap can be taken back. This is why core collects a late
+        // row whether or not it is done — a filter cannot hold a row that is
+        // not in the list.
+        if (grace.held(r.id)) return true;
+        // Completed, and Completed is on. Show it on the day it BELONGS to,
+        // never on today merely because it is late (Sean, 2026-08-20: "show
+        // completed only shows completed reminders from the day being
+        // selected"). A finished reminder has nothing left to be late for,
+        // and rolling it forward put every past completion on today.
+        return showDone && !late;
+      }),
     [items, showDone, grace.version],
   );
   // shTick.version for the same reason as grace.version above: a memo filtered
@@ -231,6 +271,37 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
   };
 
   const calById = useMemo(() => new Map(recs.filter((r): r is Rec<'calendar'> => r.type === 'calendar').map((c) => [c.id, c.payload])), [recs]);
+
+  /**
+   * The LIST view: every day from today out three months that has anything on
+   * it (Sean, 2026-08-20). Shaped like the widget's feed — events, reminders
+   * and notes under a day heading — but filtered by the picker, so switching a
+   * calendar off empties it here exactly as it empties the grid.
+   *
+   * dayItems per day rather than one pass over the records, because BELONGING
+   * to a day is not a property of a record: a repeat lands on many days, a
+   * rider lands on today, and an overdue reminder is collected onto today
+   * while still being due last week. That logic lives in core and asking it
+   * ninety-two times is cheaper than keeping a second copy of it here that
+   * could disagree.
+   *
+   * Only computed in list view: it is ninety-two passes over the whole record
+   * set, and the month grid has no use for it.
+   */
+  const LIST_DAYS = 92;
+  const agenda = useMemo(() => {
+    if (calView !== 'list') return [];
+    const out: { date: string; items: ReturnType<typeof dayItems> }[] = [];
+    for (let i = 0; i < LIST_DAYS; i++) {
+      const d = addDays(today, i);
+      const it = dayItems(drawn, d, today, folderModes);
+      const shown = it.reminders.filter(({ rec: r, late }) => !r.payload.done || (showDone && !late));
+      if (it.events.length + shown.length + it.notes.length > 0) {
+        out.push({ date: d, items: { ...it, reminders: shown } });
+      }
+    }
+    return out;
+  }, [calView, drawn, today, folderModes, showDone]);
 
   const page = (dir: -1 | 1) => {
     // The arrows and a sideways swipe do the same thing: a week in week
@@ -276,14 +347,14 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
     // the page with no scrolling ancestor, so nothing is there to ask.
     onPanResponderRelease: (_e: unknown, g: { dx: number; dy: number }) => {
       const { dx, dy } = g;
-      if (Math.abs(dy) > 40 && Math.abs(dy) > 1.5 * Math.abs(dx)) setWeekRef.current(dy < 0);
+      if (Math.abs(dy) > 40 && Math.abs(dy) > 1.5 * Math.abs(dx)) stepViewRef.current(dy < 0);
       else if (Math.abs(dx) > 50 && Math.abs(dx) > 1.5 * Math.abs(dy)) pageRef.current(dx < 0 ? 1 : -1);
     },
   };
   const gridPan = useRef(PanResponder.create(swipeConfig)).current;
   const legendPan = useRef(PanResponder.create(swipeConfig)).current;
-  const setWeekRef = useRef(setWeek);
-  setWeekRef.current = setWeek;
+  const stepViewRef = useRef(stepView);
+  stepViewRef.current = stepView;
   const pageRef = useRef(page);
   pageRef.current = page;
 
@@ -487,6 +558,55 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
         <CircleBtn testID="cal-next" glyph="›" label="Next" size={32} onPress={() => page(1)} />
       </View>
 
+      {calView === 'list' ? (
+        /* THE LIST. It replaces the grid, the legend and the day panel
+           together — a swipe down brings them all back. The pan handlers ride
+           on the header wrapper so the gesture still works here; the rows
+           themselves scroll. */
+        <View testID="cal-list" style={s.listWrap} {...gridPan.panHandlers}>
+          <Scroll contentContainerStyle={s.listInner}>
+            {agenda.length === 0 && (
+              <Text testID="cal-list-empty" style={s.listEmpty}>Nothing in the next three months</Text>
+            )}
+            {agenda.map(({ date: d, items: it }) => (
+              <View key={d} testID="cal-list-day" style={s.listDay}>
+                {/* The heading selects that day and folds back to the month,
+                    so the list is a way IN rather than a dead end. */}
+                <Pressable
+                  testID="cal-list-head"
+                  onPress={() => { setDay(d); setCalView('month'); }}
+                  style={s.listHead}
+                >
+                  <Text style={[s.listHeadText, d === today && s.listHeadToday]}>
+                    {new Date(`${d}T12:00:00`).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
+                  </Text>
+                </Pressable>
+                {it.events.map((e) => (
+                  <View key={e.id} style={s.listRow}>
+                    <View style={[s.dot, s.rowDot, { backgroundColor: calById.get(e.payload.calendarId)?.color ?? T.folderBlue }]} />
+                    <Text numberOfLines={1} style={s.rowText}>{e.payload.text}</Text>
+                    {e.payload.time && <Text style={s.chip}>{timeRangeLabel(e.payload.time, e.payload.end, clock24)}</Text>}
+                  </View>
+                ))}
+                {it.reminders.map(({ rec: r, overdue }) => (
+                  <View key={r.id} style={s.listRow}>
+                    <TickBoxGlyph size={14} color={overdue ? T.overdue : T.dim} />
+                    <Text numberOfLines={1} style={[s.rowText, r.payload.done && s.rowDone]}>{r.payload.text}</Text>
+                    {r.payload.time && <Text style={s.chip}>{timeLabel(r.payload.time, clock24)}</Text>}
+                  </View>
+                ))}
+                {it.notes.map((n) => (
+                  <View key={n.id} style={s.listRow}>
+                    <Text style={[s.markGlyph, { color: T.dim }]}>▤</Text>
+                    <Text numberOfLines={1} style={s.rowText}>{n.payload.title}</Text>
+                  </View>
+                ))}
+              </View>
+            ))}
+          </Scroll>
+        </View>
+      ) : (
+      <>
       <View testID="cal-grid" style={s.grid} {...gridPan.panHandlers}>
         {WEEKDAYS.map((w, i) => (
           <Text key={i} style={s.weekday}>{w}</Text>
@@ -800,6 +920,8 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
         )}
         </EditExit>
       </Scroll>
+      </>
+      )}
       {modal && <ItemModal mode="edit" kind={modal.kind} rec={modal.rec} onClose={() => setModal(null)} onSaved={(id, kind) => kind === 'note' && onNoteCreated?.(id)} />}
     </View>
   );
@@ -807,6 +929,16 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
 
 const s = themed(() => StyleSheet.create({
   page: { flex: 1, backgroundColor: T.bg },
+  // The list view, which stands in for the grid, the legend and the day panel
+  // at once. flex 1 so it takes the height all three of them had.
+  listWrap: { flex: 1 },
+  listInner: { paddingHorizontal: 16, paddingBottom: 48, gap: 14 },
+  listDay: { gap: 2 },
+  listHead: { paddingVertical: 4 },
+  listHeadText: { color: T.accentInk, fontSize: 14, fontWeight: '700' },
+  listHeadToday: { color: T.accent },
+  listRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 3, paddingLeft: 8 },
+  listEmpty: { color: T.muted, fontSize: 15, paddingVertical: 24, textAlign: 'center' },
   // 8pt below the divider on every tab. Measured before touching it: 6 on
   // Reminders, 9 on Habits, 11 on Calendar, 16 on Notes. Sean named Habits as
   // closest and a hair tall, so 8 is the target and every screen is tuned to

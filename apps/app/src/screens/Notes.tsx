@@ -10,6 +10,7 @@ import { defaultNoteTitle, looksLikeDefaultNoteTitle, deleteSection, renameSecti
 import * as Clipboard from 'expo-clipboard';
 import { useStore } from '../store';
 import { UnitBadge } from '../components/IngredientBadge';
+import { RichText } from '../components/RichText';
 import { useNav } from '../nav';
 import { themed, T } from '../theme';
 import { TopBar } from '../chrome';
@@ -92,7 +93,10 @@ function RichBody({ body, onLine, badges }: { body: string; onLine?: (text: stri
           : undefined;
         const content = parts?.qty ? (
           <>
-            <Text style={s.rtText}>{parts.name || raw}</Text>
+            {/* RichText, not a bare <Text>: this branch joined the runs back
+                into a plain string to get at the name, which printed the
+                asterisks it had just parsed away (Sean, 2026-08-20). */}
+            <RichText text={parts.name || raw} style={s.rtText} />
             <UnitBadge qty={parts.qty} unit={parts.unit} />
           </>
         ) : (

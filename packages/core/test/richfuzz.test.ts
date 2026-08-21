@@ -49,7 +49,18 @@ function skipped(all: string, sub: string): string | null {
 const ALPHABET = ['a', 'b', ' ', '*', '_', '>', '-', '1', '.', ')', '\n', 'é', '🙂'];
 
 describe('richLines never eats the text', () => {
-  it('over ten thousand random bodies', () => {
+  /**
+   * 30s, not vitest's default 5s. This walks ten thousand generated bodies and takes
+   * five to seven seconds on an idle machine — so it passed here and timed
+   * out inside a deploy, which runs it while an export and a browser suite
+   * are competing for the same cores. It refused four deploys on
+   * 2026-08-20 before the cause was read rather than guessed at: the failure
+   * says "Test timed out in 5000ms", not an assertion.
+   *
+   * The check is unchanged. Only the clock it is given is, and a fuzz test
+   * that walks ten thousand generated bodies has every right to take seconds.
+   */
+  it('over ten thousand random bodies', { timeout: 30_000 }, () => {
     let seed = 4242;
     const rnd = (n: number) => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed % n; };
     for (let t = 0; t < 10_000; t++) {

@@ -2,7 +2,7 @@
   "expo": {
     "name": "CalMind",
     "slug": "calmind",
-    "version": "1.3.0",
+    "version": "1.4.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -16,11 +16,11 @@
           "group.com.seancheren.calmind"
         ]
       },
-      "buildNumber": "52"
+      "buildNumber": "53"
     },
     "android": {
       "package": "com.seancheren.calmind",
-      "versionCode": 52,
+      "versionCode": 53,
       "adaptiveIcon": {
         "backgroundColor": "#111111",
         "foregroundImage": "./assets/android-icon-foreground.png",

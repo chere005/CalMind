@@ -31,7 +31,18 @@ const dayOf = (d: string) => new Date(`${d}T12:00:00Z`).getUTCDay();
 const daysIn = (y: number, m: number) => new Date(Date.UTC(y, m, 0)).getUTCDate();
 
 describe('monthGridFilled', () => {
-  it('is whole weeks of real, consecutive dates covering the month, 1900-2100', () => {
+  /**
+   * 30s, not vitest's default 5s. This walks two centuries of months and takes
+   * five to seven seconds on an idle machine — so it passed here and timed
+   * out inside a deploy, which runs it while an export and a browser suite
+   * are competing for the same cores. It refused four deploys on
+   * 2026-08-20 before the cause was read rather than guessed at: the failure
+   * says "Test timed out in 5000ms", not an assertion.
+   *
+   * The check is unchanged. Only the clock it is given is, and a fuzz test
+   * that walks two centuries of months has every right to take seconds.
+   */
+  it('is whole weeks of real, consecutive dates covering the month, 1900-2100', { timeout: 30_000 }, () => {
     for (let y = 1900; y <= 2100; y++) {
       for (let m = 1; m <= 12; m++) {
         const g = monthGridFilled(y, m);

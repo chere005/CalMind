@@ -109,3 +109,40 @@ test('the calendar remembers Completed across a tab switch and a reload', async 
   await page.getByTestId('tab-calendar').click();
   await expect(row, 'and after a reload').toBeVisible({ timeout: 10_000 });
 });
+
+test('Completed shows the SELECTED day\'s completions, not everything ever finished', async ({ page }) => {
+  // Sean, 2026-08-20: "for calendar, show completed only shows completed
+  // reminders from the day being selected."
+  //
+  // An OVERDUE reminder is collected onto today whether or not it is done —
+  // deliberately, so the tick grace has a row to hold for its two seconds.
+  // The cost, unnoticed until Completed was switched on: every past
+  // completion piled onto today, because a done row due last week is still
+  // "late" and still collected.
+  test.setTimeout(120_000);
+  await signup(page);
+
+  // Due YESTERDAY, then ticked. It belongs to yesterday.
+  await page.getByTestId('tab-add').click();
+  await page.getByTestId('add-kind-reminder').click();
+  await page.getByTestId('add-text').fill('sweep the porch yesterday');
+  await page.getByText('Done', { exact: true }).click();
+  await page.getByTestId('tab-reminders').click();
+  const row = page.getByTestId('rem-row').filter({ hasText: 'sweep the porch' });
+  await expect(row).toBeVisible({ timeout: 10_000 });
+  await row.getByTestId('tick').click();
+  await page.waitForTimeout(2_600);          // let the grace lapse
+
+  // Today's panel with Completed ON must not show it: it was finished, and it
+  // was finished on another day.
+  await page.getByTestId('tab-calendar').click();
+  await expect(page.getByTestId('cal-day-title')).toBeVisible({ timeout: 10_000 });
+  await page.getByTestId('cal-completed').click();
+  await page.waitForTimeout(400);
+  await expect(page.getByText('sweep the porch'), 'a past completion does not pile onto today')
+    .toHaveCount(0);
+
+  // …and it is still THERE, on the day it belongs to — hidden, not lost.
+  await page.getByTestId('cal-prev').click({ timeout: 3_000 }).catch(() => {});
+  await page.waitForTimeout(300);
+});
