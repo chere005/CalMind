@@ -7,17 +7,18 @@
  * does not have; the theme and the clock are records like any other, so they
  * stay exactly as they were.
  */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { exportFilename, exportStore, exportText, prefsOf, prefsPut } from '@calmind/core';
 import { saveTextFile } from '../savefile';
 import { useStore } from '../store';
+import { passphrase as peerPassphrase, peerAvailable, setPassphrase } from '../peer';
 import { syncLook } from '../components/SyncDot';
-import { CircleBtn, Pill, ErrorLine } from '../ui';
+import { CircleBtn, Field, Pill, ErrorLine } from '../ui';
 import { applyTheme, currentTheme, themed, T, THEMES, type ThemeName } from '../theme';
 
 export function Settings({ onClose }: { onClose: () => void }) {
-  const { session, recs, mutate, syncState, persistFailed, refusedLabels } = useStore();
+  const { session, recs, mutate, syncState, persistFailed, refusedLabels, peers, peerState } = useStore();
   const pickTheme = (name: ThemeName) => {
     applyTheme(name);
     // The choice syncs like any pref, so every device follows.
@@ -31,6 +32,9 @@ export function Settings({ onClose }: { onClose: () => void }) {
   const setClock24 = (on: boolean) => mutate((e) => e.put(prefsPut(recs, 'suite', { clock24: on })));
   const look = syncLook(syncState, persistFailed, refusedLabels);
   const [msg, setMsg] = useState('');
+  const [phrase, setPhrase] = useState('');
+  const [phraseDraft, setPhraseDraft] = useState('');
+  useEffect(() => { void peerPassphrase().then(setPhrase); }, []);
   const [err, setErr] = useState('');
 
 
@@ -89,6 +93,43 @@ export function Settings({ onClose }: { onClose: () => void }) {
           <View style={s.footer}>
             <CircleBtn glyph="✓" label="Done" size={40} color={T.accent} active onPress={onClose} />
           </View>
+          {peerAvailable() && (
+            <View style={s.peerSection}>
+              <Text style={s.peerHead}>This network</Text>
+              <Text style={s.peerNote}>
+                {peerState.state === 'blocked' || peerState.state === 'failed'
+                  ? peerState.detail
+                  : peers.length === 0
+                    ? `No other device found yet (${peerState.state}${peerState.detail ? ': ' + peerState.detail : ''}). Open CalMind Local on your Mac and give it this same phrase.`
+                    : peers.map((p) => p.name).join(', ')}
+              </Text>
+              {/* The phrase is the whole of the link's security: a device that
+                  does not know it fails the TLS handshake and is turned away
+                  before any record is read. */}
+              <Text testID="peer-phrase" style={s.peerPhrase} selectable>{phrase}</Text>
+              <Field
+                testID="peer-phrase-field"
+                value={phraseDraft}
+                onChangeText={setPhraseDraft}
+                placeholder="Use another device's phrase"
+                autoCapitalize="characters"
+                autoCorrect={false}
+              />
+              <Pill
+                testID="peer-phrase-save"
+                label="Use it"
+                onPress={() => {
+                  const v = phraseDraft.trim();
+                  if (!v) return;
+                  void setPassphrase(v).then(() => {
+                    setPhrase(v.toUpperCase());
+                    setPhraseDraft('');
+                    setMsg('Pairing phrase set — reopen the app on both devices.');
+                  });
+                }}
+              />
+            </View>
+          )}
           <View style={s.row}>
             <Pill
               testID="export-data"
@@ -143,6 +184,10 @@ const s = themed(() => StyleSheet.create({
   clockOptOn: { backgroundColor: T.accentSoft },
   clockOptText: { color: T.dim, fontSize: 13, fontWeight: '600' },
   clockOptTextOn: { color: T.accent },
+  peerSection: { gap: 8, marginTop: 6, borderTopWidth: 1, borderTopColor: T.line, paddingTop: 10 },
+  peerHead: { color: T.dim, fontSize: 13, fontWeight: '700' },
+  peerNote: { color: T.muted, fontSize: 12 },
+  peerPhrase: { color: T.text, fontSize: 16, fontWeight: '700', letterSpacing: 1 },
   pkSection: { gap: 8, marginTop: 6, borderTopWidth: 1, borderTopColor: T.line, paddingTop: 10 },
   pkHead: { color: T.dim, fontSize: 12, textTransform: 'uppercase', letterSpacing: 1 },
   pkRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },

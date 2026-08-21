@@ -16,11 +16,17 @@
           "group.com.seancheren.calmindlocal"
         ]
       },
-      "buildNumber": "2"
+      "buildNumber": "3",
+      "infoPlist": {
+        "NSLocalNetworkUsageDescription": "CalMind Local mirrors your reminders, notes and calendar between your own devices over your local network. Nothing is ever sent to a server.",
+        "NSBonjourServices": [
+          "_calmind-local._tcp"
+        ]
+      }
     },
     "android": {
       "package": "com.seancheren.calmindlocal",
-      "versionCode": 2,
+      "versionCode": 3,
       "adaptiveIcon": {
         "backgroundColor": "#111111",
         "foregroundImage": "./assets/android-icon-foreground.png",

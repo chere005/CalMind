@@ -19,8 +19,14 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { SyncEngine, lastDeleted, normalize, prefsOf, recLabel, reminderToggle, todayStr, undeleted, type AnyRec, type Rec } from '@calmind/core';
+import {
+  CALENDAR_STARTER, FOLDER_CALENDAR, FOLDER_NOTES_STARTER, FOLDER_STARTER,
+  HABIT_SECTION_STARTER, SECTION_DEFAULT,
+  SyncEngine, lastDeleted, normalize, ordBetween, prefsOf, recLabel, reminderToggle,
+  todayStr, undeleted, type AnyRec, type Rec,
+} from '@calmind/core';
 import { drainWidgetTicks, onWatchTick, pushWatchIfWidgetMoved, pushWatchList } from './watch';
+import { deviceLabel, peerAvailable, sendAllTo, sendRecords, startPeer, stopPeer, type Peer, type PeerState } from './peer';
 import { applyTheme, type ThemeName } from './theme';
 
 /**
@@ -36,6 +42,7 @@ export const LOCAL_STORE: LocalStoreName = { username: 'local' };
 
 const SNAP_KEY = 'calmind.local.snapshot';
 
+
 /** Kept so `SyncDot` and Settings keep compiling; only ever 'idle' here. */
 type SyncState = 'idle' | 'syncing' | 'offline' | 'refused';
 
@@ -49,6 +56,9 @@ type Store = {
   /** This device could not write its local copy — a relaunch would lose work. */
   persistFailed: boolean;
   refusedLabels: string[];
+  /** The other devices on this network that know the passphrase. */
+  peers: Peer[];
+  peerState: PeerState;
   mutate: (fn: (engine: SyncEngine) => void) => void;
   undoLastDelete: () => string | null;
   partners: PartnerBadge[];
@@ -61,6 +71,52 @@ type Store = {
 const Ctx = createContext<Store | null>(null);
 export const useStore = () => useContext(Ctx)!;
 
+/**
+ * The starter records, with FIXED ids.
+ *
+ * This is the one thing an app with no server has to do differently, and it is
+ * not cosmetic. `normalize` seeds its starters with `newId()`, which is right
+ * when a server holds the one true copy: exactly one device ever seeds, and
+ * everybody else pulls what it made. Here every device seeds for itself, and
+ * two that each did so before meeting do not COLLIDE — they DUPLICATE. Two
+ * "Reminders" folders, two "Calendar" folders, two habit sections, for ever,
+ * with nothing able to say afterwards which was which.
+ *
+ * Seen, not imagined: two simulators paired after both had run alone, and the
+ * merged list had every starter twice.
+ *
+ * So the starters are written HERE, with ids derived from what they are rather
+ * than from a random number. Two devices that seed independently produce byte
+ * for byte the same records, and the merge folds them into one. `normalize`
+ * then finds everything it would have made already present and adds nothing —
+ * which is why this can live in the app instead of as a change to core, and
+ * core stays an unmodified clone.
+ *
+ * The colours repeat core's own seed values; they are module-private there.
+ */
+function starterRecords(): AnyRec[] {
+  const ord = ordBetween(null, null);
+  const folder = (id: string, name: string, color: string, app: 'reminders' | 'notes', rideAlong?: boolean): AnyRec => ({
+    id, type: 'folder', updated: 0,
+    payload: { name, color, ord, app, ...(rideAlong ? { rideAlong: true } : {}) },
+  });
+  const section = (id: string, folderId: string): AnyRec => ({
+    id, type: 'section', updated: 0, payload: { name: SECTION_DEFAULT, folderId, ord },
+  });
+  return [
+    folder('lf_reminders', FOLDER_STARTER, '#4c8bf0', 'reminders'),
+    // The ride-along folder: an undated open reminder in it shows on the
+    // calendar under today, every day, until ticked.
+    folder('lf_calendar', FOLDER_CALENDAR, '#66d695', 'reminders', true),
+    folder('lf_notes', FOLDER_NOTES_STARTER, '#7dc2ed', 'notes'),
+    section('ls_reminders', 'lf_reminders'),
+    section('ls_calendar', 'lf_calendar'),
+    section('ls_notes', 'lf_notes'),
+    { id: 'lc_personal', type: 'calendar', updated: 0, payload: { name: CALENDAR_STARTER, color: '#0379f6', ord } },
+    { id: 'lh_habits', type: 'habitsection', updated: 0, payload: { name: HABIT_SECTION_STARTER, color: '#4357ef', ord } },
+  ];
+}
+
 /** Sharing needs two accounts and a server to arbitrate between them. There is
  *  neither, so these are frozen empties rather than state nobody writes. */
 const NO_PARTNERS: PartnerBadge[] = [];
@@ -71,14 +127,25 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
   const [recs, setRecs] = useState<AnyRec[]>([]);
   const [persistFailed, setPersistFailed] = useState(false);
+  const [peers, setPeers] = useState<Peer[]>([]);
+  const [peerState, setPeerState] = useState<PeerState>({ state: 'off', detail: '' });
 
   /**
-   * Seeding starters against an engine that has not LOADED yet would write a
-   * second set over the top of the first on every launch. Upstream this waits
-   * for a cursor or a completed sync; here it waits for the one thing that can
-   * be waited for — the read off disk having been attempted.
+   * Whether it is safe to seed the starter folders yet.
+   *
+   * Upstream waits for a cursor or a completed sync — proof the server has
+   * spoken. Here the equivalent proof is one of three things: this device
+   * already HAS records, a peer has sent us some, or enough time has passed
+   * that there is evidently nobody to ask.
+   *
+   * Waiting matters, and getting it wrong is not subtle. Starters are created
+   * with fresh ids, so two devices that each seed independently do not collide
+   * — they DUPLICATE. Pair a new Mac with a phone that already has data and you
+   * would get two "Reminders" folders, two "Calendar" folders and two habit
+   * sections, for ever, with no rule able to tell which was which afterwards.
    */
   const hydratedRef = useRef(false);
+  const seedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   /** Re-render from the engine, keep the shape guarantees, feed the watch. */
   const refresh = useCallback(() => {
@@ -109,6 +176,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       .catch(() => setPersistFailed(true));
   }, []);
 
+  /** Put the fixed starters in, unless this store already holds them. */
+  const seedStarters = useCallback(() => {
+    const engine = engineRef.current;
+    const held = new Set(engine.toSnapshot().recs.map((r) => r.id));
+    const missing = starterRecords().filter((r) => !held.has(r.id));
+    for (const r of missing) engine.put(r);
+  }, []);
+
   const mutateRef = useRef<((fn: (engine: SyncEngine) => void) => void) | null>(null);
 
   /**
@@ -129,9 +204,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const mutate = useCallback(
     (fn: (engine: SyncEngine) => void) => {
+      // What CHANGED, by comparing stamps either side of the edit. The engine
+      // has no "what did you just write" callback, and asking it for its dirty
+      // set would not do: nothing clears that set in an app with no server, so
+      // it only grows and every edit would re-send the whole store.
+      const before = new Map(engineRef.current.toSnapshot().recs.map((r) => [r.id, r.updated]));
       fn(engineRef.current);
       refresh();
       persistNow();
+      const changed = engineRef.current.toSnapshot().recs.filter((r) => before.get(r.id) !== r.updated);
+      if (changed.length > 0) sendRecords(changed);
     },
     [refresh, persistNow],
   );
@@ -182,6 +264,41 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, [recs]);
 
   /**
+   * The Bonjour link.
+   *
+   * Records arriving from a peer are merged by CORE's rule, not one written
+   * here: `mergeSnapshot` is the same last-write-wins the app has always used,
+   * and it does not re-stamp what it takes — re-stamping on arrival would make
+   * every device's copy newer than every other's and the two would trade the
+   * same record back and forth for ever.
+   */
+  useEffect(() => {
+    if (!peerAvailable()) return;
+    startPeer(deviceLabel(), {
+      onRecords: (incoming) => {
+        const took = engineRef.current.mergeSnapshot({ cursor: 0, recs: incoming, dirty: [] });
+        // A peer having anything to say is proof there is a store to join, so
+        // the starters must NOT be seeded on top of it.
+        hydratedRef.current = true;
+        if (seedTimer.current) { clearTimeout(seedTimer.current); seedTimer.current = null; }
+        if (took) {
+          refresh();
+          persistNow();
+        }
+      },
+      onPeers: (list) => {
+        setPeers(list);
+        // A peer that has just appeared has never heard any of this. Tombstones
+        // go too: a device that has never met this one needs the deletes as
+        // much as the records.
+        for (const p of list) sendAllTo(p.id, engineRef.current.toSnapshot().recs);
+      },
+      onState: setPeerState,
+    }).catch((e) => setPeerState({ state: 'failed', detail: String(e) }));
+    return () => stopPeer();
+  }, [refresh, persistNow]);
+
+  /**
    * Boot: read the snapshot.
    *
    * NOTHING here may prevent setReady(true). Unguarded, this is the worst
@@ -214,12 +331,34 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         }
         engineRef.current = SyncEngine.fromSnapshot(parsed as never);
       } finally {
-        hydratedRef.current = true;
+        const held = engineRef.current.toSnapshot().recs.length > 0;
+        if (held) {
+          // This device already has a store; its starters are long since made.
+          hydratedRef.current = true;
+        } else if (peerAvailable()) {
+          // Empty, and there may be a device on this network holding the real
+          // store. Give it a moment to say so before writing a second set of
+          // starters that nothing could ever reconcile.
+          seedTimer.current = setTimeout(() => {
+            seedStarters();
+            hydratedRef.current = true;
+            refresh();
+            // Persist, and this is not optional: `refresh` only re-renders.
+            // Without it the starters live in memory until the first edit, so
+            // an app opened and closed without touching anything comes back to
+            // an empty store — and seeds again, for ever.
+            persistNow();
+          }, 6000);
+        } else {
+          seedStarters();
+          hydratedRef.current = true;
+        }
         refresh();
+        persistNow();
         setReady(true);
       }
     })();
-  }, [refresh]);
+  }, [refresh, persistNow, seedStarters]);
 
   // Sharing needs a second account and a server to arbitrate between them, so
   // its one write is a no-op rather than state nobody sets.
@@ -234,6 +373,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         syncState: 'idle',
         persistFailed,
         refusedLabels: [],
+        peers,
+        peerState,
         mutate,
         undoLastDelete,
         partners: NO_PARTNERS,
