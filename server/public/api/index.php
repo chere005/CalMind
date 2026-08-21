@@ -70,6 +70,10 @@ match ((string) ($in['action'] ?? '')) {
     'shared_pull'     => handle_shared_pull($cfg),
     'shared_put'      => handle_shared_put($cfg, $in),
     'sync'            => handle_sync($cfg, $in),
+    // Public, and deliberately: the ChefMind deploy asks this before it ships,
+    // so a client can never go out in front of an API that would silently
+    // merge its records into CalMind's store. See handle_spaces().
+    'spaces'          => handle_spaces(),
     'recipe_fetch'    => handle_recipe_fetch($cfg, $in),
     'calsub_fetch'    => handle_calsub_fetch($cfg, $in),
     // The meeting-request pair is PUBLIC (the page is a link anyone may

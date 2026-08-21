@@ -1,0 +1,48 @@
+# Working in ChefMind
+
+CalMind's reminders and recipes plus a shopping list, on CalMind's server and
+CalMind's accounts. A CLONE of `apps/app` and `packages/core`. `README.md` is
+the map.
+
+## Standing rules
+
+- **Only this folder, and the API's own seam.** Another session shares this
+  repo and works in `apps/`, `packages/` and `server/`. `git pull --autostash`
+  first, stage explicit paths, never `git add -A` — and when a shared file
+  holds both sessions' work, stage YOUR HUNKS, not the file.
+- **It is a clone, so keep it one.** A fix that belongs to the product belongs
+  upstream first and gets copied down. The deliberate divergences are written
+  down: `core/shopping.ts` (no twin), `core/normalize.ts` (no calendar or habit
+  starters, plus the shopping folder), the `shopping` flag on `Folder`, and the
+  screens listed in the README's "what was taken out".
+- **The space is not configurable.** `SYNC_SPACE` in `app/src/api.ts` is a
+  constant. A build that could be aimed at CalMind's records would merge two
+  stores into whichever one synced last, silently.
+- **Never point a local build at the production API.** `config.ts` derives the
+  API from the page's ORIGIN for exactly this reason. It said
+  `https://seancheren.com/...` first, and running the app on a laptop under
+  that would have written test records into Sean's real store through an API
+  that does not know the space yet.
+- **Prod is the only instance.** Sean, 2026-08-21: straight to
+  seancheren.com/ChefMind. So `deploy.sh`'s gates are not optional and there is
+  no rehearsal to fall back on.
+
+## Traps that have cost real time here
+
+- **`space` reaches a filename.** It is whitelisted in `sync_space()`, never
+  sanitised. "Reject anything not on the list" and "strip the characters I
+  thought of" are not the same door.
+- **`simctl`/browser text injection lowercases and drops characters.** The
+  `**Ingredients**` heading typed into the note body came out
+  `**ingredients**`; core matches it case-insensitively, so this cost only
+  confusion — but the same injection silently truncated a URL at the first `.`
+  elsewhere in this repo. Read back what you typed before believing a failure.
+- **A two-handled basket icon reads as a WASTE BIN at tab-bar size.** Next to a
+  list of things you are about to buy, that is the worst possible misread. One
+  arc over the top is the shape nothing else has.
+- **`␡` has no glyph in the app's font** and renders as a literal `DEL` box.
+- **The shell's working directory persists between Bash calls.** Use absolute
+  paths.
+- **Ask what happens when a write fails.** Same rule as upstream: the snapshot
+  is the device's only copy between syncs, and a store that will not parse is
+  moved aside and reported, never treated as an empty account.

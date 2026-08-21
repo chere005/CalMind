@@ -1,0 +1,16 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    // A value computed and never read is usually a feature that silently does
+    // not happen. Turned on 2026-08-12 after a sweep found forty of them —
+    // all dead that time, but the class includes the live kind, and the
+    // deploy gate now typechecks this project so it stays at zero.
+    "noUnusedLocals": true,
+    // Its sibling: an argument a handler is handed and ignores. Only two
+    // existed — a drag grip taking a folder it never used, and a tab bar
+    // destructuring an icon it does not draw. A leading underscore is the
+    // escape hatch where a signature is fixed by its caller.
+    "noUnusedParameters": true
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "name": "chefmind",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "app",
+    "desktop"
+  ],
+  "scripts": {
+    "test": "npm run test:core",
+    "test:core": "npm -w @calmind/core run test -- --run",
+    "web": "npm -w chefmind-app run web",
+    "export:web": "npm -w chefmind-app exec expo export -- -p web"
+  },
+  "devDependencies": {}
+}

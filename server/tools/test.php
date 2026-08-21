@@ -735,6 +735,59 @@ t('recipe_fetch: the ENDPOINT is behind auth and behind the address guard', func
     ok(trim((string) ($e['body']['error'] ?? '')) !== '', 'and carries a reason');
 });
 
+t('a sync SPACE is a separate store under the same login', function () use ($rec) {
+    // ChefMind (Sean, 2026-08-21) reuses these accounts and keeps its own
+    // reminders and notes. One token, two stores — so what is proved here is
+    // that the space actually SEPARATES: that a record written into 'chef'
+    // never appears in a spaceless pull, and the reverse.
+    //
+    // Both directions, deliberately. A records_file that ignored the space
+    // entirely would still pass a one-sided check that only asked "is my chef
+    // record here?", because it would be — in the shared file, alongside
+    // everything else.
+    $u   = 'space' . substr((string) mt_rand(), 0, 6);
+    $tok = api(['action' => 'signup', 'username' => $u, 'email' => $u . '@example.com', 'password' => 'spacepassword'])['body']['token'] ?? '';
+    ok($tok !== '', 'signed up for a token');
+
+    api(['action' => 'sync', 'cursor' => 0, 'changes' => [$rec('cal1', 100, 'calmind only')]], $tok);
+    api(['action' => 'sync', 'space' => 'chef', 'cursor' => 0, 'changes' => [$rec('chef1', 100, 'chefmind only')]], $tok);
+
+    $ids = function (array $r): array {
+        $out = array_map(fn($c) => (string) $c['id'], $r['body']['changes'] ?? []);
+        sort($out);
+        return $out;
+    };
+    eq(['cal1'], $ids(api(['action' => 'sync', 'cursor' => 0, 'changes' => []], $tok)),
+       "CalMind's pull holds only CalMind's record");
+    eq(['chef1'], $ids(api(['action' => 'sync', 'space' => 'chef', 'cursor' => 0, 'changes' => []], $tok)),
+       "the chef space holds only the chef record");
+
+    // The cursors are per store too. Sharing one would make the second app's
+    // first sync look already-caught-up and hand it nothing.
+    $c1 = api(['action' => 'sync', 'cursor' => 0, 'changes' => []], $tok)['body']['cursor'] ?? -1;
+    $c2 = api(['action' => 'sync', 'space' => 'chef', 'cursor' => 0, 'changes' => []], $tok)['body']['cursor'] ?? -1;
+    eq(1, $c1, "CalMind's sequence counts its own records");
+    eq(1, $c2, "the chef space counts its own");
+
+    // The space reaches a FILENAME. It is whitelisted rather than sanitised,
+    // and the whitelist is what is checked here — traversal included, because
+    // that is the shape of the mistake this is guarding against.
+    foreach (['nope', '../../../etc/passwd', 'chef/../..', 'CHEF'] as $bad) {
+        $r = api(['action' => 'sync', 'space' => $bad, 'cursor' => 0, 'changes' => []], $tok);
+        eq(400, $r['status'], "refused space: $bad");
+    }
+    // And nothing outside the data dir was created by any of that.
+    ok(!is_file('/tmp/records-' . $u . '.json'), 'no file escaped the data dir');
+
+    // The capability check the ChefMind deploy gates on. It must answer
+    // WITHOUT a token — the deploy holds none — and it must name the space,
+    // because an API that does not know `space` ignores the parameter and
+    // quietly merges ChefMind's records into CalMind's store.
+    $cap = api(['action' => 'spaces']);
+    eq(200, $cap['status'], 'spaces answers without auth');
+    ok(in_array('chef', (array) ($cap['body']['spaces'] ?? []), true), "and names 'chef'");
+});
+
 t("the server's day is Chicago's, not UTC", function () {
     // Anything here that asks what day it is gets this answer. Left on UTC it
     // turned over at 7pm Chicago, so every server-decided date was a day early

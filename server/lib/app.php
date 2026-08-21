@@ -186,7 +186,65 @@ function lockout_clear(array $cfg, string $user): void
         }
     });
 }
-function records_file(array $cfg, string $user): string { return $cfg['data_dir'] . '/records-' . $user . '.json'; }
+/**
+ * One record file per user PER SPACE.
+ *
+ * The default space is CalMind's and its filename is unchanged, byte for byte,
+ * because every existing store is already at that path.
+ *
+ * ChefMind (Sean, 2026-08-21) is a second app on this same server that reuses
+ * these accounts and keeps its own reminders and notes. It sends space='chef'
+ * and lands in records-chef-<user>.json. Nothing else about it is different:
+ * same auth, same tokens, same merge, same lock discipline — the space is only
+ * WHICH FILE.
+ *
+ * Sharing, the meeting-request pair and the widget feed all call this with no
+ * space and therefore always mean CalMind's store. That is deliberate rather
+ * than an oversight: a partnership is between two CalMind accounts, and a
+ * ChefMind note is not something either of them has agreed to share.
+ */
+function records_file(array $cfg, string $user, string $space = ''): string
+{
+    $prefix = $space === '' ? 'records-' : 'records-' . $space . '-';
+    return $cfg['data_dir'] . '/' . $prefix . $user . '.json';
+}
+
+/**
+ * The space a request names, or '' for CalMind's.
+ *
+ * Whitelisted rather than sanitised. `$in['space']` reaches a FILENAME, so the
+ * difference between "reject anything not on the list" and "strip the
+ * characters I thought of" is the difference between a closed door and a door
+ * with a lock somebody has to have got right — '../' is only the first thing
+ * to try. A list of the spaces that exist cannot be walked out of.
+ */
+const SYNC_SPACES = ['chef'];
+
+/**
+ * The spaces this build knows, said out loud and WITHOUT AUTH.
+ *
+ * ChefMind writes into CalMind's server. If it is ever deployed in front of an
+ * API that does not know `space`, the parameter is ignored and every ChefMind
+ * record lands in CalMind's own store — two apps merged into one file, found
+ * only once somebody's reminders list has recipes in it.
+ *
+ * So the ChefMind deploy asks first, and refuses to ship if the answer does
+ * not name its space. That gate needs an answer from a machine holding no
+ * credentials, which is why this is public. What it discloses is the list of
+ * apps this server hosts, which is already visible from the outside.
+ */
+function handle_spaces(): never
+{
+    reply(200, ['ok' => true, 'spaces' => SYNC_SPACES]);
+}
+
+function sync_space(array $in): string
+{
+    $s = (string) ($in['space'] ?? '');
+    if ($s === '') { return ''; }
+    if (!in_array($s, SYNC_SPACES, true)) { fail(400, 'unknown space'); }
+    return $s;
+}
 
 /** A fresh bearer token for $user; only its hash is stored. */
 function token_issue(array $cfg, string $user): string
@@ -390,8 +448,12 @@ function handle_sync(array $cfg, array $in): never
     if (count($changes) > MAX_BATCH) {
         fail(400, 'batch too large');
     }
-    $out = with_lock($cfg, 'records-' . $user, function () use ($cfg, $user, $cursor, $changes) {
-        $db   = store_read($cfg, records_file($cfg, $user));
+    $space = sync_space($in);
+    // The LOCK is per space as well as per user, and has to be: two apps
+    // writing one lock name would serialise for no reason, and — worse — a
+    // lock named for the wrong file protects nothing at all.
+    $out = with_lock($cfg, 'records-' . ($space === '' ? '' : $space . '-') . $user, function () use ($cfg, $user, $space, $cursor, $changes) {
+        $db   = store_read($cfg, records_file($cfg, $user, $space));
         $seq  = (int) ($db['seq'] ?? 0);
         $recs = is_array($db['recs'] ?? null) ? $db['recs'] : [];
         $rejected = [];
@@ -449,7 +511,7 @@ function handle_sync(array $cfg, array $in): never
                 $recs[$id] = $row;
             }
         }
-        store_write($cfg, records_file($cfg, $user), ['seq' => $seq, 'recs' => $recs]);
+        store_write($cfg, records_file($cfg, $user, $space), ['seq' => $seq, 'recs' => $recs]);
         $tail = array_values(array_filter($recs, fn($r) => (int) $r['seq'] > $cursor));
         usort($tail, fn($a, $b) => $a['seq'] <=> $b['seq']);
         return ['cursor' => $seq, 'rejected' => $rejected, 'changes' => array_map(function ($r) {

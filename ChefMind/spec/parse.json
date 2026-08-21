@@ -1,0 +1,367 @@
+[
+  {
+    "name": "date and time lift out, text keeps its words",
+    "input": "Vet 8/3 2pm",
+    "today": "2026-08-01",
+    "text": "Vet",
+    "date": "2026-08-03",
+    "time": "14:00"
+  },
+  {
+    "name": "full year and minutes",
+    "input": "Vet 8/3/26 2:30 pm",
+    "today": "2026-08-01",
+    "text": "Vet",
+    "date": "2026-08-03",
+    "time": "14:30"
+  },
+  {
+    "name": "four-digit year, no time",
+    "input": "Dentist 12/31/2027",
+    "today": "2026-08-01",
+    "text": "Dentist",
+    "date": "2027-12-31",
+    "time": null
+  },
+  {
+    "name": "noon is 12:00",
+    "input": "Lunch 12pm",
+    "today": "2026-08-01",
+    "text": "Lunch",
+    "date": "2026-08-01",
+    "time": "12:00"
+  },
+  {
+    "name": "midnight is 00:00",
+    "input": "Up at 12am",
+    "today": "2026-08-01",
+    "text": "Up",
+    "date": "2026-08-01",
+    "time": "00:00"
+  },
+  {
+    "name": "morning time with minutes",
+    "input": "9:15am standup",
+    "today": "2026-08-01",
+    "text": "standup",
+    "date": "2026-08-01",
+    "time": "09:15"
+  },
+  {
+    "name": "the documented limitation: a fraction reads as a date",
+    "input": "2/3 cup sugar",
+    "today": "2026-08-01",
+    "text": "cup sugar",
+    "date": "2027-02-03",
+    "time": null
+  },
+  {
+    "name": "a bare m/d already gone rolls to next year",
+    "input": "Call 7/31",
+    "today": "2026-08-01",
+    "text": "Call",
+    "date": "2027-07-31",
+    "time": null
+  },
+  {
+    "name": "a bare m/d landing today stays this year",
+    "input": "Call 8/1",
+    "today": "2026-08-01",
+    "text": "Call",
+    "date": "2026-08-01",
+    "time": null
+  },
+  {
+    "name": "a bare m/d still coming stays this year",
+    "input": "Call 9/2",
+    "today": "2026-08-01",
+    "text": "Call",
+    "date": "2026-09-02",
+    "time": null
+  },
+  {
+    "name": "an impossible calendar date lifts nothing",
+    "input": "Party 2/30",
+    "today": "2026-08-01",
+    "text": "Party 2/30",
+    "date": null,
+    "time": null
+  },
+  {
+    "name": "feb 29 outside a leap year lifts nothing",
+    "input": "Leap 2/29/25",
+    "today": "2026-08-01",
+    "text": "Leap 2/29/25",
+    "date": null,
+    "time": null
+  },
+  {
+    "name": "feb 29 in a leap year is real",
+    "input": "Leap 2/29/24",
+    "today": "2026-08-01",
+    "text": "Leap",
+    "date": "2024-02-29",
+    "time": null
+  },
+  {
+    "name": "nothing to find",
+    "input": "no numbers here",
+    "today": "2026-08-01",
+    "text": "no numbers here",
+    "date": null,
+    "time": null
+  },
+  {
+    "name": "time may come before the date",
+    "input": "2pm vet 8/3",
+    "today": "2026-08-01",
+    "text": "vet",
+    "date": "2026-08-03",
+    "time": "14:00"
+  },
+  {
+    "name": "the whole line may be the date",
+    "input": "8/3",
+    "today": "2026-08-01",
+    "text": "",
+    "date": "2026-08-03",
+    "time": null
+  },
+  {
+    "name": "minutes past 59 are not a time",
+    "input": "2:75pm oddity",
+    "today": "2026-08-01",
+    "text": "2:75pm oddity",
+    "date": null,
+    "time": null
+  },
+  {
+    "name": "hours past 12 are not a time",
+    "input": "13pm sharp",
+    "today": "2026-08-01",
+    "text": "13pm sharp",
+    "date": null,
+    "time": null
+  },
+  {
+    "name": "three slashed numbers are a version, not a date",
+    "input": "release 1/2/3 notes",
+    "today": "2026-08-01",
+    "text": "release 1/2/3 notes",
+    "date": null,
+    "time": null
+  },
+  {
+    "name": "lifting both collapses the leftover spaces",
+    "input": "Meet 8/3  2pm extra   spaces",
+    "today": "2026-08-01",
+    "text": "Meet extra spaces",
+    "date": "2026-08-03",
+    "time": "14:00"
+  },
+  {
+    "name": "the date is lifted before the time, so 8/3pm is a date and no time",
+    "input": "ship 8/3pm",
+    "today": "2026-08-01",
+    "text": "ship pm",
+    "date": "2026-08-03",
+    "time": null
+  },
+  {
+    "name": "a time already gone by lands on tomorrow, like a bare m/d does",
+    "input": "Standup 9am",
+    "today": "2026-08-01",
+    "now": "14:30",
+    "text": "Standup",
+    "date": "2026-08-02",
+    "time": "09:00"
+  },
+  {
+    "name": "a time still ahead stays on today",
+    "input": "Standup 4pm",
+    "today": "2026-08-01",
+    "now": "14:30",
+    "text": "Standup",
+    "date": "2026-08-01",
+    "time": "16:00"
+  },
+  {
+    "name": "tomorrow",
+    "input": "Bins tomorrow",
+    "today": "2026-08-01",
+    "text": "Bins",
+    "date": "2026-08-02",
+    "time": null
+  },
+  {
+    "name": "yesterday",
+    "input": "Paid rent yesterday",
+    "today": "2026-08-01",
+    "text": "Paid rent",
+    "date": "2026-07-31",
+    "time": null
+  },
+  {
+    "name": "today, said out loud",
+    "input": "Call mum today",
+    "today": "2026-08-01",
+    "text": "Call mum",
+    "date": "2026-08-01",
+    "time": null
+  },
+  {
+    "name": "a span means that far from now, not the start of anything",
+    "input": "Renew 1 week",
+    "today": "2026-08-01",
+    "text": "Renew",
+    "date": "2026-08-08",
+    "time": null
+  },
+  {
+    "name": "in 2 weeks",
+    "input": "Dentist in 2 weeks",
+    "today": "2026-08-01",
+    "text": "Dentist",
+    "date": "2026-08-15",
+    "time": null
+  },
+  {
+    "name": "3 days",
+    "input": "Water plants 3 days",
+    "today": "2026-08-01",
+    "text": "Water plants",
+    "date": "2026-08-04",
+    "time": null
+  },
+  {
+    "name": "months clamp the day, as repeats do",
+    "input": "Review in 1 month",
+    "today": "2026-01-31",
+    "text": "Review",
+    "date": "2026-02-28",
+    "time": null
+  },
+  {
+    "name": "a span crossing the year end",
+    "input": "Renew in 2 months",
+    "today": "2026-12-15",
+    "text": "Renew",
+    "date": "2027-02-15",
+    "time": null
+  },
+  {
+    "name": "a year from a leap day clamps",
+    "input": "Anniversary in 1 year",
+    "today": "2024-02-29",
+    "text": "Anniversary",
+    "date": "2025-02-28",
+    "time": null
+  },
+  {
+    "name": "abbreviations: wks, mos, yrs",
+    "input": "Check in 2 wks",
+    "today": "2026-08-01",
+    "text": "Check",
+    "date": "2026-08-15",
+    "time": null
+  },
+  {
+    "name": "in an hour",
+    "input": "Call back in an hour",
+    "today": "2026-08-01",
+    "now": "09:20",
+    "text": "Call back",
+    "date": "2026-08-01",
+    "time": "10:20"
+  },
+  {
+    "name": "in 30mins, written closed up",
+    "input": "Tea in 30mins",
+    "today": "2026-08-01",
+    "now": "23:50",
+    "text": "Tea",
+    "date": "2026-08-02",
+    "time": "00:20"
+  },
+  {
+    "name": "in 45 min crosses no day",
+    "input": "Timer in 45 min",
+    "today": "2026-08-01",
+    "now": "08:00",
+    "text": "Timer",
+    "date": "2026-08-01",
+    "time": "08:45"
+  },
+  {
+    "name": "an explicit date beats a relative word in the same line",
+    "input": "Vet 8/3 tomorrow",
+    "today": "2026-08-01",
+    "text": "Vet tomorrow",
+    "date": "2026-08-03",
+    "time": null
+  },
+  {
+    "name": "the introducing preposition leaves with the time",
+    "input": "standup at 9am",
+    "today": "2026-08-01",
+    "text": "standup",
+    "date": "2026-08-01",
+    "time": "09:00"
+  },
+  {
+    "name": "the introducing preposition leaves with the date",
+    "input": "dinner on 8/3",
+    "today": "2026-08-01",
+    "text": "dinner",
+    "date": "2026-08-03",
+    "time": null
+  },
+  {
+    "name": "a weekday name lands on its next occurrence",
+    "input": "lunch friday",
+    "today": "2026-08-18",
+    "text": "lunch",
+    "date": "2026-08-21",
+    "time": null
+  },
+  {
+    "name": "a short weekday works, with its preposition leaving too",
+    "input": "party on sat at 8pm",
+    "today": "2026-08-18",
+    "text": "party",
+    "date": "2026-08-22",
+    "time": "20:00"
+  },
+  {
+    "name": "a weekday naming today stays today, like a bare m/d landing today",
+    "input": "gym tuesday",
+    "today": "2026-08-18",
+    "text": "gym",
+    "date": "2026-08-18",
+    "time": null
+  },
+  {
+    "name": "tues and thurs, the other short spellings",
+    "input": "clean thurs",
+    "today": "2026-08-18",
+    "text": "clean",
+    "date": "2026-08-20",
+    "time": null
+  },
+  {
+    "name": "a weekday a week out, not eight days",
+    "input": "call wed",
+    "today": "2026-08-18",
+    "text": "call",
+    "date": "2026-08-19",
+    "time": null
+  },
+  {
+    "name": "an explicit date beats a weekday in the same line",
+    "input": "dentist 8/3 friday",
+    "today": "2026-08-01",
+    "text": "dentist friday",
+    "date": "2026-08-03",
+    "time": null
+  }
+]

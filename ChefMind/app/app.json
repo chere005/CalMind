@@ -1,0 +1,38 @@
+{
+  "expo": {
+    "name": "ChefMind",
+    "slug": "chefmind",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#111111",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.seancheren.chefmind",
+      "appleTeamId": "2LGYTL3FSJ",
+      "buildNumber": "1"
+    },
+    "android": {
+      "package": "com.seancheren.chefmind",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "backgroundColor": "#111111",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "experiments": {
+      "baseUrl": "/ChefMind"
+    },
+    "plugins": [
+      "expo-sharing"
+    ]
+  }
+}

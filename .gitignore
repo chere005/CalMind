@@ -33,3 +33,19 @@ desktop/dist-desktop/
 # Claude Code: local machine state; launch.json is repo config and IS tracked
 .claude/*
 !.claude/launch.json
+
+# ChefMind is its own workspace inside this repo — same rules, its own paths.
+ChefMind/node_modules/
+ChefMind/app/dist/
+ChefMind/app/.expo/
+ChefMind/app/ios/
+ChefMind/app/android/
+ChefMind/desktop/src-tauri/target/
+ChefMind/desktop/dist-desktop/
+
+# CalMind-Local, likewise.
+CalMind-Local/node_modules/
+CalMind-Local/app/dist/
+CalMind-Local/app/.expo/
+CalMind-Local/app/ios/
+CalMind-Local/app/android/
