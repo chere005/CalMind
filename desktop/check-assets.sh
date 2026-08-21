@@ -4,7 +4,7 @@
 # THE CHECK THAT WAS MISSING, and its absence cost the entire macOS app.
 #
 # The website is exported with a base path (`experiments.baseUrl` in
-# apps/app/app.json = "/test/calmind"), so every asset URL in index.html is
+# apps/app/app.json = "/calmind"), so every asset URL in index.html is
 # absolute. The shell embedded that export and served it at the ROOT of
 # tauri://localhost, where no such prefix exists — so the bundle 404'd, Tauri's
 # asset protocol answered with index.html, and the window read:
@@ -76,7 +76,7 @@ case "$START" in
 esac
 
 CHECKED=0
-# ABSOLUTE refs — '/test/calmind/...' — resolve from the staged root.
+# ABSOLUTE refs — '/calmind/...' — resolve from the staged root.
 for REF in $(grep -oE '(src|href)="/[^"]+"' "$STAGE${START}" | sed -E 's/.*="([^"]+)"/\1/' | sed 's/?.*//' | sort -u); do
   CHECKED=$((CHECKED+1))
   [ -f "$STAGE$REF" ] || bad "index.html asks for $REF and it is not in the bundle"

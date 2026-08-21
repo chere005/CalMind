@@ -2,15 +2,15 @@
 # Stage the web export where the desktop shell can actually load it.
 #
 # THE BUG THIS EXISTS FOR. The website is exported with a base path —
-# `experiments.baseUrl: "/test/calmind"` in apps/app/app.json — so every asset
-# URL in index.html is absolute: `/test/calmind/_expo/static/js/web/index-*.js`.
+# `experiments.baseUrl: "/calmind"` in apps/app/app.json — so every asset
+# URL in index.html is absolute: `/calmind/_expo/static/js/web/index-*.js`.
 # The desktop shell embedded that same export and served it at the ROOT of
 # `tauri://localhost/`, where no such prefix exists. The bundle request 404'd,
 # Tauri's asset protocol answered with index.html, and the JS parser met a `<`:
 #
 #   CalMind could not start.
 #   SyntaxError: Unexpected token '<'
-#   tauri://localhost/test/calmind/_expo/static/js/web/index-….js:1
+#   tauri://localhost/test/calmind/_expo/static/js/web/index-….js:1   (the base path of the day)
 #
 # So the macOS app had never once rendered, while ./desktop/smoke.sh passed
 # every check it had — it built, it carried the right bundle name, it launched,
