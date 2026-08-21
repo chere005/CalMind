@@ -6,6 +6,13 @@ shipped, `TODO.md` is the live list.
 
 ## Standing rules
 
+- **Answers are SHORT, and only what Sean has to act on.** Outcome, decisions
+  he needs to make, anything blocking him. Detail belongs in comments and
+  commit messages, which is where he goes looking for it.
+- **Do not list what has not been tested.** No caveat sections, no "still
+  owed", no unprompted risk inventories — he will say so if something is
+  wrong, and reading a list of everything that might be costs him the time the
+  brevity just saved. Say what a check actually proved and stop.
 - **Behavior lives in `packages/core`.** A screen holds plumbing. If you can
   describe a rule in a sentence, it belongs in core with a test.
 - **The old suite is the spec.** `/Users/s/GIT/seancheren-site` — grep its
