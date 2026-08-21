@@ -290,8 +290,13 @@ upload_to() {
     # itself is written by the export's head patch; these are what it names.
     sips -z 192 192 apps/app/assets/icon.png --out apps/app/dist/icon-192.png >/dev/null 2>&1
     sips -z 512 512 apps/app/assets/icon.png --out apps/app/dist/icon-512.png >/dev/null 2>&1
-    grep -q apple-touch-icon apps/app/dist/index.html || \
-      perl -i -pe "s|</head>|<link rel=\"apple-touch-icon\" href=\"$WEB_PATH/apple-touch-icon.png\"/></head>|" apps/app/dist/index.html
+    # REWRITTEN per instance, not inserted-if-absent. One dist is uploaded to
+    # every target in turn, so an insert-once rule hands every later instance
+    # the FIRST one's path — dev shipped with href="/test/calmind/..." on the
+    # 1.1.0 deploy, and only the desktop asset check noticed. Replace whatever
+    # is there with this instance's own.
+    perl -i -pe "s|<link rel=\"apple-touch-icon\"[^>]*/?>||g" apps/app/dist/index.html
+    perl -i -pe "s|</head>|<link rel=\"apple-touch-icon\" href=\"$WEB_PATH/apple-touch-icon.png\"/></head>|" apps/app/dist/index.html
     # .sources.json is the export's record of what it was built from — a path
     # and a content hash for all 67 source files — and it exists for
     # e2e/freshness.ts on THIS machine. dist goes up wholesale, so without this
