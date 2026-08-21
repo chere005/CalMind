@@ -13,6 +13,7 @@ import {
   addDays,
   cellMarks,
   type CellMark,
+  dayHeading,
   dayItems,
   duplicateItem,
   eventLine,
@@ -578,7 +579,7 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
                   style={s.listHead}
                 >
                   <Text style={[s.listHeadText, d === today && s.listHeadToday]}>
-                    {new Date(`${d}T12:00:00`).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
+                    {dayHeading(d, today)}
                   </Text>
                 </Pressable>
                 {it.events.map((e) => (
@@ -934,8 +935,10 @@ const s = themed(() => StyleSheet.create({
   listWrap: { flex: 1 },
   listInner: { paddingHorizontal: 16, paddingBottom: 48, gap: 14 },
   listDay: { gap: 2 },
-  listHead: { paddingVertical: 4 },
-  listHeadText: { color: T.accentInk, fontSize: 14, fontWeight: '700' },
+  // The widget's heading, and its weight: small, spaced and ruled off, so a
+  // day reads as a section rather than as the first row in it.
+  listHead: { paddingTop: 10, paddingBottom: 4, borderBottomWidth: 1, borderBottomColor: T.lineSoft },
+  listHeadText: { color: T.muted, fontSize: 12, fontWeight: '700', letterSpacing: 0.6 },
   listHeadToday: { color: T.accent },
   listRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 3, paddingLeft: 8 },
   listEmpty: { color: T.muted, fontSize: 15, paddingVertical: 24, textAlign: 'center' },

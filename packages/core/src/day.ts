@@ -260,3 +260,31 @@ export function twoWeeksFrom(date: string): string[] {
   for (let i = 0; i < 14; i++) out.push(addDays(start, i));
   return out;
 }
+
+/**
+ * A day's heading, in the widget's words: "TODAY · AUG 21", "FRI · AUG 22".
+ *
+ * Sean, 2026-08-20: the calendar's list view "needs headers showing dates,
+ * similar to the widget". The widget has written them this way since
+ * 2026-08-12 — uppercase, a middle dot, and NO comma, which he wrote out by
+ * hand when he asked for the weekday there. `toLocaleDateString` with
+ * weekday/month/day punctuates it "Fri, Aug 22" instead, and a heading that
+ * is almost the widget's is worse than one that is plainly different.
+ *
+ * The Swift copy in targets/appwidget/HomeWidget.swift is the original and
+ * stays; this is the app's, kept identical so the two surfaces read the same.
+ * Built from a fixed month table rather than a locale format, for the same
+ * reason timeLabel is: a locale that abbreviates differently would make the
+ * app and the widget disagree on the same phone.
+ */
+const MONTHS_UP = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+const WEEKDAYS_UP = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+
+export function dayHeading(ymd: string, today: string): string {
+  const [y, m, d] = ymd.split('-').map(Number) as [number, number, number];
+  if (!y || !m || !d) return ymd.toUpperCase();
+  const dt = new Date(y, m - 1, d, 12);
+  const md = `${MONTHS_UP[m - 1]} ${d}`;
+  if (ymd === today) return `TODAY · ${md}`;
+  return `${WEEKDAYS_UP[dt.getDay()]} · ${md}`;
+}

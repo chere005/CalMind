@@ -131,6 +131,26 @@ test('the view is remembered, like the fortnight always was', async ({ page }) =
   await expect(page.getByTestId('cal-list'), 'and a reload').toBeVisible({ timeout: 20_000 });
 });
 
+test('the headings are the widget\'s: TODAY, then weekdays, with the date', async ({ page }) => {
+  // Sean, 2026-08-20: "needs headers showing dates, similar to the widget".
+  // The widget writes TODAY · AUG 21 and FRI · AUG 22 — uppercase, a middle
+  // dot, no comma. toLocaleDateString punctuates it "Fri, Aug 22", and a
+  // heading that is ALMOST the widget's is worse than one plainly different.
+  test.setTimeout(120_000);
+  await signup(page);
+  await addEvent(page, 'Dentist tomorrow 2pm');
+  await addEvent(page, 'Standup 9am');
+  await page.getByTestId('tab-calendar').click();
+  await swipe(page, true);
+  await swipe(page, true);
+
+  const heads = await page.getByTestId('cal-list-head').allInnerTexts();
+  expect(heads.length, 'today and tomorrow both have a heading').toBeGreaterThanOrEqual(2);
+  expect(heads[0], "today is named, not dated as a weekday").toMatch(/^TODAY · [A-Z]{3} \d{1,2}$/);
+  expect(heads[1], 'and the next day is its weekday').toMatch(/^[A-Z]{3} · [A-Z]{3} \d{1,2}$/);
+  for (const h of heads) expect(h, 'no commas anywhere').not.toContain(',');
+});
+
 test('a day heading takes you to that day in the month', async ({ page }) => {
   test.setTimeout(120_000);
   await signup(page);
