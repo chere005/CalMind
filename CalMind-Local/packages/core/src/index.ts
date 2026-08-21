@@ -21,3 +21,7 @@ export * from './habit';
 export * from './undo';
 export * from './backup';
 export * from './search';
+// Local-only, no twin in the parent core: which URLs the recipe importer will
+// fetch, now that there is no server to do the fetching behind its own guard.
+export * from './fetchguard';
+

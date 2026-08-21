@@ -25,7 +25,7 @@ spec/           The behaviour contract, copied so core's suite runs here.
 | `ShareModal`, the shared-partner reads | sharing needs two accounts and a server to arbitrate |
 | `QuickTick` | the widget's `?tick=` link is a URL on a server |
 | `src/subs.ts`, `core/calsub.ts` | an ICS by link is fetched through the server's proxy — a browser cannot (no CORS) and a phone should not (the SSRF guard lived there) |
-| the recipe URL import | same reason; **photo import stays**, that OCR is on-device |
+| ~~the recipe URL import~~ | **back, on-device** — see below. Photo import never left; that OCR is on-device |
 | `src/update.ts` | it existed to reload a web build that is served |
 
 The **store** kept its shape and lost its server half: the engine, the merge
@@ -45,6 +45,38 @@ Two visible consequences, both deliberate:
   which is the one failure this build can actually have.
 - The status line reads **"Saved on this device"**. It used to say
   "Online — synced", which would be a lie about a connection that does not exist.
+
+## The one thing that leaves the device
+
+Sean, 2026-08-21: *"can you still add the url parsing of recipes? reading from
+that url is fine, the rest of the app remains local to its data or paired
+devices."* So the Recipe page's 🔗 is back, and it is the whole of this app's
+contact with the internet: a GET of a link he pasted, its HTML parsed by core's
+`recipeFromHtml`, nothing sent but the URL.
+
+Upstream the **server** did the fetching, behind `server/lib/fetchurl.php`,
+because a browser cannot (recipe sites send no CORS headers) and because a
+request made from inside the host reaches addresses the user cannot. There is
+no server here, so the phone fetches and the guards move with it:
+
+- `core/fetchguard.ts` decides **which addresses** — http(s) only, never this
+  device and never this network. Its own tests cover the spellings a guard
+  written from memory misses: `0177.0.0.1`, `2130706433`, `::ffff:192.168.1.10`,
+  and `https://www.seriouseats.com@192.168.1.10/`. `.local` is refused by name,
+  because that is Bonjour's suffix and this app advertises on it.
+- `src/recipefetch.ts` owns the request — a 15s abort, a 4MB cap, an HTML sniff,
+  and a **re-check of `res.url`** after the fact, since React Native follows
+  redirects itself and offers no hook per hop. A response from a private address
+  is dropped unread.
+
+What it does not do is resolve the name, because JS cannot: a public hostname
+pointing at `192.168.1.10` gets through. On a device that trade differs from the
+server's — the reach is the network Sean is already on, not a host holding
+everyone's data.
+
+Some sites answer **402/403 to anything that is not a browser** (allrecipes and
+seriouseats both refuse a datacentre address). The message says so rather than
+quoting the number at him.
 
 ## Identity
 
@@ -81,5 +113,5 @@ one.
 
 ## Still owed
 
-- **Bonjour** — phone ↔ Mac ↔ watch over the local network. Not built yet.
-- **macOS** — no desktop shell has been cloned.
+- **macOS** — no desktop shell has been cloned; the Mac runs the iOS binary as
+  "My Mac (Designed for iPad)", which is what a free team allows.

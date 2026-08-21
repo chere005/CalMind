@@ -15,12 +15,13 @@ import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 // phone that put "← Note" beneath the time and left the 📷 unreachable behind
 // the status bar: not cosmetic, the photo import could not be tapped at all.
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ingredientParts, isSubheader, orderIngredients, parseIngredient, recipeBody, recipeFromPages, type Rec } from '@calmind/core';
+import { ingredientParts, isSubheader, orderIngredients, parseIngredient, recipeBody, recipeFromHtml, recipeFromPages, type Rec } from '@calmind/core';
 import { useStore } from '../store';
 import { themed, T } from '../theme';
 import { CircleBtn, ConfirmDelete, Field, Pill, Scroll, WebHitSlop } from '../ui';
 import { OCR_UNSUPPORTED, ocrImages, ocrSupported } from '../components/ocr';
 import { UnitBadge } from '../components/IngredientBadge';
+import { fetchRecipeHtml } from '../recipefetch';
 import { useRowDrag } from '../components/rowdrag';
 import { useSwipeLeft } from '../components/swiperow';
 
@@ -59,6 +60,8 @@ export function RecipeEditor({ note, onClose }: { note: Rec<'note'>; onClose: ()
   const [busy, setBusy] = useState('');
   // The URL field is folded away until asked for: pasting a link is the
   // occasional path, and a permanent text box above every recipe is clutter.
+  const [urlOpen, setUrlOpen] = useState(false);
+  const [urlField, setUrlField] = useState('');
   // Tap a line to fix it. Before this the only way to mend a typo — and OCR
   // hands you plenty — was to delete the row and type the whole thing again,
   // which on a phone is the difference between correcting a recipe and
@@ -124,10 +127,57 @@ export function RecipeEditor({ note, onClose }: { note: Rec<'note'>; onClose: ()
     setStepField('');
   };
 
-  // No import from a link: a recipe page has to be FETCHED, and a browser
-  // is not allowed to (recipe sites send no CORS headers) while a phone
-  // doing it loses the SSRF guard that lived on the server. Photos still
-  // import — that OCR runs on the device.
+  /**
+   * Import from a link — the device fetches (src/recipefetch.ts owns the
+   * network and the guards), core parses the page's own schema.org data.
+   *
+   * Structured data beats OCR outright when a site publishes it: exact
+   * ingredients, exact steps, no chatter to strip. Sean's rule holds for both
+   * paths: ingredients and steps ONLY.
+   *
+   * This is the ONE thing in CalMind-Local that leaves the device, and it
+   * reads — the page comes in, nothing goes out but the URL he pasted.
+   */
+  const importUrl = async () => {
+    const url = urlField.trim();
+    if (!url) return;
+    setBusy('Reading that page…');
+    try {
+      const r = recipeFromHtml(await fetchRecipeHtml(url));
+      if (!r) {
+        // A page with no recipe in it is the common case for a wrong paste,
+        // and saying so beats appearing to work and adding nothing.
+        setBusy('No recipe found on that page.');
+        setTimeout(() => setBusy(''), 5000);
+        return;
+      }
+      if (r.title && !title) setTitle(r.title);
+      if (r.ingredients.length) {
+        // The BATCH is first-ordered (dry, wet, rest, unitless last — Sean's
+        // rule for what an import creates); rows already on the page are a
+        // person's order and stay exactly where they are.
+        setIngredients((cur) => [...orderIngredients(r.ingredients), ...cur]);
+        // An import can land while a LINE IS BEING EDITED, and `editing.at` is
+        // an index into a list that has just grown at the front. Left alone,
+        // the commit writes the correction into whichever row now sits at that
+        // index — proven upstream 2026-08-12: editing 'milk' while an import
+        // prepended eggs and salt saved the correction OVER the salt and left
+        // the milk untouched. Shifting the index keeps the edit on its own row
+        // and keeps the typing, which cancelling it would throw away.
+        //
+        // Ingredients prepend, so every index moves; steps append, so theirs
+        // do not.
+        setEditing((e) => (e && e.list === 'ing' ? { ...e, at: e.at + r.ingredients.length } : e));
+      }
+      if (r.steps.length) setSteps((cur) => [...cur, ...r.steps]);
+      setUrlField('');
+      setUrlOpen(false);
+      setBusy('');
+    } catch (err) {
+      setBusy(err instanceof Error ? err.message : 'could not read that page');
+      setTimeout(() => setBusy(''), 8000);
+    }
+  };
 
   const importPhotos = async () => {
     // Asked before the picker opens. Offering the library, taking a selection
@@ -212,9 +262,36 @@ export function RecipeEditor({ note, onClose }: { note: Rec<'note'>; onClose: ()
               (2026-08-18) — this was a "← Note" text link, formatted like
               nothing else that goes back. */}
           <CircleBtn testID="recipe-back" glyph="‹" size={32} label="Back to the note" onPress={onClose} />
+          <CircleBtn testID="recipe-link" glyph="🔗" label="Import from a link" size={32} onPress={() => setUrlOpen((v) => !v)} />
           <CircleBtn testID="recipe-photos" glyph="📷" label="Read a photo" size={32} onPress={() => void importPhotos()} />
         </View>
         <Text style={s.h1}>Recipe</Text>
+        {urlOpen && (
+          <View style={s.urlRow}>
+            <Field
+              testID="recipe-url"
+              value={urlField}
+              onChangeText={setUrlField}
+              placeholder="Paste a recipe link"
+              autoFocus
+              // A URL field with sentence case and autocorrect on turns a
+              // pasted link into 'HTTPS://Www.Bonappetit.Com' — measured on
+              // the simulator 2026-08-21, where the scheme came back
+              // capitalised on the very first try. The keyboard type also
+              // puts '/' and '.com' where a thumb can reach them.
+              autoCapitalize="none"
+              autoCorrect={false}
+              spellCheck={false}
+              keyboardType="url"
+              inputMode="url"
+              style={s.urlField}
+              onSubmitEditing={() => void importUrl()}
+            />
+            <Pressable testID="recipe-url-go" onPress={() => void importUrl()} style={s.urlGo}>
+              <Text style={s.urlGoText}>Get</Text>
+            </Pressable>
+          </View>
+        )}
         {busy !== '' && <Text style={s.busy}>{busy}</Text>}
         <Field testID="recipe-title" value={title} onChangeText={setTitle} placeholder="Title" style={s.title} />
 
