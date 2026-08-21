@@ -1,0 +1,45 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "ChefMind",
+  "version": "1.0.0",
+  "identifier": "com.seancheren.chefmind.desktop",
+  "build": {
+    "frontendDist": "../dist-desktop",
+    "beforeBuildCommand": "sh stage-dist.sh",
+    "beforeDevCommand": "sh stage-dist.sh"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "ChefMind",
+        "width": 1160,
+        "height": 800,
+        "minWidth": 420,
+        "minHeight": 600,
+        "backgroundColor": "#111111",
+        "url": "/ChefMind/index.html"
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self' https://seancheren.com; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'",
+      "dangerousDisableAssetCspModification": [
+        "style-src"
+      ]
+    }
+  },
+  "_targets_note": "NO dmg. create-dmg's bundle_dmg.sh needs Finder/AppleScript and fails on this machine (measured 2026-08-21: the .app bundles, the dmg step dies). CalMind's shell has never listed it either. The .app IS the Mac deliverable; msi and nsis are Windows, config-only per Sean's call — they need a Windows toolchain and Tauri does not cross-compile.",
+  "bundle": {
+    "active": true,
+    "targets": [
+      "app",
+      "msi",
+      "nsis"
+    ],
+    "icon": [
+      "icons/icon.icns",
+      "icons/icon.ico",
+      "icons/icon.png"
+    ],
+    "category": "Productivity"
+  }
+}

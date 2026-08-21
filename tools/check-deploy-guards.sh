@@ -165,6 +165,19 @@ echo "deploy-test.sh — the core typecheck gate"
 # sees that, and until this gate existed nothing ran tsc — it had drifted to
 # six errors unnoticed. Same method as the lint above: break the real tree,
 # require the deploy to stop, put it back.
+# REFUSE IF THE PROBE IS ALREADY THERE. A previous run that died between the
+# append and the restore leaves the line in place — and then THIS run copies
+# the already-broken file to $TMP as its "original" and faithfully restores
+# the break at the end. It happened (2026-08-21): the probe survived into the
+# shared tree and would have failed the other session's typecheck for a reason
+# nothing here named. Two sessions share this repo, so a tool that can leave a
+# type error behind has to say so rather than tidy it away silently.
+if grep -q '_guardcheckProbe' packages/core/src/order.ts; then
+  echo "packages/core/src/order.ts already carries a guardcheck probe — an earlier run" >&2
+  echo "did not restore it. Remove the line (git checkout -- packages/core/src/order.ts)" >&2
+  echo "and run this again." >&2
+  exit 1
+fi
 cp packages/core/src/order.ts "$TMP/order.ts"
 printf '\nconst _guardcheckProbe: number = "not a number";\n' >> packages/core/src/order.ts
 if ./server/deploy-test.sh --dry-run --no-web >"$TMP/tsc" 2>&1; then
