@@ -26,17 +26,29 @@
 
 header('Content-Type: text/plain; charset=utf-8');
 
-/** Accounts to remove. Everything this session created while diagnosing. */
+/**
+ * Accounts to remove — throwaways only (Sean, 2026-08-20: "clear all
+ * throwaways"). Two rounds: the probes this session left while diagnosing the
+ * three-instances-one-store bug, then the older detritus from months of
+ * simulator runs, live-API specs and smoke passes.
+ *
+ * NOT here, and never: sean and aki, the real accounts; example and buddy,
+ * which server/tools/seed-example.php and the shared-account specs create and
+ * read by name — deleting those turns a green suite red for a reason nobody
+ * would look for on the server.
+ */
 const PURGE = [
-    'iso1787286203',
-    'zz1787285983',
-    'chk1787287482',
-    'probe178728616919062',
-    'probe178728617015230',
-    'probe178728617026125',
-    'probe1787275091',
-    'mig11787273750',
-    'mig21787273753',
+    // this session's probes
+    'iso1787286203', 'zz1787285983', 'chk1787287482',
+    'probe178728616919062', 'probe178728617015230', 'probe178728617026125',
+    'probe1787275091', 'mig11787273750', 'mig21787273753',
+    // older throwaways: device runs, live specs, smoke passes
+    'androidtw1787166862', 'simre', 'simfable37',
+    'gaptest1', 'hdr844316', 'pillcheck17chars0',
+    'livepk1786253494996', 'livewt1787163104130',
+    'probe1786128157', 'probe1786165968',
+    'smoke1786237192', 'smoke1786237318', 'smoke1786273609',
+    'smoke1786275386', 'smoke1786409127', 'smoke1786482063', 'smokef2885e',
 ];
 
 /** Never, whatever the list above says. The real accounts, and the fixtures
