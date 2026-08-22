@@ -81,14 +81,18 @@ desktop/           CalMind Desktop — a Tauri 2 shell around the identical web
                    shared code. macOS builds locally (desktop/README.md);
                    Windows builds on the manual `desktop-windows` GitHub
                    Actions job.
-CalMind-Local/     A CLONE of apps/app and packages/core with the server taken
-                   out: one device's data, mirrored to paired devices over
-                   Bonjour and nowhere else. Its own README and CLAUDE.md.
-ChefMind/          A CLONE with reminders, recipes and a shopping list, syncing
-                   through THIS server on THESE accounts — kept apart by a sync
-                   SPACE (`records-chef-<user>.json`), not a second server. Its
-                   own README and CLAUDE.md.
 ```
+
+Two clones grew up here and moved into their own repos on 2026-08-22, history
+and all — still kept in lockstep with this one, deliberately, across repos:
+
+- [chere005/MyCalMind](https://github.com/chere005/MyCalMind) (né
+  CalMind-Local) — the server taken out: one device's data, mirrored to
+  paired devices over Bonjour and nowhere else. iOS + watchOS only.
+- [chere005/ChefMind](https://github.com/chere005/ChefMind) — recipes and a
+  shopping list, syncing through THIS server on THESE accounts, kept apart by
+  a sync SPACE (`records-chef-<user>.json`), not a second server. Its deploy
+  gates read this checkout as `$CALMIND_REPO`.
 
 `server/prod-only/` is the one exception to "nothing here goes to prod": the
 `.well-known` passkey pair, which only works at the apex. It has its own

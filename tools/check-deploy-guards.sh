@@ -17,7 +17,7 @@ set -e
 cd "$(dirname "$0")/.."
 
 TMP=$(mktemp -d -t deployguards)
-trap 'rm -rf "$TMP" server/_guardcheck-*.sh ChefMind/_guardcheck-*.sh' EXIT
+trap 'rm -rf "$TMP" server/_guardcheck-*.sh' EXIT
 PASS=0; FAIL=0
 ok()  { PASS=$((PASS+1)); printf '  \033[32m✓\033[0m %s\n' "$1"; }
 bad() { FAIL=$((FAIL+1)); printf '  \033[31m✗\033[0m %s\n' "$1"; }
@@ -84,65 +84,6 @@ if "./$copy" --dry-run --no-web --no-gestures >"$TMP/bare" 2>&1 && grep -q '==> 
   ok "a bare run is the test instance"
 else
   bad "a bare run did not announce test alone — check $TMP/bare"
-fi
-rm -f "$copy"
-
-echo "ChefMind/deploy.sh — destination, consent, and the API gate"
-# ChefMind writes the PRODUCTION document root and has no test instance, so
-# these guards are the only thing between a typo and seancheren.com. Same
-# method as every check above: break a copy and require it to stop.
-#
-# curl is neutered along with ssh and rsync. The destination guards run before
-# the API gate and never reach it, but a check that only works because of an
-# ordering it does not state is one refactor from silently hitting the network.
-chef_try() { # chef_try <label> <sed expr> <args...>
-  label="$1"; expr="$2"; shift 2
-  copy="ChefMind/_guardcheck-$$.sh"
-  sed -e "$expr" \
-      -e 's|^\( *\)ssh |\1echo "   [guardcheck] would ssh: " |' \
-      -e 's|^\( *\)rsync |\1echo "   [guardcheck] would rsync: " |' \
-      -e 's|^\( *\)curl |\1echo "   [guardcheck] would curl: " |' \
-      ChefMind/deploy.sh > "$copy"
-  chmod +x "$copy"
-  if "./$copy" "$@" >"$TMP/chef" 2>&1; then
-    bad "$label — it RAN (exit 0); the guard did not fire"
-    sed -n '1,4p' "$TMP/chef" | sed 's/^/      /'
-  else
-    ok "$label"
-  fi
-  rm -f "$copy"
-}
-
-# The bare form must refuse: this one is about argv, so the copy is unmodified.
-chef_try "refuses to run without --yes-prod"  's|^#unchanged$|#unchanged|'
-chef_try "refuses the site root"              's|^WEB_DEST=.*|WEB_DEST="/home/public"|'                 --yes-prod
-chef_try "refuses CalMind's own area"         's|^WEB_DEST=.*|WEB_DEST="/home/public/calmind"|'         --yes-prod
-chef_try "refuses CalMind's test area"        's|^WEB_DEST=.*|WEB_DEST="/home/public/test/calmind"|'    --yes-prod
-chef_try "refuses a stray destination"        's|^WEB_DEST=.*|WEB_DEST="/home/public/somewhere"|'       --yes-prod
-
-# THE API GATE, which is the one protecting Sean's data rather than his web
-# root: ChefMind sends space='chef', and an API that does not know the
-# parameter ignores it and merges ChefMind's records into CalMind's store.
-# Both directions are checked, because a gate that always refuses would pass
-# the negative case while blocking every real deploy.
-chef_try "refuses when the API does not know the space" \
-  's|^  ANSWER=$(api_spaces .*|  ANSWER=\x27{"ok":true,"spaces":["something-else"]}\x27|' --yes-prod
-
-copy="ChefMind/_guardcheck-pass-$$.sh"
-sed -e 's|^  ANSWER=$(api_spaces .*|  ANSWER=\x27{"ok":true,"spaces":["chef"]}\x27|' \
-    -e 's|^\( *\)ssh |\1echo "   [guardcheck] would ssh: " |' \
-    -e 's|^\( *\)rsync |\1echo "   [guardcheck] would rsync: " |' \
-    -e 's|^\( *\)curl |\1echo "   [guardcheck] would curl: " |' \
-    ChefMind/deploy.sh > "$copy"
-chmod +x "$copy"
-# It will stop later — at a gate that needs the network or an export — and that
-# is fine. What is proved here is that it got PAST the API gate and said so,
-# which is what stops this check from being one that can only ever refuse.
-"./$copy" --yes-prod >"$TMP/chefpass" 2>&1 || true
-if grep -q 'it does\.' "$TMP/chefpass"; then
-  ok "and passes when the API names it"
-else
-  bad "the API gate refused an API that DOES know the space — check $TMP/chefpass"
 fi
 rm -f "$copy"
 

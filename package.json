@@ -21,7 +21,9 @@
     "test:counts": "sh tools/check-suite-counts.sh",
     "test:simfresh": "sh tools/check-sim-fresh.sh",
     "test:deploy": "sh tools/check-deploy-guards.sh",
-    "test:desktop": "sh desktop/check-assets.sh"
+    "test:desktop": "sh desktop/check-assets.sh",
+    "dtp": "sh tools/dtp.sh",
+    "tdtp": "sh tools/tdtp.sh"
   },
   "devDependencies": {
     "@playwright/test": "^1.62.1"

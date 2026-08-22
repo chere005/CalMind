@@ -156,7 +156,9 @@ read the note-focus flake's twelve-occurrence history first
   now generally"): **dtp** = `./server/deploy.sh prod test --yes-prod
   --quick` (seconds-cost gates plus a spot test; his word: "even if it means
   some things could occasionally break"), then tag and push; **tdtp** = the
-  same command without `--quick`, so every suite runs. Test ships in the
+  same command without `--quick`, so every suite runs. One gesture each
+  since 2026-08-22: `npm run dtp` / `npm run tdtp` (tools/dtp.sh bumps the
+  minor, deploys, tags vx.y.0, pushes, dispatches the Windows job). Test ships in the
   same command rather than in a second run — the gates are what cost the
   time, and they run once for both. `deploy-test.sh` still exists and is
   still test-only; nothing routine uses it now. A failed deploy in either lane gets fixed BEFORE tagging and
