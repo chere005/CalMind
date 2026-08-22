@@ -316,13 +316,22 @@ upload_to() {
     # itself is written by the export's head patch; these are what it names.
     sips -z 192 192 apps/app/assets/icon.png --out apps/app/dist/icon-192.png >/dev/null 2>&1
     sips -z 512 512 apps/app/assets/icon.png --out apps/app/dist/icon-512.png >/dev/null 2>&1
-    # REWRITTEN per instance, not inserted-if-absent. One dist is uploaded to
-    # every target in turn, so an insert-once rule hands every later instance
-    # the FIRST one's path — dev shipped with href="/test/calmind/..." on the
-    # 1.1.0 deploy, and only the desktop asset check noticed. Replace whatever
-    # is there with this instance's own.
+    # REWRITTEN, not inserted-if-absent: one dist is uploaded to every target
+    # in turn, so an insert-once rule hands every later instance whatever the
+    # FIRST one wrote.
+    #
+    # The href is the export's OWN base path, read from app.json — not
+    # WEB_PATH, which is where the files live on the server's disk. Those were
+    # the same string until test and dev moved to subdomains: the files still
+    # sit in /home/public/test/calmind, but the browser is at /calmind on
+    # test.seancheren.com, and the desktop shell has no /test/ anywhere in it.
+    # So the icon href has been wrong on test, on dev, and inside the Mac app
+    # ever since, which is what the desktop asset check finally said out loud.
+    # Every instance serves the app at baseUrl now, so there is one right
+    # answer and app.json holds it.
+    URL_BASE=$(node -p "require('./apps/app/app.json').expo.experiments.baseUrl || ''")
     perl -i -pe "s|<link rel=\"apple-touch-icon\"[^>]*/?>||g" apps/app/dist/index.html
-    perl -i -pe "s|</head>|<link rel=\"apple-touch-icon\" href=\"$WEB_PATH/apple-touch-icon.png\"/></head>|" apps/app/dist/index.html
+    perl -i -pe "s|</head>|<link rel=\"apple-touch-icon\" href=\"$URL_BASE/apple-touch-icon.png\"/></head>|" apps/app/dist/index.html
     # .sources.json is the export's record of what it was built from — a path
     # and a content hash for all 67 source files — and it exists for
     # e2e/freshness.ts on THIS machine. dist goes up wholesale, so without this

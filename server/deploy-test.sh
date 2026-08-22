@@ -269,8 +269,15 @@ if [ "$WEB" = 1 ]; then
   # itself is written by the export's head patch; these are what it names.
   sips -z 192 192 apps/app/assets/icon.png --out apps/app/dist/icon-192.png >/dev/null 2>&1
   sips -z 512 512 apps/app/assets/icon.png --out apps/app/dist/icon-512.png >/dev/null 2>&1
-  grep -q apple-touch-icon apps/app/dist/index.html || \
-    perl -i -pe "s|</head>|<link rel=\"apple-touch-icon\" href=\"$WEB_PATH/apple-touch-icon.png\"/></head>|" apps/app/dist/index.html
+  # The export's own base path, not WEB_PATH — see the long note in
+  # server/deploy.sh. WEB_PATH is where the files sit on disk
+  # (/test/calmind); the browser is at /calmind on test.seancheren.com, and
+  # the Mac shell has no /test/ in it at all. Rewritten rather than
+  # inserted-if-absent for the same reason deploy.sh rewrites: this dist is
+  # shared with the other lane and with the desktop staging.
+  URL_BASE=$(node -p "require('./apps/app/app.json').expo.experiments.baseUrl || ''")
+  perl -i -pe "s|<link rel=\"apple-touch-icon\"[^>]*/?>||g" apps/app/dist/index.html
+  perl -i -pe "s|</head>|<link rel=\"apple-touch-icon\" href=\"$URL_BASE/apple-touch-icon.png\"/></head>|" apps/app/dist/index.html
   # .sources.json is the export's record of what it was built from — a path
   # and a content hash for all 67 source files — and it exists for
   # e2e/freshness.ts on THIS machine. dist goes up wholesale, so without this

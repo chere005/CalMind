@@ -29,7 +29,14 @@ echo
 
 if [ "${1:-}" != "--no-build" ]; then
   # cargo is not always on a non-login PATH; rustup's home is where it lives.
-  if PATH="$HOME/.cargo/bin:$PATH" npx --prefix "$ROOT/desktop" tauri build >/tmp/calmind-desktop-build.log 2>&1; then
+  #
+  # The `cd` is load-bearing and the subshell keeps it local. tauri.conf.json's
+  # beforeBuildCommand is `sh stage-dist.sh`, which Tauri runs in the CALLER'S
+  # working directory — so this script only built when it happened to be
+  # invoked from desktop/, and died with "sh: stage-dist.sh: No such file or
+  # directory" from anywhere else. `--prefix` resolves the package, not the
+  # cwd, which is what made that look like it should already be handled.
+  if (cd "$ROOT/desktop" && PATH="$HOME/.cargo/bin:$PATH" npx tauri build) >/tmp/calmind-desktop-build.log 2>&1; then
     ok "it builds"
   else
     bad "build failed — see /tmp/calmind-desktop-build.log"
