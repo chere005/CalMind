@@ -41,6 +41,16 @@ the map.
   list of things you are about to buy, that is the worst possible misread. One
   arc over the top is the shape nothing else has.
 - **`␡` has no glyph in the app's font** and renders as a literal `DEL` box.
+- **`app/ios/build/` is NOT disposable.** It looks like derived output and is
+  gitignored, but ReactCodegen's generated sources live under
+  `build/generated/ios/` and are written by `pod install`, not by xcodebuild.
+  Delete it to free disk and the next build dies on seven "Build input file
+  cannot be found" errors naming files nobody wrote. `pod install` (with the
+  UTF-8 locale) puts them back.
+- **A build killed by a full disk leaves a Gradle LOCK behind.** The next run
+  fails in under a second with "Cannot lock file hash cache … already been
+  locked by this process", which reads as a concurrency bug rather than
+  wreckage. `./gradlew --stop` and remove `app/android/.gradle`.
 - **The shell's working directory persists between Bash calls.** Use absolute
   paths.
 - **Ask what happens when a write fails.** Same rule as upstream: the snapshot
