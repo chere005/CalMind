@@ -1,6 +1,6 @@
 # ChefMind
 
-CalMind's reminders and recipes, with a shopping list, syncing through the same
+CalMind's recipes, with a shopping list, syncing through the same
 server on the same account. A CLONE of `apps/app` and `packages/core`, not a
 rewrite — see `CLAUDE.md` for the rules that keeps it under.
 
@@ -14,7 +14,7 @@ spec/           The behaviour contract, copied so core's suite runs here.
 
 ## What it is
 
-Four tabs: **Reminders · Recipes · ⊕ · Shopping**.
+Three tabs: **Recipes · ⊕ · Shopping**.
 
 - **Recipes** is CalMind's Notes screen, renamed. Only the labels moved — the
   record type is still `note`, the folder's app is still `notes`, and the
@@ -38,6 +38,9 @@ Four tabs: **Reminders · Recipes · ⊕ · Shopping**.
 | `QuickTick`, `watch.ts`, the watch/widget targets | no watch, no widgets |
 | `subs.ts` | calendar subscriptions belong to the calendar |
 | the Event card on Add | an event is a calendar thing |
+| `Reminders`, and the Reminder card with it | Sean, 2026-08-21: "remove reminders from ChefMind" — a general list is CalMind's job. The `reminder` RECORD stays: the shopping rows are reminder records, and Search finds them under **Shopping** |
+| the repeat pill on Add | what is left there makes a recipe, and a recipe does not recur |
+| the time field on Add | a time belongs to a reminder |
 | core's calendar and habit STARTERS | records that would sync forever and never be drawn |
 
 ## Accounts and data

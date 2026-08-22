@@ -1,20 +1,25 @@
 /**
- * The icon-only bottom tab bar: Reminders · Recipes · Add · Shopping, the
+ * The icon-only bottom tab bar: Recipes · Add · Shopping, the
  * middle + a raised accent circle. The active tab wears a fixed circle behind its icon — a
  * highlight that can never move the tabs' spacing. The bar's contents cap at
  * the same width as the page column, so on a wide window the tabs stay under
  * the content instead of flying to the edges.
  *
  * Upstream this has five: the calendar and habits sit either side of the +.
- * ChefMind swaps them for the shopping list and drops one, and the + keeps the
- * middle it has everywhere else.
+ * ChefMind keeps the shopping list and nothing else — Sean, 2026-08-21:
+ * "remove reminders from ChefMind". A cooking app that also held a general
+ * reminders list was holding CalMind's job. The + keeps the middle it has
+ * everywhere else, so the bar is now three: Recipes, +, Shopping.
+ *
+ * The `reminder` RECORD type stays, and is not a leftover: the shopping rows
+ * are reminder records in a folder of their own. What went is the screen.
  */
 import { Pressable, StyleSheet, View , Platform } from 'react-native';
 import { themed, T, PAGE_MAX_WIDTH } from './theme';
-import { BasketIcon, PageIcon, TickCircleIcon } from './components/KindIcons';
+import { BasketIcon, PageIcon } from './components/KindIcons';
 import { DrawnGlyph } from './ui';
 
-export type Tab = 'reminders' | 'notes' | 'add' | 'shopping';
+export type Tab = 'notes' | 'add' | 'shopping';
 
 // Emoji presentation (VS16) so every glyph draws in colour — the plain-text
 // checkbox was near-invisible on the dark bar.
@@ -25,14 +30,13 @@ export type Tab = 'reminders' | 'notes' | 'add' | 'shopping';
 // still say 'notes', because renaming those would be a migration of his data
 // to change a label.
 const TAB_LABEL: Record<Tab, string> = {
-  reminders: 'Reminders', notes: 'Recipes', add: 'Add', shopping: 'Shopping',
+  notes: 'Recipes', add: 'Add', shopping: 'Shopping',
 };
 
 // No icon field: the bar draws its own SVG glyphs by key (see below), and
 // these carried emoji that nothing has rendered since. Removed 2026-08-12 —
 // a list of icons beside a bar that draws none is a thing to be misread.
 const TABS: { key: Tab }[] = [
-  { key: 'reminders' },
   { key: 'notes' },
   { key: 'add' },
   { key: 'shopping' },
@@ -56,7 +60,6 @@ export function TabBar({ tab, onTab }: { tab: Tab; onTab: (t: Tab) => void }) {
             <Pressable key={key} testID={`tab-${key}`} accessibilityRole="button" accessibilityLabel={TAB_LABEL[key]} onPress={() => onTab(key)} style={s.tab} hitSlop={6}>
               <View style={[s.halo, tab === key && s.haloOn]}>
                 {/* One SVG language for the whole bar — no emoji. */}
-                {key === 'reminders' && <TickCircleIcon />}
                 {key === 'notes' && <PageIcon color={tab === key ? T.text : T.dim} />}
                 {key === 'shopping' && <BasketIcon color={tab === key ? T.text : T.dim} />}
               </View>

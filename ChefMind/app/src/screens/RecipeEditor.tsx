@@ -15,7 +15,7 @@ import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 // phone that put "← Note" beneath the time and left the 📷 unreachable behind
 // the status bar: not cosmetic, the photo import could not be tapped at all.
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ingredientParts, isSubheader, orderIngredients, parseIngredient, recipeBody, recipeFromHtml, recipeFromPages, type Rec } from '@calmind/core';
+import { importedRecipeTitle, ingredientParts, isSubheader, orderIngredients, parseIngredient, recipeBody, recipeFromHtml, recipeFromPages, type Rec } from '@calmind/core';
 import { useStore } from '../store';
 import { themed, T } from '../theme';
 import { CircleBtn, ConfirmDelete, Field, Pill, Scroll, WebHitSlop } from '../ui';
@@ -156,7 +156,7 @@ export function RecipeEditor({ note, onClose }: { note: Rec<'note'>; onClose: ()
         setTimeout(() => setBusy(''), 5000);
         return;
       }
-      if (r.title && !title) setTitle(r.title);
+      setTitle((cur) => importedRecipeTitle(cur, r.title));
       if (r.ingredients.length) {
         // The BATCH is first-ordered (dry, wet, rest, unitless last — Sean's
         // rule for what an import creates); rows already on the page are a
@@ -211,7 +211,7 @@ export function RecipeEditor({ note, onClose }: { note: Rec<'note'>; onClose: ()
           throw err;
         });
       const r = recipeFromPages(pages);
-      if (r.title && !title) setTitle(r.title);
+      setTitle((cur) => importedRecipeTitle(cur, r.title));
       if (r.ingredients.length) {
         // Same first-ordering as the link import: the batch, never the page.
         setIngredients((cur) => [...orderIngredients(r.ingredients), ...cur]);

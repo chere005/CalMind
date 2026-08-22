@@ -6,6 +6,29 @@
  * numbered steps as their own lines, and join hyphen-broken words.
  */
 
+import { looksLikeDefaultNoteTitle } from './parse';
+
+/**
+ * What a note should be called after a recipe is imported into it (Sean,
+ * 2026-08-21: "when getting a recipe from a url or image, try to name the
+ * note/recipe after the recipe").
+ *
+ * The old rule was "only if the note has no title", which almost never fired:
+ * a note made with + is born holding `defaultNoteTitle()` — "Aug 18, 2026 at
+ * 5:50pm" — so every imported recipe kept the timestamp it happened to be
+ * created at, and the name the page or the photo gave was thrown away.
+ *
+ * A title somebody TYPED still wins. That is the whole line being drawn here:
+ * the generated stamp is a placeholder waiting to be replaced, and anything
+ * else is a decision already made.
+ */
+export function importedRecipeTitle(current: string, parsed: string | undefined | null): string {
+  const got = (parsed ?? '').trim();
+  if (!got) return current;
+  const cur = (current ?? '').trim();
+  return cur === '' || looksLikeDefaultNoteTitle(cur) ? got : current;
+}
+
 const HEADING = /^(ingredients?|directions?|instructions?|method|steps?|preparation|prep|for the .{1,40})\s*:?\s*$/i;
 const QTY = /^\s*(\d+([./]\d+)?|½|¼|¾|⅓|⅔|⅛|⅜|⅝|⅞|⅙|⅚)\s*(cups?|cup|tsp|tbsp|teaspoons?|tablespoons?|oz|ounces?|lbs?|pounds?|g|grams?|kg|ml|l|cloves?|cans?|sticks?|pinch|dash|slices?|bunch|large|small|medium|eggs?)?\b/i;
 const STEP = /^\s*(\d+)[.)]\s+/;

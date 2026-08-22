@@ -20,7 +20,11 @@ import { PageIcon, TickCircleIcon } from '../components/KindIcons';
 // would return nothing and read as a broken search rather than an absent one.
 const ALL_KINDS: SearchKind[] = ['reminder', 'note'];
 // 'note' is the record type; 'Recipes' is what this app calls it.
-const KIND_LABEL: Record<SearchKind, string> = { reminder: 'Reminders', note: 'Recipes', event: 'Events' };
+// 'reminder' is the record type; SHOPPING is what the only surviving ones
+// are (Sean, 2026-08-21: "remove reminders from ChefMind"). Labelling the
+// filter by the type rather than by the screen it opens would send people
+// looking for a tab that is gone.
+const KIND_LABEL: Record<SearchKind, string> = { reminder: 'Shopping', note: 'Recipes', event: 'Events' };
 
 const SORT_OPTIONS = [
   { id: 'relevance', label: 'Relevance' },

@@ -1,7 +1,8 @@
 # Working in ChefMind
 
-CalMind's reminders and recipes plus a shopping list, on CalMind's server and
-CalMind's accounts. A CLONE of `apps/app` and `packages/core`. `README.md` is
+CalMind's recipes plus a shopping list, on CalMind's server and
+CalMind's accounts. (Reminders were removed 2026-08-21 on Sean's word — the
+`reminder` record type stays, because the shopping rows are reminder records.) A CLONE of `apps/app` and `packages/core`. `README.md` is
 the map.
 
 ## Standing rules

@@ -1,6 +1,6 @@
 /** The OCR-to-note heuristics: humble, but pinned. */
 import { describe, it, expect } from 'vitest';
-import { formatRecipe, ingredientParts, isRecipeNote, isSubheader, orderIngredients, recipeFromHtml, looksLikeChrome, parseIngredient, precleanOcrLine, recipeBody, recipeFromPages, scaleIngredient, scaleRecipeBody, scrubLine, splitRecipeBody } from '../src/recipe';
+import { formatRecipe, importedRecipeTitle, ingredientParts, isRecipeNote, isSubheader, orderIngredients, recipeFromHtml, looksLikeChrome, parseIngredient, precleanOcrLine, recipeBody, recipeFromPages, scaleIngredient, scaleRecipeBody, scrubLine, splitRecipeBody } from '../src/recipe';
 
 describe('formatRecipe', () => {
   it('finds the obvious title, bullets the ingredients, keeps the steps', () => {
@@ -907,5 +907,39 @@ describe("the unit's abbreviation dot goes with the unit", () => {
     // A rest that legitimately opens with punctuation the dot rule must not
     // eat: the comma shape keeps its comma-free name exactly as before.
     expect(ingredientParts('1 onion, chopped').name).toBe('onion, chopped');
+  });
+});
+
+describe('naming the note after the recipe', () => {
+  // Sean, 2026-08-21: "when getting a recipe from a url or image, try to name
+  // the note/recipe after the recipe". The old rule only fired on an EMPTY
+  // title, which a note made with + never has — it is born holding the date
+  // and time it was created, so every import kept a timestamp for a name.
+  it('a generated timestamp gives way to the recipe', () => {
+    expect(importedRecipeTitle('Aug 18, 2026 at 5:50pm', 'Pastitsio')).toBe('Pastitsio');
+    expect(importedRecipeTitle('Jan 3, 2026 at 11am', 'Lemon Chicken')).toBe('Lemon Chicken');
+  });
+
+  it('an empty title takes it too', () => {
+    expect(importedRecipeTitle('', 'Pastitsio')).toBe('Pastitsio');
+    expect(importedRecipeTitle('   ', 'Pastitsio')).toBe('Pastitsio');
+  });
+
+  it('a name somebody TYPED is never overwritten', () => {
+    // The line being drawn: a stamp is a placeholder, anything else is a
+    // decision already made — including a name that merely looks dated.
+    expect(importedRecipeTitle("Mum's pastitsio", 'Baked Pasta')).toBe("Mum's pastitsio");
+    expect(importedRecipeTitle('Dentist 8/3', 'Baked Pasta')).toBe('Dentist 8/3');
+    expect(importedRecipeTitle('Aug 18', 'Baked Pasta')).toBe('Aug 18');
+  });
+
+  it('a page with no name of its own changes nothing', () => {
+    expect(importedRecipeTitle('Aug 18, 2026 at 5:50pm', '')).toBe('Aug 18, 2026 at 5:50pm');
+    expect(importedRecipeTitle('Aug 18, 2026 at 5:50pm', undefined)).toBe('Aug 18, 2026 at 5:50pm');
+    expect(importedRecipeTitle('Aug 18, 2026 at 5:50pm', '   ')).toBe('Aug 18, 2026 at 5:50pm');
+  });
+
+  it('the recipe name is trimmed on the way in', () => {
+    expect(importedRecipeTitle('', '  Pastitsio \n')).toBe('Pastitsio');
   });
 });

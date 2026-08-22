@@ -7,7 +7,6 @@ import { StoreProvider, useStore } from './src/store';
 import { ToastProvider } from './src/components/Toast';
 import { TabBar, NavCtx, type Tab } from './src/nav';
 import { Login } from './src/screens/Login';
-import { Reminders } from './src/screens/Reminders';
 import { Notes } from './src/screens/Notes';
 import { Shopping } from './src/screens/Shopping';
 import { Add } from './src/screens/Add';
@@ -23,7 +22,10 @@ function Root() {
   const [tab, setTabState] = useState<Tab>(() => {
     if (typeof localStorage !== 'undefined') {
       const t = localStorage.getItem('chefmind.tab');
-      if (t === 'reminders' || t === 'add' || t === 'notes' || t === 'shopping') return t;
+      // 'reminders' is deliberately absent, and the absence does work: a
+      // browser that used the old build has that string in localStorage, and
+      // accepting it would land on a tab that no longer renders anything.
+      if (t === 'add' || t === 'notes' || t === 'shopping') return t;
     }
     return 'notes';
   });
@@ -58,10 +60,9 @@ function Root() {
       {/* Phone-first column, centred on a wide window — the suite's page shape. */}
       <View style={s.centre}>
         <View style={s.body}>
-          {tab === 'reminders' && <Reminders />}
           {tab === 'add' && (
             <Add
-              done={() => setTab('reminders')}
+              done={() => setTab('notes')}
               onNoteCreated={(id) => {
                 setNoteToOpen(id);
                 setTab('notes');
@@ -82,7 +83,8 @@ function Root() {
               setNoteToOpen(hit.id);
               setTab('notes');
             } else {
-              setTab('reminders');
+              // The only reminder records left are shopping rows.
+              setTab('shopping');
             }
           }}
         />

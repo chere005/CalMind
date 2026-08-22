@@ -1,38 +1,36 @@
 /**
- * The Add page: today's date line, the one big line of text, two kind cards
- * (Reminder / Recipe), the three reveal pills (+ Folder/Section, + Date/Time,
- * + Repeat), a full-width accent Done that adds and returns, and the
- * typed-pattern help block underneath.
+ * The Add page: today's date line, the one big line of text, two reveal pills
+ * (+ Folder/Section, + Date/Time), a full-width accent Done that adds and
+ * returns, and the typed-pattern help block underneath.
  *
- * Upstream there are THREE cards and Event is the one that opens — Sean's
- * word, 2026-08-12, because it is the card actually reached for from that
- * button. ChefMind has no calendar (2026-08-21), so Event is gone and
- * Reminder opens, which is the suite's original order.
+ * Upstream there are THREE kind cards — Event, Reminder, Recipe. ChefMind
+ * lost the calendar on 2026-08-21 and reminders the same day ("remove
+ * reminders from ChefMind"), which leaves ONE kind, so there are no cards:
+ * a radio group of one is a decoration that reads like a choice. Add makes a
+ * recipe, and the repeat pill went with the reminders — a recipe does not
+ * recur.
+ *
+ * Shopping rows are still `reminder` records, and they are still added from
+ * the Shopping screen's own +, which is where a thing to buy belongs.
  */
-import React, { useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { StyleSheet, Text, Pressable, View } from 'react-native';
 import { showAgain,
   byRecOrd,
   newId,
   ordBetween,
-  REPEAT_UNITS,
-  parseTimeFromText,
   nowStr,
   parseWhenFromText,
   prefsOf,
   todayStr,
   type Rec,
-  type Repeat,
 } from '@calmind/core';
 import { useStore } from '../store';
 import { themed, T } from '../theme';
 import { TopBar } from '../chrome';
-import { PageIcon, TickCircleIcon } from '../components/KindIcons';
-import { CircleBtn, DayPickBtn, Field, Pill, Scroll } from '../ui';
+import { DayPickBtn, Field, Pill, Scroll } from '../ui';
 import { Dropdown } from '../components/Dropdown';
 import { DayPick } from '../components/DayPick';
-
-type Kind = 'reminder' | 'note';
 
 export function Add({
   done,
@@ -49,20 +47,16 @@ export function Add({
   date0?: string | null;
 }) {
   const { recs, mutate } = useStore();
-  const [kind, setKind] = useState<Kind>('reminder');
   const [text, setText] = useState('');
   const [destId, setDestId] = useState<string | null>(null);
   const [showDest, setShowDest] = useState(false);
   const [showWhen, setShowWhen] = useState(false);
-  const [showRepeat, setShowRepeat] = useState(false);
   // The date is PICKED, not typed, since 2026-08-19 ("m/d should be a
   // calendar picker in the add page") — 'YYYY-MM-DD' straight from the grid,
   // no parse step to disagree with anything. Typing a date still works where
   // the typing hand already is: the line itself ("Dentist 8/3 2pm").
   const [datePicked, setDatePicked] = useState<string | null>(null);
   const [dayPickOpen, setDayPickOpen] = useState(false);
-  const [timeField, setTimeField] = useState('');
-  const [repeat, setRepeat] = useState<Repeat | null>(null);
   const [err, setErr] = useState('');
   const lastFiled = useRef<{ text: string; at: number } | null>(null);
 
@@ -75,11 +69,11 @@ export function Add({
   const sectionChoices = useMemo(() => {
     const folders = recs.filter((r): r is Rec<'folder'> => r.type === 'folder').sort(byRecOrd);
     const sections = recs.filter((r): r is Rec<'section'> => r.type === 'section').sort(byRecOrd);
-    const app = kind === 'note' ? 'notes' : 'reminders';
+    const app = 'notes';
     return folders
       .filter((f) => (f.payload.app ?? 'reminders') === app)
       .flatMap((f) => sections.filter((x) => x.payload.folderId === f.id).map((x) => ({ sec: x, label: `${f.payload.name} · ${x.payload.name}` })));
-  }, [recs, kind]);
+  }, [recs]);
 
   const add = (): boolean => {
     const raw = text.trim();
@@ -99,10 +93,12 @@ export function Add({
     }
     lastFiled.current = { text: raw, at: now };
     const fd = datePicked;
-    const [, ft] = parseTimeFromText(timeField.trim());
     // Manual-beats-parsed (Sean, 2026-08-18): a category the fields settled
-    // is not lifted from the line — the token stays, unused.
-    const [clean, pd, pt] = parseWhenFromText(raw, today, nowStr(), { date: fd === null, time: ft === null });
+    // is not lifted from the line — the token stays, unused. Only the DATE
+    // can be settled by a field now; a typed time is still lifted out of the
+    // name, exactly as it always was for a recipe, which has nowhere to keep
+    // one.
+    const [clean, pd] = parseWhenFromText(raw, today, nowStr(), { date: fd === null, time: true });
     // The launch day (date0) is an INCUMBENT, ranked as ItemModal ranks its
     // own: an explicit typed token beats it, but a bare "2pm" only IMPLIES a
     // day and that implication is a fallback, not an instruction — it must
@@ -110,11 +106,10 @@ export function Add({
     // cannot imply, so its date is the explicit token alone.
     const [, pdExplicit] = parseWhenFromText(raw, today, nowStr(), { date: fd === null, time: false });
     const date = fd ?? pdExplicit ?? date0 ?? pd;
-    const time = ft ?? pt;
     const title = clean || raw;
     let createdNoteId: string | null = null;
     mutate((e) => {
-      const app = kind === 'note' ? ('notes' as const) : ('reminders' as const);
+      const app = 'notes' as const;
       const pick =
         sectionChoices.find((c) => c.sec.id === destId) ??
         sectionChoices.find((c) => c.sec.id === prefsOf(recs, app).defaultSectionId) ??
@@ -122,16 +117,9 @@ export function Add({
       const { folderId } = pick.sec.payload;
       const widen = showAgain(recs, app, folderId);
       if (widen) e.put(widen);
-      if (kind === 'reminder') {
-        // A reminder filed from here with no date landed undated, which puts
-        // it in the all-view and on no day — Sean asked for today, which is
-        // also the only day this button can mean.
-        e.put({ id: newId(), type: 'reminder', updated: 0, payload: { text: title, due: date ?? today, time, done: false, repeat, folderId, sectionId: pick.sec.id, indent: 0, ord: ordBetween(null, null) } });
-      } else {
-        const noteId = newId();
-        e.put({ id: noteId, type: 'note', updated: 0, payload: { title, body: '', date, folderId, sectionId: pick.sec.id, ord: ordBetween(null, null) } });
-        createdNoteId = noteId;
-      }
+      const noteId = newId();
+      e.put({ id: noteId, type: 'note', updated: 0, payload: { title, body: '', date, folderId, sectionId: pick.sec.id, ord: ordBetween(null, null) } });
+      createdNoteId = noteId;
     });
     setText('');
     if (createdNoteId) {
@@ -141,25 +129,6 @@ export function Add({
     return true;
   };
 
-  const kindCard = (k: Kind, label: string, icon: React.ReactNode) => (
-    // The three cards are a radio group and said so to nobody: bare
-    // Pressables with an icon and a word, so which one is CHOSEN existed only
-    // as a background colour. Same fault the account pill had, and the same
-    // fix — it is also the only way a spec can read which card is selected.
-    <Pressable
-      key={k}
-      testID={`add-kind-${k}`}
-      accessibilityRole="radio"
-      aria-checked={kind === k}
-      accessibilityLabel={label}
-      onPress={() => { setKind(k); setDestId(null); }}
-      style={[s.card, kind === k && s.cardOn]}
-    >
-      {icon}
-      <Text style={[s.cardLabel, kind === k && s.cardLabelOn]}>{label}</Text>
-    </Pressable>
-  );
-
   return (
     <View style={s.page}>
       <TopBar title="Add" />
@@ -167,29 +136,9 @@ export function Add({
         <Text testID="add-date-line" style={s.dateLine}>{todayLabel}</Text>
         <Field testID="add-text" value={text} onChangeText={(t) => { setText(t); setErr(''); }} placeholder="e.g. Dentist 8/3 2pm…" autoFocus onSubmitEditing={() => add() && done()} />
 
-        <View style={s.cards}>
-          {kindCard('reminder', 'Reminder', <TickCircleIcon size={24} color={kind === 'reminder' ? T.accent : T.dim} />)}
-          {kindCard('note', 'Recipe', <PageIcon size={24} color={kind === 'note' ? T.accent : T.dim} />)}
-        </View>
-
         <View style={s.revealRow}>
           <Pill label="+ Folder/Section" primary={showDest} onPress={() => setShowDest(!showDest)} />
-          <Pill label="+ Date/Time" primary={showWhen} onPress={() => setShowWhen(!showWhen)} />
-          {kind !== 'note' && (
-            <Pill
-              label="+ Repeat"
-              primary={showRepeat}
-              onPress={() => {
-                // Revealing FILES a weekly repeat now (Sean, 2026-08-19: "repeat
-                // picker should default to week") — the item window's own
-                // presumption, so the pill below says what will happen. Which
-                // is also why hiding must CLEAR it: a repeat that survived its
-                // panel closing would ride along invisibly.
-                setRepeat(showRepeat ? null : { n: 1, unit: 'week' });
-                setShowRepeat(!showRepeat);
-              }}
-            />
-          )}
+          <Pill label="+ Date" primary={showWhen} onPress={() => setShowWhen(!showWhen)} />
         </View>
 
         {showDest && (
@@ -208,32 +157,9 @@ export function Add({
             {/* A circle wearing the calendar, never a box that looks typed-in
                 — Sean, 2026-08-20. DayPickBtn names the chosen day beside
                 the icon; the picker is the same DayPick as everywhere. */}
+            {/* No time field, and no "+ End": a time belongs to a reminder
+                and an end to an event, and this app has neither. */}
             <DayPickBtn testID="add-date" value={datePicked} onPress={() => setDayPickOpen(true)} />
-            {/* No "+ End" here. An end belongs to an EVENT, and events are
-                the calendar's — which this app does not have. */}
-            <Field value={timeField} onChangeText={setTimeField} placeholder="2:30pm" style={s.miniField} />
-          </View>
-        )}
-        {showRepeat && kind !== 'note' && (
-          <View style={s.panel}>
-            <Text style={s.panelLabel}>every</Text>
-            <CircleBtn glyph="−" label="Fewer" size={22} onPress={() => repeat && setRepeat({ ...repeat, n: Math.max(1, repeat.n - 1) })} />
-            <Text style={s.repN}>{repeat?.n ?? 1}</Text>
-            {/* Math.min matches ItemModal's stepper, which has always had a
-                ceiling this one lacked — the floor was clamped in both. */}
-            <CircleBtn glyph="+" label="Add" size={22} onPress={() => setRepeat({ n: Math.min(999, (repeat?.n ?? 1) + 1), unit: repeat?.unit ?? 'week' })} />
-            {/* core's list, in a dropdown — Sean's word, 2026-08-18. The
-                literal-copy trap testids.spec.ts guards still applies. */}
-            {/* 'week' from the moment the panel opens (his word again,
-                2026-08-19): revealing files a weekly repeat, so the pill
-                claiming "week" is now telling the truth — the reveal handler
-                above is what keeps it honest. */}
-            <Dropdown
-              testID="repeat-unit"
-              value={repeat?.unit ?? 'week'}
-              options={REPEAT_UNITS.map((u) => ({ id: u, label: u }))}
-              onPick={(u) => setRepeat({ n: repeat?.n ?? 1, unit: u as Repeat['unit'] })}
-            />
           </View>
         )}
 
