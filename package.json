@@ -23,7 +23,8 @@
     "test:deploy": "sh tools/check-deploy-guards.sh",
     "test:desktop": "sh desktop/check-assets.sh",
     "dtp": "sh tools/dtp.sh",
-    "tdtp": "sh tools/tdtp.sh"
+    "tdtp": "sh tools/tdtp.sh",
+    "typecheck": "npx tsc --noEmit -p packages/core && npx tsc --noEmit -p apps/app"
   },
   "devDependencies": {
     "@playwright/test": "^1.62.1"
