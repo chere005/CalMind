@@ -10,7 +10,7 @@ import { AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { watchForUpdate } from './update';
 import { SyncEngine, lastDeleted, normalize, prefsOf, folderApp, recLabel, shareOf, undeleted, type AnyRec, type Rec, type Snapshot } from '@calmind/core';
-import { apiPost, type Session, syncTransport, ApiError } from './api';
+import { apiPost, SYNC_SPACE, type Session, syncTransport, ApiError } from './api';
 import { applyTheme, type ThemeName } from './theme';
 import { defaultServerUrl } from './config';
 
@@ -166,8 +166,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     const s = sessionRef.current;
     if (!s) return;
     try {
+      // THE SPACE, on the sharing calls as well as on sync. Without it this
+      // read the partner's CALMIND store and drew their CalMind folders inside
+      // ChefMind — seen on the first sign-in after the deploy (Sean,
+      // 2026-08-21). Sharing itself is unchanged: same UX, same partners
+      // screen, same mutual rule. It is simply about THIS app's store, so a
+      // ChefMind partnership is declared in ChefMind by both people and every
+      // account starts blank.
       const r = await apiPost<{ partners: PartnerBadge[]; partner: string | null; records: AnyRec[] }>(
-        s.serverUrl, { action: 'shared_pull' }, s.token,
+        s.serverUrl, { action: 'shared_pull', space: SYNC_SPACE }, s.token,
       );
       setPartners(r.partners);
       setSharedPartner(r.partner);
@@ -286,7 +293,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     if (!s || !sharedPartner) return;
     let wrote = true;
     try {
-      await apiPost(s.serverUrl, { action: 'shared_put', partner: sharedPartner, record: { ...rec, updated: Date.now() } }, s.token);
+      await apiPost(s.serverUrl, { action: 'shared_put', space: SYNC_SPACE, partner: sharedPartner, record: { ...rec, updated: Date.now() } }, s.token);
     } catch {
       // fall through to the reconcile — the screen is what's wrong now
       wrote = false;

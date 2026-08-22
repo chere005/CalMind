@@ -533,9 +533,27 @@ function handle_sync(array $cfg, array $in): never
 
 /** The user's share record out of their own store — partners + the three
  *  opt-in buckets (record ids). Absent record = shares nothing, names nobody. */
-function share_of(array $cfg, string $user): array
+/**
+ * SHARING IS PER SPACE, all the way down.
+ *
+ * ChefMind (2026-08-21) reuses these accounts and keeps its own store, and the
+ * first version of that made sync space-aware and left sharing alone — so
+ * ChefMind pulled the partner's CALMIND folders and showed them, on the very
+ * first sign-in. Sean's words: "this should be completely separate from
+ * calmind... it just shares the login mechanism and users".
+ *
+ * So the whole chain carries the space: who you share with, what you share,
+ * what a pull returns and where a write lands are all questions about ONE
+ * store. A partnership in ChefMind is declared in ChefMind by both people,
+ * exactly as it is in CalMind — same UX, different file. Every user's ChefMind
+ * therefore starts blank, including its partner list.
+ *
+ * The default is '' and the behaviour at '' is unchanged, byte for byte,
+ * because that is CalMind and every existing share already lives there.
+ */
+function share_of(array $cfg, string $user, string $space = ''): array
 {
-    $db  = store_read($cfg, records_file($cfg, $user));
+    $db  = store_read($cfg, records_file($cfg, $user, $space));
     $rec = ($db['recs'] ?? [])['share'] ?? null;
     $p   = (is_array($rec) && empty($rec['deleted']) && is_array($rec['payload'] ?? null)) ? $rec['payload'] : [];
     $names = fn($k) => array_values(array_filter((array) ($p[$k] ?? []), 'is_string'));
@@ -546,11 +564,14 @@ function share_of(array $cfg, string $user): array
 /** The suite's share_mutual(): a partnership exists only while BOTH stored
  *  lists name each other — re-checked from the two stores on every request,
  *  so removal on either side ends all sharing instantly, both ways. */
-function share_mutual(array $cfg, string $me, string $partner): bool
+function share_mutual(array $cfg, string $me, string $partner, string $space = ''): bool
 {
     if ($me === $partner || $partner === '') { return false; }
-    return in_array($partner, share_of($cfg, $me)['partners'], true)
-        && in_array($me, share_of($cfg, $partner)['partners'], true);
+    // BOTH lists are read in the SAME space. Reading one side in CalMind and
+    // the other in ChefMind would make a CalMind partnership authorise a
+    // ChefMind read, which is the leak this parameter exists to close.
+    return in_array($partner, share_of($cfg, $me, $space)['partners'], true)
+        && in_array($me, share_of($cfg, $partner, $space)['partners'], true);
 }
 
 /** Is a record inside what $share opens up? Rows follow their container. */
@@ -569,10 +590,10 @@ function share_in_scope(array $share, string $type, string $id, ?array $payload)
 
 /** A partner's records filtered to what they share — nothing is ever copied;
  *  this reads the owner's store directly, like the suite reading their file. */
-function shared_records(array $cfg, string $owner): array
+function shared_records(array $cfg, string $owner, string $space = ''): array
 {
-    $share = share_of($cfg, $owner);
-    $db    = store_read($cfg, records_file($cfg, $owner));
+    $share = share_of($cfg, $owner, $space);
+    $db    = store_read($cfg, records_file($cfg, $owner, $space));
     $out   = [];
     foreach (($db['recs'] ?? []) as $r) {
         if (!is_array($r) || !empty($r['deleted'])) { continue; }
@@ -587,18 +608,19 @@ function shared_records(array $cfg, string $owner): array
 
 /** Everything the first mutual partner shares, plus every named partner's
  *  handshake state for the share window's badges. */
-function handle_shared_pull(array $cfg): never
+function handle_shared_pull(array $cfg, array $in): never
 {
     $me       = require_auth($cfg);
+    $space    = sync_space($in);
     $partners = [];
     $from     = null;
     $records  = [];
-    foreach (share_of($cfg, $me)['partners'] as $p) {
-        $mutual     = share_mutual($cfg, $me, $p);
+    foreach (share_of($cfg, $me, $space)['partners'] as $p) {
+        $mutual     = share_mutual($cfg, $me, $p, $space);
         $partners[] = ['name' => $p, 'mutual' => $mutual];
         if ($mutual && $from === null) {
             $from    = $p;
-            $records = shared_records($cfg, $p);
+            $records = shared_records($cfg, $p, $space);
         }
     }
     reply(200, ['ok' => true, 'partners' => $partners, 'partner' => $from, 'records' => $records]);
@@ -613,8 +635,9 @@ function handle_shared_pull(array $cfg): never
 function handle_shared_put(array $cfg, array $in): never
 {
     $me      = require_auth($cfg);
+    $space   = sync_space($in);
     $partner = (string) ($in['partner'] ?? '');
-    if (!share_mutual($cfg, $me, $partner)) {
+    if (!share_mutual($cfg, $me, $partner, $space)) {
         fail(403, 'not sharing');
     }
     $c = is_array($in['record'] ?? null) ? $in['record'] : null;
@@ -633,10 +656,12 @@ function handle_shared_put(array $cfg, array $in): never
     if (strlen(json_encode($c['payload'] ?? null)) > MAX_PAYLOAD) {
         fail(400, 'payload too large');
     }
-    $share   = share_of($cfg, $partner);
+    $share   = share_of($cfg, $partner, $space);
     $payload = is_array($c['payload'] ?? null) ? $c['payload'] : null;
-    with_lock($cfg, 'records-' . $partner, function () use ($cfg, $partner, $share, $c, $id, $type, $updated, $payload) {
-        $db   = store_read($cfg, records_file($cfg, $partner));
+    // The lock name carries the space for the same reason handle_sync's does:
+    // a lock named for the wrong file protects nothing.
+    with_lock($cfg, 'records-' . ($space === '' ? '' : $space . '-') . $partner, function () use ($cfg, $partner, $space, $share, $c, $id, $type, $updated, $payload) {
+        $db   = store_read($cfg, records_file($cfg, $partner, $space));
         $recs = is_array($db['recs'] ?? null) ? $db['recs'] : [];
         $cur  = $recs[$id] ?? null;
         $curPayload = is_array($cur['payload'] ?? null) ? $cur['payload'] : null;
@@ -670,7 +695,7 @@ function handle_shared_put(array $cfg, array $in): never
             $seq       = (int) ($db['seq'] ?? 0) + 1;
             $recs[$id] = ['id' => $id, 'type' => $type, 'updated' => $updated,
                           'deleted' => !empty($c['deleted']), 'payload' => $payload, 'seq' => $seq];
-            store_write($cfg, records_file($cfg, $partner), ['seq' => $seq, 'recs' => $recs]);
+            store_write($cfg, records_file($cfg, $partner, $space), ['seq' => $seq, 'recs' => $recs]);
         }
     });
     usage_log($cfg, 'shared_put', $me);

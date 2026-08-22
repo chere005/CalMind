@@ -792,6 +792,84 @@ t('a sync SPACE is a separate store under the same login', function () use ($rec
     ok(in_array('chef', (array) ($cap['body']['spaces'] ?? []), true), "and names 'chef'");
 });
 
+t('sharing is PER SPACE — a CalMind partnership shares nothing into ChefMind', function () use ($mkUser, $shareRec) {
+    /**
+     * The leak this exists for, found by Sean the minute ChefMind went live:
+     * sync had a space and sharing did not, so ChefMind pulled his partner's
+     * CALMIND folders and drew them inside an app that is supposed to share
+     * nothing with CalMind but the login.
+     *
+     * What is proved here is BOTH halves, because either alone passes with
+     * the bug present: that a CalMind partnership does not reach into the
+     * chef space, and that a chef partnership DOES work — same UX, same
+     * mutual rule, different file.
+     */
+    $a = 'sa' . substr((string) mt_rand(), 0, 6);
+    $b = 'sb' . substr((string) mt_rand(), 0, 6);
+    $tokA = $mkUser($a);
+    $tokB = $mkUser($b);
+
+    // They are partners in CALMIND, and a owns a shared folder there.
+    $cal = [
+        ['id' => 'cf', 'type' => 'folder', 'updated' => 1, 'payload' => ['name' => 'CalMind folder', 'color' => '#4c8bf0', 'ord' => 'a', 'app' => 'reminders']],
+        ['id' => 'cs', 'type' => 'section', 'updated' => 1, 'payload' => ['name' => 'General', 'folderId' => 'cf', 'ord' => 'a']],
+        $shareRec(['partners' => [$b], 'calendars' => [], 'folders' => ['cf'], 'notefolders' => []]),
+    ];
+    api(['action' => 'sync', 'cursor' => 0, 'changes' => $cal], $tokA);
+    api(['action' => 'sync', 'cursor' => 0, 'changes' => [$shareRec(['partners' => [$a], 'calendars' => [], 'folders' => [], 'notefolders' => []])]], $tokB);
+    eq($a, api(['action' => 'shared_pull'], $tokB)['body']['partner'], 'they are partners in CalMind');
+
+    // ChefMind: no partner, no records. Every account starts blank, its
+    // partner list included.
+    $chef = api(['action' => 'shared_pull', 'space' => 'chef'], $tokB);
+    eq(200, $chef['status']);
+    eq(null, $chef['body']['partner'], "the CalMind partnership does not reach into chef");
+    eq([], $chef['body']['partners'], 'and names nobody there');
+    eq([], $chef['body']['records'], 'and hands over nothing');
+
+    // Now they pair up IN CHEFMIND, and a shares a chef folder.
+    api(['action' => 'sync', 'space' => 'chef', 'cursor' => 0, 'changes' => [
+        ['id' => 'kf', 'type' => 'folder', 'updated' => 1, 'payload' => ['name' => 'Chef folder', 'color' => '#f0b429', 'ord' => 'a', 'app' => 'notes']],
+        ['id' => 'ks', 'type' => 'section', 'updated' => 1, 'payload' => ['name' => 'General', 'folderId' => 'kf', 'ord' => 'a']],
+        ['id' => 'kn', 'type' => 'note', 'updated' => 1, 'payload' => ['title' => 'Pancakes', 'body' => '', 'date' => null, 'folderId' => 'kf', 'sectionId' => 'ks', 'ord' => 'a']],
+        $shareRec(['partners' => [$b], 'calendars' => [], 'folders' => [], 'notefolders' => ['kf']]),
+    ]], $tokA);
+    api(['action' => 'sync', 'space' => 'chef', 'cursor' => 0, 'changes' => [$shareRec(['partners' => [$a], 'calendars' => [], 'folders' => [], 'notefolders' => []])]], $tokB);
+
+    $chef = api(['action' => 'shared_pull', 'space' => 'chef'], $tokB);
+    eq($a, $chef['body']['partner'], 'a chef partnership works, same rule');
+    $ids = array_column($chef['body']['records'], 'id');
+    sort($ids);
+    eq(['kf', 'kn', 'ks'], $ids, "and hands over the chef folder — never CalMind's");
+
+    // The reverse leak: CalMind's pull must not have grown the chef folder.
+    $ids = array_column(api(['action' => 'shared_pull'], $tokB)['body']['records'], 'id');
+    sort($ids);
+    eq(['cf', 'cs'], $ids, "CalMind's pull still holds only CalMind's");
+
+    // And a WRITE lands in the space it was sent for. b ticks a's chef note;
+    // a's CalMind store must be untouched by it.
+    $put = api(['action' => 'shared_put', 'space' => 'chef', 'partner' => $a, 'record' => [
+        'id' => 'kn', 'type' => 'note', 'updated' => 99,
+        'payload' => ['title' => 'Pancakes (b was here)', 'body' => '', 'date' => null, 'folderId' => 'kf', 'sectionId' => 'ks', 'ord' => 'a'],
+    ]], $tokB);
+    eq(200, $put['status'], 'the shared write is allowed in chef');
+    $mine = api(['action' => 'sync', 'space' => 'chef', 'cursor' => 0, 'changes' => []], $tokA)['body']['changes'];
+    $note = null;
+    foreach ($mine as $r) { if ($r['id'] === 'kn') { $note = $r; } }
+    ok($note !== null && ($note['payload']['title'] ?? '') === 'Pancakes (b was here)', "and a sees it in chef");
+    foreach (api(['action' => 'sync', 'cursor' => 0, 'changes' => []], $tokA)['body']['changes'] as $r) {
+        ok($r['id'] !== 'kn', "a's CalMind store never grew the chef note");
+    }
+
+    // A chef write with NO space would land in CalMind. There is no chef
+    // partnership at '' , so it is refused rather than misfiled.
+    eq(403, api(['action' => 'shared_put', 'partner' => $a, 'record' => [
+        'id' => 'kn', 'type' => 'note', 'updated' => 100,
+        'payload' => ['title' => 'wrong store', 'body' => '', 'date' => null, 'folderId' => 'kf', 'sectionId' => 'ks', 'ord' => 'a'],
+    ]], $tokB)['status'], 'a spaceless write is refused, not misfiled');
+});
+
 t("the server's day is Chicago's, not UTC", function () {
     // Anything here that asks what day it is gets this answer. Left on UTC it
     // turned over at 7pm Chicago, so every server-decided date was a day early

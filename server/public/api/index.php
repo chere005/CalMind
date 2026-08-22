@@ -67,7 +67,7 @@ match ((string) ($in['action'] ?? '')) {
     'recover'         => handle_recover($cfg, $in),
     'reset'           => handle_reset($cfg, $in),
     'whoami'          => handle_whoami($cfg),
-    'shared_pull'     => handle_shared_pull($cfg),
+    'shared_pull'     => handle_shared_pull($cfg, $in),
     'shared_put'      => handle_shared_put($cfg, $in),
     'sync'            => handle_sync($cfg, $in),
     // Public, and deliberately: the ChefMind deploy asks this before it ships,
