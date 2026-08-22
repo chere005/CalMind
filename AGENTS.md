@@ -69,6 +69,43 @@ shipped, `TODO.md` is the live list.
   fine and has been the best bug-finder there is. Writing to them, reordering
   his sections, or opening the widget page on his account is not.
 
+## Platforms
+
+CalMind is the origin app and the only repo in the suite with a full
+production server. A shared fix typically lands here first and gets promoted
+into CoreMind's canon — but canon then flows the other way on every deploy:
+CoreMind propagates it OUT into all four consumers, this repo included (see
+CoreMind's AGENTS.md for that graph). As of 2026-08-22:
+
+- **Web** — its own production server. `./server/deploy.sh prod test
+  --yes-prod` ships both instances; see the deploy rule above. This is the
+  only app in the suite Sean's devices, browser, and the public request link
+  point at directly.
+- **macOS** — Tauri desktop bundle (`desktop/`).
+- **Windows** — desktop, built and smoke-tested in CI via
+  `.github/workflows/desktop-windows.yml`, dispatched at the end of
+  `dtp`/`tdtp`.
+- **iOS** — installs to the physical phone via CoreMind's
+  `bin/build-platforms.sh CalMind --ios` (devicectl). Counts against Apple's
+  free-tier cap of 3 apps installed on one physical device at a time; the
+  phone currently carries CalMind, ChefMind, and AcctMind.
+- **watchOS** — a real paired-watch companion app, CalMindWatch, plus a
+  CalMindComplication and CalMindWidget extension (`apps/app/targets/watch`,
+  `apps/app/targets/watchwidget`). Installs to a paired Apple Watch when one
+  is reachable. MyCalMind's iOS build also produces a watch companion (same
+  CalMindWatch product name, kept deliberately) but has not installed it to a
+  watch; ChefMind and AcctMind have no watchOS target at all.
+- **Android** — builds, installs, and launches on a local emulator via
+  CoreMind's `bin/build-platforms.sh CalMind --android` (confirmed working
+  2026-08-22).
+
+Only web (this repo's own deploy) and the Windows CI dispatch ride along with
+`dtp`/`tdtp`. macOS, iOS, watchOS, and Android are built separately by
+CoreMind's shared, table-driven `bin/build-platforms.sh` — see that repo for
+the two hard rules it enforces: never run two heavy build/device processes on
+this machine at once, and mind the phone's 3-app free-tier cap before
+installing.
+
 ## Traps that have cost real time here
 
 - **A `click()` on a control that has gone does not fail fast.** It waits out
