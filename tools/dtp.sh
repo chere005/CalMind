@@ -37,13 +37,33 @@ for a in "$@"; do
   esac
 done
 
-git pull --autostash --quiet
-
-if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
-  echo "refusing: uncommitted tracked changes — commit your work first, so the" >&2
-  echo "tag names exactly what shipped:" >&2
-  git status --porcelain --untracked-files=no | sed 's/^/  /' >&2
+# ---------------------------------------------------------------- the branch
+# The push below names main explicitly, so a lane run from any other branch
+# would deploy and tag a tree it then does not push — while printing
+# "pushed" and exiting 0.
+BRANCH=$(git rev-parse --abbrev-ref HEAD)
+if [ "$BRANCH" != "main" ]; then
+  echo "refusing: this lane ships main, and HEAD is on '$BRANCH'" >&2
   exit 1
+fi
+
+# ------------------------------------------------------- the tree, then a pull
+# The dirty check runs FIRST and again AFTER the pull. `git pull --autostash`
+# exits 0 even when the autostash pop CONFLICTS — proven, not assumed — so a
+# pull that goes first can leave conflict markers in the tree with set -e none
+# the wiser, and the lane would deploy them.
+refuse_dirty() {
+  if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
+    echo "refusing: $1" >&2
+    git status --porcelain --untracked-files=no | sed 's/^/  /' >&2
+    exit 1
+  fi
+}
+refuse_dirty "uncommitted tracked changes — commit your work first, so the tag names exactly what shipped"
+
+if git remote get-url origin >/dev/null 2>&1; then
+  git pull --autostash --quiet
+  refuse_dirty "the pull left the tree dirty — a conflicted autostash pop exits 0, so this is the check that catches it"
 fi
 
 if [ "$FULL" = 1 ]; then
@@ -53,9 +73,11 @@ fi
 
 # ------------------------------------------------------------------ the version
 CUR=$(node -p "require('./apps/app/app.json').expo.version")
-case "$CUR" in
-  *[!0-9.]*|.*|*.|*..*) echo "app.json version '$CUR' is not x.y.z" >&2; exit 1 ;;
-esac
+# x.y.z, three digit parts, nothing else. The glob this replaces claimed to
+# reject anything else and accepted '', '1', '1.2' and '1.2.3.4' — and an
+# EMPTY version flowed on into `git rev-parse refs/tags/v` and a tag named `v`.
+printf '%s\n' "$CUR" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$' \
+  || { echo "app.json version '$CUR' is not x.y.z" >&2; exit 1; }
 
 if git rev-parse -q --verify "refs/tags/v$CUR" >/dev/null; then
   NEW=$(echo "$CUR" | awk -F. '{printf "%d.%d.0", $1, $2+1}')
@@ -63,6 +85,15 @@ if git rev-parse -q --verify "refs/tags/v$CUR" >/dev/null; then
 else
   NEW="$CUR"
   echo "==> version: $CUR is still untagged from an earlier run — reusing it"
+fi
+
+# A leftover v$NEW would make `git tag -a` fail AFTER the deploy has already
+# shipped. Checked HERE, while nothing has been touched yet.
+if git rev-parse -q --verify "refs/tags/v$NEW" >/dev/null; then
+  echo "refusing: the tag v$NEW already exists — nothing has shipped yet." >&2
+  echo "  It is the residue of an interrupted lane: look at it, then delete it" >&2
+  echo "  or move the version on." >&2
+  exit 1
 fi
 
 # Each substitution is VERIFIED — a sed that matches nothing reports success
@@ -86,10 +117,24 @@ else
   echo "   (no cargo on PATH — Cargo.lock will catch up on the next desktop build)"
 fi
 
+# The lock mirrors these version numbers, and npm rewrites it on the next
+# install if they disagree — which lands as "uncommitted tracked changes" in
+# the NEXT lane, about a file nobody edited. The diff is bounded here because
+# a script that rewrites a 300KB lock deserves a check that it changed only
+# what it said it would.
+echo "==> package-lock.json"
+node tools/sync-lock-versions.mjs
+LOCKDIFF=$(git diff --numstat -- package-lock.json | awk '{print $1 + $2}')
+if [ -n "$LOCKDIFF" ] && [ "$LOCKDIFF" -gt 30 ]; then
+  echo "guard: the lock sync changed $LOCKDIFF lines — that is more than version fields" >&2
+  git checkout -- package-lock.json
+  exit 1
+fi
+
 if ! git diff --quiet -- apps/app/app.json desktop/package.json \
-    desktop/src-tauri/tauri.conf.json desktop/src-tauri/Cargo.toml desktop/src-tauri/Cargo.lock; then
+    desktop/src-tauri/tauri.conf.json desktop/src-tauri/Cargo.toml desktop/src-tauri/Cargo.lock package-lock.json; then
   git add apps/app/app.json desktop/package.json \
-    desktop/src-tauri/tauri.conf.json desktop/src-tauri/Cargo.toml desktop/src-tauri/Cargo.lock
+    desktop/src-tauri/tauri.conf.json desktop/src-tauri/Cargo.toml desktop/src-tauri/Cargo.lock package-lock.json
   git commit -q -m "CalMind $NEW"
   echo "==> committed the bump"
 fi
@@ -103,7 +148,20 @@ fi
 
 # --------------------------------------------------------------- tag, push, CI
 git tag -a "v$NEW" -m "CalMind $NEW"
-git push --follow-tags origin main
+# --atomic, because `git push --follow-tags` is per-ref: when origin/main has
+# moved under a long deploy, the TAG lands on the remote while main is
+# REJECTED — a published tag for a commit nobody can fetch. Both or neither.
+#
+# And if it is neither, the local tag comes straight back off. The version is
+# then still untagged, so a re-run REUSES it — which is right, because the
+# deploy above already shipped exactly these bytes under that number.
+if ! git push --atomic --follow-tags origin main; then
+  git tag -d "v$NEW" >/dev/null
+  echo "" >&2
+  echo "THE DEPLOY SHIPPED, but the push was rejected — so nothing was tagged." >&2
+  echo "  main has moved on the remote. Pull, then re-run: the lane reuses ${NEW}." >&2
+  exit 1
+fi
 echo "==> pushed, tagged v$NEW"
 
 if command -v gh >/dev/null 2>&1; then

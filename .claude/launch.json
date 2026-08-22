@@ -9,16 +9,6 @@
         "mkdir -p /tmp/calmind-dev-data && CALMIND_DATA_DIR=/tmp/calmind-dev-data php -S 127.0.0.1:8791 e2e/router.php"
       ],
       "port": 8791
-    },
-    {
-      "name": "chefmind",
-      "runtimeExecutable": "sh",
-      "runtimeArgs": [
-        "-c",
-        "mkdir -p /tmp/chefmind-dev-data && CALMIND_DATA_DIR=/tmp/chefmind-dev-data php -S 127.0.0.1:8792 ChefMind/e2e-router.php"
-      ],
-      "port": 8792,
-      "url": "http://127.0.0.1:8792"
     }
   ]
 }
