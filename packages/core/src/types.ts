@@ -134,6 +134,28 @@ export type MeetReq = {
   status?: 'new' | 'proposed';
 };
 
+/**
+ * ONE DAY'S AVAILABILITY OVERRIDES (Sean, 2026-08-21) — his answer on top of
+ * the request page's own rules, and "these settings are the final say on the
+ * request screen".
+ *
+ * Only the DIFFERENCES are stored, never the whole day: a slot the rules
+ * already get right leaves no trace. That is what keeps this record from
+ * going stale — the open hours can change, an event can be added or moved,
+ * and every slot he never touched follows the new answer instead of a frozen
+ * copy of the old one. `off` closes a slot the rules opened; `on` opens one
+ * they closed, which is how he overrides a clash on his own calendar.
+ *
+ * A record, not a server setting, for the reason meetreq itself is one: it
+ * reaches every device through ordinary sync, and the server already reads
+ * this store to answer the public page.
+ */
+export type MeetAvail = {
+  date: string;  // 'YYYY-MM-DD' — also in the id, so one day is one record
+  off: string[]; // 'HH:00' starts he closed
+  on: string[];  // 'HH:00' starts he opened over a clash
+};
+
 /** A calendar subscribed BY LINK, read-only (Sean, 2026-08-18: "subscribe-by-
  *  link first, i just want read only access to other calendar system"). The
  *  record is only the pointer — url, name, colour, its place in the picker.
@@ -155,7 +177,8 @@ export type RecType =
   | 'pref'
   | 'share'
   | 'calsub'
-  | 'meetreq';
+  | 'meetreq'
+  | 'meetavail';
 
 export type PayloadOf = {
   folder: Folder;
@@ -171,6 +194,7 @@ export type PayloadOf = {
   share: Share;
   calsub: CalSub;
   meetreq: MeetReq;
+  meetavail: MeetAvail;
 };
 
 /** The suite's shares file as one singleton record (id 'share'): who I name

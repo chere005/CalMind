@@ -60,7 +60,7 @@ export default defineConfig({
   },
   webServer: {
     command:
-      'rm -rf /tmp/calmind-e2e-webkit && mkdir -p /tmp/calmind-e2e-webkit && CALMIND_DATA_DIR=/tmp/calmind-e2e-webkit php -S 127.0.0.1:8791 e2e/router.php',
+      'rm -rf /tmp/calmind-e2e-webkit && mkdir -p /tmp/calmind-e2e-webkit && CALMIND_DATA_DIR=/tmp/calmind-e2e-webkit CALMIND_MEETREQ_USER=owner php -S 127.0.0.1:8791 e2e/router.php',
     url: 'http://127.0.0.1:8791/calmind/',
     reuseExistingServer: false,
     timeout: 15_000,

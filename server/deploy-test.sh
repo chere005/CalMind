@@ -42,6 +42,15 @@ done
 # left the icon still pointing at /test/calmind.
 LIB_DEST="/home/protected/calmind/lib"
 WEB_DEST="/home/public/test/calmind"
+# The address the smoke proves, and it is NOT derived from WEB_DEST. Test moved
+# to its own subdomain on 2026-08-20: the files still land in /home/public/test
+# /calmind, but nothing serves them at seancheren.com/test/calmind any more —
+# that path 404s on the apex by design. smoke-live.sh defaults to PROD's URL
+# when given none, so this script has been uploading to TEST and then proving
+# PROD's page: twelve green checks that could not have gone red whatever was
+# deployed. server/deploy.sh already passes its per-instance URL; this is the
+# same fix, on the lane dtp actually uses.
+SITE_URL="https://test.seancheren.com/calmind"
 DATA_DEST="$(dirname "$LIB_DEST")/data"   # the instance's own data dir
 INST_DIR="$(dirname "$LIB_DEST")"          # what the perms pass owns
 WEB_PATH="${WEB_DEST#/home/public}"        # the URL path the client is served at
@@ -298,10 +307,10 @@ if [ -z "$DRY" ] && [ "$WEB" = 1 ]; then
   # apart from a broken one. It is NOT a way to pass by trying twice: a second
   # failure still stops the deploy, and a first failure is printed either way
   # so an intermittent fault cannot hide behind a green second attempt.
-  if ! ./server/tools/smoke-live.sh --static; then
+  if ! ./server/tools/smoke-live.sh --static "$SITE_URL"; then
     echo "   first pass failed — giving the upload a moment and re-checking once" >&2
     sleep 5
-    ./server/tools/smoke-live.sh --static || {
+    ./server/tools/smoke-live.sh --static "$SITE_URL" || {
       echo "the deployed page is wrong — look before shipping further" >&2; exit 1; }
     echo "   (it passed on the retry: the first run caught a settling upload, not a fault)" >&2
   fi

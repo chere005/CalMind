@@ -33,7 +33,11 @@
 # rewrite only has to serve the same index.html there. e2e/router.php does
 # the equivalent for the local harness.
 RewriteEngine On
-RewriteRule ^request$ index.html [L]
+# The trailing slash is in the pattern because App.tsx accepts it
+# (/\/request\/?$/) and the two disagreeing means /calmind/request/ 404s while
+# /calmind/request serves — the kind of difference nobody debugs, they just
+# conclude the link is dead.
+RewriteRule ^request/?$ index.html [L]
 
 # ── Host routing, and it has to live HERE ───────────────────────────────────
 #

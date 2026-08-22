@@ -20,7 +20,11 @@ export default defineConfig({
     viewport: { width: 420, height: 900 },
   },
   webServer: {
-    command: 'rm -rf /tmp/calmind-e2e-data && mkdir -p /tmp/calmind-e2e-data && CALMIND_DATA_DIR=/tmp/calmind-e2e-data php -S 127.0.0.1:8790 e2e/router.php',
+    // CALMIND_MEETREQ_USER names whose request page this instance serves, and
+    // so who gets the availability editor (Sean, 2026-08-21: "in just the
+    // sean account"). The data dir is wiped on the line before, so the fixed
+    // name is free every run — and callist/meetavail sign up as it.
+    command: 'rm -rf /tmp/calmind-e2e-data && mkdir -p /tmp/calmind-e2e-data && CALMIND_DATA_DIR=/tmp/calmind-e2e-data CALMIND_MEETREQ_USER=owner php -S 127.0.0.1:8790 e2e/router.php',
     url: 'http://127.0.0.1:8790/calmind/',
     reuseExistingServer: false,
     timeout: 15_000,

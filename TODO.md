@@ -29,8 +29,8 @@ file, and run this as part of ANY future compression.
 
 ## Suite counts, as of this commit
 
-core **637** · gesture **274** (+2 skipped: the two live specs) · WebKit **15** · server **59** ·
-live **19** with the API · desktop **7** (+3 in `npm run test:desktop`) · deploy guards **15** · plus the four
+core **659** · gesture **276** (+2 skipped: the two live specs) · WebKit **15** · server **62** ·
+live **19** with the API · desktop **7** (+3 in `npm run test:desktop`) · deploy guards **21** · plus the four
 native seam checkers no browser can reach: `npm run test:watch`,
 `npm run test:widget`, `npm run test:deploy`.
 
@@ -84,7 +84,17 @@ Each is blocked on his word, not on work.
 
 ## 2 · Open bugs
 
-None known right now. Before believing a new intermittent WebKit failure,
+- **A record whose id the server dislikes is dropped SILENTLY.** `handle_sync`
+  checks the id against `REC_ID_RE` (`[A-Za-z0-9_-]{1,64}`) and `continue`s
+  past anything else — no entry in `rejected`, `ok: true`, and the client
+  marks itself synced. Found 2026-08-21 by giving the new availability record
+  a colon in its id: the write reported success and nothing was stored, on
+  every device, for ever. Nothing in the app produces a bad id today, so no
+  data is being lost — but the oversized-payload path already learned this
+  lesson and answers `rejected`, and this branch is one line from doing the
+  same. (The same `continue` also swallows a bad `type` and `updated <= 0`.)
+
+Nothing else known right now. Before believing a new intermittent WebKit failure,
 read the note-focus flake's twelve-occurrence history first
 (`git show 7eefa6c:TODO.md`, §2) — it died of a design decision on
 2026-08-18, and two rate claims about it were made and retracted on the way.
@@ -128,6 +138,11 @@ read the note-focus flake's twelve-occurrence history first
   why they get the care they do. Note the scope — it is reminders and
   events. The MEETING-REQUEST notification is a separate stub (§1) and
   stays on its own switch; its badge shipped 2026-08-20.
+- **Three suggested features, answered no** (Sean, 2026-08-21): a global
+  search — there already is one; **scaling a recipe by servings** — not
+  wanted; a **habits widget/complication** — "the widget and complication
+  are already sufficient". Recorded because all three read as obvious gaps
+  from the code and are not.
 - **The native toast eats one tap at worst** while showing (its window
   dismisses on first touch). The cost of "always on top" on a surface where
   nothing else draws over a Modal; the web keeps full click-through.

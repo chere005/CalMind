@@ -81,6 +81,9 @@ match ((string) ($in['action'] ?? '')) {
     'meetreq_slots'   => handle_meetreq_slots($cfg, $in),
     'meetreq_create'  => handle_meetreq_create($cfg, $in),
     'meetreq_mail'    => handle_meetreq_mail($cfg, $in),
+    // The owner's own day, clashes and all — auth'd, and about no calendar
+    // but the caller's own.
+    'meetreq_day'     => handle_meetreq_day($cfg, $in),
     'passkey_register_begin'  => handle_passkey_register_begin($cfg),
     'passkey_register_finish' => handle_passkey_register_finish($cfg, $in),
     'passkey_login_begin'     => handle_passkey_login_begin($cfg),

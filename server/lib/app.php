@@ -62,6 +62,12 @@ function app_config(): array
     $cfg = is_file(__DIR__ . '/config.php') ? require __DIR__ . '/config.php' : [];
     $cfg['data_dir'] ??= getenv('CALMIND_DATA_DIR') ?: dirname(__DIR__) . '/data';
     $cfg['timezone'] ??= 'America/Chicago';
+    // Whose calendar the public request page offers, and so whose account
+    // gets the availability editor. The env fallback is what lets the e2e
+    // harness own a request page at all: its accounts are minted per run
+    // with names nothing can know in advance, so the OWNER has to be named
+    // from outside instead. Deployed instances set it in config.php.
+    $cfg['meetreq_user'] ??= getenv('CALMIND_MEETREQ_USER') ?: 'sean';
     return $cfg;
 }
 
@@ -1053,9 +1059,51 @@ function meetreq_hour_label(int $h): string
 function meetreq_user(array $cfg): string
 {
     // Whose calendar the public page offers. One account per instance is the
-    // reality (there is no prod instance and the test one is Sean's); the
-    // config key exists so that fact lives in one place.
+    // reality; app_config() owns the default and the env override.
     return (string) ($cfg['meetreq_user'] ?? 'sean');
+}
+
+/** The owner's records, read ONCE per request.
+ *
+ *  handle_meetreq_slots asks about up to 45 days in a row and every one of
+ *  them used to decrypt and parse the whole store again — 45 reads to answer
+ *  one page load, and the availability lookup added below would have made it
+ *  90. The store cannot change underneath a single request, so the second
+ *  read never had anything to learn. */
+function meetreq_recs(array $cfg, string $user): array
+{
+    static $cache = [];
+    if (!array_key_exists($user, $cache)) {
+        $db = store_read($cfg, records_file($cfg, $user));
+        $cache[$user] = is_array($db['recs'] ?? null) ? $db['recs'] : [];
+    }
+    return $cache[$user];
+}
+
+/**
+ * One day's availability overrides — Sean's answer on top of the rules
+ * (2026-08-21), and the final say over both the window and his calendar.
+ *
+ * The record is written by his own client (core's slotSet builds it) and
+ * arrives here through ordinary sync, which is why this reads the store
+ * rather than a settings file: there is no second channel to keep honest.
+ * core/src/meetreq.ts holds the same arithmetic for the screen; the two are
+ * pinned separately, in meetavail.test.ts and in server/tools/test.php.
+ */
+function meetreq_avail(array $cfg, string $user, string $date): array
+{
+    $want = 'meetavail_' . $date;
+    foreach (meetreq_recs($cfg, $user) as $r) {
+        if (($r['id'] ?? '') !== $want || !empty($r['deleted'])) { continue; }
+        $p = $r['payload'] ?? [];
+        // Anything that is not a list of strings is treated as no override.
+        // A damaged payload must not decide that a day is wide open.
+        $clean = static fn($v) => is_array($v)
+            ? array_values(array_filter($v, static fn($x) => is_string($x)))
+            : [];
+        return ['off' => $clean($p['off'] ?? null), 'on' => $clean($p['on'] ?? null)];
+    }
+    return ['off' => [], 'on' => []];
 }
 
 /** The day's busy windows as [startMin, endMin), from the owner's events.
@@ -1065,10 +1113,8 @@ function meetreq_user(array $cfg): string
  *  squat the calendar by asking. */
 function meetreq_busy(array $cfg, string $user, string $date): array
 {
-    $db   = store_read($cfg, records_file($cfg, $user));
-    $recs = is_array($db['recs'] ?? null) ? $db['recs'] : [];
     $busy = [];
-    foreach ($recs as $r) {
+    foreach (meetreq_recs($cfg, $user) as $r) {
         if (($r['type'] ?? '') !== 'event' || !empty($r['deleted'])) { continue; }
         $p = $r['payload'] ?? [];
         if (($p['date'] ?? '') !== $date) { continue; }
@@ -1088,9 +1134,20 @@ function meetreq_busy(array $cfg, string $user, string $date): array
     return $busy;
 }
 
-/** Which 'HH:00' starts are open on one day. Past days and passed hours are
- *  closed; a slot is open when no busy window overlaps its hour. */
-function meetreq_slots_for(array $cfg, string $user, string $date): array
+/**
+ * The day's whole window, each hour flagged with whether his calendar has
+ * something in it — what the OWNER sees, overrides not yet applied.
+ *
+ * Sean, 2026-08-21: "times where i already have something on the calendar
+ * default to red, they aren't omitted in my view so i can override". So the
+ * busy hours have to survive this far and be filtered out later; a function
+ * that dropped them here could not answer his screen.
+ *
+ * Two things are NOT overridable and so are settled here rather than left to
+ * the caller: a day already past, and an hour already gone today. No setting
+ * makes yesterday requestable.
+ */
+function meetreq_day_slots(array $cfg, string $user, string $date): array
 {
     $today = date('Y-m-d');
     if ($date < $today) { return []; }
@@ -1105,7 +1162,23 @@ function meetreq_slots_for(array $cfg, string $user, string $date): array
         foreach ($busy as [$bs, $be]) {
             if ($bs < $s + 60 && $be > $s) { $blocked = true; break; }
         }
-        if (!$blocked) { $out[] = sprintf('%02d:00', $h); }
+        $out[] = ['time' => sprintf('%02d:00', $h), 'busy' => $blocked];
+    }
+    return $out;
+}
+
+/** Which 'HH:00' starts are open on one day — the window, minus his
+ *  calendar, with his own overrides on top and having the last word. */
+function meetreq_slots_for(array $cfg, string $user, string $date): array
+{
+    $av  = meetreq_avail($cfg, $user, $date);
+    $out = [];
+    foreach (meetreq_day_slots($cfg, $user, $date) as $slot) {
+        $t = $slot['time'];
+        // The same three lines core's slotOpen runs, in the same order.
+        $open = in_array($t, $av['on'], true) ? true
+            : (in_array($t, $av['off'], true) ? false : !$slot['busy']);
+        if ($open) { $out[] = $t; }
     }
     return $out;
 }
@@ -1126,6 +1199,36 @@ function handle_meetreq_slots(array $cfg, array $in): never
     }
     usage_log($cfg, 'meetreq_slots', $user);
     reply(200, ['ok' => true, 'days' => $out]);
+}
+
+/**
+ * OWNER-ONLY: one day's whole window, busy hours included, for the
+ * availability editor under the Requests menu (Sean, 2026-08-21).
+ *
+ * This is the public endpoint's mirror image and deliberately so: that one
+ * leaks nothing (open starts only, no titles, no clash times), and this one
+ * has to show the clashes, because a slot he cannot see is a slot he cannot
+ * override. It is behind require_auth and answers about the signed-in
+ * account's OWN calendar — the `user` parameter the public pair accepts is
+ * not read here at all, so no token can ask about anyone else's day.
+ *
+ * `owner` is what decides whether the editor appears. It is the server's
+ * answer rather than a name compiled into the app: the account whose
+ * availability the public page actually serves is a fact only this instance
+ * holds, and an editor drawn for anyone else would write records that
+ * nothing on the internet would ever read.
+ */
+function handle_meetreq_day(array $cfg, array $in): never
+{
+    $user = require_auth($cfg);
+    $date = (string) ($in['date'] ?? '');
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) { fail(400, 'bad date'); }
+    if ($user !== meetreq_user($cfg)) {
+        // Not a refusal: there is simply no request page behind this account.
+        reply(200, ['ok' => true, 'owner' => false, 'slots' => []]);
+    }
+    usage_log($cfg, 'meetreq_day', $user);
+    reply(200, ['ok' => true, 'owner' => true, 'slots' => meetreq_day_slots($cfg, $user, $date)]);
 }
 
 /** PUBLIC: create a request. Validated against the same slot rule the page

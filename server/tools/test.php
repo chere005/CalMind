@@ -36,6 +36,10 @@ $port = (int) explode(':', stream_socket_get_name($sock, false))[1];
 fclose($sock);
 $srv = proc_open(
     'CALMIND_DATA_DIR=' . escapeshellarg($scratch)
+    // Whose request page this instance serves. The availability editor is
+    // the owner's alone, so the harness has to be able to BE the owner; the
+    // scratch dir is new every run, so a fixed name never collides.
+    . ' CALMIND_MEETREQ_USER=mrowner'
     . ' php -d display_errors=1 -d error_reporting=E_ALL -S 127.0.0.1:' . $port . ' -t ' . escapeshellarg($root . '/public'),
     [1 => ['file', '/dev/null', 'w'], 2 => ['file', $scratch . '/server.log', 'w']],
     $pipes
@@ -1213,6 +1217,93 @@ t('the public slot list is the window minus the calendar, and only open/closed l
     eq([], array_values($y['body']['days'])[0], 'the past is closed');
 });
 
+// ---- the owner's availability overrides (Sean, 2026-08-21) ----------------
+//
+// The half that only the server can prove: that his settings are the FINAL
+// SAY on what a stranger may ask for. core's meetavail.test.ts pins the same
+// arithmetic for the screen he taps; these pin what the endpoint enforces,
+// which is the one that matters — a rule the server does not run is a rule
+// anyone can post straight past.
+
+/** Push one availability record for a day, as his client would. */
+function avail_put(string $tok, string $date, array $off, array $on, int $updated = 1): void
+{
+    api(['action' => 'sync', 'cursor' => 0, 'changes' => [[
+        'id' => 'meetavail_' . $date, 'type' => 'meetavail', 'updated' => $updated,
+        'payload' => ['date' => $date, 'off' => $off, 'on' => $on],
+    ]]], $tok);
+}
+
+t('the owner sees his whole window, busy hours included; nobody else has an editor', function () {
+    $tok = api(['action' => 'signup', 'username' => 'mrowner', 'email' => 'mrowner@x.com', 'password' => 'meetreq-pw-1'])['body']['token'];
+    $d = date('Y-m-d', strtotime('next monday'));   // a 10am–8pm day
+    api(['action' => 'sync', 'cursor' => 0, 'changes' => [
+        ['id' => 'av-ev1', 'type' => 'event', 'updated' => 1, 'payload' => ['text' => 'Standup', 'date' => $d, 'time' => '14:00', 'repeat' => null, 'calendarId' => 'c', 'ord' => 'a']],
+    ]], $tok);
+
+    eq(401, api(['action' => 'meetreq_day', 'date' => $d])['status'], 'the editor needs a session');
+
+    $r = api(['action' => 'meetreq_day', 'date' => $d], $tok);
+    eq(200, $r['status']);
+    ok($r['body']['owner'] === true, 'the request page is his, so he gets the editor');
+    $times = array_column($r['body']['slots'], 'time');
+    eq(['10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00'], $times,
+        'the WHOLE window — the busy hour is not omitted from his own view');
+    $busy = array_column($r['body']['slots'], 'busy', 'time');
+    ok($busy['14:00'] === true && $busy['13:00'] === false, 'and the clash is flagged rather than removed');
+    // The public page, same day, same moment: the busy hour IS omitted there.
+    $pub = api(['action' => 'meetreq_slots', 'user' => 'mrowner', 'from' => $d, 'days' => 1])['body']['days'][$d];
+    ok(!in_array('14:00', $pub, true), 'a stranger is never told about the clash');
+
+    // Anyone else: no editor, and no way to ask about a day of his either.
+    $u2 = 'mrother' . time();
+    $t2 = api(['action' => 'signup', 'username' => $u2, 'email' => "$u2@x.com", 'password' => 'meetreq-pw-1'])['body']['token'];
+    $other = api(['action' => 'meetreq_day', 'date' => $d], $t2);
+    ok($other['body']['owner'] === false && $other['body']['slots'] === [], 'no request page behind that account, no editor');
+    // The `user` parameter the PUBLIC pair honours must do nothing here.
+    $pry = api(['action' => 'meetreq_day', 'date' => $d, 'user' => 'mrowner'], $t2);
+    ok($pry['body']['owner'] === false && $pry['body']['slots'] === [], 'and it cannot be pointed at someone else');
+});
+
+t('his settings are the final say — closed hours vanish, opened clashes come back', function () {
+    $tok = api(['action' => 'login', 'username' => 'mrowner', 'password' => 'meetreq-pw-1'])['body']['token'];
+    $d = date('Y-m-d', strtotime('next monday'));   // 14:00 is busy, from above
+    $slots = fn() => api(['action' => 'meetreq_slots', 'user' => 'mrowner', 'from' => $d, 'days' => 1])['body']['days'][$d];
+
+    // Closing an hour the rules opened takes it off the public page…
+    avail_put($tok, $d, ['15:00'], [], 2);
+    ok(!in_array('15:00', $slots(), true), 'a closed hour leaves the public list');
+    // …and refuses a create for it, not just hides it. Drawing is not enforcing.
+    $no = api(['action' => 'meetreq_create', 'user' => 'mrowner', 'name' => 'X', 'email' => 'x@x.com', 'date' => $d, 'time' => '15:00']);
+    eq(409, $no['status'], 'and posting straight at it is refused');
+
+    // Opening an hour his own calendar had taken puts it back — the override
+    // he asked for, over the top of a real clash.
+    avail_put($tok, $d, [], ['14:00'], 3);
+    ok(in_array('14:00', $slots(), true), 'the clash he overrode is offered');
+    $yes = api(['action' => 'meetreq_create', 'user' => 'mrowner', 'name' => 'X', 'email' => 'x@x.com', 'date' => $d, 'time' => '14:00']);
+    eq(200, $yes['status'], 'and a stranger may take it');
+    ok(in_array('15:00', $slots(), true), 'the hour he re-opened is back');
+
+    // A day switched off entirely offers nothing at all.
+    avail_put($tok, $d, ['10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00'], [], 4);
+    eq([], $slots(), 'All-off empties the day');
+
+    // A tombstoned record is no override: the rules resume, clash and all.
+    api(['action' => 'sync', 'cursor' => 0, 'changes' => [[
+        'id' => 'meetavail_' . $d, 'type' => 'meetavail', 'updated' => 5, 'deleted' => true, 'payload' => null,
+    ]]], $tok);
+    $back = $slots();
+    ok(in_array('15:00', $back, true), 'deleting the record restores the rules');
+    ok(!in_array('14:00', $back, true), 'including the clash it had been overriding');
+
+    // Nothing overrides the past. A day gone is gone however it was set.
+    $past = date('Y-m-d', strtotime('-1 day'));
+    avail_put($tok, $past, [], ['10:00','11:00'], 6);
+    eq([], api(['action' => 'meetreq_slots', 'user' => 'mrowner', 'from' => $past, 'days' => 1])['body']['days'][$past],
+        'yesterday cannot be opened');
+});
+
 t('a create is validated against the same rule, lands as a record, and syncs back', function () use ($scratch) {
     $u = 'mrc' . time();
     $tok = api(['action' => 'signup', 'username' => $u, 'email' => "$u@x.com", 'password' => 'meetreq-pw-1'])['body']['token'];
@@ -1280,16 +1371,21 @@ t('the create throttle holds, per IP, and the mail stub logs without sending', f
     $tok = api(['action' => 'signup', 'username' => $u, 'email' => "$u@x.com", 'password' => 'meetreq-pw-1'])['body']['token'];
     // A fixed weekday again: these morning starts are only in Monday's window.
     $d = date('Y-m-d', strtotime('next monday'));
-    // MEETREQ_IP_MAX is 5 and the two tests above spent three of this hour\'s
-    // budget (harness = one IP): two more land, the sixth refuses.
+    // The bucket is emptied first, and that is not tidiness. The whole
+    // harness is ONE IP, so this used to start from "the tests above spent
+    // three of this hour's budget" and expect the leftovers — a number that
+    // silently became wrong the moment any earlier test made one more
+    // request, which is exactly how it broke when the availability tests
+    // were added. Counting from zero here is a test that stays true.
+    @unlink($scratch . '/meetreq-ips.json');
     $landed = 0;
     $throttled = false;
-    foreach (['10:00', '11:00', '12:00'] as $tm) {
+    foreach (['10:00', '11:00', '12:00', '13:00', '15:00', '16:00'] as $tm) {
         $r = api(['action' => 'meetreq_create', 'user' => $u, 'name' => 'N', 'email' => 'n@x.com', 'date' => $d, 'time' => $tm]);
         if ($r['status'] === 200) { $landed++; }
         if ($r['status'] === 429) { $throttled = true; }
     }
-    eq(2, $landed, 'the remaining budget lands');
+    eq(5, $landed, 'a whole hour\'s budget lands');   // MEETREQ_IP_MAX, which this side cannot see
     ok($throttled, 'and the one past it refuses 429');
     // The mail STUB: authenticated, always logs, sends nothing unconfigured.
     $noauth = api(['action' => 'meetreq_mail', 'to' => 'aki@x.com', 'kind' => 'accepted', 'when' => "$d 15:00"]);
