@@ -151,11 +151,15 @@ read the note-focus flake's twelve-occurrence history first
 
 - `git pull --autostash` first; stage explicit paths; never `git add -A`.
   Two sessions share this repo.
-- **Web first, always**: deploy to test before any device build. Two lanes
-  since 2026-08-20: **dtp** = `./server/deploy-test.sh --quick` (seconds-cost
-  gates plus a spot test; his word: "even if it means some things could
-  occasionally break"), then tag and push; **tdtp** = the same script with
-  every suite. A failed deploy in either lane gets fixed BEFORE tagging and
+- **Web first, always**: deploy the web before any device build. Two lanes
+  since 2026-08-20, and both mean PROD since 2026-08-21 ("dtp should be prod
+  now generally"): **dtp** = `./server/deploy.sh prod test --yes-prod
+  --quick` (seconds-cost gates plus a spot test; his word: "even if it means
+  some things could occasionally break"), then tag and push; **tdtp** = the
+  same command without `--quick`, so every suite runs. Test ships in the
+  same command rather than in a second run — the gates are what cost the
+  time, and they run once for both. `deploy-test.sh` still exists and is
+  still test-only; nothing routine uses it now. A failed deploy in either lane gets fixed BEFORE tagging and
   pushing, never tagged around. Both lanes dispatch the `desktop-windows`
   workflow AFTER the push (CI builds the pushed tree). Windows stays
   untested by hand on his word: "i just want it to stay up to date."

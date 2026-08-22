@@ -20,18 +20,22 @@ shipped, `TODO.md` is the live list.
   is, and it settles arguments that would otherwise cost Sean a message.
   Where its code and its own CLAUDE.md disagree, that is a question for Sean,
   not a thing to pick a side on.
-- **Web first, always.** Deploy to test BEFORE building and installing the
+- **Web first, always.** Deploy the web BEFORE building and installing the
   phone or watch app — Sean's instruction, 2026-08-10. The web deploy runs
   the gates (lint, typecheck, suites), so a device build that goes first is a
   build made against code the gates have not passed; and the app talks to the
-  test API, so shipping the client ahead of the server it expects is the
-  wrong order to find out.
-- **Deploy to test only** — `./server/deploy-test.sh`, which refuses anything
-  else. Prod is never touched without Sean saying so, in that message.
-  `./server/deploy-prod.sh` exists for the one prod-legitimate payload (the
-  `.well-known` passkey pair) and requires `--yes`; `--verify` is read-only
-  and always safe. There is no prod instance of the app — `/calmind/` and
-  `/dev/calmind/` on that domain are the old PHP suite, still live.
+  API, so shipping the client ahead of the server it expects is the wrong
+  order to find out.
+- **A deploy means PROD** — Sean, 2026-08-21: "dtp should be prod now
+  generally". `./server/deploy.sh prod test --yes-prod [--quick]`, which
+  ships both instances off one run of the gates. Prod is where his devices,
+  his browser and the public request link all point, so a deploy that
+  stopped at test was a deploy he could not see; test rides along in the
+  same command so the sandbox does not drift behind the thing it is meant to
+  rehearse. `--yes-prod` stays mandatory and stays spelled out in the
+  command — the default changed, the explicitness did not.
+  `./server/deploy-prod.sh` is separate and unrelated: the one prod-legitimate
+  `.well-known` passkey payload, `--yes` to write, `--verify` read-only.
   Anything that *tests* a deploy script must neuter `ssh`/`rsync` in its
   copy first: a run that proved the consent gate works, by removing the
   consent gate, went on to write production. See
