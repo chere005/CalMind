@@ -14,5 +14,6 @@
     "desktop": "npm -w @chefmind/desktop run build",
     "desktop:dev": "npm -w @chefmind/desktop run dev"
   },
-  "devDependencies": {}
+  "devDependencies": {},
+  "version": "1.0.1"
 }
