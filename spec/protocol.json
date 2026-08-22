@@ -1,0 +1,24 @@
+{
+  "_": [
+    "The sync PROTOCOL contract: the rules a client and the server must agree on,",
+    "written down once instead of one side reading the other's source.",
+    "",
+    "It exists because the two facts below used to live in CalMind's",
+    "server/lib/app.php and were read OUT of that PHP by core tests — including",
+    "ChefMind's, which had to reach into a sibling checkout to run at all, and",
+    "skipped when there was not one. A contract that only one party holds is not",
+    "a contract; it is a file the other party hopes is still there.",
+    "",
+    "Both sides assert against THIS file now: CalMind's core test proves app.php",
+    "and core agree with it (the server side nothing used to check), and every",
+    "client core proves its own constants match. Change a value here and both",
+    "sides go red, which is the point.",
+    "",
+    "MyCalMind does not carry this file: it has no server and speaks no",
+    "protocol."
+  ],
+  "recIdPattern": "^[A-Za-z0-9_-]{1,64}$",
+  "recIdPatternSource": "app.php REC_ID_RE — every record id a client mints must match, or the server refuses the record and it stays dirty on one device for ever",
+  "maxBatch": 500,
+  "maxBatchSource": "app.php MAX_BATCH — the most changes the server takes in one push; core's SYNC_MAX_BATCH must equal it, or a full batch is either refused whole or silently truncated"
+}

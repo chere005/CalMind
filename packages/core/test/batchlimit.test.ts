@@ -87,14 +87,27 @@ describe('a backlog larger than the server will take', () => {
     expect(eng.hasPending(), 'and the refused work is still owed').toBe(true);
   });
 
-  it("matches the server's MAX_BATCH, which is why it may be duplicated", () => {
-    // Resolved from THIS FILE, not the working directory — vitest's cwd
-    // differs between `--root packages/core` and a run from the repo root,
-    // and a path that only works one way is a check that stops running.
-    const appPhp = fileURLToPath(new URL('../../../server/lib/app.php', import.meta.url));
-    const php = readFileSync(appPhp, 'utf8');
+  // The batch limit is a CONTRACT term — spec/protocol.json, which CoreMind
+  // holds canonically. Core is held to it, and so is the server; before this
+  // the number lived in app.php alone and core was compared against that file
+  // by whoever happened to have it on disk.
+  //
+  // Resolved from THIS FILE, not the working directory — vitest's cwd differs
+  // between `--root packages/core` and a run from the repo root, and a path
+  // that only works one way is a check that stops running.
+  const spec = JSON.parse(
+    readFileSync(fileURLToPath(new URL('../../../spec/protocol.json', import.meta.url)), 'utf8'),
+  ) as { maxBatch: number };
+
+  it('matches the contract, which is why a full batch may be duplicated', () => {
+    expect(spec.maxBatch, 'core and the contract disagree about the batch limit').toBe(SYNC_MAX_BATCH);
+  });
+
+  it("and the server's MAX_BATCH still agrees with the contract", () => {
+    const php = readFileSync(
+      fileURLToPath(new URL('../../../server/lib/app.php', import.meta.url)), 'utf8');
     const m = /const\s+MAX_BATCH\s*=\s*(\d+)/.exec(php);
     expect(m, 'MAX_BATCH not found in app.php — this check is not running').not.toBeNull();
-    expect(Number(m![1]), 'core and the server disagree about the batch limit').toBe(SYNC_MAX_BATCH);
+    expect(Number(m![1]), 'app.php and spec/protocol.json disagree').toBe(spec.maxBatch);
   });
 });

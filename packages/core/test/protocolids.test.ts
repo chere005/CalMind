@@ -22,26 +22,43 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { newId, tickId, prefsId } from '../src/types';
 
-/** The server's rule, taken from the server. */
-function serverIdPattern(): RegExp {
-  // Resolved from THIS FILE: vitest's cwd differs between a `--root
-  // packages/core` run and one from the repo root, and a path that works only
-  // one way is a check that silently stops running.
-  const appPhp = fileURLToPath(new URL('../../../server/lib/app.php', import.meta.url));
-  const php = readFileSync(appPhp, 'utf8');
-  const m = /const\s+REC_ID_RE\s*=\s*'\/(.+?)\/'/.exec(php);
-  if (!m) throw new Error('REC_ID_RE not found in app.php — this check is not running');
-  return new RegExp(m[1]!);
-}
+/**
+ * The rule, taken from the CONTRACT — spec/protocol.json, which CoreMind holds
+ * canonically and both this repo and ChefMind carry.
+ *
+ * It used to be read out of server/lib/app.php, and ChefMind's copy of this
+ * file had to reach into THIS repo across the filesystem to run at all. The
+ * contract is the shared fact now; app.php is held to it below, which is the
+ * direction nothing checked before.
+ *
+ * Resolved from THIS FILE: vitest's cwd differs between a `--root
+ * packages/core` run and one from the repo root, and a path that works only
+ * one way is a check that silently stops running.
+ */
+const spec = JSON.parse(
+  readFileSync(fileURLToPath(new URL('../../../spec/protocol.json', import.meta.url)), 'utf8'),
+) as { recIdPattern: string; maxBatch: number };
 
 describe('ids core mints are ids the server will take', () => {
-  const re = serverIdPattern();
+  const re = new RegExp(spec.recIdPattern);
 
-  it('the pattern really was read from app.php', () => {
+  it('the pattern really was read from the contract', () => {
     // Guards the guard: a regex that matched everything would make every
     // assertion below vacuous.
     expect(re.test('a b c'), 'the pattern should reject a space').toBe(false);
     expect(re.test(''), 'and an empty id').toBe(false);
+  });
+
+  it('and THE SERVER still agrees with the contract', () => {
+    // The half that only this repo can check, because only this repo has the
+    // server. Without it the contract could drift from app.php and every
+    // client would go on proving itself against a document the server had
+    // stopped honouring.
+    const php = readFileSync(
+      fileURLToPath(new URL('../../../server/lib/app.php', import.meta.url)), 'utf8');
+    const m = /const\s+REC_ID_RE\s*=\s*'\/(.+?)\/'/.exec(php);
+    expect(m, 'REC_ID_RE not found in app.php — this check is not running').not.toBeNull();
+    expect(m![1], 'app.php and spec/protocol.json disagree about record ids').toBe(spec.recIdPattern);
   });
 
   it('newId, over 500 draws', () => {
