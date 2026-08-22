@@ -649,7 +649,7 @@ function singularOf(word: string): string {
   return /s$/i.test(word) && !/ss$/i.test(word) ? word.slice(0, -1) : word;
 }
 
-function qtyValue(raw: string): number | null {
+export function qtyValue(raw: string): number | null {
   const q = raw.trim().replace(',', '.');
   const whole = /^(\d+)\s+(.+)$/.exec(q);
   if (whole) {
@@ -662,7 +662,7 @@ function qtyValue(raw: string): number | null {
   return /^\d+(?:\.\d+)?$/.test(q) ? Number(q) : null;
 }
 
-function qtyText(v: number): string {
+export function qtyText(v: number): string {
   if (v <= 0) return '0';
   const whole = Math.floor(v + 1e-9);
   const frac = v - whole;
@@ -674,7 +674,7 @@ function qtyText(v: number): string {
 }
 
 /** 'cups' at one, 'cup'; 'egg' at two, 'eggs'. Abbreviations stay put. */
-function countWord(word: string, n: number): string {
+export function countWord(word: string, n: number): string {
   const low = word.toLowerCase();
   // Half a cup is a cup, not cups — English pluralises above one, not away
   // from it.
@@ -715,7 +715,7 @@ const PAREN_DUAL = new RegExp(String.raw`^\(\s*(${NUM})\s*([a-zA-Z]+)\s*\)`);
 /** '… or ½ tsp. Morton kosher salt' — an alternative amount of the thing. */
 const OR_ALT = new RegExp(String.raw`\bor\s+(${NUM})\s*([a-zA-Z]+)`, 'i');
 
-function knownUnit(word: string): boolean {
+export function knownUnit(word: string): boolean {
   const w = word.toLowerCase();
   return UNIT_MAP[w] !== undefined || INVARIANT.has(w) || MEASURE.has(singularOf(w));
 }
