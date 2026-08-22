@@ -40,6 +40,13 @@ shipped, `TODO.md` is the live list.
   copy first: a run that proved the consent gate works, by removing the
   consent gate, went on to write production. See
   `tools/check-deploy-guards.sh`.
+- **A dtp bumps the MINOR version.** Sean, 2026-08-20 ("it should be 1.3.0 not
+  1.2.1") and again 2026-08-21 after ChefMind shipped as 1.0.1: every ship
+  goes x.y.0 → x.(y+1).0 unless he says major or patch in that message. Do not
+  reach for a patch number to signal "this was a small change" — he asks for
+  the other two when he wants them, and silence means minor. This holds for
+  every app in the repo, ChefMind and CalMind-Local included; the rule is
+  about the gesture, not about which app.
 - **Two sessions share this repo.** `git pull --autostash` first, stage
   explicit paths, never `git add -A`.
 - **Sean's data is his.** Reading his notes through the app to find bugs is

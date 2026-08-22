@@ -24,6 +24,14 @@ the map.
   `https://seancheren.com/...` first, and running the app on a laptop under
   that would have written test records into Sean's real store through an API
   that does not know the space yet.
+- **A dtp bumps the MINOR version**, as everywhere in this repo — see the root
+  CLAUDE.md. ChefMind carries it in five files that must move together:
+  `app/app.json` (version, ios.buildNumber, android.versionCode),
+  `package.json`, `desktop/package.json`,
+  `desktop/src-tauri/tauri.conf.json` and `desktop/src-tauri/Cargo.toml`.
+  Tags are namespaced — `chefmind-x.y.0` — because CalMind's own tags are bare
+  and two apps sharing one sequence in one repo is a thing you misread once
+  and then cannot untangle.
 - **Prod is the only instance.** Sean, 2026-08-21: straight to
   seancheren.com/ChefMind. So `deploy.sh`'s gates are not optional and there is
   no rehearsal to fall back on.
