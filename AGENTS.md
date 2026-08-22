@@ -45,7 +45,7 @@ shipped, `TODO.md` is the live list.
   (tools/dtp.sh, tools/tdtp.sh). dtp is the quick lane (`--quick` gates plus
   the spot test); tdtp runs the between-runs suite first and the full
   gesture+WebKit gates in the deploy. Both ship prod AND test, then tag
-  `vx.y.0`, `git push --follow-tags`, and dispatch the `desktop-windows`
+  `x.y.0` (bare — no `v`), `git push --follow-tags`, and dispatch the `desktop-windows`
   workflow. A failed deploy stops the lane — never tag around one; a re-run
   picks the still-untagged version up rather than burning a number.
 - **A dtp bumps the MINOR version.** Sean, 2026-08-20 ("it should be 1.3.0 not
