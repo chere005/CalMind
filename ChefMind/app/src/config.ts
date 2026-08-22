@@ -25,6 +25,14 @@ const PROD_API = 'https://seancheren.com/calmind/api/index.php';
 
 export function defaultServerUrl(): string {
   if (Platform.OS === 'web' && typeof location !== 'undefined') {
+    // THE DESKTOP SHELL HAS AN ORIGIN, AND IT IS A LIE. Tauri serves the
+    // bundle from tauri://localhost, so deriving the API from the origin aims
+    // it at tauri://localhost/calmind/api/index.php — a path the asset
+    // protocol answers with index.html, which apiPost reads as a server
+    // error. That is the "server error (500)" on the Mac app's login card
+    // (Sean, 2026-08-21, first launch). CalMind's config carries this same
+    // branch; dropping it when this file was rewritten is what put it there.
+    if (location.protocol === 'tauri:' || location.hostname === 'tauri.localhost') return PROD_API;
     // Metro's own port serves no api/ and never will, so the dev server is
     // the one case that needs an absolute local fallback.
     if (['8081', '19006'].includes(location.port)) return 'http://127.0.0.1:8788/api/index.php';

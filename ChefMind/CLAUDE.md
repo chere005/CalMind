@@ -41,6 +41,16 @@ the map.
   list of things you are about to buy, that is the worst possible misread. One
   arc over the top is the shape nothing else has.
 - **`␡` has no glyph in the app's font** and renders as a literal `DEL` box.
+- **tauri.conf.json takes NO extra keys.** A `"_note"` alongside the real ones
+  fails the schema outright: `Additional properties are not allowed`. Notes
+  about that file go here. Two of them: the bundle targets exclude `dmg`,
+  because create-dmg's bundle_dmg.sh needs Finder/AppleScript and dies on this
+  machine while the `.app` bundles fine; and `msi`/`nsis` are config-only,
+  since Tauri does not cross-compile and Windows needs its own toolchain.
+- **The desktop shell's `location.origin` is `tauri://localhost`.** Deriving
+  the API from it aims every request at a path the asset protocol answers with
+  index.html, which reads back as "server error (500)" on the login card.
+  `config.ts` carries an explicit tauri branch; CalMind's does too.
 - **`app/ios/build/` is NOT disposable.** It looks like derived output and is
   gitignored, but ReactCodegen's generated sources live under
   `build/generated/ios/` and are written by `pod install`, not by xcodebuild.

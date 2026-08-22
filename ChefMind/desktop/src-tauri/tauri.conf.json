@@ -27,7 +27,6 @@
       ]
     }
   },
-  "_targets_note": "NO dmg. create-dmg's bundle_dmg.sh needs Finder/AppleScript and fails on this machine (measured 2026-08-21: the .app bundles, the dmg step dies). CalMind's shell has never listed it either. The .app IS the Mac deliverable; msi and nsis are Windows, config-only per Sean's call — they need a Windows toolchain and Tauri does not cross-compile.",
   "bundle": {
     "active": true,
     "targets": [
