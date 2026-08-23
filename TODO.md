@@ -78,8 +78,9 @@ Each is blocked on his word, not on work.
 - **Meeting-request emails and notifications are STUBS** (his word,
   2026-08-19: "stub in notifications/badges, and also stub in an email
   response"). The email answer logs to `meetreq-mail.log` and sends for
-  real the day `send_mail` is configured — same switch as the recovery
-  codes; badges/notifications have their number (`meetreqBadgeCount`) and
+  real the day `server/lib/mail.php`'s transport is uncommented — same
+  stub as the recovery codes (`send_mail` retired 2026-08-23);
+  badges/notifications have their number (`meetreqBadgeCount`) and
   no surface. Both flip on when he says.
 
 ## 2 · Open bugs
