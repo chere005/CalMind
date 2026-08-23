@@ -30,7 +30,7 @@ export function importedRecipeTitle(current: string, parsed: string | undefined 
 }
 
 const HEADING = /^(ingredients?|directions?|instructions?|method|steps?|preparation|prep|for the .{1,40})\s*:?\s*$/i;
-const QTY = /^\s*(\d+([./]\d+)?|½|¼|¾|⅓|⅔|⅛|⅜|⅝|⅞|⅙|⅚)\s*(cups?|cup|tsp|tbsp|teaspoons?|tablespoons?|oz|ounces?|lbs?|pounds?|g|grams?|kg|ml|l|cloves?|cans?|sticks?|pinch|dash|slices?|bunch|large|small|medium|eggs?)?\b/i;
+const QTY = /^\s*(\d+([./]\d+)?|½|¼|¾|⅓|⅔|⅛|⅜|⅝|⅞|⅙|⅚)\s*(cups?|cup|tsp|tbsp|teaspoons?|tablespoons?|oz|ounces?|lbs?|pounds?|g|grams?|kg|ml|l|gal|gallons?|qts?|quarts?|pts?|pints?|cloves?|cans?|sticks?|pinch|dash|slices?|bunch|large|small|medium|eggs?)?\b/i;
 const STEP = /^\s*(\d+)[.)]\s+/;
 
 export type RecipeResult = { title: string | null; body: string };
@@ -42,6 +42,14 @@ const UNIT_MAP: Record<string, string> = {
   teaspoon: 'tsp', teaspoons: 'tsp', tsp: 'tsp', tablespoon: 'tbsp', tablespoons: 'tbsp', tbsp: 'tbsp',
   ounce: 'oz', ounces: 'oz', oz: 'oz', pound: 'lb', pounds: 'lb', lb: 'lb', lbs: 'lb',
   cup: 'cup', cups: 'cups', clove: 'clove', cloves: 'cloves', can: 'can', cans: 'cans',
+  // The big US volumes. Missing until 2026-08-22, which showed up the first
+  // time a recipe using them was totalled: '½ gal whole milk' and '1 gal whole
+  // milk' had no unit between them, so 'gal' stayed part of the NAME and the
+  // two combined into "1 ½ gal whole milk". Every recipe that says gallon,
+  // quart or pint was parsing a quantity with no measure attached to it.
+  gallon: 'gal', gallons: 'gal', gal: 'gal',
+  quart: 'qt', quarts: 'qt', qt: 'qt', qts: 'qt',
+  pint: 'pt', pints: 'pt', pt: 'pt', pts: 'pt',
   pinch: 'pinch', dash: 'dash', stick: 'stick', sticks: 'sticks', slice: 'slice', slices: 'slices',
 };
 const FRACTIONS: Record<string, string> = {
@@ -642,7 +650,11 @@ const SINGULAR_OF: Record<string, string> = Object.fromEntries(
   Object.entries(IRREGULAR).map(([one, many]) => [many, one]),
 );
 
-function singularOf(word: string): string {
+/** 'cloves' → 'clove'. Exported for shopping.ts, which has to treat the two
+ *  spellings as one unit or '1 clove garlic' and '3 cloves garlic' stay two
+ *  rows — UNIT_MAP canonicalises each plural to ITSELF, deliberately, so the
+ *  scaler can print the one the author wrote. */
+export function singularOf(word: string): string {
   const low = word.toLowerCase();
   if (SINGULAR_OF[low]) return SINGULAR_OF[low];
   if (/(?:ch|sh|s|x|z)es$/i.test(word)) return word.slice(0, -2);
