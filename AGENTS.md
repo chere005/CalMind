@@ -144,20 +144,25 @@ CalMind is the origin app and the only repo in the suite with a full
 production server. A shared fix typically lands here first and gets promoted
 into CoreMind's canon — but canon then flows the other way on every deploy:
 CoreMind propagates it OUT into all four consumers, this repo included (see
-CoreMind's AGENTS.md for that graph). As of 2026-08-22:
+CoreMind's AGENTS.md for that graph). As of 2026-08-23:
 
 - **Web** — its own production server. `./server/deploy.sh prod test
   --yes-prod` ships both instances; see the deploy rule above. This is the
   only app in the suite Sean's devices, browser, and the public request link
   point at directly.
-- **macOS** — Tauri desktop bundle (`desktop/`).
+- **macOS** — Tauri desktop bundle (`desktop/`), built by this repo's own
+  `tools/build-platforms.sh --mac` BEFORE the tag: a broken desktop build
+  leaves the version untagged and a re-run reuses it.
 - **Windows** — desktop, built and smoke-tested in CI via
   `.github/workflows/desktop-windows.yml`, dispatched at the end of
   `dtp`/`tdtp`.
-- **iOS** — installs to the physical phone via CoreMind's
-  `bin/build-platforms.sh CalMind --ios` (devicectl). Counts against Apple's
+- **iOS** — installs to the physical phone via `tools/build-platforms.sh
+  --ios` (devicectl), after the push and never fatal. Counts against Apple's
   free-tier cap of 3 apps installed on one physical device at a time; the
-  phone currently carries CalMind, ChefMind, and AcctMind.
+  phone currently carries CalMind, ChefMind, and AcctMind. TWO PHONES ARE
+  PAIRED with this Mac, so the picker takes the one named `iPhoooooone`
+  (`IOS_DEVICE` overrides); requiring exactly one reachable device refused
+  three releases in a row while the right phone sat there.
 - **watchOS** — a real paired-watch companion app, CalMindWatch, plus a
   CalMindComplication and CalMindWidget extension (`apps/app/targets/watch`,
   `apps/app/targets/watchwidget`). Installs to a paired Apple Watch when one
@@ -165,15 +170,20 @@ CoreMind's AGENTS.md for that graph). As of 2026-08-22:
   CalMindWatch product name, kept deliberately) but has not installed it to a
   watch; ChefMind and AcctMind have no watchOS target at all.
 - **Android** — builds, installs, and launches on a local emulator via
-  CoreMind's `bin/build-platforms.sh CalMind --android` (confirmed working
-  2026-08-22).
+  `tools/build-platforms.sh --android` (confirmed 2026-08-23).
 
-Only web (this repo's own deploy) and the Windows CI dispatch ride along with
-`dtp`/`tdtp`. macOS, iOS, watchOS, and Android are built separately by
-CoreMind's shared, table-driven `bin/build-platforms.sh` — see that repo for
-the two hard rules it enforces: never run two heavy build/device processes on
-this machine at once, and mind the phone's 3-app free-tier cap before
-installing.
+THIS REPO SHIPS ITSELF as of 2026-08-23 (Sean: "all apps should have a deploy
+on their own mechanism inside their repo"). `tools/build-platforms.sh` is this
+repo's own — the Mac bundle lands before the tag, the device builds after the
+push where they are reported but never fatal, one at a time. CoreMind's
+`bin/build-platforms.sh` remains the table-driven fallback for a checkout that
+predates it, and `bin/dtp.sh all` now delegates to each app's lane rather than
+building on their behalf.
+
+A CORE DRIFT GATE runs before anything ships: `check-drift.sh` for this repo
+must pass, or the lane refuses and names the copy-down. It never rewrites
+source mid-release — a lane that edits the tree it is about to tag cannot be
+trusted about what shipped.
 
 ## Traps that have cost real time here
 
