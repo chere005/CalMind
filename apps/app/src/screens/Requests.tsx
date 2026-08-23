@@ -6,10 +6,11 @@
  * field and saves the request under the proposed slot ('proposed', so the
  * list shows which ones are waiting on the requester now).
  *
- * Every answer fires the STUBBED email (meetreq_mail: logged server-side,
- * sent for real once the host can send — "we'll fix that later"). No
- * notifications or badges yet, on the same word; core's meetreqBadgeCount
- * is the number a badge would wear when they arrive.
+ * Every answer fires the STUBBED email (meetreq_mail: logged server-side;
+ * server/lib/mail.php is the single stub, its transport one uncomment away
+ * — "we'll fix that later"). No notifications or badges yet, on the same
+ * word; core's meetreqBadgeCount is the number a badge would wear when
+ * they arrive.
  */
 import { useEffect, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';

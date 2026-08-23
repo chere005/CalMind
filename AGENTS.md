@@ -1,18 +1,16 @@
 # Working on CalMind
 
+The baseline for all of Sean's repos lives in ~/GIT/AgentSuite/AGENTS.md
+and is imported here; this file holds only what is true of THIS repo.
+@../AgentSuite/AGENTS.md
+
 Sean's calendar/reminders/notes/habits/recipes app. `README.md` is the map,
 `TESTING.md` is what the tests are worth, `PARITY.md` is the ledger of what
-shipped, `TODO.md` is the live list.
+shipped, `TODO.md` is the live list (and holds the suite counts — no number is
+written into prose anywhere else).
 
 ## Standing rules
 
-- **Answers are SHORT, and only what Sean has to act on.** Outcome, decisions
-  he needs to make, anything blocking him. Detail belongs in comments and
-  commit messages, which is where he goes looking for it.
-- **Do not list what has not been tested.** No caveat sections, no "still
-  owed", no unprompted risk inventories — he will say so if something is
-  wrong, and reading a list of everything that might be costs him the time the
-  brevity just saved. Say what a check actually proved and stop.
 - **Behavior lives in `packages/core`.** A screen holds plumbing. If you can
   describe a rule in a sentence, it belongs in core with a test.
 - **The old suite is still the spec, but it is HISTORY now.** It was deleted
@@ -43,25 +41,12 @@ shipped, `TODO.md` is the live list.
   command — the default changed, the explicitness did not.
   `./server/deploy-prod.sh` is separate and unrelated: the one prod-legitimate
   `.well-known` passkey payload, `--yes` to write, `--verify` read-only.
-  Anything that *tests* a deploy script must neuter `ssh`/`rsync` in its
-  copy first: a run that proved the consent gate works, by removing the
-  consent gate, went on to write production. See
-  `tools/check-deploy-guards.sh`.
-- **`dtp` = deploy, tag, push; `tdtp` = test, deploy, tag, push.** Sean,
-  2026-08-22 — two lanes, one gesture each: `npm run dtp` / `npm run tdtp`
-  (tools/dtp.sh, tools/tdtp.sh). dtp is the quick lane (`--quick` gates plus
+  See `tools/check-deploy-guards.sh`.
+- **`dtp` / `tdtp` here: `npm run dtp` / `npm run tdtp`** (tools/dtp.sh,
+  tools/tdtp.sh). dtp is the quick lane (`--quick` gates plus
   the spot test); tdtp runs the between-runs suite first and the full
-  gesture+WebKit gates in the deploy. Both ship prod AND test, then tag
-  `x.y.0` (bare — no `v`), `git push --follow-tags`, and dispatch the `desktop-windows`
-  workflow. A failed deploy stops the lane — never tag around one; a re-run
-  picks the still-untagged version up rather than burning a number.
-- **A dtp bumps the MINOR version.** Sean, 2026-08-20 ("it should be 1.3.0 not
-  1.2.1") and again 2026-08-21 after ChefMind shipped as 1.0.1: every ship
-  goes x.y.0 → x.(y+1).0 unless he says major or patch in that message. Do not
-  reach for a patch number to signal "this was a small change" — he asks for
-  the other two when he wants them, and silence means minor. This holds for
-  every app in the suite — ChefMind and MyCalMind carry the same rule in
-  their own repos; the rule is about the gesture, not about which app.
+  gesture+WebKit gates in the deploy. Both ship prod AND test, then tag,
+  `git push --follow-tags`, and dispatch the `desktop-windows` workflow.
 - **ChefMind and MyCalMind are their own repos now** (2026-08-22, history
   preserved): github.com/chere005/ChefMind and github.com/chere005/MyCalMind,
   expected as sibling checkouts at `~/GIT/ChefMind` and `~/GIT/MyCalMind`.
@@ -70,11 +55,88 @@ shipped, `TODO.md` is the live list.
   still syncs through THIS server (the `chef` space): its deploy and its core
   suite read this checkout as `$CALMIND_REPO`, so changes to `server/lib`
   keep the space contract or break ChefMind's gates, loudly.
-- **Two sessions share this repo.** `git pull --autostash` first, stage
-  explicit paths, never `git add -A`.
+- **Two sessions share this repo.** `git pull --autostash` first.
 - **Sean's data is his.** Reading his notes through the app to find bugs is
   fine and has been the best bug-finder there is. Writing to them, reordering
   his sections, or opening the widget page on his account is not.
+
+## Commands
+
+```sh
+npm install                       # once, at the root — npm workspaces
+npm run test:dev                  # between-runs suite: 2 typechecks, core, server, counts (~40s)
+npm test                          # core + server only
+npm run typecheck                 # tsc --noEmit over packages/core AND apps/app, separately
+```
+
+Running ONE test:
+
+```sh
+npm run test:core -- order               # vitest, by test-FILE substring
+npm run test:core -- order -t "inverted" # …and by test name
+npm run export:web && npx playwright test e2e/callist.spec.ts
+npx playwright test e2e/callist.spec.ts -g "groups by day"
+```
+
+- Core's vitest runs under `TZ=America/Chicago`; invoking `vitest` directly
+  without it turns date tests red after 7pm.
+- `php server/tools/test.php` is all-or-nothing — no filter. It boots its own
+  `php -S` on a scratch dir, so never run it alongside another suite.
+- Playwright drives `apps/app/dist`, NOT the source. `e2e/freshness.ts`
+  compares source digests to the export and refuses a stale one, so a single
+  spec still needs `npm run export:web` after any source edit. One worker,
+  420×900 Chromium, its own `php -S` on 8790 over a wiped data dir.
+- There is no lint script. The only lint is PHP syntax, run inline by the
+  deploy: `find server -name '*.php' -print0 | xargs -0 -n1 php -l`.
+- `npx playwright install webkit` once, before `npm run test:webkit`.
+- `test:watch` / `test:widget` need `swift` and `python3` — they lift the real
+  Swift out of `apps/app/targets` rather than re-typing it.
+
+Local processes:
+
+```sh
+php -S 127.0.0.1:8788 -t server/public   # the API; data in server/data/ or $CALMIND_DATA_DIR
+npm run web                              # Expo web on :8081, talking to :8788
+npm run export:web                       # export + tools/patch-web-html.mjs — never a bare expo export
+```
+
+## Architecture
+
+**`spec/*.json` → `packages/core` → every surface.** The JSON vectors are the
+behavior contract; `packages/core/test/spec.test.ts` replays them, and the
+suite's Swift/Kotlin cores replay the same files. Changing a behavior means
+amending a vector first — never editing a test to match new code.
+
+`@calmind/core` is consumed as TypeScript SOURCE (`main: ./src/index.ts`), has
+no dependencies and no build step. A core edit is live in metro and tsc
+immediately; it is NOT live in `apps/app/dist` until an export.
+
+One Expo app is web + iOS + Android. `desktop/` is a Tauri 2 shell around the
+identical web export. The watch app, complication and home-screen widget are
+Swift targets generated into the Xcode project from `apps/app/targets/*` —
+they are separate processes that decode core's `watchFeed` JSON, which is why
+one rule (the 12/24-hour clock) has three implementations and its own seam
+check.
+
+**Sync.** Local-first, per-record last-write-wins on `updated`, one endpoint
+shape (README's "The sync model"). `apps/app/src/store.tsx` is the app's only
+stateful seam — a React context around core's `SyncEngine`; AsyncStorage and
+the server round-trip trail behind it, debounced. Drag order is
+`payload.ord`, a fractional key on the record, because array position cannot
+survive per-record merging.
+
+The server is deliberately dumb: `server/public/api/index.php` is a thin
+front over `server/lib/app.php`, which merges by CLEAR metadata only —
+`payload` is opaque and stored encrypted at rest (`ENC1:`). A feature that
+seems to need the server to read a payload is client logic, or it is new clear
+metadata.
+
+**Instance separation.** prod/test/dev differ only by path on one origin, and
+localStorage ignores paths — so session and snapshot keys are suffixed with an
+`instanceTag` derived from the API URL (`store.tsx`). `apps/app/src/config.ts`
+is the one place that decides which API a surface talks to: same-origin for
+anything serving `api/` beside the page, `127.0.0.1:8788` for metro, and PROD
+for native and the desktop shell.
 
 ## Platforms
 

@@ -11,6 +11,10 @@
 
 require_once __DIR__ . '/store.php';
 require_once __DIR__ . '/webauthn.php';
+// Stubbed suite-wide: mail_send() logs and returns false, its real transport
+// commented inside it. Required even though every call site below is commented
+// too, so turning mail on is uncommenting lines, not also adding a require.
+require_once __DIR__ . '/mail.php';
 // Built for .ics and wired to nothing for months; recipe_fetch is its first
 // caller. The SSRF care in it is the reason a user-supplied URL can be
 // fetched at all.
@@ -126,27 +130,25 @@ function usage_log(array $cfg, string $action, string $user): void
     @file_put_contents($path, $line, FILE_APPEND | LOCK_EX);
 }
 
-/** Recovery codes go to the account email; without mail config they land in mail.log,
- *  which is also how the test harness reads them. */
 /**
- * The reset code goes to mail.log ALWAYS and to email only if the host is
- * configured to send. That is deliberate: recover always answers ok, because
- * which usernames exist is nobody's business, so a user who never receives a
- * code cannot be told why. The log is the only place the truth can live.
+ * The reset code goes to mail.log ALWAYS — which is also how the test harness
+ * reads it — and the send itself is stubbed suite-wide: lib/mail.php is the
+ * one stub, its transport commented inside it, one uncomment away. The
+ * always-log is deliberate: recover always answers ok, because which usernames
+ * exist is nobody's business, so a user who never receives a code cannot be
+ * told why. The log is the only place the truth can live.
  *
- * Which is why the send's own answer is now recorded. mail() returning false
- * — a refused relay, a queue that will not take it — used to be discarded, so
- * the log said a code had been issued and nothing about whether it had a
- * hope of arriving. Sean is the person who has to work that out at the point
- * where somebody cannot get in.
+ * When the transport returns, record the send's own answer (the commented
+ * lines below do). mail() returning false — a refused relay, a queue that
+ * will not take it — used to be discarded, so the log said a code had been
+ * issued and nothing about whether it had a hope of arriving. Sean is the
+ * person who has to work that out at the point where somebody cannot get in.
  */
 function mail_code(array $cfg, string $email, string $code): void
 {
-    $how = 'log-only';
-    if (!empty($cfg['send_mail'])) {
-        $ok  = @mail($email, 'CalMind password reset', "Your CalMind reset code is: $code\n\nIt expires in 15 minutes.");
-        $how = $ok ? 'mailed' : 'MAIL REFUSED';
-    }
+    $how = 'log-only';   // pinned until lib/mail.php's transport is uncommented
+    // $ok  = mail_send($cfg, $email, 'CalMind password reset', "Your CalMind reset code is: $code\n\nIt expires in 15 minutes.");
+    // $how = $ok ? 'mailed' : 'MAIL REFUSED';
     $line = date('c') . "  to=$email  code=$code  $how\n";
     @file_put_contents($cfg['data_dir'] . '/mail.log', $line, FILE_APPEND | LOCK_EX);
 }
@@ -1337,10 +1339,11 @@ function handle_meetreq_create(array $cfg, array $in): never
 
 /**
  * The email answer, STUBBED the way mail_code is: the line always lands in
- * meetreq-mail.log, and a real send happens only once the host is configured
- * to send ("i can't fire off emails right now but we'll fix that later" —
- * Sean, 2026-08-19; flipping cfg['send_mail'] is the later). Authenticated:
- * it is the OWNER'S client answering a request, never the public page.
+ * meetreq-mail.log, and a real send happens only once the host can send
+ * ("i can't fire off emails right now but we'll fix that later" —
+ * Sean, 2026-08-19; uncommenting lib/mail.php's transport is the later).
+ * Authenticated: it is the OWNER'S client answering a request, never the
+ * public page.
  */
 function handle_meetreq_mail(array $cfg, array $in): never
 {
@@ -1355,11 +1358,9 @@ function handle_meetreq_mail(array $cfg, array $in): never
         'declined' => 'Your meeting request was declined.',
         'newtime'  => "A different time was proposed for your meeting: $when (about an hour).",
     ];
-    $how = 'log-only';
-    if (!empty($cfg['send_mail'])) {
-        $ok  = @mail($to, 'Your meeting request', $lines[$kind] . "\n");
-        $how = $ok ? 'mailed' : 'MAIL REFUSED';
-    }
+    $how = 'log-only';   // pinned until lib/mail.php's transport is uncommented
+    // $ok  = mail_send($cfg, $to, 'Your meeting request', $lines[$kind] . "\n");
+    // $how = $ok ? 'mailed' : 'MAIL REFUSED';
     $line = date('c') . "  by=$user  to=$to  kind=$kind  when=$when  $how\n";
     @file_put_contents($cfg['data_dir'] . '/meetreq-mail.log', $line, FILE_APPEND | LOCK_EX);
     usage_log($cfg, 'meetreq_mail', $user);
