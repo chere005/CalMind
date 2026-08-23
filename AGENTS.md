@@ -15,11 +15,18 @@ shipped, `TODO.md` is the live list.
   brevity just saved. Say what a check actually proved and stop.
 - **Behavior lives in `packages/core`.** A screen holds plumbing. If you can
   describe a rule in a sentence, it belongs in core with a test.
-- **The old suite is the spec.** `/Users/s/GIT/seancheren-site` — grep its
-  CSS and PHP before guessing at a visual. It is right more often than memory
-  is, and it settles arguments that would otherwise cost Sean a message.
-  Where its code and its own CLAUDE.md disagree, that is a question for Sean,
-  not a thing to pick a side on.
+- **The old suite is still the spec, but it is HISTORY now.** It was deleted
+  from `seancheren-site` on 2026-08-22 (commit `665dff8`), superseded by this
+  repo. A working tree of it no longer exists, so grep the commit BEFORE the
+  deletion rather than the checkout:
+
+      git -C ~/GIT/seancheren-site grep -n '<pattern>' e9b9f28 -- calmind lib
+
+  It is still right more often than memory is, and it still settles arguments
+  that would otherwise cost Sean a message. Where its code and that repo's
+  own CLAUDE.md disagreed, that was a question for him — and the CLAUDE.md
+  has since been rewritten for what the site is now, so the CODE at e9b9f28
+  is the only half of that pair still standing.
 - **Web first, always.** Deploy the web BEFORE building and installing the
   phone or watch app — Sean's instruction, 2026-08-10. The web deploy runs
   the gates (lint, typecheck, suites), so a device build that goes first is a
