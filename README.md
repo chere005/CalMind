@@ -84,8 +84,9 @@ tools/             The release lane, and the checks no browser can reach.
 desktop/           CalMind Desktop — a Tauri 2 shell around the identical web
                    export. Rust opens the window; everything else is the
                    shared code. macOS builds locally (desktop/README.md);
-                   Windows builds on the manual `desktop-windows` GitHub
-                   Actions job.
+                   Windows builds on the `desktop-windows` GitHub Actions
+                   job, which is workflow_dispatch-only but is dispatched
+                   by every dtp/tdtp run.
 ```
 
 Two clones grew up here and moved into their own repos on 2026-08-22, history
@@ -149,6 +150,8 @@ npm run test:widget                          # the phone widget decodes and draw
                                              #   no writer on the same device
 npm run test:deploy                          # the deploy guards, proven by breaking copies
 ./desktop/smoke.sh                           # macOS: builds, carries THIS export, runs, quits
+sh tools/build-platforms.sh --ios            # one platform, no release (--mac, --android,
+                                             #   --dry-run; the dtp lane runs this script)
 node tools/sweep-tap-targets.mjs             # every clickable box on the web, in points
                                              #   (wants dist served on :8791 — see its header)
 php -S 127.0.0.1:8788 -t server/public       # the API

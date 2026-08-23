@@ -22,8 +22,10 @@ see below.
 ### Why the export is staged rather than embedded directly
 
 The website is exported with a base path — `experiments.baseUrl` in
-`apps/app/app.json` is `/test/calmind` — so every asset URL in `index.html` is
-absolute. This shell used to embed that export and serve it at the ROOT of
+`apps/app/app.json` is `/calmind` — so every asset URL in `index.html` is
+absolute (`stage-dist.sh` reads that value out of app.json rather than
+hardcoding it, so the staged path cannot drift from the export). This shell
+used to embed that export and serve it at the ROOT of
 `tauri://localhost`, where no such prefix exists: the bundle 404'd, Tauri's
 asset protocol answered with `index.html`, and the window opened on
 
@@ -59,9 +61,11 @@ bundling an .app.
 Tauri cannot cross-compile from macOS, so Windows builds on a runner:
 `.github/workflows/desktop-windows.yml`, `tauri-apps/tauri-action` on
 `windows-latest`, same repo and same export, producing the `.msi`/`.exe` as
-an artifact. It is `workflow_dispatch` only — trigger it from the Actions
-tab when a Windows build is actually wanted; it never runs on push. No one
-has smoked the artifact yet, so treat the first one as unverified.
+an artifact. It is `workflow_dispatch` only and never runs on push — but the
+dtp/tdtp lane dispatches it at the end of every release, so a shipped version
+gets a Windows build without anyone opening the Actions tab; trigger it by
+hand there when you want one in between. No one has smoked the artifact yet,
+so treat the first one as unverified.
 
 ## Icons
 

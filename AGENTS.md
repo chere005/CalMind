@@ -65,10 +65,10 @@ written into prose anywhere else).
   still syncs through THIS server (the `chef` space): its deploy and its core
   suite read this checkout as `$CALMIND_REPO`, so changes to `server/lib`
   keep the space contract or break ChefMind's gates, loudly.
-- **Two sessions share this repo.** `git pull --autostash` first.
-- **Sean's data is his.** Reading his notes through the app to find bugs is
-  fine and has been the best bug-finder there is. Writing to them, reordering
-  his sections, or opening the widget page on his account is not.
+- **The widget page counts as a write here.** The baseline's rule about Sean's
+  data covers reading and writing; what is easy to miss in THIS repo is that
+  opening the Scriptable widget's feed page on his account is not a read — it
+  mutates his token store.
 
 ## Commands
 
@@ -163,6 +163,15 @@ CoreMind's AGENTS.md for that graph). As of 2026-08-23:
 - **macOS** — Tauri desktop bundle (`desktop/`), built by this repo's own
   `tools/build-platforms.sh --mac` BEFORE the tag: a broken desktop build
   leaves the version untagged and a re-run reuses it.
+- **The version lives in FOUR files, and the root `package.json` is not one of
+  them.** `apps/app/app.json`, `desktop/package.json`,
+  `desktop/src-tauri/tauri.conf.json` and `desktop/src-tauri/Cargo.toml` (that
+  last one `version = "x"`, not JSON) — the lane writes all four and then
+  GREPS each for the new number, because a `perl -i -pe` that matches nothing
+  exits 0 and reports success. That check is AcctMind's scar, not a
+  hypothetical: a release there shipped with the plist a version behind. The
+  lockfile is synced separately and the sync refuses if it changed more lines
+  than version fields.
 - **Windows** — desktop, built and smoke-tested in CI via
   `.github/workflows/desktop-windows.yml`, dispatched at the end of
   `dtp`/`tdtp`.
@@ -218,9 +227,6 @@ trusted about what shipped.
   dies in `e2e/freshness.ts` naming `order.ts`, and it reads like something
   edited core behind your back. `git diff` is the tell: clean means it was
   only the mtime. Re-export and carry on; run `test:deploy` last.
-- **The shell's working directory persists between Bash calls.** A `cd` into
-  the suite or into `desktop/` will silently break the next command's relative
-  paths. Use absolute paths.
 - **Comments state intent; the code may have drifted.** Two real bugs came
   from reading one against the other — the widget key rotating on every open
   while its comment said "handed out once", and a login page that only

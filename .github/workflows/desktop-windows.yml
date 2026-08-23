@@ -1,7 +1,8 @@
-# CalMind Desktop for Windows — manual only. Tauri cannot cross-compile from
+# CalMind Desktop for Windows — dispatch only. Tauri cannot cross-compile from
 # the Mac, so this job builds the .msi/.exe on a windows runner from the
-# same web export the site serves. Trigger it from the Actions tab when a
-# Windows build is actually wanted; it never runs on push.
+# same web export the site serves. It never runs on push: the dtp/tdtp lane
+# dispatches it at the end of every release, and the Actions tab is how you
+# ask for one in between.
 name: desktop-windows
 on:
   workflow_dispatch:

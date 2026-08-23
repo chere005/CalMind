@@ -1,9 +1,10 @@
 # Files that only make sense at the PROD domain root
 
-Nothing here is deployed by deploy-test.sh, and nothing here CAN be: these
-files work only at https://seancheren.com/.well-known/, and the test deploy
-never leaves /test/calmind/. Shipping them is a prod touch, which is Sean's
-word, in that message, per the standing rule.
+Nothing here is deployed by `deploy.sh`, and nothing here CAN be: these files
+work only at https://seancheren.com/.well-known/, and no instance that script
+ships reaches the site ROOT — prod included, which writes /home/public/calmind
+and stops there. Shipping them is a prod touch, which is Sean's word, in
+that message, per the standing rule.
 
 ## apple-app-site-association
 
