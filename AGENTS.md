@@ -45,8 +45,18 @@ written into prose anywhere else).
 - **`dtp` / `tdtp` here: `npm run dtp` / `npm run tdtp`** (tools/dtp.sh,
   tools/tdtp.sh). dtp is the quick lane (`--quick` gates plus
   the spot test); tdtp runs the between-runs suite first and the full
-  gesture+WebKit gates in the deploy. Both ship prod AND test, then tag,
-  `git push --follow-tags`, and dispatch the `desktop-windows` workflow.
+  gesture+WebKit gates in the deploy. Otherwise the two lanes are one lane:
+  the drift gate that can refuse before anything ships, the prod+test deploy,
+  the Mac bundle, the tag, the push, the Windows dispatch, then the device
+  builds. THE ORDER IS THE POINT and the Platforms section below is where it
+  is written — this bullet deliberately does not restate it, because the
+  short version is what went stale last time. Naming a platform (`--mac` / `--ios` / `--android`)
+  builds only that one; `--web` is how you say the release and no platform
+  builds; naming none means all three. Each run reports its start and finish
+  to seancheren.com/status, never fatally — unless `MIND_RUN_ID` is set,
+  which means CoreMind's `dtp all` already opened one card for the whole
+  batch and this lane defers to it (Sean, 2026-08-23: "there should be one
+  card per tdtp if multiple jobs are triggered in one batch").
 - **ChefMind and MyCalMind are their own repos now** (2026-08-22, history
   preserved): github.com/chere005/ChefMind and github.com/chere005/MyCalMind,
   expected as sibling checkouts at `~/GIT/ChefMind` and `~/GIT/MyCalMind`.

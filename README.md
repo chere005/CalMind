@@ -70,12 +70,17 @@ server/            The sync API in PHP — deployable to NearlyFreeSpeech
                    re-checked on every request).
 e2e/               Playwright: the exported web app + the real PHP API on a
                    scratch dir, driven by real mouse events.
-tools/             The checks no browser can reach, plus the export's own
-                   plumbing: the two Swift seams (core's JSON through the
-                   wrist's and the widget's REAL decoders and their drawing
-                   logic), the App Group rule, the deploy guards proven by
-                   breaking copies, the web-head patch every export needs,
-                   and the tap-target sweep.
+tools/             The release lane, and the checks no browser can reach.
+                   `dtp.sh` / `tdtp.sh` are the one gesture that ships (see
+                   "The three environments"); `build-platforms.sh` is this
+                   repo's OWN macOS / iOS / Android builder, which that lane
+                   runs — the platform builds used to live in CoreMind and
+                   moved here on 2026-08-23 so a repo ships itself. The rest
+                   is the export's plumbing and the seams: the two Swift ones
+                   (core's JSON through the wrist's and the widget's REAL
+                   decoders and their drawing logic), the App Group rule, the
+                   deploy guards proven by breaking copies, the web-head
+                   patch every export needs, and the tap-target sweep.
 desktop/           CalMind Desktop — a Tauri 2 shell around the identical web
                    export. Rust opens the window; everything else is the
                    shared code. macOS builds locally (desktop/README.md);
@@ -157,6 +162,10 @@ cd apps/app && npx expo start                # then i / a for the iOS / Android 
 so nothing should call it directly. The gesture run refuses to start against a
 stale `dist` rather than lying in either direction.
 
+Shipping is deliberately not in that list: `npm run dtp` / `npm run tdtp` is
+the one gesture that releases, and it lives under "The three environments"
+below with the thing it deploys to.
+
 Counts live in TODO.md's steady-state line rather than here, because a number
 written into prose is a number that goes stale — this file said 145 for a good
 while after it stopped being true.
@@ -171,8 +180,10 @@ copy — three implementations of one rule, which is why
 
 Where the app finds the API (`apps/app/src/config.ts`): the deployed site and
 the e2e router use same-origin `api/`; metro dev uses `127.0.0.1:8788`; the
-iOS/Android sims and the desktop shell default to the LIVE test instance —
-same data and logins as the site — with a Settings override for local work.
+native builds and the desktop shell default to PROD (Sean, 2026-08-20: "all
+apps and devices should point to prod, not test now"), because trying the app
+should mean trying your real data. Nothing defaults to test any more, and a
+local `php -S` or test is still one Settings override away.
 **Build numbers.** `ios.buildNumber` in app.json is the durable one, written
 into the generated plist by prebuild. The generated `ios/CalMind/Info.plist`
 is also patched to read `$(CURRENT_PROJECT_VERSION)` so a single bump of that
@@ -196,39 +207,65 @@ that iOS had left the wrist on an older build than the phone.
 
 ## The three environments
 
-Only one of them is a deploy.
+All three are deploys now. Prod has existed since 2026-08-20, when CalMind
+took `/calmind/` over from the old plain-PHP suite — which was itself deleted
+from `seancheren-site` on 2026-08-22 (commit `665dff8`) and no longer serves
+anything. One script ships any instance:
 
 | | where | how |
 |---|---|---|
-| **dev** | a local `php -S` on 8788, data in `server/data/` (gitignored, or `$CALMIND_DATA_DIR`) | nothing — it's a process on your Mac |
-| **prod** | `https://seancheren.com/calmind/` — what every app and device points at | `./server/deploy.sh prod --yes-prod` |
+| **prod** | `https://seancheren.com/calmind/` — what every app, device, browser and the public request link points at | `./server/deploy.sh prod --yes-prod` |
 | **test** | `https://test.seancheren.com/calmind/` — sandbox, its own data dir | `./server/deploy.sh` (a bare run is test) |
-| **dev** | `https://dev.seancheren.com/calmind/` | `./server/deploy.sh dev` |
-| **prod** | `https://seancheren.com/` is the **old PHP suite**, not this app | `./server/deploy-prod.sh`, which ships the `.well-known` passkey pair and nothing else |
+| **dev** | `https://dev.seancheren.com/calmind/`, and a local `php -S` on 8788 with data in `server/data/` (gitignored, or `$CALMIND_DATA_DIR`) | `./server/deploy.sh dev` — the local one needs no deploy, it's a process on your Mac |
 
-There is no production instance of this app. `/calmind/` and `/dev/calmind/`
-on that domain are the old suite's areas, still live; `deploy-test.sh` names
-them explicitly and refuses. The one thing CalMind legitimately puts at the
-production root is `apple-app-site-association` plus the `.htaccess` that
-gives it `application/json` — iOS will only fetch that from the apex, and a
-wrong first serve is cached for hours.
+Where a file lands on disk and what the world calls it are two different
+facts: test and dev moved to their own subdomains on 2026-08-20, so test's
+files still sit in `/home/public/test/calmind` while
+`seancheren.com/test/calmind` 404s by design. `server/deploy.sh`'s path table
+holds both halves and is the source of truth; nothing here is derived from an
+argument, and every row is re-checked against a hardcoded allow-list after
+resolution.
+
+**The deploy is one gesture.** `npm run dtp` — or `npm run tdtp`, which puts
+every suite in front of it — is what actually ships: it bumps the minor
+version, runs `./server/deploy.sh prod test --yes-prod [--quick]`, builds the
+macOS bundle, tags `x.y.0`, pushes, and then builds the phone and the
+emulator. Prod and test go out of ONE run of the gates, because the gates are
+what cost the time and running them twice per release is how people learn to
+skip them. Reach for `deploy.sh` directly only when you want one instance and
+no release; `--yes-prod` is mandatory and always spelled out in the same
+command.
 
 ```sh
-./server/deploy-test.sh --dry-run   # preview
-./server/deploy-test.sh             # lint + tests, expo export, rsync
-./server/tools/smoke-live.sh        # …then prove the DEPLOY, over real HTTPS
+npm run dtp                         # deploy prod+test, tag, push, build the platforms
+npm run tdtp                        # …with the full suites in front
 
-./server/deploy-prod.sh --verify    # what is prod serving right now?
-./server/deploy-prod.sh --yes       # only when Sean has said prod, in that message
+./server/deploy.sh --dry-run        # preview a test upload; touches nothing
+./server/deploy.sh prod test --yes-prod --quick   # the deploy alone, no release
+./server/tools/smoke-live.sh --static https://seancheren.com/calmind
+                                    # what is that address serving right now?
+                                    #   (a deploy already runs this per instance)
+
+./server/deploy-prod.sh --verify    # the .well-known passkey pair, read-only
+./server/deploy-prod.sh --yes       # …and to write it
 
 sh tools/check-deploy-guards.sh     # prove the guards by breaking copies
 ```
 
-Both need `server/deploy.conf` (gitignored) with `SSH_DEST` — copy
-`server/deploy.conf.sample`. The test deploy ships the API to
-`/test/calmind/api/`, the static web client beside it, and the lib to
-`/home/protected/calmind/lib`; config and data dirs are never touched,
-nothing is ever `--delete`d, and no hostname lives in this repo.
+`deploy-prod.sh` is a separate script for a separate thing and always was: the
+pair at the site ROOT — `apple-app-site-association` plus the `.htaccess` that
+gives it `application/json`. iOS will only fetch that from the apex and caches
+a wrong first serve for hours, so it has constant destinations, no bare form,
+and a `--verify` that reads without writing. Owning `/calmind/` changed none
+of that. `deploy-test.sh` also still exists, still writes test and only test,
+and nothing routine uses it — `tools/check-deploy-guards.sh` still proves its
+guards, which is the reason to leave it standing.
+
+Every one of them needs `server/deploy.conf` (gitignored) with `SSH_DEST` —
+copy `server/deploy.conf.sample`. A deploy ships the API and the static web
+client to the instance's own web dir and the lib to its own
+`/home/protected` dir; config and data dirs are never touched, nothing is
+ever `--delete`d, and no hostname lives in this repo.
 
 The gates are gates, not decoration: a PHP syntax error, a red core or server
 suite, a red gesture run, or a `dist` that some other build rewrote between
