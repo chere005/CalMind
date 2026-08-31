@@ -201,12 +201,25 @@ export type PayloadOf = {
  *  as partners, and the three opt-in buckets of MY ids they may see. A
  *  partnership exists only while both sides name each other — the server
  *  re-checks that from both stores on every shared read and write. */
+/** One partner's own view of my buckets — the same three lists the flat
+ *  Share carries, chosen for that partner alone. */
+export type ShareSel = {
+  calendars: string[];
+  folders: string[];
+  notefolders: string[];
+};
+
 export type Share = {
   partners: string[];
   calendars: string[]; // calendar record ids
   folders: string[]; // reminder folder ids
   notefolders: string[]; // note folder ids
   labels?: Record<string, string>; // my display name for a partner (rename never touches the key)
+  /** Per-partner buckets, keyed by partner username. A partner with no entry
+   *  falls back to the flat lists above — which is also every share record
+   *  written before this field existed. The server resolves the viewer's
+   *  entry the same way on every shared read and write. */
+  sel?: Record<string, ShareSel>;
 };
 
 export const SHARE_ID = 'share';
@@ -220,7 +233,21 @@ export function shareOf(recs: AnyRec[], id: string = SHARE_ID): Share {
     folders: p?.folders ?? [],
     notefolders: p?.notefolders ?? [],
     labels: p?.labels ?? {},
+    sel: p?.sel ?? {},
   };
+}
+
+/** What partner `name` may see: their entry in `sel`, else the flat lists.
+ *  Own-key lookup, not `sel[name] ??`: a partner named 'constructor' (or any
+ *  Object.prototype member — all pass the server's USERNAME_RE) would resolve
+ *  to the INHERITED member, which is truthy, skips the fallback, and crashes
+ *  every ticks read. The server's PHP twin has no prototype chain to fall
+ *  into; this is the client holding up its half of that pair. */
+export function shareSelFor(share: Share, name: string): ShareSel {
+  const sel = share.sel ?? {};
+  return Object.hasOwn(sel, name)
+    ? sel[name]!
+    : { calendars: share.calendars, folders: share.folders, notefolders: share.notefolders };
 }
 
 export type Rec<T extends RecType = RecType> = {

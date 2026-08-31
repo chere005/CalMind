@@ -414,6 +414,59 @@ t('removal on either side ends sharing instantly, both ways', function () use ($
     eq(403, api(['action' => 'shared_put', 'partner' => 'pat', 'record' =>
         ['id' => 'rs', 'type' => 'reminder', 'updated' => 10, 'payload' => ['text' => 'x', 'due' => null, 'time' => null, 'done' => false, 'repeat' => null, 'folderId' => 'fs', 'sectionId' => 'ss', 'indent' => 0, 'ord' => 'a']]], $tokQ)['status'], 'writes die with the handshake');
 });
+t('per-partner sel: each partner sees THEIR selection, absence means the flat lists', function () use ($mkUser, $shareRec) {
+    $tokR = $mkUser('rita');
+    $tokS = $mkUser('sam');
+    $tokT = $mkUser('tess');
+    $row = fn(string $id, string $fold) => ['id' => $id, 'type' => 'reminder', 'updated' => 1,
+        'payload' => ['text' => $id, 'due' => null, 'time' => null, 'done' => false, 'repeat' => null,
+                      'folderId' => $fold, 'sectionId' => 's' . $fold, 'indent' => 0, 'ord' => 'a']];
+    // rita: two folders, flat share of f1, and a sel steering sam to f2 only.
+    api(['action' => 'sync', 'cursor' => 0, 'changes' => [
+        ['id' => 'f1', 'type' => 'folder', 'updated' => 1, 'payload' => ['name' => 'One', 'color' => '#4c8bf0', 'ord' => 'a', 'app' => 'reminders']],
+        ['id' => 'f2', 'type' => 'folder', 'updated' => 1, 'payload' => ['name' => 'Two', 'color' => '#ea5853', 'ord' => 'b', 'app' => 'reminders']],
+        $row('r1', 'f1'),
+        $row('r2', 'f2'),
+        $shareRec(['partners' => ['sam', 'tess'], 'calendars' => [], 'folders' => ['f1'], 'notefolders' => [],
+                   'sel' => ['sam' => ['calendars' => [], 'folders' => ['f2'], 'notefolders' => []]]]),
+    ]], $tokR);
+    api(['action' => 'sync', 'cursor' => 0, 'changes' => [
+        $shareRec(['partners' => ['rita'], 'calendars' => [], 'folders' => [], 'notefolders' => []]),
+    ]], $tokS);
+    api(['action' => 'sync', 'cursor' => 0, 'changes' => [
+        $shareRec(['partners' => ['rita'], 'calendars' => [], 'folders' => [], 'notefolders' => []]),
+    ]], $tokT);
+    // sam gets his sel — f2 and its row, never the flat f1.
+    $ids = array_column(api(['action' => 'shared_pull'], $tokS)['body']['records'], 'id');
+    sort($ids);
+    eq(['f2', 'r2'], $ids, 'sam sees his own selection');
+    // tess has no sel entry: the flat lists still govern, unchanged.
+    $ids = array_column(api(['action' => 'shared_pull'], $tokT)['body']['records'], 'id');
+    sort($ids);
+    eq(['f1', 'r1'], $ids, 'tess falls back to the flat lists');
+    // Writes obey the same per-viewer scope: sam cannot touch f1, tess cannot touch f2.
+    eq(403, api(['action' => 'shared_put', 'partner' => 'rita', 'record' => array_replace($row('r1', 'f1'), ['updated' => 2])], $tokS)['status'], 'outside sam\'s sel');
+    eq(200, api(['action' => 'shared_put', 'partner' => 'rita', 'record' => array_replace($row('r2', 'f2'), ['updated' => 2])], $tokS)['status'], 'inside sam\'s sel');
+    eq(403, api(['action' => 'shared_put', 'partner' => 'rita', 'record' => array_replace($row('r2', 'f2'), ['updated' => 3])], $tokT)['status'], 'outside tess\'s flat scope');
+    eq(200, api(['action' => 'shared_put', 'partner' => 'rita', 'record' => array_replace($row('r1', 'f1'), ['updated' => 3])], $tokT)['status'], 'inside tess\'s flat scope');
+    // An ALL-DIGIT username: json_decode turns the sel key '4242' into
+    // int(4242), which a string-only sanitizer silently dropped — and the
+    // fallback then showed this partner the flat lists, MORE than their
+    // ticks say. The pull below is the proof the int key still resolves.
+    $tok4 = $mkUser('4242');
+    api(['action' => 'sync', 'cursor' => 0, 'changes' => [
+        $shareRec(['partners' => ['sam', 'tess', '4242'], 'calendars' => [], 'folders' => ['f1'], 'notefolders' => [],
+                   'sel' => ['sam'  => ['calendars' => [], 'folders' => ['f2'], 'notefolders' => []],
+                             '4242' => ['calendars' => [], 'folders' => ['f2'], 'notefolders' => []]]], 2),
+    ]], $tokR);
+    api(['action' => 'sync', 'cursor' => 0, 'changes' => [
+        $shareRec(['partners' => ['rita'], 'calendars' => [], 'folders' => [], 'notefolders' => []]),
+    ]], $tok4);
+    $ids = array_column(api(['action' => 'shared_pull'], $tok4)['body']['records'], 'id');
+    sort($ids);
+    eq(['f2', 'r2'], $ids, 'a numeric-named partner gets their sel, not the flat lists');
+    eq(403, api(['action' => 'shared_put', 'partner' => 'rita', 'record' => array_replace($row('r1', 'f1'), ['updated' => 4])], $tok4)['status'], 'and their writes are scoped the same way');
+});
 
 t('an OVERSIZED record is REFUSED by name, not dropped in silence', function () {
     // Its own account: the password specs above revoke the shared token.

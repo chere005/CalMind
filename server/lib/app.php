@@ -533,8 +533,9 @@ function handle_sync(array $cfg, array $in): never
 
 // ---------------------------------------------------------------- sharing
 
-/** The user's share record out of their own store — partners + the three
- *  opt-in buckets (record ids). Absent record = shares nothing, names nobody. */
+/** The user's share record out of their own store — partners, the three
+ *  opt-in buckets (record ids), and per-partner `sel` overrides of those
+ *  buckets. Absent record = shares nothing, names nobody. */
 /**
  * SHARING IS PER SPACE, all the way down.
  *
@@ -559,8 +560,32 @@ function share_of(array $cfg, string $user, string $space = ''): array
     $rec = ($db['recs'] ?? [])['share'] ?? null;
     $p   = (is_array($rec) && empty($rec['deleted']) && is_array($rec['payload'] ?? null)) ? $rec['payload'] : [];
     $names = fn($k) => array_values(array_filter((array) ($p[$k] ?? []), 'is_string'));
+    $sel   = [];
+    foreach ((array) ($p['sel'] ?? []) as $who => $one) {
+        // int, not just string: an all-digit username ('42' passes
+        // USERNAME_RE) comes back from json_decode(..., true) as an INT key —
+        // PHP coerces canonical-integer keys on decode — and a string-only
+        // guard silently drops that partner's entry, so share_sel falls back
+        // to the flat lists and the server QUIETLY SHOWS THEM MORE than the
+        // owner's ticks say. The later $share['sel'][$viewer] lookup coerces
+        // the same way, so keeping the int key resolves correctly.
+        if ((!is_string($who) && !is_int($who)) || !is_array($one)) { continue; }
+        $pick = fn($k) => array_values(array_filter((array) ($one[$k] ?? []), 'is_string'));
+        $sel[$who] = ['calendars' => $pick('calendars'), 'folders' => $pick('folders'),
+                      'notefolders' => $pick('notefolders')];
+    }
     return ['partners' => $names('partners'), 'calendars' => $names('calendars'),
-            'folders' => $names('folders'), 'notefolders' => $names('notefolders')];
+            'folders' => $names('folders'), 'notefolders' => $names('notefolders'), 'sel' => $sel];
+}
+
+/** The buckets $viewer may see: their per-partner entry when the owner keeps
+ *  one, else the flat lists — which is also every share record written before
+ *  `sel` existed, so absence changes nothing. */
+function share_sel(array $share, string $viewer): array
+{
+    return $share['sel'][$viewer]
+        ?? ['calendars' => $share['calendars'], 'folders' => $share['folders'],
+            'notefolders' => $share['notefolders']];
 }
 
 /** The suite's share_mutual(): a partnership exists only while BOTH stored
@@ -592,9 +617,9 @@ function share_in_scope(array $share, string $type, string $id, ?array $payload)
 
 /** A partner's records filtered to what they share — nothing is ever copied;
  *  this reads the owner's store directly, like the suite reading their file. */
-function shared_records(array $cfg, string $owner, string $space = ''): array
+function shared_records(array $cfg, string $owner, string $space, string $viewer): array
 {
-    $share = share_of($cfg, $owner, $space);
+    $share = share_sel(share_of($cfg, $owner, $space), $viewer);
     $db    = store_read($cfg, records_file($cfg, $owner, $space));
     $out   = [];
     foreach (($db['recs'] ?? []) as $r) {
@@ -622,7 +647,7 @@ function handle_shared_pull(array $cfg, array $in): never
         $partners[] = ['name' => $p, 'mutual' => $mutual];
         if ($mutual && $from === null) {
             $from    = $p;
-            $records = shared_records($cfg, $p, $space);
+            $records = shared_records($cfg, $p, $space, $me);
         }
     }
     reply(200, ['ok' => true, 'partners' => $partners, 'partner' => $from, 'records' => $records]);
@@ -658,7 +683,7 @@ function handle_shared_put(array $cfg, array $in): never
     if (strlen(json_encode($c['payload'] ?? null)) > MAX_PAYLOAD) {
         fail(400, 'payload too large');
     }
-    $share   = share_of($cfg, $partner, $space);
+    $share   = share_sel(share_of($cfg, $partner, $space), $me);
     $payload = is_array($c['payload'] ?? null) ? $c['payload'] : null;
     // The lock name carries the space for the same reason handle_sync's does:
     // a lock named for the wrong file protects nothing.

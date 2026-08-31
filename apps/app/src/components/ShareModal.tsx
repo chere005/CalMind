@@ -2,16 +2,21 @@
  * The suite's share window: who I share with (strictly mutual — the badge
  * says 'sharing' only when both lists name each other, 'waiting for them'
  * otherwise), and the three opt-in tick lists — calendars, reminder folders,
- * note folders. Nothing is visible to the other person until it's ticked,
- * and everything here edits MY share record only; the server re-checks the
- * handshake from both stores on every shared read and write.
+ * note folders — PER PARTNER: the dropdown picks whose view the ticks edit,
+ * so each partner can be shown a different selection. A partner with no
+ * saved selection starts from the flat legacy lists (adding one here writes
+ * their entry explicitly, seeded from those lists). Nothing is visible to
+ * the other person until it's ticked, and everything here edits MY share
+ * record only; the server re-checks the handshake from both stores on every
+ * shared read and write.
  */
 import { useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
-import { byRecOrd, SHARE_ID, shareOf, type AnyRec, type Rec, type Share } from '@calmind/core';
+import { byRecOrd, SHARE_ID, shareOf, shareSelFor, type AnyRec, type Rec, type Share } from '@calmind/core';
 import { useStore } from '../store';
 import { themed, T } from '../theme';
 import { CircleBtn, ConfirmDelete, Field, Pill, Scroll } from '../ui';
+import { Dropdown } from './Dropdown';
 
 export function ShareModal({ onClose }: { onClose: () => void }) {
   const { recs, mutate, partners, syncNow } = useStore();
@@ -19,12 +24,24 @@ export function ShareModal({ onClose }: { onClose: () => void }) {
   const [newPartner, setNewPartner] = useState('');
   const [renaming, setRenaming] = useState<string | null>(null);
   const [labelText, setLabelText] = useState('');
+  // Whose view the tick lists edit. Falls back to the first partner when the
+  // picked one is deleted; null while there are no partners at all, and then
+  // the ticks edit the flat lists — the default a first partner inherits.
+  const [picked, setPicked] = useState<string | null>(null);
+  const active = picked && share.partners.includes(picked) ? picked : share.partners[0] ?? null;
 
   const putShare = (next: Share) => {
     mutate((e) => e.put({ id: SHARE_ID, type: 'share', updated: 0, payload: next } as AnyRec));
     void syncNow();
   };
   const toggle = (bucket: 'calendars' | 'folders' | 'notefolders', id: string) => {
+    if (active) {
+      const cur = shareSelFor(share, active);
+      const list = cur[bucket];
+      const next = { ...cur, [bucket]: list.includes(id) ? list.filter((x) => x !== id) : [...list, id] };
+      putShare({ ...share, sel: { ...share.sel, [active]: next } });
+      return;
+    }
     const list = share[bucket];
     putShare({ ...share, [bucket]: list.includes(id) ? list.filter((x) => x !== id) : [...list, id] });
   };
@@ -39,8 +56,9 @@ export function ShareModal({ onClose }: { onClose: () => void }) {
 
   const badge = (name: string) => partners.find((p) => p.name === name)?.mutual ? 'sharing' : 'waiting for them';
 
+  const ticks = active ? shareSelFor(share, active) : share;
   const tickRow = (id: string, name: string, color: string, bucket: 'calendars' | 'folders' | 'notefolders') => {
-    const on = share[bucket].includes(id);
+    const on = ticks[bucket].includes(id);
     return (
       <Pressable key={id} testID={`share-${bucket}-${name}`} style={s.row} onPress={() => toggle(bucket, id)}>
         <View style={[s.box, on && s.boxOn]}>{on && <Text style={s.boxTick}>✓</Text>}</View>
@@ -87,7 +105,11 @@ export function ShareModal({ onClose }: { onClose: () => void }) {
                 <CircleBtn glyph="✎" label="Edit" size={24} onPress={() => { setRenaming(name); setLabelText(share.labels?.[name] ?? name); }} />
                 <ConfirmDelete
                   size={24}
-                  onDelete={() => putShare({ ...share, partners: share.partners.filter((p) => p !== name) })}
+                  onDelete={() => {
+                    const sel = { ...share.sel };
+                    delete sel[name];
+                    putShare({ ...share, partners: share.partners.filter((p) => p !== name), sel });
+                  }}
                 />
               </View>
             ))}
@@ -101,12 +123,35 @@ export function ShareModal({ onClose }: { onClose: () => void }) {
                 style={s.addField}
                 onSubmitEditing={() => {
                   const name = newPartner.trim().toLowerCase();
-                  if (name && !share.partners.includes(name)) putShare({ ...share, partners: [...share.partners, name] });
+                  // The new partner gets an EXPLICIT sel entry, seeded from
+                  // what the fallback would have given them right now. Without
+                  // it they inherit the flat lists live — and those freeze the
+                  // moment any partner's ticks are edited, so a partner added
+                  // months later would silently be granted a selection the
+                  // window has shown unticked the whole time.
+                  if (name && !share.partners.includes(name)) {
+                    putShare({
+                      ...share,
+                      partners: [...share.partners, name],
+                      sel: { ...share.sel, [name]: shareSelFor(share, name) },
+                    });
+                  }
                   setNewPartner('');
                 }}
               />
             </View>
 
+            {share.partners.length > 1 && (
+              <View style={s.row}>
+                <Text style={s.forLabel}>Ticks apply to</Text>
+                <Dropdown
+                  testID="share-partner-pick"
+                  value={active}
+                  options={share.partners.map((name) => ({ id: name, label: share.labels?.[name] ?? name }))}
+                  onPick={setPicked}
+                />
+              </View>
+            )}
             <Text style={s.group}>Calendars</Text>
             {calendars.map((c) => tickRow(c.id, c.payload.name, c.payload.color, 'calendars'))}
             <Text style={s.group}>Reminder folders</Text>
@@ -134,6 +179,7 @@ const s = themed(() => StyleSheet.create({
   badge: { color: T.muted, fontSize: 12 },
   badgeOn: { color: T.accent, fontWeight: '700' },
   addField: { flex: 1 },
+  forLabel: { color: T.dim, fontSize: 14 },
   group: { color: T.gold, fontSize: 13, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 14, marginBottom: 2 },
   box: { width: 22, height: 22, borderRadius: 6, borderWidth: 1.5, borderColor: T.line, alignItems: 'center', justifyContent: 'center' },
   boxOn: { borderColor: T.accent, backgroundColor: T.accentSoft },
