@@ -56,7 +56,7 @@ BUILD_SCRATCH="$ROOT/$APPDIR/ios"
 
 if [ "$DRY" = 1 ]; then
   [ "$WANT_MAC" = 1 ]     && echo "would: npm run export:web (clean), npm -w $DESKTOP_WS run build, then install to /Applications"
-  [ "$WANT_IOS" = 1 ]     && echo "would: prebuild $APPDIR (ios), xcodebuild Release, devicectl install (watch companion too, when one is reachable)"
+  [ "$WANT_IOS" = 1 ]     && echo "would: prebuild $APPDIR (ios) if no workspace, sync app.json's version into it, xcodebuild Release, devicectl install (watch companion too, when one is reachable)"
   [ "$WANT_ANDROID" = 1 ] && echo "would: prebuild $APPDIR (android), gradlew assembleRelease, adb install"
   exit 0
 fi
@@ -81,17 +81,59 @@ ensure_dist() {
 }
 
 # --------------------------------------------------------------- the iOS project
+# Prebuild only runs when the workspace is MISSING — regenerating it every
+# build would also wipe ios/derived-platforms and turn each release into a
+# cold build. The price of reuse: the generated project froze the version at
+# whatever app.json said the day the workspace was first generated, and six
+# releases of phone installs reported 1.11.0 while the app shipped 1.17.0
+# (found 2026-08-30). So the version is SYNCED into the generated project on
+# every run: MARKETING_VERSION in the pbxproj covers the watch and widget
+# targets (their tracked Info.plists in apps/app/targets carry no version
+# key), and the app's generated ios/*/Info.plist holds a literal
+# CFBundleShortVersionString that needs setting directly. Both rewrites are
+# verified by reading the value back — a perl that matches nothing exits 0
+# and reports success (AcctMind's plist-a-version-behind scar, AGENTS.md).
+# ios/ is gitignored, so this edits generated files only, never the tree
+# the lane is about to tag.
 IOS_WS=""
+sync_ios_version() {
+  V=$( cd "$ROOT/$APPDIR" && node -p "require('./app.json').expo.version" 2>/dev/null )
+  # digits-and-dots or refuse: node -p prints the STRING "undefined" for a
+  # missing key, which is non-empty and would sync verbatim into the project.
+  case "$V" in
+    ''|*[!0-9.]*) echo "no usable expo.version in $APPDIR/app.json (got '$V')" >&2; return 1 ;;
+  esac
+  PBX=$(ls "$ROOT/$APPDIR"/ios/*.xcodeproj/project.pbxproj 2>/dev/null | head -1)
+  [ -n "$PBX" ] || { echo "no project.pbxproj beside the workspace" >&2; return 1; }
+  perl -i -pe "s/MARKETING_VERSION = [^;]*;/MARKETING_VERSION = $V;/g" "$PBX"
+  if grep 'MARKETING_VERSION' "$PBX" | grep -qv " = $V;"; then
+    echo "MARKETING_VERSION did not sync to $V in $PBX" >&2; return 1
+  fi
+  PLIST="$ROOT/$APPDIR/ios/$(basename "$IOS_WS" .xcworkspace)/Info.plist"
+  CUR=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$PLIST" 2>/dev/null)
+  case "$CUR" in
+    ''|*MARKETING_VERSION*) : ;;  # absent, or a build-setting reference the pbxproj now feeds
+    "$V") : ;;
+    *) /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $V" "$PLIST" \
+         || { echo "could not set CFBundleShortVersionString in $PLIST" >&2; return 1; }
+       CUR=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$PLIST" 2>/dev/null)
+       [ "$CUR" = "$V" ] || { echo "CFBundleShortVersionString did not sync to $V in $PLIST" >&2; return 1; } ;;
+  esac
+  echo "    version: $V (synced into the generated project)"
+}
 prebuild_ios() {
   [ -n "$IOS_WS" ] && return 0
   IOS_WS=$(ls -d "$ROOT/$APPDIR"/ios/*.xcworkspace 2>/dev/null | head -1)
-  [ -n "$IOS_WS" ] && return 0
-  # LANG is not optional: CocoaPods dies in unicode_normalize without a UTF-8
-  # locale, naming nothing useful.
-  ( cd "$ROOT/$APPDIR" && LANG=en_US.UTF-8 npx expo prebuild --platform ios --clean ) \
-    || { echo "prebuild failed" >&2; return 1; }
-  IOS_WS=$(ls -d "$ROOT/$APPDIR"/ios/*.xcworkspace 2>/dev/null | head -1)
-  [ -n "$IOS_WS" ] || { echo "prebuild produced no xcworkspace" >&2; return 1; }
+  if [ -z "$IOS_WS" ]; then
+    # LANG is not optional: CocoaPods dies in unicode_normalize without a UTF-8
+    # locale, naming nothing useful.
+    ( cd "$ROOT/$APPDIR" && LANG=en_US.UTF-8 npx expo prebuild --platform ios --clean ) \
+      || { echo "prebuild failed" >&2; return 1; }
+    IOS_WS=$(ls -d "$ROOT/$APPDIR"/ios/*.xcworkspace 2>/dev/null | head -1)
+    [ -n "$IOS_WS" ] || { echo "prebuild produced no xcworkspace" >&2; return 1; }
+  fi
+  # Even a fresh prebuild goes through the sync: the verify is the point.
+  sync_ios_version || return 1
 }
 
 # ------------------------------------------------------------------- macOS
