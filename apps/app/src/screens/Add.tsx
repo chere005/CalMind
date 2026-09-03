@@ -11,7 +11,7 @@ import { showAgain,
   newId,
   ordBetween,
   REPEAT_UNITS,
-  parseTimeFromText,
+  parseClockField,
   nowStr,
   parseWhenFromText,
   prefsOf,
@@ -67,9 +67,11 @@ export function Add({
   const [showEnd, setShowEnd] = useState(false);
   const [endField, setEndField] = useState('');
   // The presumed end (+1 hour) lives in STATE and shows as the placeholder,
-  // never as field text: prefilling the field would write it in the display
-  // clock, and a 24-hour '15:30' is a string parseTimeFromText cannot read
-  // back — the field's input syntax is 12-hour app-wide.
+  // never as field text: a presumption somebody has not agreed to should not
+  // arrive already typed into the box, where deleting it is the only way to
+  // say no. (It used to say the field could not read a 24-hour '15:30' back
+  // either. parseClockField reads it now — the reason above is the one that
+  // was always doing the work.)
   const [endPresumed, setEndPresumed] = useState<string | null>(null);
   const [repeat, setRepeat] = useState<Repeat | null>(null);
   const [err, setErr] = useState('');
@@ -111,7 +113,7 @@ export function Add({
     }
     lastFiled.current = { text: raw, at: now };
     const fd = datePicked;
-    const [, ft] = parseTimeFromText(timeField.trim());
+    const ft = parseClockField(timeField);
     // Manual-beats-parsed (Sean, 2026-08-18): a category the fields settled
     // is not lifted from the line — the token stays, unused.
     const [clean, pd, pt, pe] = parseWhenFromText(raw, today, nowStr(), { date: fd === null, time: ft === null });
@@ -125,7 +127,7 @@ export function Add({
     const time = ft ?? pt;
     // Only events carry an end, and only after a start (Sean, 2026-08-18).
     // An empty field keeps the presumption made when the row was revealed.
-    const [, fe] = parseTimeFromText(endField.trim());
+    const fe = parseClockField(endField);
     // A typed RANGE ("lunch 12-1pm") brings its own end and needs no panel:
     // the field is only reachable behind "+ Date/Time", and asking someone to
     // open it to keep an end they already typed would make the range a
@@ -256,7 +258,7 @@ export function Add({
                 <Pill
                   label="+ End"
                   onPress={() => {
-                    const [, ft] = parseTimeFromText(timeField.trim());
+                    const ft = parseClockField(timeField);
                     const [, , pt] = parseWhenFromText(text.trim(), today, nowStr());
                     const start = ft ?? pt;
                     setEndPresumed(start ? timePlus(start, 60) : null);

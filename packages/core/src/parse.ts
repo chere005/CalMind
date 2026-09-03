@@ -33,17 +33,74 @@ function isRealDate(y: number, m: number, d: number): boolean {
 
 const pad = (n: number, w = 2) => String(n).padStart(w, '0');
 
-/** Pull "2pm" / "2:30 pm" out; returns [cleanedText, 'HH:MM' | null]. */
+/**
+ * WHICH HALF OF THE DAY A BARE HOUR MEANS — Sean, 2026-09-03: "also allow a
+ * specification like 12:30 (which would assume pm) or 5:00 (would assume
+ * PM).. 6-8 will assume pm unless specified, then 9-11 will assume am.. 12-5
+ * is pm".
+ *
+ * Nine, ten and eleven are the morning. Everything else — noon through eight —
+ * is the afternoon or the evening. It is not a clever rule and it is not meant
+ * to be: it is where his hours actually fall, so the common case needs no
+ * suffix and the uncommon one says "am" and is believed.
+ *
+ * 0 and 13–23 are already unambiguous 24-hour times and come back untouched.
+ */
+const HOURS_ASSUMED_AM = new Set([9, 10, 11]);
+export function assumeMeridiem(h: number): number {
+  if (h === 0 || h > 12) return h;
+  if (HOURS_ASSUMED_AM.has(h)) return h;
+  return h === 12 ? 12 : h + 12;
+}
+
+/**
+ * A time with NO am/pm, in free text. The colon is the whole signal: "12:30"
+ * is a clock and a bare "5" is a quantity, a page, an aisle or a count of
+ * apples. A dedicated time field can afford to read the lone number, and
+ * parseClockField() does — a line of prose cannot.
+ */
+const BARE_TIME_RE = /\b(\d{1,2}):(\d{2})\b/;
+
+/** Pull "2pm" / "2:30 pm" / "12:30" out; returns [cleanedText, 'HH:MM' | null]. */
 export function parseTimeFromText(text: string): [string, string | null] {
   const m = TIME_RE.exec(text);
-  if (!m) return [text, null];
-  let h = parseInt(m[1]!, 10);
-  const min = m[2] ? parseInt(m[2], 10) : 0;
-  const ap = m[3]!.toLowerCase();
-  if (h < 1 || h > 12 || min >= 60) return [text, null];
-  if (ap === 'p' && h < 12) h += 12;
-  if (ap === 'a' && h === 12) h = 0;
-  return [lift(text, m.index, m[0].length), `${pad(h)}:${pad(min)}`];
+  if (m) {
+    let h = parseInt(m[1]!, 10);
+    const min = m[2] ? parseInt(m[2], 10) : 0;
+    const ap = m[3]!.toLowerCase();
+    if (h < 1 || h > 12 || min >= 60) return [text, null];
+    if (ap === 'p' && h < 12) h += 12;
+    if (ap === 'a' && h === 12) h = 0;
+    return [lift(text, m.index, m[0].length), `${pad(h)}:${pad(min)}`];
+  }
+  // Said without a meridiem. The hour picks its own half of the day.
+  const b = BARE_TIME_RE.exec(text);
+  if (!b) return [text, null];
+  const h = parseInt(b[1]!, 10);
+  const min = parseInt(b[2]!, 10);
+  if (h > 23 || min >= 60) return [text, null];
+  return [lift(text, b.index, b[0].length), `${pad(assumeMeridiem(h))}:${pad(min)}`];
+}
+
+/**
+ * A FIELD WHOSE ONLY JOB IS A TIME — the Add screen's Time and End boxes, the
+ * request sheet's. Everything parseTimeFromText reads, plus the lone hour it
+ * deliberately will not: "5" here can only mean five o'clock, because there is
+ * nothing else the box could be holding. Returns 'HH:MM' or null.
+ *
+ * It is a second door on purpose. The looser rule must not leak into the add
+ * line, where a bare number is usually a number.
+ */
+export function parseClockField(text: string): string | null {
+  const s = text.trim();
+  if (!s) return null;
+  const [, t] = parseTimeFromText(s);
+  if (t !== null) return t;
+  const m = /^(\d{1,2})$/.exec(s);
+  if (!m) return null;
+  const h = parseInt(m[1]!, 10);
+  if (h > 23) return null;
+  return `${pad(assumeMeridiem(h))}:00`;
 }
 
 /**
@@ -69,11 +126,17 @@ export function parseTimeFromText(text: string): [string, string | null] {
  * An end EQUAL to its start gets the same treatment ("12-12pm" is midday to
  * midnight, not a zero-length event) — the flip triggers on `<=`, not `<`.
  *
- * Deliberately NOT matched: a range where neither side says am/pm ("9-10").
- * A bare number pair is a score, a page range, a quantity — and this parser
- * has never read a bare 24-hour time either ("2/3 cup" reads as Feb 3 is the
- * same family of documented limit). One meridiem is the whole signal that a
- * range of CLOCK times is what was meant.
+ * Since 2026-09-03 a range where NEITHER side says am/pm is read too — but
+ * only when both sides are written as clock times, minutes and all
+ * ("12:30-2:00", "9:00-11:00"). Each hour picks its half of the day through
+ * assumeMeridiem(), and the same backwards-flip below still applies.
+ *
+ * Deliberately still NOT matched: a bare number pair ("9-10", "6-8"). That is
+ * a score, a page range, a quantity — and this parser has never read a bare
+ * 24-hour time either ("2/3 cup" reads as Feb 3 is the same family of
+ * documented limit). Sean, 2026-09-03, choosing between the two: the lone
+ * number is a time in the Time and End FIELDS, where it cannot mean anything
+ * else, and stays text in a line of prose. parseClockField() is that door.
  */
 const RANGE_RE =
   /\b(\d{1,2})(?::(\d{2}))?\s*([apAP])?\.?[mM]?\.?\s*(?:-|–|—|to|until|till)\s*(\d{1,2})(?::(\d{2}))?\s*([apAP])?\.?[mM]?\.?\b/;
@@ -95,13 +158,27 @@ export function parseTimeRangeFromText(text: string): [string, string | null, st
   const h2 = parseInt(m[4]!, 10);
   const n2 = m[5] ? parseInt(m[5], 10) : 0;
   const a2 = m[6]?.toLowerCase() as 'a' | 'p' | undefined;
-  // Both bare is not a time range — see the note above.
-  if (!a1 && !a2) return [text, null, null];
-  if (h1 < 1 || h1 > 12 || h2 < 1 || h2 > 12 || n1 >= 60 || n2 >= 60) return [text, null, null];
+  // Both bare is a range only when both sides are written as clock times —
+  // see the note above. m[2] and m[5] are the two ':MM' groups.
+  const bothBare = !a1 && !a2;
+  if (bothBare && !(m[2] && m[5])) return [text, null, null];
+  // A bare side may be an unambiguous 24-hour hour; a side wearing am/pm may not.
+  const lo = bothBare ? 0 : 1;
+  const hi = bothBare ? 23 : 12;
+  if (h1 < lo || h1 > hi || h2 < lo || h2 > hi || n1 >= 60 || n2 >= 60) return [text, null, null];
 
   let start: string;
   let end: string;
-  if (a1 && a2) {
+  if (bothBare) {
+    start = `${pad(assumeMeridiem(h1))}:${pad(n1)}`;
+    end = `${pad(assumeMeridiem(h2))}:${pad(n2)}`;
+    // The same flip the borrowing branches make: a range that reads backwards
+    // is not what was meant, so the END moves to the other half of the day.
+    // "1:00-11:00" is one in the afternoon until eleven at night.
+    if (end <= start && h2 >= 1 && h2 <= 12) {
+      end = clampHM(h2 % 12 === 0 ? 12 : h2 % 12, n2, assumeMeridiem(h2) >= 12 ? 'a' : 'p');
+    }
+  } else if (a1 && a2) {
     start = clampHM(h1, n1, a1);
     end = clampHM(h2, n2, a2);
   } else if (a2) {

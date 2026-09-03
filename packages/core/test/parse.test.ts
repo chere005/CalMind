@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { defaultNoteTitle, looksLikeDefaultNoteTitle, timeLabel } from '../src/parse';
+import { defaultNoteTitle, looksLikeDefaultNoteTitle, parseClockField, parseTimeFromText, parseTimeRangeFromText, timeLabel } from '../src/parse';
 
 
 describe('defaultNoteTitle — a new note arrives readable', () => {
@@ -50,5 +50,64 @@ describe('timeLabel — 12- or 24-hour, per Sean\'s Settings choice', () => {
   it('empty stays empty in both', () => {
     expect(timeLabel(null)).toBe('');
     expect(timeLabel(null, true)).toBe('');
+  });
+});
+
+/**
+ * THE TIME FIELDS — Sean, 2026-09-03: "in all input fields that allow a time
+ * specification ... also allow a specification like 12:30 (which would assume
+ * pm) or 5:00 (would assume PM).. 6-8 will assume pm unless specified, then
+ * 9-11 will assume am.. 12-5 is pm".
+ *
+ * The hour's own half of the day is pinned in spec/parse.json, which the
+ * native cores replay. What is HERE is the second door: a box whose only job
+ * is a time can read the lone number the add line deliberately will not.
+ */
+describe('parseClockField — a box that can only be holding a time', () => {
+  it('reads the lone hour, and puts it in the half of the day Sean means', () => {
+    // 9, 10, 11 morning; noon through eight afternoon and evening.
+    const want: Record<string, string> = {
+      '9': '09:00', '10': '10:00', '11': '11:00',
+      '12': '12:00', '1': '13:00', '2': '14:00', '5': '17:00',
+      '6': '18:00', '7': '19:00', '8': '20:00',
+    };
+    for (const [typed, expected] of Object.entries(want)) {
+      expect(parseClockField(typed)).toBe(expected);
+    }
+  });
+  it('reads a clock time the same way, with or without the meridiem', () => {
+    expect(parseClockField('12:30')).toBe('12:30');
+    expect(parseClockField('5:00')).toBe('17:00');
+    expect(parseClockField('9:15')).toBe('09:15');
+    expect(parseClockField(' 2:30 pm ')).toBe('14:30');
+    expect(parseClockField('5:00am')).toBe('05:00');   // said out loud, and believed
+  });
+  it('takes an unambiguous 24-hour time at its word', () => {
+    expect(parseClockField('15:30')).toBe('15:30');
+    expect(parseClockField('23')).toBe('23:00');
+    expect(parseClockField('0')).toBe('00:00');
+  });
+  it('refuses what is not a time at all', () => {
+    for (const junk of ['', '  ', 'abc', '24', '25', '12:60', '5 apples', '9-10']) {
+      expect(parseClockField(junk)).toBeNull();
+    }
+  });
+});
+
+describe('the add line is not a time field', () => {
+  it('leaves a lone number alone — it is a count, a page, an aisle', () => {
+    // The looser rule must not leak out of parseClockField. This is the half
+    // Sean chose (2026-09-03) when asked where the bare hour should apply.
+    expect(parseTimeFromText('buy 3 apples')[1]).toBeNull();
+    expect(parseTimeFromText('read pages 9-10')[1]).toBeNull();
+    expect(parseTimeRangeFromText('lunch 6-8')[1]).toBeNull();
+  });
+  it('but reads a written clock time, because a colon is not a quantity', () => {
+    expect(parseTimeFromText('Lunch 12:30')).toEqual(['Lunch', '12:30']);
+    expect(parseTimeRangeFromText('Lunch 12:30-2:00')).toEqual(['Lunch', '12:30', '14:00']);
+  });
+  it('flips a bare range that would otherwise read backwards', () => {
+    // 1 assumes pm and 11 assumes am, which runs backwards; the END moves.
+    expect(parseTimeRangeFromText('1:00-11:00')).toEqual(['', '13:00', '23:00']);
   });
 });

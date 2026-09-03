@@ -363,5 +363,77 @@
     "text": "dentist friday",
     "date": "2026-08-03",
     "time": null
+  },
+  {
+    "name": "a bare clock time assumes the half of the day it usually means",
+    "input": "Lunch 12:30",
+    "today": "2026-08-01",
+    "text": "Lunch",
+    "date": "2026-08-01",
+    "time": "12:30"
+  },
+  {
+    "name": "five o'clock with no meridiem is the afternoon",
+    "input": "Gym at 5:00",
+    "today": "2026-08-01",
+    "text": "Gym",
+    "date": "2026-08-01",
+    "time": "17:00"
+  },
+  {
+    "name": "nine, ten and eleven are the morning",
+    "input": "Standup 9:15",
+    "today": "2026-08-01",
+    "text": "Standup",
+    "date": "2026-08-01",
+    "time": "09:15"
+  },
+  {
+    "name": "eleven fifty-nine is still morning; eight is not",
+    "input": "Call 8:30",
+    "today": "2026-08-01",
+    "text": "Call",
+    "date": "2026-08-01",
+    "time": "20:30"
+  },
+  {
+    "name": "a bare 24-hour time is taken at its word",
+    "input": "Deploy 15:30",
+    "today": "2026-08-01",
+    "text": "Deploy",
+    "date": "2026-08-01",
+    "time": "15:30"
+  },
+  {
+    "name": "a written meridiem always beats the assumption",
+    "input": "Gym at 5:00am",
+    "today": "2026-08-01",
+    "text": "Gym",
+    "date": "2026-08-01",
+    "time": "05:00"
+  },
+  {
+    "name": "a bare number is a number, not a time",
+    "input": "buy 3 apples",
+    "today": "2026-08-01",
+    "text": "buy 3 apples",
+    "date": null,
+    "time": null
+  },
+  {
+    "name": "a bare number pair is a page range, not a time range",
+    "input": "read pages 9-10",
+    "today": "2026-08-01",
+    "text": "read pages 9-10",
+    "date": null,
+    "time": null
+  },
+  {
+    "name": "minutes on both sides make a bare pair a time range",
+    "input": "Lunch 12:30-2:00",
+    "today": "2026-08-01",
+    "text": "Lunch",
+    "date": "2026-08-01",
+    "time": "12:30"
   }
 ]

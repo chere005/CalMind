@@ -17,7 +17,7 @@ import {
   convertToNote,
   newId,
   ordBetween,
-  parseTimeFromText,
+  parseClockField,
   nowStr,
   parseWhenFromText,
   prefsOf,
@@ -164,7 +164,7 @@ export function ItemModal({
     // The date is PICKED now, never typed into a box (Sean, 2026-08-20) —
     // dateTouched is the whole story of "the hand chose in this sheet".
     // Typing a date still works where the typing hand already is: the line.
-    const [, ft] = parseTimeFromText(timeField.trim());
+    const ft = parseClockField(timeField);
     const manualDate = dateTouched;
     const manualTime = timeTouched || ft !== null;
     // A category the hand settled is not lifted: the token stays in the
@@ -181,7 +181,7 @@ export function ItemModal({
     const finalTime = manualTime ? (showTime ? ft ?? time : null) : pt ?? (showTime ? time : null);
     // An end only means something after a start; an empty field keeps the
     // presumed one (+1 hour, set when the row was revealed).
-    const [, fe] = parseTimeFromText(endField.trim());
+    const fe = parseClockField(endField);
     // A typed range carries its end, as on the Add screen; a hand-set end
     // still outranks it.
     const finalEnd = kind === 'event' && finalTime !== null ? (showEnd ? fe ?? end : null) ?? pe : null;
@@ -317,7 +317,7 @@ export function ItemModal({
                 <Pill
                   label="+ End"
                   onPress={() => {
-                    const [, ft] = parseTimeFromText(timeField.trim());
+                    const ft = parseClockField(timeField);
                     const start = ft ?? time;
                     setEnd(start ? timePlus(start, 60) : null);
                     setShowEnd(true);

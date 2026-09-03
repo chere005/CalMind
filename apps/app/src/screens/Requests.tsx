@@ -17,7 +17,7 @@ import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   byRecOrd, dayAnyOpen, dayToggleAll, meetAvailId, meetAvailOf, meetreqEvent, monthGridFilled,
-  newId, ordBetween, parseTimeFromText, pendingRequests, prefsOf, slotOpen, slotToggle, timeLabel,
+  newId, ordBetween, parseClockField, pendingRequests, prefsOf, slotOpen, slotToggle, timeLabel,
   todayStr, type MeetAvail, type Rec,
 } from '@calmind/core';
 import { apiPost } from '../api';
@@ -121,7 +121,7 @@ export function Requests({ onClose }: { onClose: () => void }) {
 
   const saveNewTime = () => {
     if (!retiming) return;
-    const [, t] = parseTimeFromText(timeField.trim());
+    const t = parseClockField(timeField);
     const date = newDate ?? retiming.payload.date;
     if (!t) {
       setMsg('Type a start time — like 2:30pm.');
