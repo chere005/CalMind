@@ -1430,7 +1430,7 @@ const s = themed(() => StyleSheet.create({
   // looked exactly like the row while doing nothing, because it IS the row.
   // Its own alignItems:'center' still centres the title inside the taller box.
   rowBody: { flex: 1, alignSelf: 'stretch', flexDirection: 'row', alignItems: 'center', gap: 8 },
-  rowNoSelect: { userSelect: 'none' } as import('react-native').ViewStyle,
+  rowNoSelect: { userSelect: 'none', /* a swipe row permits only VERTICAL panning, so a horizontal swipe never scrolls the list under it on web — Sean, 2026-09-06 */ touchAction: 'pan-y' } as import('react-native').ViewStyle,
   sharedTitle: { color: T.text, fontSize: 22, fontWeight: '800' },
   sharedDate: { color: T.dim, fontSize: 13, marginTop: 2 },
   sharedFolderChip: { color: T.text, fontSize: 15, fontWeight: '800', paddingHorizontal: 10, paddingVertical: 2, borderRadius: 999, overflow: 'hidden' },

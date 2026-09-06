@@ -307,7 +307,7 @@ export function RecipeEditor({ note, onClose }: { note: Rec<'note'>; onClose: ()
             <View
               ref={ingDrag.registerRow(i)}
               {...(editing?.list === 'ing' && editing.at === i ? {} : swipe.handlersFor(`ing-${i}`))}
-              style={[s.row, ingDrag.dragIdx === i && { opacity: 0.55, transform: [{ translateY: ingDrag.dragDy }] }]}
+              style={[s.row, s.rowNoSelect, ingDrag.dragIdx === i && { opacity: 0.55, transform: [{ translateY: ingDrag.dragDy }] }]}
             >
             <View testID="ing-grip" {...ingDrag.handleFor(i)} style={s.handle} hitSlop={8}>
                     <WebHitSlop slop={6} />
@@ -371,7 +371,7 @@ export function RecipeEditor({ note, onClose }: { note: Rec<'note'>; onClose: ()
             <View
               ref={stepDrag.registerRow(i)}
               {...(editing?.list === 'step' && editing.at === i ? {} : swipe.handlersFor(`step-${i}`))}
-              style={[s.row, stepDrag.dragIdx === i && { opacity: 0.55, transform: [{ translateY: stepDrag.dragDy }] }]}
+              style={[s.row, s.rowNoSelect, stepDrag.dragIdx === i && { opacity: 0.55, transform: [{ translateY: stepDrag.dragDy }] }]}
             >
             <View testID="step-grip" {...stepDrag.handleFor(i)} style={s.handle} hitSlop={8}>
                     <WebHitSlop slop={6} />
@@ -460,6 +460,8 @@ const s = themed(() => StyleSheet.create({
   secHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 14 },
   secName: { color: T.gold, fontSize: 16, lineHeight: 20, fontWeight: '600', flex: 1 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 9, paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: T.lineSoft },
+  /* a swipe row permits only VERTICAL panning, so a horizontal swipe never scrolls the list under it on web — Sean, 2026-09-06 */
+  rowNoSelect: { userSelect: 'none', touchAction: 'pan-y' } as import('react-native').ViewStyle,
   // The parked swipe-delete floats over the row's right edge, out of the
   // flex flow — as a flex child it squeezed the line sideways the moment the
   // × parked ("things shift with slide to delete" — Sean, 2026-08-20).

@@ -1062,7 +1062,7 @@ const s = themed(() => StyleSheet.create({
   askText: { color: T.text, fontSize: 15, lineHeight: 22 },
   askRow: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8 },
   // A swipe target never starts a text selection (a selection terminates the pan).
-  rowNoSelect: { userSelect: 'none' } as import('react-native').ViewStyle,
+  rowNoSelect: { userSelect: 'none', /* a swipe row permits only VERTICAL panning, so a horizontal swipe never scrolls the list under it on web — Sean, 2026-09-06 */ touchAction: 'pan-y' } as import('react-native').ViewStyle,
   // visibility, not display: entering edit mode must not nudge text sideways.
   gripHidden: { opacity: 0 },
   // Fills whatever is left below the list, rather than a fixed 160: on a

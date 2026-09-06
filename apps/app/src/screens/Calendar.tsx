@@ -1050,7 +1050,7 @@ const s = themed(() => StyleSheet.create({
   // under sections in the calendar app should be slightly indented, not the
   // same level" — Sean, 2026-08-20). The heads stay flush with the panel.
   row: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 4, paddingLeft: 14 },
-  rowNoSelect: { userSelect: 'none' } as import('react-native').ViewStyle,
+  rowNoSelect: { userSelect: 'none', /* a swipe row permits only VERTICAL panning, so a horizontal swipe never scrolls the list under it on web — Sean, 2026-09-06 */ touchAction: 'pan-y' } as import('react-native').ViewStyle,
   rowRolled: { backgroundColor: T.accentSoft, borderRadius: 8 },
   /**
    * The edit controls, pinned to the row's right edge and OUT of the flex flow.
