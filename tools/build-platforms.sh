@@ -217,6 +217,59 @@ PY
   DERIVED="$BUILD_SCRATCH/derived-platforms"
   echo "    workspace: $(basename "$IOS_WS")  scheme: $SCHEME"
 
+  # REGISTER A NEW WATCH BEFORE THE PHONE BUILD — 2026-09-07. The embedded
+  # watch app is signed for whatever devices the team's watchkit profile holds,
+  # and a build whose -destination is the PHONE never adds the watch: its
+  # profile came out WITHOUT the watch's UDID, and the watch install failed
+  # 0xe8008012 ("provisioning profile cannot be installed on this device") with
+  # a paired watch sitting right there. A device is registered by building
+  # something with THAT device as the destination — which is what
+  # -allowProvisioningUpdates keys off. So if exactly one watch is reachable
+  # and it is not yet in any cached profile, build the watch scheme against it
+  # once, here, so the phone build below signs the embedded copy for a profile
+  # that includes it. EVERY step is non-fatal: a failure just leaves the old
+  # behaviour (the watch install warns, the release goes on).
+  watch_in_profile() {
+    for _p in "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles/"*.mobileprovision; do
+      [ -f "$_p" ] || continue
+      security cms -D -i "$_p" 2>/dev/null \
+        | plutil -extract ProvisionedDevices xml1 -o - - 2>/dev/null \
+        | grep -q "$1" && return 0
+    done
+    return 1
+  }
+  # The watch scheme is synthesized by xcodebuild from the target, so there is
+  # no .xcscheme file to look for; the generated target directory is the marker
+  # that this app has a watch at all (a watchless app has none, and skips).
+  WATCH_SCHEME="${SCHEME}Watch"
+  if [ -d "$BUILD_SCRATCH/.targets/$WATCH_SCHEME" ]; then
+    WJSON0=$(mktemp -t calmind-watch0)
+    WUDID0=''
+    xcrun devicectl list devices --json-output "$WJSON0" >/dev/null 2>&1 && WUDID0=$(python3 - "$WJSON0" <<'PY'
+import json, sys
+d = json.load(open(sys.argv[1]))
+# Same tunnelState set the phone uses: a paired-but-idle watch lists as
+# 'disconnected' until something warms the tunnel, and is still usable.
+ok = [x['hardwareProperties']['udid'] for x in d.get('result', {}).get('devices', [])
+      if x.get('hardwareProperties', {}).get('platform') == 'watchOS'
+      and x.get('connectionProperties', {}).get('tunnelState') in ('connected', 'available', 'disconnected')
+      and x.get('hardwareProperties', {}).get('udid')]
+print(ok[0] if len(ok) == 1 else '')
+PY
+)
+    rm -f "$WJSON0"
+    if [ -n "$WUDID0" ] && ! watch_in_profile "$WUDID0"; then
+      echo "    registering watch $WUDID0 (one-time — it is in no watchkit profile yet)"
+      if xcodebuild -workspace "$IOS_WS" -scheme "$WATCH_SCHEME" -configuration Release \
+          -destination "platform=watchOS,id=$WUDID0" -derivedDataPath "$DERIVED" \
+          -allowProvisioningUpdates build >/dev/null 2>&1; then
+        echo "    watch registered — the phone build will sign the watch app for it"
+      else
+        echo "    watch registration build did not complete; the watch install may still need a hand" >&2
+      fi
+    fi
+  fi
+
   LOG=$(mktemp -t calmind-ios)
   # -destination with a SPECIFIC device, never -sdk: -sdk overrides SDKROOT
   # for every target in the scheme, so the watch complication compiles
