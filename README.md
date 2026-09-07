@@ -61,10 +61,10 @@ apps/watch/        A signpost only — one README, no code. Kept because
                    'watch' is what you search for; it points at the three
                    places the watch actually lives.
 server/            The sync API in PHP — deployable to NearlyFreeSpeech
-                   unchanged. A dumb store with auth — passwords, and passkeys
-                   via WebAuthn written by hand, since the host has no
-                   composer: it merges by clear metadata and stays out of
-                   payloads, except where sharing
+                   unchanged; reference in `docs/api.md`. A dumb store with
+                   auth — passwords, and passkeys via WebAuthn written by
+                   hand, since the host has no composer: it merges by clear
+                   metadata and stays out of payloads, except where sharing
                    must scope a partner's reads and row-writes to the
                    containers they opted in (both lists must name each other,
                    re-checked on every request).
@@ -107,29 +107,16 @@ README and its own script.
 ## The sync model
 
 Local-first. Every client keeps the full store and renders from it instantly;
-the server reconciles. One request shape:
+the server reconciles. One endpoint, one request shape — a bearer-authed
+`POST` of `{ action: "sync", cursor, changes }` that returns the tail past the
+cursor — with per-record last-write-wins merging on `updated`, tombstone
+deletes, and a fractional `payload.ord` for order. The `payload` is opaque to
+the server and stored encrypted at rest (`ENC1:` AES).
 
-```
-POST api/index.php   { action: "sync", cursor: N, changes: [Rec...] }   (Bearer token)
-  →                  { ok: true, cursor: M, changes: [Rec...] }
-```
-
-A `Rec` is `{ id, type, updated, deleted?, payload }`. Merging is per-record
-last-write-wins on `updated` (ties keep the incumbent, so echoes are no-ops);
-`cursor` is a per-user sequence number, so a pull is only ever the tail.
-Deletes are tombstones. Drag order is a fractional key ON each record
-(`payload.ord`), never array position — array position cannot survive
-per-record merging.
-
-**The envelope.** Sync metadata stays in the clear; `payload` is opaque to the
-server (it stores it encrypted at rest, suite-style `ENC1:` AES). The E2EE
-milestone — client-derived keys, wrapped DEKs, recovery codes — encrypts
-`payload` alone: the protocol, the server, and the merge rules do not change.
-
-**Auth.** Passwords are `password_hash()` only — nothing recoverable is stored.
-Bearer tokens, hashed at rest, revoked wholesale on password change/reset.
-Recovery is a 6-digit emailed code (15 minutes, 5 tries); without mail config
-codes land in `data/mail.log`, which is also how the server tests read them.
+**The full reference is [`docs/api.md`](docs/api.md)** — every action, the
+record shape, the merge tie-break, spaces, auth and errors — and the checked
+contract (record-id shape, max batch) is [`spec/protocol.json`](spec/protocol.json),
+which both the server and every client core assert against.
 
 ## Running it
 
