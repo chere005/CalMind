@@ -2,7 +2,7 @@
   "expo": {
     "name": "CalMind",
     "slug": "calmind",
-    "version": "1.23.0",
+    "version": "1.24.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
