@@ -234,15 +234,13 @@ export function Add({
             <Text style={s.revealBtnText}>+ Date</Text>
           </Pressable>
         ) : (
-          <View style={s.panelCol}>
-            <View style={s.panelHead}>
+          // Label, selectors and × on ONE line (Sean, 2026-09-15). A circle
+          // wearing the calendar, never a box that looks typed-in (Sean,
+          // 2026-08-20); the shared DayPick is told which day it edits by
+          // `dayPick`, and events get an end day for a span.
+          <View style={s.panelInline}>
+            <View style={s.panelInlineMain}>
               <Text style={s.panelLabel}>Date</Text>
-              <CircleBtn glyph="×" label="Remove date" size={22} onPress={() => { setShowDate(false); setDatePicked(null); setEndDatePicked(null); }} />
-            </View>
-            {/* A circle wearing the calendar, never a box that looks typed-in —
-                Sean, 2026-08-20; the picker is the shared DayPick, told which
-                day it is editing by `dayPick`. Events get an end day for a span. */}
-            <View style={s.panel}>
               <DayPickBtn testID="add-date" value={datePicked} onPress={() => setDayPick('start')} />
               {kind === 'event' && (
                 <>
@@ -251,6 +249,7 @@ export function Add({
                 </>
               )}
             </View>
+            <CircleBtn glyph="×" label="Remove date" size={22} onPress={() => { setShowDate(false); setDatePicked(null); setEndDatePicked(null); }} />
           </View>
         )}
 
@@ -259,12 +258,9 @@ export function Add({
             <Text style={s.revealBtnText}>+ Time</Text>
           </Pressable>
         ) : (
-          <View style={s.panelCol}>
-            <View style={s.panelHead}>
+          <View style={s.panelInline}>
+            <View style={s.panelInlineMain}>
               <Text style={s.panelLabel}>Time</Text>
-              <CircleBtn glyph="×" label="Remove time" size={22} onPress={() => { setShowTime(false); setTimeField(''); setEndField(''); }} />
-            </View>
-            <View style={s.panel}>
               <Field value={timeField} onChangeText={setTimeField} placeholder="2:30pm" style={s.miniField} />
               {kind === 'event' && (
                 <>
@@ -273,6 +269,7 @@ export function Add({
                 </>
               )}
             </View>
+            <CircleBtn glyph="×" label="Remove time" size={22} onPress={() => { setShowTime(false); setTimeField(''); setEndField(''); }} />
           </View>
         )}
 
@@ -380,6 +377,10 @@ const s = themed(() => StyleSheet.create({
   // replaced is gone, so the × is the only way to fold it away.
   panelCol: { gap: 8 },
   panelHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  // Header label + selectors on one line, the × trailing at the right; the
+  // inner group wraps when narrow while the × stays put.
+  panelInline: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  panelInlineMain: { flex: 1, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
   panelLabel: { color: T.dim, fontSize: 13 },
   miniField: { minWidth: 78, paddingVertical: 8 },
   repN: { color: T.text, fontSize: 14, minWidth: 20, textAlign: 'center' },
