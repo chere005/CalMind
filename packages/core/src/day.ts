@@ -9,7 +9,7 @@ import type { FolderMode, AnyRec, Rec } from './types';
 import { folderApp } from './types';
 import { repeatDates } from './repeats';
 import { byOrd, byRecOrd } from './order';
-import { shiftDate } from './parse';
+import { shiftDate, normalizeEndDate, dayDiff } from './parse';
 
 const live = (r: { deleted?: boolean }) => !r.deleted;
 const of = <T extends AnyRec['type']>(recs: AnyRec[], t: T) =>
@@ -43,8 +43,18 @@ export function folderMode(f: { rideAlong?: boolean }, id: string, modes?: Recor
 }
 
 export function dayItems(recs: AnyRec[], date: string, today: string, modes?: Record<string, FolderMode>): DayItems {
+  // An event lands on `date` when a repeat occurrence's SPAN covers it — a
+  // multi-day event (endDate after date) shows on every day it runs, not only
+  // the day it starts (Sean, 2026-09-15: multi-day events span the grid). The
+  // span's length is fixed, so an occurrence starting on any of the `dur` days
+  // ending at `date` reaches it: expand the window back by `dur` and ask if
+  // any occurrence starts inside.
   const events = of(recs, 'event')
-    .filter((e) => repeatDates(e.payload.date, e.payload.repeat, date, date).length > 0)
+    .filter((e) => {
+      const span = normalizeEndDate(e.payload.date, e.payload.endDate);
+      const dur = span ? dayDiff(e.payload.date, span) : 0;
+      return repeatDates(e.payload.date, e.payload.repeat, addDays(date, -dur), date).length > 0;
+    })
     .sort((a, b) => (a.payload.time ?? '') < (b.payload.time ?? '') ? -1 : (a.payload.time ?? '') > (b.payload.time ?? '') ? 1 : byRecOrd(a, b));
 
   const modeById = new Map(

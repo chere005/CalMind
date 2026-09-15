@@ -6,7 +6,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { parseWhenFromText, repeatStep, repeatDates, repeatNext, sortByDate } from '../src/index';
+import { parseWhenFromText, repeatStep, repeatDates, repeatNext, sortByDate, normalizeEndDate, eventSpanLabel, eventDayLabel } from '../src/index';
 import type { Repeat } from '../src/index';
 
 const vectors = <T>(name: string): T =>
@@ -45,5 +45,22 @@ type SortCase = { name: string; rows: { id: string; due?: string; indent?: numbe
 describe('spec/sort.json — undated-first outline blocks', () => {
   for (const c of vectors<SortCase[]>('sort')) {
     it(c.name, () => expect(sortByDate(c.rows).map((r) => r.id)).toEqual(c.expect));
+  }
+});
+
+type EndDateCase = { name: string; date: string; endDate: string | null; expect: string | null };
+type SpanLabelCase = { name: string; date: string; time: string | null; endDate: string | null; end: string | null; clock24: boolean; expect: string };
+type DayLabelCase = SpanLabelCase & { day: string };
+
+describe('spec/span.json — event end date kept only when later, and its chip', () => {
+  const s = vectors<{ endDate: EndDateCase[]; label: SpanLabelCase[]; dayLabel: DayLabelCase[] }>('span');
+  for (const c of s.endDate) {
+    it(`endDate: ${c.name}`, () => expect(normalizeEndDate(c.date, c.endDate)).toBe(c.expect));
+  }
+  for (const c of s.label) {
+    it(`label: ${c.name}`, () => expect(eventSpanLabel(c.date, c.time, c.endDate, c.end, c.clock24)).toBe(c.expect));
+  }
+  for (const c of s.dayLabel) {
+    it(`dayLabel: ${c.name}`, () => expect(eventDayLabel(c.date, c.time, c.endDate, c.end, c.day, c.clock24)).toBe(c.expect));
   }
 });

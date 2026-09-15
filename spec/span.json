@@ -1,0 +1,33 @@
+{
+  "endDate": [
+    { "name": "a later day is kept", "date": "2026-09-15", "endDate": "2026-09-17", "expect": "2026-09-17" },
+    { "name": "the same day reads as single-day (null)", "date": "2026-09-15", "endDate": "2026-09-15", "expect": null },
+    { "name": "an earlier day is dropped", "date": "2026-09-15", "endDate": "2026-09-10", "expect": null },
+    { "name": "null passes through", "date": "2026-09-15", "endDate": null, "expect": null },
+    { "name": "a malformed value is dropped", "date": "2026-09-15", "endDate": "nope", "expect": null },
+    { "name": "the year boundary compares correctly", "date": "2026-12-31", "endDate": "2027-01-01", "expect": "2027-01-01" }
+  ],
+  "label": [
+    { "name": "same day, start only", "date": "2026-09-15", "time": "14:30", "endDate": null, "end": null, "clock24": false, "expect": "2:30pm" },
+    { "name": "same day, start and end time (no spaces, en dash)", "date": "2026-09-15", "time": "14:30", "endDate": null, "end": "15:30", "clock24": false, "expect": "2:30pm–3:30pm" },
+    { "name": "same day, no time at all is bare", "date": "2026-09-15", "time": null, "endDate": null, "end": null, "clock24": false, "expect": "" },
+    { "name": "an equal end date is treated as same-day", "date": "2026-09-15", "time": "14:30", "endDate": "2026-09-15", "end": "15:30", "clock24": false, "expect": "2:30pm–3:30pm" },
+    { "name": "multi-day, both times", "date": "2026-09-15", "time": "14:30", "endDate": "2026-09-16", "end": "15:30", "clock24": false, "expect": "2:30pm – Sep 16 3:30pm" },
+    { "name": "multi-day, start time only", "date": "2026-09-15", "time": "14:30", "endDate": "2026-09-16", "end": null, "clock24": false, "expect": "2:30pm – Sep 16" },
+    { "name": "multi-day, all-day (no times)", "date": "2026-09-15", "time": null, "endDate": "2026-09-17", "end": null, "clock24": false, "expect": "– Sep 17" },
+    { "name": "multi-day honours the 24-hour clock", "date": "2026-09-15", "time": "14:30", "endDate": "2026-09-16", "end": "15:30", "clock24": true, "expect": "14:30 – Sep 16 15:30" }
+  ],
+  "dayLabel": [
+    { "name": "single day, timed, is the plain range", "date": "2026-09-15", "time": "14:30", "endDate": null, "end": "15:30", "day": "2026-09-15", "clock24": false, "expect": "2:30pm–3:30pm" },
+    { "name": "single day, no time, reads all day", "date": "2026-09-15", "time": null, "endDate": null, "end": null, "day": "2026-09-15", "clock24": false, "expect": "all day" },
+    { "name": "all-day span reads all day on its first day", "date": "2026-09-15", "time": null, "endDate": "2026-09-17", "end": null, "day": "2026-09-15", "clock24": false, "expect": "all day" },
+    { "name": "all-day span reads all day on a middle day", "date": "2026-09-15", "time": null, "endDate": "2026-09-17", "end": null, "day": "2026-09-16", "clock24": false, "expect": "all day" },
+    { "name": "all-day span reads all day on its last day", "date": "2026-09-15", "time": null, "endDate": "2026-09-17", "end": null, "day": "2026-09-17", "clock24": false, "expect": "all day" },
+    { "name": "timed span, first day points forward from the start", "date": "2026-09-15", "time": "09:00", "endDate": "2026-09-17", "end": "17:00", "day": "2026-09-15", "clock24": false, "expect": "9am →" },
+    { "name": "timed span, a middle day is a bare arrow", "date": "2026-09-15", "time": "09:00", "endDate": "2026-09-17", "end": "17:00", "day": "2026-09-16", "clock24": false, "expect": "→" },
+    { "name": "timed span, last day points in to the end", "date": "2026-09-15", "time": "09:00", "endDate": "2026-09-17", "end": "17:00", "day": "2026-09-17", "clock24": false, "expect": "→ 5pm" },
+    { "name": "timed span with no end time, last day is a bare arrow", "date": "2026-09-15", "time": "09:00", "endDate": "2026-09-16", "end": null, "day": "2026-09-16", "clock24": false, "expect": "→" },
+    { "name": "timed span honours the 24-hour clock on the first day", "date": "2026-09-15", "time": "09:00", "endDate": "2026-09-16", "end": "17:00", "day": "2026-09-15", "clock24": true, "expect": "09:00 →" },
+    { "name": "timed span honours the 24-hour clock on the last day", "date": "2026-09-15", "time": "09:00", "endDate": "2026-09-16", "end": "17:00", "day": "2026-09-16", "clock24": true, "expect": "→ 17:00" }
+  ]
+}

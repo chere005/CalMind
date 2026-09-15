@@ -38,7 +38,7 @@ test('a legend with many calendars wraps, balances, and names only what is in vi
   for (const n of names) {
     await page.getByTestId('tab-add').click();
     await page.getByTestId('add-text').fill(`${n} thing`);
-    await page.getByText('+ Folder/Section', { exact: true }).click();
+    // The calendar picker shows by default now (no "+ Folder/Section" reveal).
     await page.getByTestId('add-dest').click();
     await page.getByText(n, { exact: true }).last().click();
     await page.getByText('Done', { exact: true }).click();

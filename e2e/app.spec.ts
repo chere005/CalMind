@@ -1022,7 +1022,8 @@ test("sharing: a calendar shows under the partner's day-panel group; notes read 
   // pinned above).
   await pageB.getByTestId('tab-add').click();
   await pageB.getByTestId('add-kind-reminder').click();
-  await pageB.getByText('+ Folder/Section', { exact: true }).click();
+  // Folder/Section shows by default now (no reveal) — the reminder's picker
+  // offers only B's own sections, never the shared partner's.
   await expect(pageB.getByText(userA, { exact: true })).toHaveCount(0);
   await pageB.getByTestId('add-text').fill('my own errand');
   await pageB.getByText('Done', { exact: true }).click();
@@ -1779,13 +1780,13 @@ test("the Add screen's revealed repeat FILES weekly, and hiding it un-files", as
   await row.getByTestId('tick').click();
   await expect(row, 'a repeat rolls instead of checking off').toBeVisible();
 
-  // Reveal, hide, file: the panel closing takes its weekly default with it —
+  // Reveal, remove, file: the panel's × takes its weekly default with it —
   // a repeat that survived the panel would ride along invisibly.
   await page.getByTestId('tab-add').click();
   await page.getByTestId('add-kind-reminder').click();
   await page.getByTestId('add-text').fill('one-off errand');
   await page.getByText('+ Repeat', { exact: true }).click();
-  await page.getByText('+ Repeat', { exact: true }).click();
+  await page.getByLabel('Remove repeat').click();
   await page.getByText('Done', { exact: true }).click();
   await page.getByTestId('tab-reminders').click();
   const oneOff = page.getByTestId('rem-row').filter({ hasText: 'one-off errand' });

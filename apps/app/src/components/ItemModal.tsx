@@ -21,6 +21,7 @@ import {
   nowStr,
   parseWhenFromText,
   prefsOf,
+  normalizeEndDate,
   timeLabel,
   timePlus,
   todayStr,
@@ -64,22 +65,25 @@ export function ItemModal({
 
   const init = useMemo(() => {
     if (mode === 'edit' && rec) {
-      const p = rec.payload as { text?: string; title?: string; due?: string | null; date?: string | null; time?: string | null; end?: string | null; repeat?: Repeat | null };
+      const p = rec.payload as { text?: string; title?: string; due?: string | null; date?: string | null; time?: string | null; end?: string | null; endDate?: string | null; repeat?: Repeat | null };
       return {
         text: p.text ?? p.title ?? '',
         date: (rec.type === 'reminder' ? p.due : p.date) ?? null,
         time: p.time ?? null,
         end: (rec.type === 'event' ? p.end : null) ?? null,
+        endDate: (rec.type === 'event' ? p.endDate : null) ?? null,
         repeat: p.repeat ?? null,
         dest: rec.type === 'event' ? (rec.payload as Rec<'event'>['payload']).calendarId : (rec.payload as Rec<'reminder'>['payload']).sectionId,
       };
     }
-    return { text: text0 ?? '', date: date0 ?? null, time: null, end: null, repeat: null, dest: null as string | null };
+    return { text: text0 ?? '', date: date0 ?? null, time: null, end: null, endDate: null, repeat: null, dest: null as string | null };
   }, [mode, rec, date0, text0]);
 
   const [text, setText] = useState(init.text);
   const [date, setDate] = useState<string | null>(init.date);
-  const [pickOpen, setPickOpen] = useState(false);
+  // One picker, told which day it edits — the start date or an event's end
+  // day (below) — so a multi-day span can be built here as on the Add screen.
+  const [pick, setPick] = useState<'date' | 'endDate' | null>(null);
   const [time, setTime] = useState<string | null>(init.time);
   const [timeField, setTimeField] = useState('');
   // Manual-beats-parsed (Sean, 2026-08-18): what the hand chose IN THIS
@@ -92,6 +96,8 @@ export function ItemModal({
   const [end, setEnd] = useState<string | null>(init.end);
   const [endField, setEndField] = useState('');
   const [showEnd, setShowEnd] = useState(init.end !== null);
+  // The end DAY of a span (events only) — null = ends the same day.
+  const [endDate, setEndDate] = useState<string | null>(init.endDate);
   const [repeat, setRepeat] = useState<Repeat | null>(init.repeat);
   const [showRepeat, setShowRepeat] = useState(init.repeat !== null);
   const [dest, setDest] = useState<string | null>(init.dest);
@@ -185,6 +191,8 @@ export function ItemModal({
     // A typed range carries its end, as on the Add screen; a hand-set end
     // still outranks it.
     const finalEnd = kind === 'event' && finalTime !== null ? (showEnd ? fe ?? end : null) ?? pe : null;
+    // The end DAY (events only), kept only when it is after the start day.
+    const finalEndDate = kind === 'event' ? normalizeEndDate(finalDate ?? today, endDate) : null;
     const finalRepeat = kind === 'note' ? null : showRepeat ? repeat : null;
     const title = clean || raw;
     if (!resolvedDest) {
@@ -217,7 +225,7 @@ export function ItemModal({
           return { ...r, payload: { ...r.payload, title, date: finalDate } };
         }
         if (r.type === 'event') {
-          return { ...r, payload: { ...r.payload, text: title, date: finalDate ?? today, time: finalTime, end: finalEnd, repeat: finalRepeat } };
+          return { ...r, payload: { ...r.payload, text: title, date: finalDate ?? today, time: finalTime, end: finalEnd, endDate: finalEndDate, repeat: finalRepeat } };
         }
         if (r.type === 'reminder') {
           return { ...r, payload: { ...r.payload, text: title, due: finalDate, time: finalTime, repeat: finalRepeat } };
@@ -241,7 +249,7 @@ export function ItemModal({
     mutate((e) => {
       if (kind === 'event') {
         const payload: Rec<'event'>['payload'] = {
-          text: title, date: finalDate ?? today, time: finalTime, end: finalEnd, repeat: finalRepeat,
+          text: title, date: finalDate ?? today, time: finalTime, end: finalEnd, endDate: finalEndDate, repeat: finalRepeat,
           calendarId: resolvedDest.id,
           ord: mode === 'edit' && rec ? (rec.payload as { ord: string }).ord : ordBetween(null, null),
         };
@@ -296,8 +304,19 @@ export function ItemModal({
               <Pill label="Today" primary={date === today} onPress={() => { setDate(today); setDateTouched(true); }} />
               {/* The circle-with-a-calendar, never an m/d box (Sean,
                   2026-08-20); it names the picked day itself, so no chip. */}
-              <DayPickBtn testID="item-date" value={date && date !== today ? date : null} onPress={() => setPickOpen(true)} />
+              <DayPickBtn testID="item-date" value={date && date !== today ? date : null} onPress={() => setPick('date')} />
             </View>
+
+            {/* An event can END on a later day — a multi-day span. None keeps
+                it a single day; a day at or before the start collapses back to
+                single-day in core (normalizeEndDate). */}
+            {kind === 'event' && (
+              <View style={s.rowWrap}>
+                <Text style={s.label}>End day</Text>
+                <Pill label="None" primary={!endDate} onPress={() => setEndDate(null)} />
+                <DayPickBtn testID="item-end-date" value={endDate} onPress={() => setPick('endDate')} />
+              </View>
+            )}
 
             {!showTime ? (
               <Pill label="+ Time" onPress={() => setShowTime(true)} />
@@ -387,11 +406,11 @@ export function ItemModal({
           </Scroll>
         </Pressable>
       </Pressable>
-      {pickOpen && (
+      {pick && (
         <DayPick
-          value={date}
-          onPick={(d) => { setDate(d); setDateTouched(true); }}
-          onClose={() => setPickOpen(false)}
+          value={pick === 'endDate' ? endDate : date}
+          onPick={(d) => { if (pick === 'endDate') setEndDate(d); else { setDate(d); setDateTouched(true); } }}
+          onClose={() => setPick(null)}
         />
       )}
     </Modal>

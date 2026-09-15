@@ -15,14 +15,12 @@ import { showAgain,
   nowStr,
   parseWhenFromText,
   prefsOf,
-  timeLabel,
-  timePlus,
+  normalizeEndDate,
   todayStr,
   type Rec,
   type Repeat,
 } from '@calmind/core';
 import { useStore } from '../store';
-import { useClock24 } from '../useClock24';
 import { themed, T } from '../theme';
 import { TopBar } from '../chrome';
 import { CalendarIcon, PageIcon, TickCircleIcon } from '../components/KindIcons';
@@ -47,14 +45,17 @@ export function Add({
   date0?: string | null;
 }) {
   const { recs, mutate } = useStore();
-  const clock24 = useClock24();
   // EVENT first, on Sean's word (2026-08-12). The + used to open on Reminder
   // — the suite's order, kept because it was the suite's — and he asked for
   // the card that is actually reached for from this button.
   const [kind, setKind] = useState<Kind>('event');
   const [text, setText] = useState('');
   const [destId, setDestId] = useState<string | null>(null);
-  const [showDest, setShowDest] = useState(false);
+  // Folder/Section no longer reveals — the destination dropdown shows from
+  // the start (Sean, 2026-09-15), defaulting to the app's default container.
+  // Date/Time and Repeat stay reveals, but pressing the pill now REPLACES it
+  // with the opened editor, and each panel carries its own × to fold away
+  // (rather than the pill staying lit beside the panel).
   const [showWhen, setShowWhen] = useState(false);
   const [showRepeat, setShowRepeat] = useState(false);
   // The date is PICKED, not typed, since 2026-08-19 ("m/d should be a
@@ -62,17 +63,14 @@ export function Add({
   // no parse step to disagree with anything. Typing a date still works where
   // the typing hand already is: the line itself ("Dentist 8/3 2pm").
   const [datePicked, setDatePicked] = useState<string | null>(null);
-  const [dayPickOpen, setDayPickOpen] = useState(false);
+  // The end DAY of a span (events only). null = ends the same day; a day at
+  // or before the start collapses back to same-day in core (normalizeEndDate).
+  const [endDatePicked, setEndDatePicked] = useState<string | null>(null);
+  // Which day the picker is editing — start or end — so one DayPick serves
+  // both rows of the open Date/Time editor.
+  const [dayPick, setDayPick] = useState<'start' | 'end' | null>(null);
   const [timeField, setTimeField] = useState('');
-  const [showEnd, setShowEnd] = useState(false);
   const [endField, setEndField] = useState('');
-  // The presumed end (+1 hour) lives in STATE and shows as the placeholder,
-  // never as field text: a presumption somebody has not agreed to should not
-  // arrive already typed into the box, where deleting it is the only way to
-  // say no. (It used to say the field could not read a 24-hour '15:30' back
-  // either. parseClockField reads it now — the reason above is the one that
-  // was always doing the work.)
-  const [endPresumed, setEndPresumed] = useState<string | null>(null);
   const [repeat, setRepeat] = useState<Repeat | null>(null);
   const [err, setErr] = useState('');
   const lastFiled = useRef<{ text: string; at: number } | null>(null);
@@ -125,15 +123,15 @@ export function Add({
     const [, pdExplicit] = parseWhenFromText(raw, today, nowStr(), { date: fd === null, time: false });
     const date = fd ?? pdExplicit ?? date0 ?? pd;
     const time = ft ?? pt;
-    // Only events carry an end, and only after a start (Sean, 2026-08-18).
-    // An empty field keeps the presumption made when the row was revealed.
+    // Only events carry an end, and only after a start (Sean, 2026-08-18). The
+    // end-time field is always in view now (no +End reveal), so an empty field
+    // means no end; a typed RANGE ("lunch 12-1pm") still fills it via pe, and
+    // an end put in BY HAND wins, like every other manual-beats-parsed pair.
     const fe = parseClockField(endField);
-    // A typed RANGE ("lunch 12-1pm") brings its own end and needs no panel:
-    // the field is only reachable behind "+ Date/Time", and asking someone to
-    // open it to keep an end they already typed would make the range a
-    // half-feature. An end put in BY HAND still wins, like every other
-    // manual-beats-parsed pair here.
-    const end = kind === 'event' && time !== null ? (showEnd ? fe ?? endPresumed : null) ?? pe : null;
+    const end = kind === 'event' && time !== null ? fe ?? pe : null;
+    // The end DAY (events only), kept only when it is after the start day —
+    // core drops an equal-or-earlier one back to same-day.
+    const endDate = kind === 'event' ? normalizeEndDate(date ?? today, endDatePicked) : null;
     const title = clean || raw;
     let createdNoteId: string | null = null;
     mutate((e) => {
@@ -142,7 +140,7 @@ export function Add({
         // Whatever you just added has to be visible afterwards.
         const widen = showAgain(recs, 'calendar', cal.id);
         if (widen) e.put(widen);
-        e.put({ id: newId(), type: 'event', updated: 0, payload: { text: title, date: date ?? today, time, end, repeat, calendarId: cal.id, ord: ordBetween(null, null) } });
+        e.put({ id: newId(), type: 'event', updated: 0, payload: { text: title, date: date ?? today, time, end, endDate, repeat, calendarId: cal.id, ord: ordBetween(null, null) } });
       } else {
         const app = kind === 'note' ? ('notes' as const) : ('reminders' as const);
         const pick =
@@ -205,100 +203,97 @@ export function Add({
           {kindCard('note', 'Note', <PageIcon size={24} color={kind === 'note' ? T.accent : T.dim} />)}
         </View>
 
+        {/* Folder/Section: always shown, full width (Sean, 2026-09-15),
+            defaulting to the app's default container. Calendar for an event,
+            folder→section for a reminder or note. */}
+        <View style={s.panel}>
+          {kind === 'event' ? (
+            <Dropdown
+              testID="add-dest"
+              value={destId ?? calendars[0]?.id ?? null}
+              options={calendars.map((c) => ({ id: c.id, label: c.payload.name }))}
+              onPick={setDestId}
+            />
+          ) : (
+            <Dropdown
+              value={destId ?? sectionChoices[0]?.sec.id ?? null}
+              options={sectionChoices.map((c) => ({ id: c.sec.id, label: c.label }))}
+              onPick={setDestId}
+              gold
+            />
+          )}
+        </View>
+
+        {/* Date/Time and Repeat reveal as CLOSED pills; pressing one replaces
+            it with the opened editor below, which carries its own ×. */}
         <View style={s.revealRow}>
-          <Pill label="+ Folder/Section" primary={showDest} onPress={() => setShowDest(!showDest)} />
-          <Pill label="+ Date/Time" primary={showWhen} onPress={() => setShowWhen(!showWhen)} />
-          {kind !== 'note' && (
+          {!showWhen && <Pill label="+ Date/Time" onPress={() => setShowWhen(true)} />}
+          {!showRepeat && kind !== 'note' && (
             <Pill
               label="+ Repeat"
-              primary={showRepeat}
               onPress={() => {
-                // Revealing FILES a weekly repeat now (Sean, 2026-08-19: "repeat
-                // picker should default to week") — the item window's own
-                // presumption, so the pill below says what will happen. Which
-                // is also why hiding must CLEAR it: a repeat that survived its
-                // panel closing would ride along invisibly.
-                setRepeat(showRepeat ? null : { n: 1, unit: 'week' });
-                setShowRepeat(!showRepeat);
+                // Opening FILES a weekly repeat (Sean, 2026-08-19: "repeat
+                // picker should default to week"); the × clears it again.
+                setRepeat({ n: 1, unit: 'week' });
+                setShowRepeat(true);
               }}
             />
           )}
         </View>
 
-        {showDest && (
-          <View style={s.panel}>
-            {kind === 'event' ? (
-              <Dropdown
-                testID="add-dest"
-                value={destId ?? calendars[0]?.id ?? null}
-                options={calendars.map((c) => ({ id: c.id, label: c.payload.name }))}
-                onPick={setDestId}
-              />
-            ) : (
-              <Dropdown
-                value={destId ?? sectionChoices[0]?.sec.id ?? null}
-                options={sectionChoices.map((c) => ({ id: c.sec.id, label: c.label }))}
-                onPick={setDestId}
-                gold
-              />
-            )}
-          </View>
-        )}
         {showWhen && (
-          <View style={s.panel}>
-            {/* A circle wearing the calendar, never a box that looks typed-in
-                — Sean, 2026-08-20. DayPickBtn names the chosen day beside
-                the icon; the picker is the same DayPick as everywhere. */}
-            <DayPickBtn testID="add-date" value={datePicked} onPress={() => setDayPickOpen(true)} />
-            <Field value={timeField} onChangeText={setTimeField} placeholder="2:30pm" style={s.miniField} />
-            {/* An end belongs to events only, and revealing it presumes an
-                hour past whatever start is on the line or in the field. */}
-            {kind === 'event' &&
-              (!showEnd ? (
-                <Pill
-                  label="+ End"
-                  onPress={() => {
-                    const ft = parseClockField(timeField);
-                    const [, , pt] = parseWhenFromText(text.trim(), today, nowStr());
-                    const start = ft ?? pt;
-                    setEndPresumed(start ? timePlus(start, 60) : null);
-                    setShowEnd(true);
-                  }}
-                />
-              ) : (
+          <View style={s.panelCol}>
+            <View style={s.panelHead}>
+              <Text style={s.panelLabel}>Date &amp; time</Text>
+              <CircleBtn glyph="×" label="Remove date and time" size={22} onPress={() => { setShowWhen(false); setDatePicked(null); setEndDatePicked(null); setTimeField(''); setEndField(''); }} />
+            </View>
+            {/* Dates on their own line: start day, and (events only) an end day
+                for a span. A circle wearing the calendar, never a box that
+                looks typed-in — Sean, 2026-08-20; the picker is the shared
+                DayPick, told which day it is editing by `dayPick`. */}
+            <View style={s.panel}>
+              <DayPickBtn testID="add-date" value={datePicked} onPress={() => setDayPick('start')} />
+              {kind === 'event' && (
                 <>
-                  <Text style={s.panelLabel}>ends</Text>
-                  <Field
-                    value={endField}
-                    onChangeText={setEndField}
-                    placeholder={endPresumed ? timeLabel(endPresumed, clock24) : '3:30pm'}
-                    style={s.miniField}
-                  />
-                  <CircleBtn glyph="×" label="Remove end" size={22} onPress={() => { setShowEnd(false); setEndField(''); setEndPresumed(null); }} />
+                  <Text style={s.panelLabel}>to</Text>
+                  <DayPickBtn testID="add-end-date" value={endDatePicked} onPress={() => setDayPick('end')} />
                 </>
-              ))}
+              )}
+            </View>
+            {/* Times on the next line, narrower than a day pill: start, and
+                (events only) end. */}
+            <View style={s.panel}>
+              <Field value={timeField} onChangeText={setTimeField} placeholder="2:30pm" style={s.miniField} />
+              {kind === 'event' && (
+                <>
+                  <Text style={s.panelLabel}>to</Text>
+                  <Field value={endField} onChangeText={setEndField} placeholder="3:30pm" style={s.miniField} />
+                </>
+              )}
+            </View>
           </View>
         )}
         {showRepeat && kind !== 'note' && (
-          <View style={s.panel}>
-            <Text style={s.panelLabel}>every</Text>
-            <CircleBtn glyph="−" label="Fewer" size={22} onPress={() => repeat && setRepeat({ ...repeat, n: Math.max(1, repeat.n - 1) })} />
-            <Text style={s.repN}>{repeat?.n ?? 1}</Text>
-            {/* Math.min matches ItemModal's stepper, which has always had a
-                ceiling this one lacked — the floor was clamped in both. */}
-            <CircleBtn glyph="+" label="Add" size={22} onPress={() => setRepeat({ n: Math.min(999, (repeat?.n ?? 1) + 1), unit: repeat?.unit ?? 'week' })} />
-            {/* core's list, in a dropdown — Sean's word, 2026-08-18. The
-                literal-copy trap testids.spec.ts guards still applies. */}
-            {/* 'week' from the moment the panel opens (his word again,
-                2026-08-19): revealing files a weekly repeat, so the pill
-                claiming "week" is now telling the truth — the reveal handler
-                above is what keeps it honest. */}
-            <Dropdown
-              testID="repeat-unit"
-              value={repeat?.unit ?? 'week'}
-              options={REPEAT_UNITS.map((u) => ({ id: u, label: u }))}
-              onPick={(u) => setRepeat({ n: repeat?.n ?? 1, unit: u as Repeat['unit'] })}
-            />
+          <View style={s.panelCol}>
+            <View style={s.panelHead}>
+              <Text style={s.panelLabel}>Repeat</Text>
+              <CircleBtn glyph="×" label="Remove repeat" size={22} onPress={() => { setShowRepeat(false); setRepeat(null); }} />
+            </View>
+            <View style={s.panel}>
+              <Text style={s.panelLabel}>every</Text>
+              <CircleBtn glyph="−" label="Fewer" size={22} onPress={() => repeat && setRepeat({ ...repeat, n: Math.max(1, repeat.n - 1) })} />
+              <Text style={s.repN}>{repeat?.n ?? 1}</Text>
+              {/* Math.min matches ItemModal's stepper, which has always had a
+                  ceiling this one lacked — the floor was clamped in both. */}
+              <CircleBtn glyph="+" label="Add" size={22} onPress={() => setRepeat({ n: Math.min(999, (repeat?.n ?? 1) + 1), unit: repeat?.unit ?? 'week' })} />
+              {/* core's list, in a dropdown — Sean's word, 2026-08-18. */}
+              <Dropdown
+                testID="repeat-unit"
+                value={repeat?.unit ?? 'week'}
+                options={REPEAT_UNITS.map((u) => ({ id: u, label: u }))}
+                onPick={(u) => setRepeat({ n: repeat?.n ?? 1, unit: u as Repeat['unit'] })}
+              />
+            </View>
           </View>
         )}
 
@@ -320,7 +315,13 @@ export function Add({
           <Text style={s.helpNote}>A time on its own lands on today — or tomorrow, if it has already gone by.</Text>
         </View>
       </Scroll>
-      {dayPickOpen && <DayPick value={datePicked} onPick={setDatePicked} onClose={() => setDayPickOpen(false)} />}
+      {dayPick && (
+        <DayPick
+          value={dayPick === 'end' ? endDatePicked : datePicked}
+          onPick={dayPick === 'end' ? setEndDatePicked : setDatePicked}
+          onClose={() => setDayPick(null)}
+        />
+      )}
     </View>
   );
 }
@@ -349,8 +350,12 @@ const s = themed(() => StyleSheet.create({
   cardLabelOn: { color: T.accent },
   revealRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   panel: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center' },
+  // A revealed section stacks its × header over its controls; the pill it
+  // replaced is gone, so the × is the only way to fold it away.
+  panelCol: { gap: 8 },
+  panelHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   panelLabel: { color: T.dim, fontSize: 13 },
-  miniField: { minWidth: 100, paddingVertical: 8 },
+  miniField: { minWidth: 78, paddingVertical: 8 },
   repN: { color: T.text, fontSize: 14, minWidth: 20, textAlign: 'center' },
   err: { color: T.danger, fontSize: 13 },
   doneBtn: {

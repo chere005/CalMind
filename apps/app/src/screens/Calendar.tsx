@@ -25,6 +25,7 @@ import {
   subOccurrences,
   timeLabel,
   timeRangeLabel,
+  eventDayLabel,
   todayStr,
   twoWeeksFrom,
   type Rec,
@@ -537,7 +538,7 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
         title="Calendar"
         controls={<CollapseAllBtn open={!allCollapsed} onPress={collapseAllGroups} />}
         copyMarkdown={() => viewMarkdown(dayLabel, [
-          { name: 'Events', lines: items.events.map((e) => ({ text: e.payload.text, chip: e.payload.time ? timeRangeLabel(e.payload.time, e.payload.end, clock24) : null })) },
+          { name: 'Events', lines: items.events.map((e) => ({ text: e.payload.text, chip: eventDayLabel(e.payload.date, e.payload.time, e.payload.endDate, e.payload.end, day, clock24) })) },
           { name: 'Reminders', lines: myReminders.map(({ rec: r }) => ({ text: r.payload.text, chip: r.payload.time ? timeLabel(r.payload.time, clock24) : null })) },
           { name: sharedPartner ? `Shared — ${sharedPartner}` : 'Shared', lines: theirReminders.map(({ rec: r }) => ({ text: r.payload.text, chip: r.payload.time ? timeLabel(r.payload.time, clock24) : null })) },
         ])}
@@ -586,7 +587,7 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
                   <View key={e.id} style={s.listRow}>
                     <View style={[s.dot, s.rowDot, { backgroundColor: calById.get(e.payload.calendarId)?.color ?? T.folderBlue }]} />
                     <Text numberOfLines={1} style={s.rowText}>{e.payload.text}</Text>
-                    {e.payload.time && <Text style={s.chip}>{timeRangeLabel(e.payload.time, e.payload.end, clock24)}</Text>}
+                    <Text style={s.chip}>{eventDayLabel(e.payload.date, e.payload.time, e.payload.endDate, e.payload.end, d, clock24)}</Text>
                   </View>
                 ))}
                 {it.reminders.map(({ rec: r, overdue }) => (
@@ -750,7 +751,7 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
                   reminders (2026-08-20) and note titles took the same rule. */}
               <Text numberOfLines={1} style={s.rowText}>{e.payload.text}</Text>
             </Pressable>
-            {e.payload.time && <Text style={s.chip}>{timeRangeLabel(e.payload.time, e.payload.end, clock24)}</Text>}
+            <Text style={s.chip}>{eventDayLabel(e.payload.date, e.payload.time, e.payload.endDate, e.payload.end, day, clock24)}</Text>
             {panelEdit ? (
               <View style={s.editCluster}>
                 <CircleBtn glyph="✎" label="Edit" size={24} onPress={() => setModal({ mode: 'edit', kind: 'event', rec: e })} />
@@ -781,7 +782,7 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
           <View key={`sh${e.id}`} style={s.row}>
             <View style={[s.dot, s.rowDot, { backgroundColor: sharedCalById.get(e.payload.calendarId)?.color ?? T.folderBlue }]} />
             <Text numberOfLines={1} style={s.rowText}>{e.payload.text}</Text>
-            {e.payload.time && <Text style={s.chip}>{timeRangeLabel(e.payload.time, e.payload.end, clock24)}</Text>}
+            <Text style={s.chip}>{eventDayLabel(e.payload.date, e.payload.time, e.payload.endDate, e.payload.end, day, clock24)}</Text>
           </View>
         ))}
         {subDay.length > 0 && (

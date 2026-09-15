@@ -48,9 +48,22 @@ export type Event = {
    * Optional end, 'HH:MM' (Sean's ask, 2026-08-18) — meaningful only with a
    * start `time`, and absent on every event written before it existed, which
    * is why it is optional rather than nullable-required. An end past midnight
-   * reads as the small hours; the event stays on its one `date`.
+   * reads as the small hours; the event stays on its one `date` unless
+   * `endDate` names a later day (below).
    */
   end?: string | null;
+  /**
+   * Optional end DATE, 'YYYY-MM-DD' (Sean, 2026-09-15) — the day the event
+   * ENDS on, for a span that crosses midnight. Optional and absent on every
+   * event written before it existed, which read (and still read) as
+   * single-day: absent, null, or a value that is not strictly after
+   * `date`+`end` means "ends the same day", exactly the prior behavior.
+   * `endDate` alone (no `end` time) is an all-day span. Placement is still by
+   * `date`: the grid anchors the event to the day it starts and the span
+   * shows in the label — see eventSpanLabel; spanning it across intervening
+   * day cells is a separate rendering feature, deliberately not this field.
+   */
+  endDate?: string | null;
   repeat: Repeat | null;
   calendarId: string;
   ord: string;

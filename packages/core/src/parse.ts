@@ -486,6 +486,84 @@ export function timeLabel(t: string | null | undefined, clock24 = false): string
   return m ? `${h}:${String(m).padStart(2, '0')}${ap}` : `${h}${ap}`;
 }
 
+const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/** 'YYYY-MM-DD' → 'Sep 16'. Parsed by hand, never through a locale, so web and
+ *  native agree — the same reason timeLabel spells its own months. */
+export function dateSpokenShort(ymd: string): string {
+  const [, m, d] = ymd.split('-').map(Number) as [number, number, number];
+  return `${MONTHS_SHORT[(m - 1 + 12) % 12]} ${d}`;
+}
+
+/**
+ * The end DATE, kept only when it is a real day STRICTLY AFTER the start's —
+ * `null` otherwise (absent, malformed, equal, or earlier). Equal-or-earlier is
+ * not an error to reject loudly, it is the single-day case: an event whose end
+ * day is its start day, or a stale end left behind when the start moved past
+ * it, simply reads as ending the same day. ISO dates compare lexically, so no
+ * Date object is built (and no timezone can skew it).
+ */
+export function normalizeEndDate(date: string, endDate: string | null | undefined): string | null {
+  if (!endDate || !/^\d{4}-\d{2}-\d{2}$/.test(endDate)) return null;
+  return endDate > date ? endDate : null;
+}
+
+/**
+ * The spoken chip for an event's span. Same-day (no later `endDate`) is exactly
+ * timeRangeLabel, unchanged. A later end day shows that day and, if present,
+ * its end time — '2:30pm – Sep 16 3:30pm', or '– Sep 17' for an all-day span
+ * with no start time. The START day is left off: the row already sits under it.
+ */
+export function eventSpanLabel(
+  date: string,
+  time: string | null | undefined,
+  endDate: string | null | undefined,
+  end: string | null | undefined,
+  clock24 = false,
+): string {
+  const e = normalizeEndDate(date, endDate);
+  if (!e) return timeRangeLabel(time, end, clock24);
+  const startT = time ? timeLabel(time, clock24) : '';
+  const endT = end ? timeLabel(end, clock24) : '';
+  const endPart = endT ? `${dateSpokenShort(e)} ${endT}` : dateSpokenShort(e);
+  return startT ? `${startT} – ${endPart}` : `– ${endPart}`;
+}
+
+/** Whole days between two 'YYYY-MM-DD' (to − from); negative if `to` is
+ *  earlier. UTC midnights, so no timezone or DST hour skews the count. */
+export function dayDiff(from: string, to: string): number {
+  const [ay, am, ad] = from.split('-').map(Number) as [number, number, number];
+  const [by, bm, bd] = to.split('-').map(Number) as [number, number, number];
+  return Math.round((Date.UTC(by, bm - 1, bd) - Date.UTC(ay, am - 1, ad)) / 86400000);
+}
+
+/**
+ * The chip for an event on ONE day of its (possibly multi-day) span — the
+ * calendar lists the event on every day it covers, and this says what that
+ * day's chip reads.
+ *
+ * A no-time event is ALL-DAY and says so, on each of its days (Sean,
+ * 2026-09-15: "all day should show up as all day … and don't need a time").
+ * A timed single day is the plain range. A timed span points across its days:
+ * "9am →" the day it starts, "→" a day in the middle, "→ 5pm" the day it ends
+ * (bare "→" when there is no end time).
+ */
+export function eventDayLabel(
+  date: string,
+  time: string | null | undefined,
+  endDate: string | null | undefined,
+  end: string | null | undefined,
+  day: string,
+  clock24 = false,
+): string {
+  const e = normalizeEndDate(date, endDate);
+  if (!e) return time ? timeRangeLabel(time, end, clock24) : 'all day';
+  if (!time) return 'all day';
+  if (day <= date) return `${timeLabel(time, clock24)} →`;
+  if (day >= e) return end ? `→ ${timeLabel(end, clock24)}` : '→';
+  return '→';
+}
+
 /**
  * The default name a brand-new note wears: 'Aug 9, 2026 at 3:04pm'.
  *
