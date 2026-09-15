@@ -136,9 +136,9 @@ test('an event row copies too, with its time range', async ({ page, context }) =
   await page.getByTestId('add-kind-event').click();
   await page.getByTestId('add-text').fill('Standup 9am');
   // An event with an end is the shape worth copying, and a quick add makes
-  // none. The end time is a field inside the Date/Time panel, shut until
-  // asked for; 10am is an hour past the 9am on the line.
-  await page.getByText('+ Date/Time', { exact: true }).click();
+  // none. The end time is a field inside the Time panel, shut until asked
+  // for; 10am is an hour past the 9am on the line.
+  await page.getByText('+ Time', { exact: true }).click();
   await page.getByPlaceholder('3:30pm').fill('10am');
   await page.getByText('Done', { exact: true }).click();
   await expect(page.getByTestId('cal-day-title')).toBeVisible();

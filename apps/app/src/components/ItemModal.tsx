@@ -111,7 +111,7 @@ export function ItemModal({
       calendars: recs.filter((r): r is Rec<'calendar'> => r.type === 'calendar').sort(byRecOrd),
       sectionChoices: folders
         .filter((f) => (f.payload.app ?? 'reminders') === app)
-        .flatMap((f) => sections.filter((x) => x.payload.folderId === f.id).map((x) => ({ sec: x, label: `${f.payload.name} · ${x.payload.name}` }))),
+        .flatMap((f) => sections.filter((x) => x.payload.folderId === f.id).map((x) => ({ sec: x, label: `${f.payload.name} · ${x.payload.name}`, color: f.payload.color }))),
     };
   }, [recs, kind]);
 
@@ -378,15 +378,14 @@ export function ItemModal({
                 <Dropdown
                   testID="item-dest"
                   value={resolvedDest?.id ?? null}
-                  options={calendars.map((c) => ({ id: c.id, label: c.payload.name }))}
+                  options={calendars.map((c) => ({ id: c.id, label: c.payload.name, color: c.payload.color }))}
                   onPick={setDest}
                 />
               ) : (
                 <Dropdown
                   value={resolvedDest?.id ?? null}
-                  options={sectionChoices.map((c) => ({ id: c.sec.id, label: c.label }))}
+                  options={sectionChoices.map((c) => ({ id: c.sec.id, label: c.label, color: c.color }))}
                   onPick={setDest}
-                  gold
                 />
               )}
             </View>

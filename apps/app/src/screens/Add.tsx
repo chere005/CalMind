@@ -24,7 +24,7 @@ import { useStore } from '../store';
 import { themed, T } from '../theme';
 import { TopBar } from '../chrome';
 import { CalendarIcon, PageIcon, TickCircleIcon } from '../components/KindIcons';
-import { CircleBtn, DayPickBtn, Field, Pill, Scroll } from '../ui';
+import { CircleBtn, DayPickBtn, Field, Scroll } from '../ui';
 import { Dropdown } from '../components/Dropdown';
 import { DayPick } from '../components/DayPick';
 
@@ -56,7 +56,8 @@ export function Add({
   // Date/Time and Repeat stay reveals, but pressing the pill now REPLACES it
   // with the opened editor, and each panel carries its own × to fold away
   // (rather than the pill staying lit beside the panel).
-  const [showWhen, setShowWhen] = useState(false);
+  const [showDate, setShowDate] = useState(false);
+  const [showTime, setShowTime] = useState(false);
   const [showRepeat, setShowRepeat] = useState(false);
   // The date is PICKED, not typed, since 2026-08-19 ("m/d should be a
   // calendar picker in the add page") — 'YYYY-MM-DD' straight from the grid,
@@ -88,7 +89,7 @@ export function Add({
     return {
       sectionChoices: folders
         .filter((f) => (f.payload.app ?? 'reminders') === app)
-        .flatMap((f) => sections.filter((x) => x.payload.folderId === f.id).map((x) => ({ sec: x, label: `${f.payload.name} · ${x.payload.name}` }))),
+        .flatMap((f) => sections.filter((x) => x.payload.folderId === f.id).map((x) => ({ sec: x, label: `${f.payload.name} · ${x.payload.name}`, color: f.payload.color }))),
       calendars: recs.filter((r): r is Rec<'calendar'> => r.type === 'calendar').sort(byRecOrd),
     };
   }, [recs, kind]);
@@ -211,46 +212,36 @@ export function Add({
             <Dropdown
               testID="add-dest"
               value={destId ?? calendars[0]?.id ?? null}
-              options={calendars.map((c) => ({ id: c.id, label: c.payload.name }))}
+              options={calendars.map((c) => ({ id: c.id, label: c.payload.name, color: c.payload.color }))}
               onPick={setDestId}
             />
           ) : (
             <Dropdown
               value={destId ?? sectionChoices[0]?.sec.id ?? null}
-              options={sectionChoices.map((c) => ({ id: c.sec.id, label: c.label }))}
+              options={sectionChoices.map((c) => ({ id: c.sec.id, label: c.label, color: c.color }))}
               onPick={setDestId}
-              gold
             />
           )}
         </View>
 
-        {/* Date/Time and Repeat reveal as CLOSED pills; pressing one replaces
-            it with the opened editor below, which carries its own ×. */}
-        <View style={s.revealRow}>
-          {!showWhen && <Pill label="+ Date/Time" onPress={() => setShowWhen(true)} />}
-          {!showRepeat && kind !== 'note' && (
-            <Pill
-              label="+ Repeat"
-              onPress={() => {
-                // Opening FILES a weekly repeat (Sean, 2026-08-19: "repeat
-                // picker should default to week"); the × clears it again.
-                setRepeat({ n: 1, unit: 'week' });
-                setShowRepeat(true);
-              }}
-            />
-          )}
-        </View>
-
-        {showWhen && (
+        {/* Date, Time and Repeat each reveal on their OWN line (Sean,
+            2026-09-15): the stacked button is replaced by its start/end
+            editor, which carries an × to fold back. The start still defaults
+            from context (date0 ?? today, and the typed line); the end starts
+            empty. */}
+        {!showDate ? (
+          <Pressable testID="add-show-date" style={s.revealBtn} onPress={() => setShowDate(true)}>
+            <Text style={s.revealBtnText}>+ Date</Text>
+          </Pressable>
+        ) : (
           <View style={s.panelCol}>
             <View style={s.panelHead}>
-              <Text style={s.panelLabel}>Date &amp; time</Text>
-              <CircleBtn glyph="×" label="Remove date and time" size={22} onPress={() => { setShowWhen(false); setDatePicked(null); setEndDatePicked(null); setTimeField(''); setEndField(''); }} />
+              <Text style={s.panelLabel}>Date</Text>
+              <CircleBtn glyph="×" label="Remove date" size={22} onPress={() => { setShowDate(false); setDatePicked(null); setEndDatePicked(null); }} />
             </View>
-            {/* Dates on their own line: start day, and (events only) an end day
-                for a span. A circle wearing the calendar, never a box that
-                looks typed-in — Sean, 2026-08-20; the picker is the shared
-                DayPick, told which day it is editing by `dayPick`. */}
+            {/* A circle wearing the calendar, never a box that looks typed-in —
+                Sean, 2026-08-20; the picker is the shared DayPick, told which
+                day it is editing by `dayPick`. Events get an end day for a span. */}
             <View style={s.panel}>
               <DayPickBtn testID="add-date" value={datePicked} onPress={() => setDayPick('start')} />
               {kind === 'event' && (
@@ -260,8 +251,19 @@ export function Add({
                 </>
               )}
             </View>
-            {/* Times on the next line, narrower than a day pill: start, and
-                (events only) end. */}
+          </View>
+        )}
+
+        {!showTime ? (
+          <Pressable testID="add-show-time" style={s.revealBtn} onPress={() => setShowTime(true)}>
+            <Text style={s.revealBtnText}>+ Time</Text>
+          </Pressable>
+        ) : (
+          <View style={s.panelCol}>
+            <View style={s.panelHead}>
+              <Text style={s.panelLabel}>Time</Text>
+              <CircleBtn glyph="×" label="Remove time" size={22} onPress={() => { setShowTime(false); setTimeField(''); setEndField(''); }} />
+            </View>
             <View style={s.panel}>
               <Field value={timeField} onChangeText={setTimeField} placeholder="2:30pm" style={s.miniField} />
               {kind === 'event' && (
@@ -273,7 +275,21 @@ export function Add({
             </View>
           </View>
         )}
-        {showRepeat && kind !== 'note' && (
+
+        {kind !== 'note' && (!showRepeat ? (
+          <Pressable
+            testID="add-show-repeat"
+            style={s.revealBtn}
+            onPress={() => {
+              // Opening FILES a weekly repeat (Sean, 2026-08-19: "repeat picker
+              // should default to week"); the × clears it again.
+              setRepeat({ n: 1, unit: 'week' });
+              setShowRepeat(true);
+            }}
+          >
+            <Text style={s.revealBtnText}>+ Repeat</Text>
+          </Pressable>
+        ) : (
           <View style={s.panelCol}>
             <View style={s.panelHead}>
               <Text style={s.panelLabel}>Repeat</Text>
@@ -295,7 +311,7 @@ export function Add({
               />
             </View>
           </View>
-        )}
+        ))}
 
         {err !== '' && <Text style={s.err}>{err}</Text>}
         <Pressable style={s.doneBtn} onPress={() => add() && done()}>
@@ -348,7 +364,17 @@ const s = themed(() => StyleSheet.create({
   helpNote: { color: T.muted, fontSize: 12, marginTop: 6, lineHeight: 17 },
   cardLabel: { color: T.dim, fontSize: 14, fontWeight: '600' },
   cardLabelOn: { color: T.accent },
-  revealRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  // Each reveal is its own full-width button on its own line (Sean,
+  // 2026-09-15), pressed to swap in its editor.
+  revealBtn: {
+    borderWidth: 1,
+    borderColor: T.line,
+    borderRadius: 999,
+    paddingVertical: 11,
+    alignItems: 'center',
+    backgroundColor: T.surface,
+  },
+  revealBtnText: { color: T.dim, fontSize: 15, fontWeight: '600' },
   panel: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center' },
   // A revealed section stacks its × header over its controls; the pill it
   // replaced is gone, so the × is the only way to fold it away.

@@ -1,14 +1,17 @@
 /**
  * The dropdown — prod's select, one look everywhere: a bordered pill showing
- * the current choice with a ⌄, opening a scrollable menu. Gold variant for
- * section pickers, matching the suite's gold section titles.
+ * the current choice with a ⌄, opening a scrollable menu. An option may carry
+ * a `color` — a calendar's colour, or a section's parent-folder colour (Sean,
+ * 2026-09-15): the pill and the menu row then wear a dot of it, and the pill's
+ * border tints to match, so the destination reads as the thing it files into.
+ * The `gold` variant is the fallback tint where no colour is supplied.
  */
 import { useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text } from 'react-native';
+import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Scroll } from '../ui';
 import { themed, T } from '../theme';
 
-export type DropdownOption = { id: string; label: string };
+export type DropdownOption = { id: string; label: string; color?: string };
 
 export function Dropdown({
   value,
@@ -26,10 +29,17 @@ export function Dropdown({
   testID?: string;
 }) {
   const [open, setOpen] = useState(false);
-  const current = options.find((o) => o.id === value)?.label ?? placeholder;
+  const currentOpt = options.find((o) => o.id === value);
+  const current = currentOpt?.label ?? placeholder;
+  const curColor = currentOpt?.color;
   return (
     <>
-      <Pressable testID={testID} style={[s.pill, gold && s.pillGold]} onPress={() => setOpen(true)}>
+      <Pressable
+        testID={testID}
+        style={[s.pill, gold && s.pillGold, curColor ? { borderColor: curColor } : null]}
+        onPress={() => setOpen(true)}
+      >
+        {curColor ? <View style={[s.dot, { backgroundColor: curColor }]} /> : null}
         <Text style={[s.text, gold && s.textGold]} numberOfLines={1}>
           {current}
         </Text>
@@ -49,6 +59,7 @@ export function Dropdown({
                       onPick(o.id);
                     }}
                   >
+                    {o.color ? <View style={[s.dot, { backgroundColor: o.color }]} /> : null}
                     <Text style={[s.rowText, o.id === value && s.rowActive]}>{o.label}</Text>
                   </Pressable>
                 ))}
@@ -75,6 +86,7 @@ const s = themed(() => StyleSheet.create({
     maxWidth: 220,
   },
   pillGold: { borderColor: T.gold },
+  dot: { width: 10, height: 10, borderRadius: 5 },
   text: { color: T.text, fontSize: 15, fontWeight: '600', flexShrink: 1 },
   textGold: { color: T.gold },
   chev: { color: T.dim, fontSize: 13 },
@@ -89,7 +101,7 @@ const s = themed(() => StyleSheet.create({
     borderRadius: 14,
     paddingVertical: 6,
   },
-  row: { paddingHorizontal: 16, paddingVertical: 11 },
-  rowText: { color: T.text, fontSize: 15 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingVertical: 11 },
+  rowText: { color: T.text, fontSize: 15, flexShrink: 1 },
   rowActive: { color: T.accent, fontWeight: '700' },
 }));

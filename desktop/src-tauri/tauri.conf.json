@@ -12,10 +12,12 @@
     "windows": [
       {
         "title": "CalMind",
-        "width": 1160,
+        "width": 480,
         "height": 800,
-        "minWidth": 420,
-        "minHeight": 600,
+        "minWidth": 480,
+        "maxWidth": 480,
+        "minHeight": 480,
+        "resizable": true,
         "backgroundColor": "#111111",
         "url": "/calmind/index.html"
       }

@@ -1,7 +1,7 @@
 /**
  * The event END time (Sean's ask, 2026-08-18; the reveal reworked
  * 2026-09-15): optional, events only, and now its own field shown beside the
- * start whenever Date/Time is open — no "+ End" reveal and no presumed hour.
+ * start whenever "+ Time" is open — no "+ End" reveal and no presumed hour.
  * The chip on the day panel reads the pair — "3pm–4pm" — and removing the end
  * in the edit sheet takes the chip back to the bare start. Weekday words ride
  * in the same change: "lunch friday" lands on the coming Friday with the word
@@ -42,7 +42,7 @@ test('an event end renders as a range, and can be removed', async ({ page }) => 
   await page.getByTestId('tab-calendar').click();
   await page.getByTestId('tab-add').click();
   await page.getByTestId('add-text').fill('movie');
-  await page.getByText('+ Date/Time', { exact: true }).click();
+  await page.getByText('+ Time', { exact: true }).click();
   await page.getByPlaceholder('2:30pm').fill('3pm');
   // The end time is its own field now — both times in view, no "+ End" reveal
   // and no presumed hour; fill it directly.
@@ -69,7 +69,7 @@ test('an explicit end renders as a range', async ({ page }) => {
   await page.getByTestId('tab-calendar').click();
   await page.getByTestId('tab-add').click();
   await page.getByTestId('add-text').fill('dinner');
-  await page.getByText('+ Date/Time', { exact: true }).click();
+  await page.getByText('+ Time', { exact: true }).click();
   await page.getByPlaceholder('2:30pm').fill('6pm');
   await page.getByPlaceholder('3:30pm').fill('8:30pm');
   await page.getByText('Done', { exact: true }).click();
@@ -81,8 +81,8 @@ test('reminders offer no end field', async ({ page }) => {
   await signup(page);
   await page.getByTestId('tab-add').click();
   await page.getByTestId('add-kind-reminder').click();
-  await page.getByText('+ Date/Time', { exact: true }).click();
-  // A reminder gets a start day and a start time only — no end field.
+  await page.getByText('+ Time', { exact: true }).click();
+  // A reminder gets a start time only — no end field.
   await expect(page.getByPlaceholder('2:30pm')).toBeVisible();
   await expect(page.getByPlaceholder('3:30pm'), 'reminders have no end times').toBeHidden();
 });
@@ -105,8 +105,8 @@ test('a weekday word dates the line and leaves the title, preposition and all', 
 
 test('a typed range sets both ends, with no panel opened', async ({ page }) => {
   // Sean, 2026-08-20: "add range parsing to time specifications everywhere".
-  // The end field lives inside "+ Date/Time"; a range typed on the line must
-  // not need the panel opened at all, or it is a half-feature.
+  // The end field lives inside "+ Time"; a range typed on the line must not
+  // need the panel opened at all, or it is a half-feature.
   test.setTimeout(120_000);
   await signup(page);
   await page.getByTestId('tab-calendar').click();
@@ -170,13 +170,14 @@ test('an event can span to a later end day, and its chip points across the days'
   await page.getByTestId('tab-add').click();
   await page.getByTestId('add-kind-event').click();
   await page.getByTestId('add-text').fill('conference');
-  await page.getByText('+ Date/Time', { exact: true }).click();
+  await page.getByText('+ Time', { exact: true }).click();
   await page.getByPlaceholder('2:30pm').fill('9am');
   await page.getByPlaceholder('3:30pm').fill('5pm');
   // The end DAY: the 16th of next month, so the span crosses many days.
   const n = new Date();
   const target = new Date(n.getFullYear(), n.getMonth() + 1, 16);
   const iso = `${target.getFullYear()}-${String(target.getMonth() + 1).padStart(2, '0')}-16`;
+  await page.getByText('+ Date', { exact: true }).click();
   await page.getByTestId('add-end-date').click();
   await expect(page.getByTestId('daypick')).toBeVisible();
   await page.getByTestId('daypick-next').click();
@@ -210,7 +211,7 @@ test('the edit sheet can turn an event into a multi-day span', async ({ page }) 
   await page.getByTestId('tab-add').click();
   await page.getByTestId('add-kind-event').click();
   await page.getByTestId('add-text').fill('summit');
-  await page.getByText('+ Date/Time', { exact: true }).click();
+  await page.getByText('+ Time', { exact: true }).click();
   await page.getByPlaceholder('2:30pm').fill('9am');
   await page.getByText('Done', { exact: true }).click();
   await expect(page.getByText('9am', { exact: true }), 'single day at first').toBeVisible();

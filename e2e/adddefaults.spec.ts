@@ -61,7 +61,7 @@ test('the m/d box is a calendar picker now, and Clear takes the date back', asyn
   await page.getByTestId('tab-add').click();
   await page.getByTestId('add-kind-reminder').click();
   await page.getByTestId('add-text').fill('book the ferry');
-  await page.getByText('+ Date/Time', { exact: true }).click();
+  await page.getByText('+ Date', { exact: true }).click();
 
   // Pick the 15th of NEXT month — a day that cannot be today, so the label
   // changing is proof the pick landed and not a coincidence.
