@@ -185,6 +185,8 @@ export function Reminders() {
   // field. The long-press is the way into edit mode; the section head keeps
   // its own double-tap (lastSecTap) for renaming.
   const [modalRec, setModalRec] = useState<ReminderRec | null>(null); // the full-edit window
+  /** The partner's section a new row is being added into, from the All view's shared blocks. */
+  const [createIn, setCreateIn] = useState<string | null>(null);
   /**
    * A subtask the + has just made and nobody has named yet.
    *
@@ -837,6 +839,10 @@ export function Reminders() {
                       <Pressable testID={`shared-secfold-${sec.payload.name}`} style={[s.secHead, s.sharedSecHead]} onPress={() => toggleFold(`sh:${sec.id}`)} hitSlop={8}>
                         <View style={s.chevWrap}><WebHitSlop /><Chevron open={!folded.has(`sh:${sec.id}`)} /></View>
                         <Text style={s.secName}>{sec.payload.name}</Text>
+                        {/* Adding INTO the partner's section, from where it is
+                            on screen (Sean, 2026-09-15). The sheet opens filed
+                            here and saves through sharedPut. */}
+                        <CircleBtn testID={`shared-secadd-${sec.payload.name}`} glyph="+" label="Add" color={T.accent} size={22} onPress={() => setCreateIn(sec.id)} />
                       </Pressable>
                       {!folded.has(`sh:${sec.id}`) && sortByDate(
                         sharedRecs
@@ -853,7 +859,12 @@ export function Reminders() {
                           >
                             {shTick.done(r) && <Text style={s.tickMark}>✓</Text>}
                           </Pressable>
-                          <Text numberOfLines={1} style={s.rowText}>{r.payload.text}</Text>
+                          {/* A tap on the words opens the partner's row in
+                              the item sheet, which saves back to THEIR store
+                              (Sean, 2026-09-15: "modify… shared reminders"). */}
+                          <Pressable testID="all-shared-row" style={s.sharedRowBody} onPress={() => setModalRec(r)}>
+                            <Text numberOfLines={1} style={s.rowText}>{r.payload.text}</Text>
+                          </Pressable>
                           {dueChipStatic(r, todayStr(), clock24)}
                         </View>
                       ))}
@@ -866,6 +877,8 @@ export function Reminders() {
       </Scroll>
 
       {modalRec && <ItemModal mode="edit" kind="reminder" rec={modalRec} onClose={closeModal} />}
+      {/* The + on a partner's section: a new row, filed there, saved to their store by the sheet. */}
+      {createIn && <ItemModal mode="create" kind="reminder" dest0={createIn} onClose={() => setCreateIn(null)} />}
       {emptyAsk && (
         <Modal transparent animationType="fade" onRequestClose={() => setEmptyAsk(null)}>
           <Pressable style={s.askBackdrop} onPress={() => setEmptyAsk(null)}>
@@ -919,10 +932,13 @@ function SharedReminders({ viewKey, partner }: { viewKey: string; partner: strin
     ).map((row) => row.rec);
   const [adding, setAdding] = useState<string | null>(null);
   const [addText, setAddText] = useState('');
+  /** A partner's row open in the item sheet — it saves back to their store. */
+  const [editRec, setEditRec] = useState<ReminderRec | null>(null);
 
   return (
     <View style={s.page}>
       <TopBar title="Reminders" picker={<FolderPick app="reminders" />} />
+      {editRec && <ItemModal mode="edit" kind="reminder" rec={editRec} onClose={() => setEditRec(null)} />}
       <Scroll contentContainerStyle={s.scroll}>
         <View style={s.folderHead}>
           <Text style={[s.folderName, { backgroundColor: (folder?.payload.color ?? '#888888') + '33' }]}>@{shown}: {folder?.payload.name ?? '…'}</Text>
@@ -962,7 +978,11 @@ function SharedReminders({ viewKey, partner }: { viewKey: string; partner: strin
                 >
                   {shTick.done(r) && <Text style={s.tickMark}>✓</Text>}
                 </Pressable>
-                <Text numberOfLines={1} style={s.rowText}>{r.payload.text}</Text>
+                {/* Tap the words to edit the row — in the sheet, saved to
+                    their store (Sean, 2026-09-15). */}
+                <Pressable testID="shared-row" style={s.sharedRowBody} onPress={() => setEditRec(r)}>
+                  <Text numberOfLines={1} style={s.rowText}>{r.payload.text}</Text>
+                </Pressable>
                 {dueChipStatic(r, today, clock24)}
               </View>
             ))}
@@ -1085,6 +1105,9 @@ const s = themed(() => StyleSheet.create({
     paddingLeft: 10, backgroundColor: T.bg,
   },
   rowText: { color: T.text, fontSize: 16, flexShrink: 1 },
+  // A partner's row's words, as a tap target: the room the text has, so
+  // the whole line and not just the letters opens the sheet.
+  sharedRowBody: { flex: 1, alignSelf: 'stretch', justifyContent: 'center' },
   rowTextDone: { color: T.muted, textDecorationLine: 'line-through' },
   tick: {
     width: 24,

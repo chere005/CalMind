@@ -39,8 +39,8 @@ test('an ingredient bullet wears the measure as a badge, name-only text', async 
   // The badge is the recipe card's dress, and a recipe is a note the Recipe
   // page SAVED (2026-08-19) — typed markers alone stay plain text.
   await page.getByTestId('recipe-import').click();
-  await expect(page.getByTestId('recipe-save')).toBeVisible({ timeout: 10_000 });
-  await page.getByTestId('recipe-save').click();
+  await expect(page.getByTestId('recipe-back')).toBeVisible({ timeout: 10_000 });
+  await page.getByTestId('recipe-back').click();
   const view = page.getByTestId('note-body-view');
   await expect(view).toBeVisible();
 

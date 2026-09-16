@@ -42,6 +42,28 @@ const instanceTag = (): string => {
 const SESSION_KEY = `calmind.session@${instanceTag()}`;
 const snapKey = (user: string) => `calmind.snapshot.${user}@${instanceTag()}`;
 
+/**
+ * ChefMind's store, read and written from here.
+ *
+ * ChefMind keeps its recipes in a second sync SPACE of the same account —
+ * `records-chef-<user>.json` on the server, reached with `space: 'chef'` on
+ * the sync request (server/lib/app.php, SYNC_SPACES). Sean, 2026-09-15:
+ * "sync recipes in ChefMind and CalMind… recipes show up in CalMind as notes
+ * sections with a chef hat icon to the right to indicate they are coming from
+ * ChefMind." So this app runs a SECOND engine against that space: its own
+ * cursor, its own snapshot key, the same transport with the space named, and
+ * never normalized here — ChefMind seeds and re-homes its own store, and a
+ * CalMind normalize pass over it would plant a Calendar folder and a habit
+ * section in an app that has neither.
+ *
+ * The two engines never mix records: a chef record is only ever put through
+ * chefMutate, and `chefRecs` is the read model the Notes screen draws under
+ * the hat. Keeping the id sets apart is what makes "which store does this
+ * edit go to" a lookup rather than a guess.
+ */
+const CHEF_SPACE = 'chef';
+const chefSnapKey = (user: string) => `calmind.snapshot.chef.${user}@${instanceTag()}`;
+
 /** What the keys were before they were per-instance. */
 const LEGACY_SESSION_KEY = 'calmind.session';
 const legacySnapKey = (user: string) => `calmind.snapshot.${user}`;
@@ -106,6 +128,20 @@ async function forgetSession(): Promise<void> {
   }
 }
 
+/**
+ * ChefMind's cached snapshot, or null. A cache on the same terms as mine: an
+ * unreadable one costs a resync of that space, never a login and never the
+ * app (see the boot effect for the rule this follows).
+ */
+async function readChefSnapshot(user: string): Promise<unknown> {
+  const raw = await AsyncStorage.getItem(chefSnapKey(user)).catch(() => null);
+  try {
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
 // 'refused' is not a kind of offline: the connection is fine and the server
 // answered. One record is simply too big to store, and it is still sitting
 // on this device only.
@@ -139,6 +175,10 @@ type Store = {
   sharedPartnerLabel: string | null;
   sharedRecs: AnyRec[];
   sharedPut: (rec: AnyRec) => Promise<void>;
+  /** ChefMind's records — the same account's `chef` space, see CHEF_SPACE.
+   *  Drawn by Notes under the chef's hat; edited ONLY through chefMutate. */
+  chefRecs: AnyRec[];
+  chefMutate: (fn: (engine: SyncEngine) => void) => void;
 };
 
 const Ctx = createContext<Store | null>(null);
@@ -146,9 +186,12 @@ export const useStore = () => useContext(Ctx)!;
 
 export function StoreProvider({ children }: { children: React.ReactNode }) {
   const engineRef = useRef(new SyncEngine());
+  // ChefMind's engine, beside mine — see CHEF_SPACE for why there are two.
+  const chefRef = useRef(new SyncEngine());
   const [ready, setReady] = useState(false);
   const [session, setSessionState] = useState<Session | null>(null);
   const [recs, setRecs] = useState<AnyRec[]>([]);
+  const [chefRecs, setChefRecs] = useState<AnyRec[]>([]);
   const [syncState, setSyncState] = useState<SyncState>('idle');
   const [persistFailed, setPersistFailed] = useState(false);
   /** The names of records the server refused, for a message that can point. */
@@ -184,6 +227,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     }
     const all = engine.all();
     setRecs(all);
+    // ChefMind's records as they are — no normalize (see CHEF_SPACE), and the
+    // watch never sees them: recipes are not a thing a wrist lists.
+    setChefRecs(chefRef.current.all());
     pushWatchList(all, sharedForWatch.current);
   }, []);
 
@@ -197,6 +243,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     // browser wiping site data — so say it rather than carry on as if saved.
     AsyncStorage.setItem(snapKey(user), JSON.stringify(engineRef.current.toSnapshot()))
       .then(() => setPersistFailed(false))
+      .catch(() => setPersistFailed(true));
+    // ChefMind's snapshot under its own key, on the same terms: a failure
+    // here is the same silent loss and is said the same way.
+    AsyncStorage.setItem(chefSnapKey(user), JSON.stringify(chefRef.current.toSnapshot()))
       .catch(() => setPersistFailed(true));
   }, []);
 
@@ -230,9 +280,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
    */
   const clearSession = useCallback(() => {
     engineRef.current = new SyncEngine();
+    chefRef.current = new SyncEngine();
     hydratedRef.current = false;
     setSessionState(null);
     setRecs([]);
+    setChefRecs([]);
     setPartners([]);
     setSharedPartner(null);
     setSharedRaw([]);
@@ -278,6 +330,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       }));
       setSyncState(refused.length > 0 ? 'refused' : 'idle');
       void pullShared();
+      // ChefMind's space, AFTER mine and on its own terms: a server that does
+      // not know the space answers 400, and that must not paint this app
+      // offline — my own records just synced fine. The last pulled copy
+      // stands, as any local-first read does, and the next pass tries again.
+      try {
+        await chefRef.current.sync(syncTransport(s, CHEF_SPACE));
+      } catch {
+        // deliberately quiet — see above
+      }
     } catch (e) {
       // Offline is normal for a local-first app; a dead token is not.
       setSyncState('offline');
@@ -379,6 +440,24 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   );
   mutateRef.current = mutate;
 
+  /**
+   * The same gesture against ChefMind's engine. Persisted and pushed by the
+   * same two calls — persistNow writes both snapshots, syncNow syncs both
+   * spaces — so an edit to a recipe made here reaches ChefMind on the next
+   * round trip exactly as one of my own edits reaches my other devices.
+   */
+  const chefMutate = useCallback(
+    (fn: (engine: SyncEngine) => void) => {
+      fn(chefRef.current);
+      refresh();
+      if (sessionRef.current) {
+        persistNow(sessionRef.current.username);
+        syncSoon();
+      }
+    },
+    [refresh, persistNow, syncSoon],
+  );
+
 
   // A tick from the watch is a tap by other means: the same toggle, the same
   // mutate, so repeats roll and the next push refreshes the watch. A tick for
@@ -446,7 +525,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     if (typeof window === 'undefined' || typeof window.addEventListener !== 'function') return;
     const onStorage = (ev: StorageEvent) => {
       const s = sessionRef.current;
-      if (!s || ev.key !== snapKey(s.username) || !ev.newValue) return;
+      if (!s || !ev.newValue) return;
+      // Which engine the other tab wrote — mine or ChefMind's. Anything else
+      // in storage is not a snapshot of ours.
+      const target =
+        ev.key === snapKey(s.username) ? engineRef.current
+        : ev.key === chefSnapKey(s.username) ? chefRef.current
+        : null;
+      if (!target) return;
       let snap: Snapshot | null = null;
       try {
         snap = JSON.parse(ev.newValue) as Snapshot;
@@ -454,7 +540,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         return; // a corrupt snapshot is a cache problem, not a merge input
       }
       if (!snap || !Array.isArray(snap.recs)) return;
-      if (engineRef.current.mergeSnapshot(snap)) {
+      if (target.mergeSnapshot(snap)) {
         refresh();
         persistNow(s.username); // the union, so a reload right now loses neither tab
         syncSoon(); // and offer it to the server when there is one
@@ -488,6 +574,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         restored = null;
       }
       engineRef.current = SyncEngine.fromSnapshot(restored as never);
+      chefRef.current = SyncEngine.fromSnapshot(await readChefSnapshot(s.username) as never);
       hydratedRef.current = engineRef.current.toSnapshot().cursor > 0;
       setSessionState(s);
       sessionRef.current = s;
@@ -584,6 +671,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             parsed = null;
           }
           engineRef.current = SyncEngine.fromSnapshot(parsed as never);
+          chefRef.current = SyncEngine.fromSnapshot(await readChefSnapshot(s.username) as never);
           hydratedRef.current = engineRef.current.toSnapshot().cursor > 0;
           setSessionState(s);
           sessionRef.current = s;
@@ -640,7 +728,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, [sharedRecs, sharedPartner, sharedPartnerLabel]);
 
   return (
-    <Ctx.Provider value={{ ready, session, recs, syncState, persistFailed, refusedLabels, signIn, signOut, setSession, mutate, syncNow, undoLastDelete, partners, sharedPartner, sharedPartnerLabel, sharedRecs, sharedPut }}>
+    <Ctx.Provider value={{ ready, session, recs, syncState, persistFailed, refusedLabels, signIn, signOut, setSession, mutate, syncNow, undoLastDelete, partners, sharedPartner, sharedPartnerLabel, sharedRecs, sharedPut, chefRecs, chefMutate }}>
       {children}
     </Ctx.Provider>
   );

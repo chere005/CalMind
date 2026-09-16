@@ -48,7 +48,7 @@ test('a plain note keeps its FIRST line through the Recipe page', async ({ page 
   await page.getByTestId('note-row').filter({ hasText: 'Shopping' }).click();
 
   await page.getByTestId('recipe-import').click();
-  await page.getByTestId('recipe-save').click();
+  await page.getByTestId('recipe-back').click();
   const body = await page.getByTestId('note-body-view').innerText();
   expect(body, 'the opening line is still there').toContain('Shopping list');
   for (const item of ['milk', 'eggs', 'bread']) expect(body).toContain(item);
@@ -68,7 +68,7 @@ test('the Recipe page on an ordinary note gives the words back unharmed', async 
 
   // In and straight out again through Save — the mis-tap, then the reflex.
   await page.getByTestId('recipe-import').click();
-  await page.getByTestId('recipe-save').click();
+  await page.getByTestId('recipe-back').click();
 
   // Every line of it still there, in order, and nothing invented.
   const body = await page.getByTestId('note-body-view').innerText();
@@ -108,7 +108,7 @@ test('editing a recipe twice does not eat it', async ({ page }) => {
     await page.getByTestId('recipe-import').click();
     await expect(page.getByTestId('ing-row').first()).toBeVisible();
     await expect(page.getByTestId('ing-row')).toHaveCount(2);
-    await page.getByTestId('recipe-save').click();
+    await page.getByTestId('recipe-back').click();
     await expect(page.getByTestId('note-body-view')).toBeVisible();
   }
 

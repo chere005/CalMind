@@ -35,8 +35,8 @@ async function makeRecipeNote(page: Page, title: string, body: string) {
   // shape alone no longer dresses a note in the card — Sean's own
   // hand-written notes wear that shape and must stay plain. Convert.
   await page.getByTestId('recipe-import').click();
-  await expect(page.getByTestId('recipe-save')).toBeVisible({ timeout: 10_000 });
-  await page.getByTestId('recipe-save').click();
+  await expect(page.getByTestId('recipe-back')).toBeVisible({ timeout: 10_000 });
+  await page.getByTestId('recipe-back').click();
   await expect(page.getByTestId('note-body-view')).toBeVisible();
 }
 
@@ -104,7 +104,7 @@ test('the blob opens the Recipe page — its content is edited there, not here',
   await makeRecipeNote(page, 'blobopen', RECIPE);
   await page.getByTestId('note-body-view').click({ position: { x: 10, y: 10 } });
   await page.getByTestId('recipe-blob').click();
-  await expect(page.getByTestId('recipe-save')).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByTestId('recipe-back')).toBeVisible({ timeout: 10_000 });
 });
 
 test('tapping an ingredient makes a reminder, today by default', async ({ page }) => {

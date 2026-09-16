@@ -8,7 +8,7 @@
  * themselves. Saving writes the fixed nice-looking recipe block back to the
  * note (any non-recipe text rides along after it, still editable there).
  */
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 // A Modal renders in its own window, OUTSIDE the app root's SafeAreaView — so
 // its content starts at y=0, under the clock and the Dynamic Island. On the
@@ -18,7 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { importedRecipeTitle, ingredientParts, isSubheader, orderIngredients, parseIngredient, recipeBody, recipeFromHtml, recipeFromPages, type Rec } from '@calmind/core';
 import { useStore } from '../store';
 import { themed, T } from '../theme';
-import { CircleBtn, ConfirmDelete, Field, Pill, Scroll, WebHitSlop } from '../ui';
+import { CircleBtn, ConfirmDelete, Field, Scroll, WebHitSlop } from '../ui';
 import { OCR_UNSUPPORTED, ocrImages, ocrSupported } from '../components/ocr';
 import { UnitBadge } from '../components/IngredientBadge';
 import { RichText } from '../components/RichText';
@@ -37,9 +37,21 @@ function moveAt(rows: string[], from: number, to: number): string[] {
   return out;
 }
 
-export function RecipeEditor({ note, onClose }: { note: Rec<'note'>; onClose: () => void }) {
+export function RecipeEditor({ note, onClose, put }: {
+  note: Rec<'note'>;
+  onClose: () => void;
+  /**
+   * Where the saved note goes. Absent, it is MY store, as it always was.
+   * Notes passes ChefMind's engine here for a recipe that lives in ChefMind's
+   * space (store.tsx, CHEF_SPACE), so saving the Recipe page over one of
+   * those writes it back where it came from rather than minting a copy of a
+   * ChefMind record in my own store.
+   */
+  put?: (rec: Rec<'note'>) => void;
+}) {
   const insets = useSafeAreaInsets();
   const { mutate, session } = useStore();
+  const putNote = put ?? ((rec: Rec<'note'>) => mutate((e) => e.put(rec)));
   const parsed = recipeFromPages([note.payload.body]);
   // recipeFromPages CONSUMES the line it read as a title. When the note
   // already has a title of its own, that line has no home to go to — and
@@ -250,23 +262,54 @@ export function RecipeEditor({ note, onClose }: { note: Rec<'note'>; onClose: ()
     }
   };
 
-  const save = () => {
+  /**
+   * AUTOSAVE — Sean, 2026-09-15: "get rid of the save and cancel buttons in
+   * recipes, auto save recipes." Every change to the recipe writes the note,
+   * the way the note editor writes on every keystroke; the back chevron is
+   * the way out and there is nothing to cancel.
+   *
+   * The FIRST change is what turns a note into a recipe — `recipe: true` is
+   * written here and nowhere else. Merely opening this page and leaving
+   * writes nothing: Sean's hand-written notes carry the marker shape and
+   * stay plain (isRecipeNote, 2026-08-19), and a page that converted them on
+   * sight would undo that rule one glance at a time. `touched` is that gate;
+   * the effect below runs on every state change and skips the mount.
+   */
+  const touched = useRef(false);
+  const latest = useRef({ note, putNote });
+  latest.current = { note, putNote };
+  const write = () => {
+    const { note: cur, putNote: put } = latest.current;
     const body = [recipeBody(ingredients, steps), includeNotes ? extra.join('\n') : ''].filter(Boolean).join('\n\n');
-    // Save is the ONE place a note becomes a recipe. The marker shape alone
-    // is not the test — Sean's hand-written notes carry it and stay plain
-    // (isRecipeNote, 2026-08-19).
-    mutate((e) => e.put({ ...note, payload: { ...note.payload, title: title || note.payload.title, body, recipe: true } }));
+    put({ ...cur, payload: { ...cur.payload, title: title || cur.payload.title, body, recipe: true } });
+  };
+  useEffect(() => {
+    if (!touched.current) {
+      touched.current = true; // the mount — the parse of what was already there
+      return;
+    }
+    write();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `write` reads these five and the refs
+  }, [title, ingredients, steps, extra, includeNotes]);
+  /**
+   * Leaving writes once more — the old Save, exactly, so the visit itself is
+   * still the deliberate act that turns a typed note into a recipe (open the
+   * page, look, go back: it is a recipe now), and nothing typed in the last
+   * moment before the chevron is lost to the debounce of a render.
+   */
+  const finish = () => {
+    write();
     onClose();
   };
 
   return (
-    <Modal animationType="slide" onRequestClose={onClose}>
+    <Modal animationType="slide" onRequestClose={finish}>
       <Scroll style={[s.page, { paddingTop: insets.top }]} contentContainerStyle={s.inner} scrollEnabled={ingDrag.dragIdx === null && stepDrag.dragIdx === null}>
         <View style={s.headRow}>
           {/* The one circle-chevron every back in the app wears now
               (2026-08-18) — this was a "← Note" text link, formatted like
               nothing else that goes back. */}
-          <CircleBtn testID="recipe-back" glyph="‹" size={32} label="Back to the note" onPress={onClose} />
+          <CircleBtn testID="recipe-back" glyph="‹" size={32} label="Back to the note" onPress={finish} />
           <CircleBtn testID="recipe-link" glyph="🔗" label="Import from a link" size={32} onPress={() => setUrlOpen((v) => !v)} />
           <CircleBtn testID="recipe-photos" glyph="📷" label="Read a photo" size={32} onPress={() => void importPhotos()} />
         </View>
@@ -437,10 +480,8 @@ export function RecipeEditor({ note, onClose }: { note: Rec<'note'>; onClose: ()
           </Text>
         )}
 
-        <View style={s.footRow}>
-          <Pill label="Cancel" onPress={onClose} />
-          <Pill testID="recipe-save" label="Save" primary onPress={save} />
-        </View>
+        {/* No Save, no Cancel: the recipe saves as it changes (see the autosave
+            effect), and the back chevron at the top is the way out. */}
       </Scroll>
     </Modal>
   );

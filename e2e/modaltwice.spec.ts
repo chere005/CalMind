@@ -33,8 +33,8 @@ async function aRecipeCard(page: Page) {
   await page.getByTestId('note-body-view').click();
   await page.getByTestId('note-body-edit').fill('2 cups flour\n1. Mix it');
   await page.getByTestId('recipe-import').click();
-  await expect(page.getByTestId('recipe-save')).toBeVisible({ timeout: 10_000 });
-  await page.getByTestId('recipe-save').click();
+  await expect(page.getByTestId('recipe-back')).toBeVisible({ timeout: 10_000 });
+  await page.getByTestId('recipe-back').click();
   await expect(page.getByTestId('recipe-line').first()).toBeVisible({ timeout: 10_000 });
 }
 

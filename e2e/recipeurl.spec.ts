@@ -62,7 +62,7 @@ test('a recipe link fills in ingredients and steps, and nothing else', async ({ 
   await page.getByTestId('note-body-edit').fill('placeholder body');
   await page.getByTestId('note-title').click();
   await page.getByTestId('recipe-import').click();
-  await expect(page.getByTestId('recipe-save')).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByTestId('recipe-back')).toBeVisible({ timeout: 10_000 });
 
   await page.getByTestId('recipe-link').click();
   await page.getByTestId('recipe-url').fill('https://example.com/pancakes');
@@ -72,12 +72,15 @@ test('a recipe link fills in ingredients and steps, and nothing else', async ({ 
   // measure badge, so the row is 'flour' + '2 cups', not one string. Assert
   // what the screen does — an assertion written against the raw text passed
   // while the parse was broken and failed once it worked.
-  await expect(page.getByText('flour', { exact: true })).toBeVisible({ timeout: 10_000 });
-  await expect(page.getByText('2 cups', { exact: true })).toBeVisible();
-  await expect(page.getByText('milk', { exact: true })).toBeVisible();
-  await expect(page.getByText('½ cup', { exact: true })).toBeVisible();
-  await expect(page.getByText('Mix the dry things')).toBeVisible();
-  await expect(page.getByText('Add the wet things')).toBeVisible();
+  // Scoped to the SHEET: the recipe autosaves as it imports (2026-09-15), so
+  // the note behind the sheet already shows the same words.
+  const sheet = page.getByRole('dialog');
+  await expect(sheet.getByText('flour', { exact: true })).toBeVisible({ timeout: 10_000 });
+  await expect(sheet.getByText('2 cups', { exact: true })).toBeVisible();
+  await expect(sheet.getByText('milk', { exact: true })).toBeVisible();
+  await expect(sheet.getByText('½ cup', { exact: true })).toBeVisible();
+  await expect(sheet.getByText('Mix the dry things')).toBeVisible();
+  await expect(sheet.getByText('Add the wet things')).toBeVisible();
 
   // Sean's rule, asserted rather than assumed: the story and the nutrition
   // block must NOT come along.
@@ -104,7 +107,7 @@ test('a page with no recipe says so instead of appearing to work', async ({ page
   await page.getByTestId('note-body-edit').fill('placeholder body');
   await page.getByTestId('note-title').click();
   await page.getByTestId('recipe-import').click();
-  await expect(page.getByTestId('recipe-save')).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByTestId('recipe-back')).toBeVisible({ timeout: 10_000 });
   await page.getByTestId('recipe-link').click();
   await page.getByTestId('recipe-url').fill('https://example.com/blog');
   await page.getByTestId('recipe-url-go').click();

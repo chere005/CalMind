@@ -22,6 +22,7 @@ import { useRowDrag } from '../components/rowdrag';
 import { useSectionDrag, type SectionSlot } from '../components/sectiondrag';
 import { useSwipeLeft } from '../components/swiperow';
 import { Chevron } from '../components/Chevron';
+import { ChefHatGlyph } from '../components/KindIcons';
 import { SyncDot, syncWord } from '../components/SyncDot';
 import { useToast } from '../components/Toast';
 import { EditExit } from '../components/EditExit';
@@ -150,7 +151,7 @@ function NoteBody({ body, recipe, onLine }: { body: string; recipe: boolean; onL
 }
 
 export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | null; onOpenConsumed?: () => void }) {
-  const { recs, mutate, sharedRecs, sharedPartnerLabel, syncState, persistFailed } = useStore();
+  const { recs, mutate, sharedRecs, sharedPartnerLabel, syncState, persistFailed, chefRecs, chefMutate } = useStore();
   const nav = useNav();
   const { view, visible: visibleFolders, visibleShared, sharedView, sharedPartner } = useFolderView('notes');
   const setNotePrefs = (lastView: string) => mutate((e) => e.put(prefsPut(recs, 'notes', { lastView })));
@@ -401,8 +402,44 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
     };
   }, [recs, visibleFolders]);
 
+  /**
+   * ChefMind's recipes, drawn here under the chef's hat.
+   *
+   * Sean, 2026-09-15: "sync recipes in ChefMind and CalMind… recipes show up
+   * in CalMind as notes sections with a chef hat icon to the right to
+   * indicate they are coming from ChefMind." These are ChefMind's OWN
+   * records — its notes folders, their sections, the recipes in them — read
+   * from that app's sync space by the store (store.tsx, CHEF_SPACE) and
+   * drawn under the All view after my folders, the way a partner's shared
+   * folders are. The hat right of each section name is the whole of the
+   * marking; the badge on the folder head names the app.
+   *
+   * Written back the same way they arrive: an edit to one of these goes
+   * through chefMutate and reaches ChefMind on the next sync. Nothing here
+   * copies a recipe into my store, and nothing of mine leaks into theirs —
+   * which store a note belongs to is decided by its id (isChef), never by
+   * where on the screen it was tapped.
+   */
+  const chef = useMemo(() => {
+    const cFolders = chefRecs
+      .filter((r): r is Rec<'folder'> => r.type === 'folder' && (r.payload.app ?? 'reminders') === 'notes')
+      .sort(byRecOrd);
+    const cSections = chefRecs.filter((r): r is Rec<'section'> => r.type === 'section').sort(byRecOrd);
+    const cNotes = chefRecs.filter((r): r is Rec<'note'> => r.type === 'note').sort(byRecOrd);
+    return {
+      folders: cFolders,
+      sectionsOf: (fid: string) => cSections.filter((x) => x.payload.folderId === fid),
+      notesOf: (sid: string) => cNotes.filter((x) => x.payload.sectionId === sid),
+      ids: new Set(chefRecs.map((r) => r.id)),
+    };
+  }, [chefRecs]);
+  const isChef = (id: string) => chef.ids.has(id);
+
   /** Every section, so the button can both act and show which way it points. */
   const mySectionIds = folders.flatMap((f) => sectionsOf(f.id).map((x) => x.id));
+  // …and ChefMind's, drawn under All like the partner's and folded the same
+  // way (keyed 'chef:' so a ChefMind section id can never collide with mine).
+  const chefSectionIds = view === 'all' ? chef.folders.flatMap((f) => chef.sectionsOf(f.id).map((x) => `chef:${x.id}`)) : [];
   // …and the partner's, when their blocks are actually on screen. Sean asked
   // for this after the shared folds landed: a collapse-all that skipped them
   // left the button claiming "all collapsed" over sections that were still
@@ -417,7 +454,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
             .map((x) => `sh:${x.id}`),
         )
       : [];
-  const allSectionIds = [...mySectionIds, ...sharedSectionIds];
+  const allSectionIds = [...mySectionIds, ...chefSectionIds, ...sharedSectionIds];
   const allCollapsed = allSectionIds.length > 0 && allSectionIds.every((id) => nfolded.has(id));
   const collapseAllNotes = () => {
     foldSave(allCollapsed ? new Set<string>() : new Set(allSectionIds));
@@ -464,7 +501,19 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
     if (res.error === 'a folder keeps its last section') setEmptyAsk({ sectionId, slot });
   });
 
-  const open = openId ? (recs.find((r) => r.id === openId) as Rec<'note'> | undefined) : undefined;
+  // Mine first, then ChefMind's: a recipe opened from under the hat is
+  // edited in this same editor, and every write to it below goes through
+  // mutateOpen — ChefMind's engine for ChefMind's note, mine for mine.
+  const open = openId
+    ? ((recs.find((r) => r.id === openId) ?? chefRecs.find((r) => r.id === openId)) as Rec<'note'> | undefined)
+    : undefined;
+  const openIsChef = !!open && isChef(open.id);
+  const mutateOpen = openIsChef ? chefMutate : mutate;
+  // The containers a note may move between are its OWN store's: ChefMind's
+  // folders for a ChefMind recipe, mine for mine. Moving a record across
+  // stores is not a move, it is a copy and a delete, and this editor does
+  // neither.
+  const originRecs = openIsChef ? chefRecs : recs;
   /** Nobody has named this note yet — it still wears the date it was born with. */
   const generatedTitle = !!open && looksLikeDefaultNoteTitle(open.payload.title);
   // Only OUR bodies scale — the markers are what say the ingredients have
@@ -473,14 +522,14 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
   const shownBody = open ? (scale === 1 ? open.payload.body : scaleRecipeBody(open.payload.body, scale)) : '';
 
   const goesChoices = useMemo(() => {
-    const allFolders = recs
+    const allFolders = originRecs
       .filter((r): r is Rec<'folder'> => r.type === 'folder' && (r.payload.app ?? 'reminders') === 'notes')
       .sort(byRecOrd);
-    const allSections = recs.filter((r): r is Rec<'section'> => r.type === 'section').sort(byRecOrd);
+    const allSections = originRecs.filter((r): r is Rec<'section'> => r.type === 'section').sort(byRecOrd);
     return allFolders.flatMap((f) =>
       allSections.filter((x) => x.payload.folderId === f.id).map((x) => ({ sec: x, label: `${f.payload.name} · ${x.payload.name}` })),
     );
-  }, [recs]);
+  }, [originRecs]);
   const noteFolderOptions = useMemo(() => {
     const seen = new Map<string, string>();
     for (const c of goesChoices) {
@@ -537,19 +586,38 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
     setOpenId(id);
   };
 
+  /**
+   * The same +, on one of ChefMind's sections: the recipe is born in
+   * ChefMind's store — its folder, its section, its ord — and opens here
+   * ready to type, exactly as one of mine does. `recipe` is left unset; the
+   * Recipe page is the one place a note becomes a recipe, there as here.
+   */
+  const addChefNote = (section: Rec<'section'>) => {
+    const id = newId();
+    chefMutate((e) => {
+      const first = chef.notesOf(section.id)[0];
+      e.put({
+        id, type: 'note', updated: 0,
+        payload: { title: defaultNoteTitle(), body: '', date: null, folderId: section.payload.folderId, sectionId: section.id, ord: ordBetween(null, first?.payload.ord ?? null) },
+      });
+    });
+    freshEdit.current = id;
+    setOpenId(id);
+  };
+
   const wrapSel = (before: string, after = before) => {
     if (!open) return;
     const b = open.payload.body;
     const { start, end } = sel;
     const next = b.slice(0, start) + before + b.slice(start, end) + after + b.slice(end);
-    mutate((e) => e.put({ ...open, payload: { ...open.payload, body: next } }));
+    mutateOpen((e) => e.put({ ...open, payload: { ...open.payload, body: next } }));
   };
   const linePrefix = (marker: string) => {
     if (!open) return;
     const b = open.payload.body;
     const at = b.lastIndexOf('\n', Math.max(0, sel.start - 1)) + 1;
     const next = b.slice(0, at) + marker + b.slice(at);
-    mutate((e) => e.put({ ...open, payload: { ...open.payload, body: next } }));
+    mutateOpen((e) => e.put({ ...open, payload: { ...open.payload, body: next } }));
   };
 
   if (sharedView && sharedPartner) {
@@ -600,7 +668,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
             options={noteFolderOptions}
             onPick={(fid) => {
               const firstSec = goesChoices.find((c) => c.sec.payload.folderId === fid)?.sec;
-              if (firstSec) mutate((e) => e.put({ ...open, payload: { ...open.payload, folderId: fid, sectionId: firstSec.id } }));
+              if (firstSec) mutateOpen((e) => e.put({ ...open, payload: { ...open.payload, folderId: fid, sectionId: firstSec.id } }));
             }}
           />
           <Dropdown
@@ -608,7 +676,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
             options={goesChoices.filter((c) => c.sec.payload.folderId === open.payload.folderId).map((c) => ({ id: c.sec.id, label: c.sec.payload.name }))}
             onPick={(sid) => {
               const sec = goesChoices.find((c) => c.sec.id === sid)?.sec;
-              if (sec) mutate((e) => e.put({ ...open, payload: { ...open.payload, folderId: sec.payload.folderId, sectionId: sec.id } }));
+              if (sec) mutateOpen((e) => e.put({ ...open, payload: { ...open.payload, folderId: sec.payload.folderId, sectionId: sec.id } }));
             }}
             gold
           />
@@ -681,15 +749,15 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
                 // every note nobody renamed onto the calendar.
                 if (!raw || open.payload.date || looksLikeDefaultNoteTitle(raw)) return;
                 const [title, date] = parseWhenFromText(raw, todayStr(), nowStr());
-                if (date) mutate((e) => e.put({ ...open, payload: { ...open.payload, title: title || raw, date } }));
+                if (date) mutateOpen((e) => e.put({ ...open, payload: { ...open.payload, title: title || raw, date } }));
               }}
               onChangeText={(t) => {
                 setTitleDraft(t);
-                mutate((e) => e.put({ ...open, payload: { ...open.payload, title: t } }));
+                mutateOpen((e) => e.put({ ...open, payload: { ...open.payload, title: t } }));
               }}
             />
             {open.payload.date ? (
-              <Pressable style={s.addDate} onPress={() => mutate((e) => e.put({ ...open, payload: { ...open.payload, date: null } }))}>
+              <Pressable style={s.addDate} onPress={() => mutateOpen((e) => e.put({ ...open, payload: { ...open.payload, date: null } }))}>
                 <Text style={s.addDateText}>{open.payload.date} ×</Text>
               </Pressable>
             ) : (
@@ -722,7 +790,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
             <View style={s.metaRow}>
               <Pill
                 label="Today"
-                onPress={() => { mutate((e) => e.put({ ...open, payload: { ...open.payload, date: todayStr() } })); setDateOpen(false); }}
+                onPress={() => { mutateOpen((e) => e.put({ ...open, payload: { ...open.payload, date: todayStr() } })); setDateOpen(false); }}
               />
               {/* The circle-with-a-calendar — "the m/d text box should be a
                   calendar picker in add date on notes app" (Sean, 2026-08-20). */}
@@ -732,7 +800,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
           {edPickOpen && (
             <DayPick
               value={open.payload.date}
-              onPick={(d) => { mutate((e) => e.put({ ...open, payload: { ...open.payload, date: d } })); setDateOpen(false); }}
+              onPick={(d) => { mutateOpen((e) => e.put({ ...open, payload: { ...open.payload, date: d } })); setDateOpen(false); }}
               onClose={() => setEdPickOpen(false)}
             />
           )}
@@ -757,7 +825,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
             (() => {
               const es = splitRecipeBody(open.payload.body)!;
               const put = (before: string, after: string) =>
-                mutate((e) => e.put({ ...open, payload: { ...open.payload, body: joinRecipeBody(before, es.recipe, after) } }));
+                mutateOpen((e) => e.put({ ...open, payload: { ...open.payload, body: joinRecipeBody(before, es.recipe, after) } }));
               return (
                 <View style={s.body}>
                   <TextInput
@@ -823,7 +891,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
               onSelectionChange={(ev) => setSel(ev.nativeEvent.selection)}
               onChangeText={(t) => {
                 setDraft(t);
-                mutate((e) => e.put({ ...open, payload: { ...open.payload, body: t } }));
+                mutateOpen((e) => e.put({ ...open, payload: { ...open.payload, body: t } }));
               }}
             />
           ) : (
@@ -857,7 +925,14 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
             </Pressable>
           )}
 
-          {recipeOpen && <RecipeEditor note={open} onClose={() => setRecipeOpen(false)} />}
+          {recipeOpen && (
+            <RecipeEditor
+              note={open}
+              onClose={() => setRecipeOpen(false)}
+              // A ChefMind recipe saves back to ChefMind — see RecipeEditor's `put`.
+              put={openIsChef ? (rec) => chefMutate((e) => e.put(rec)) : undefined}
+            />
+          )}
           {/* A tapped ingredient or step, on its way to being a reminder —
               today by default, and the manual-beats-parsed rules apply to
               whatever is typed over it (Sean, 2026-08-18). */}
@@ -903,7 +978,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
                   (Sean, 2026-08-20). Keyed by note so arming one can never
                   prime the next (armeddelete.spec), which useNoteScoped did
                   for the old inline version. */}
-              <DeletePill key={open.id} onDelete={() => { setOpenId(null); mutate((e) => e.del(open.id)); }} />
+              <DeletePill key={open.id} onDelete={() => { setOpenId(null); mutateOpen((e) => e.del(open.id)); }} />
             </View>
           </View>
         </Scroll>
@@ -1096,6 +1171,60 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
             {secDrag.lineKey === `end:${f.id}` && <View style={s.dropLine} />}
           </View>
         ))}
+        {/* ChefMind's recipes, under All, after my folders and before the
+            partner's: their folders, their sections, the hat right of each
+            section name saying whose they are. No grips, no swipe, no rename
+            — the structure is ChefMind's to arrange — but a + per section
+            (a recipe can start here) and a tap opens the recipe in the
+            editor above, writing back to ChefMind. See `chef`. */}
+        {view === 'all' && chef.folders.map((f) => (
+          <View key={`chef${f.id}`} style={s.folderBlock} testID={`chef-folder-${f.payload.name}`}>
+            <View testID={`head-fold-chef-${f.payload.name}`} style={s.folderHead}>
+              <Pressable onPress={() => toggleFolderFold(`chef:${f.id}`)} hitSlop={8} style={s.chevWrap}>
+                <WebHitSlop />
+                <Chevron open={!foldedFolders.has(`chef:${f.id}`)} color={T.text} />
+              </Pressable>
+              <Text style={[s.folderName, { backgroundColor: f.payload.color + '33' }]}>{f.payload.name}</Text>
+              {/* Beside the name, LEFT of the divider — where the partner's
+                  owner badge sits, for the same reason: a label on the
+                  folder, not on the line. */}
+              <View testID="chef-folder-badge" style={s.chefBadge}>
+                <ChefHatGlyph color={T.accent} size={13} />
+                <Text style={s.chefBadgeText}>ChefMind</Text>
+              </View>
+              <View style={s.folderRule} />
+            </View>
+            {!foldedFolders.has(`chef:${f.id}`) && chef.sectionsOf(f.id).map((sec) => (
+              <View key={sec.id} style={s.section}>
+                <View testID={`head-sec-chef-${sec.payload.name}`} style={[s.secHead, s.sharedSecHead]}>
+                  <Pressable testID={`chef-secfold-${sec.payload.name}`} onPress={() => toggleNFold(`chef:${sec.id}`)} hitSlop={8} style={s.chevWrap}>
+                    <WebHitSlop />
+                    <Chevron open={!nfolded.has(`chef:${sec.id}`)} />
+                  </Pressable>
+                  <Text style={s.secName}>{sec.payload.name}</Text>
+                  {/* THE HAT, right of the name: this section's recipes are
+                      ChefMind's (Sean, 2026-09-15). */}
+                  <View testID={`chef-hat-${sec.payload.name}`} style={s.chefHat} accessibilityLabel="From ChefMind">
+                    <ChefHatGlyph color={T.gold} size={14} />
+                  </View>
+                  <CircleBtn testID={`chef-secadd-${sec.payload.name}`} glyph="+" label="Add a recipe" color={T.accent} size={22} onPress={() => addChefNote(sec)} />
+                </View>
+                {!nfolded.has(`chef:${sec.id}`) && chef.notesOf(sec.id).map((n) => (
+                  <View key={n.id} style={[s.row, s.sharedRow]}>
+                    <Pressable
+                      testID="chef-note-row"
+                      onPress={() => setOpenId(n.id)}
+                      style={s.rowBody}
+                    >
+                      <Text style={s.rowTitle} numberOfLines={1}>{n.payload.title}</Text>
+                      <Text style={s.chev}>›</Text>
+                    </Pressable>
+                  </View>
+                ))}
+              </View>
+            ))}
+          </View>
+        ))}
         {view === 'all' && sharedPartner &&
           visibleShared
             .slice()
@@ -1256,14 +1385,43 @@ function SharedNotes({ viewKey, partner }: { viewKey: string; partner: string })
   const [openShared, setOpenShared] = useState<Rec<'note'> | null>(null);
   const [sharedBodyEdit, setSharedBodyEdit] = useNoteScoped(openShared?.id ?? null, false);
   const [draft, setDraft] = useNoteScoped(openShared?.id ?? null, '');
+  // The title is a live field like my own notes' (Sean, 2026-09-15: "modify…
+  // shared notes"); it holds its own copy while focused, for the same reason
+  // the body does, and commits on blur through sharedPut.
+  const [titleDraft, setTitleDraft] = useNoteScoped<string | null>(openShared?.id ?? null, null);
   // A recipe someone shares with you is still a recipe to cook from.
   const [sharedScale, setSharedScale] = useNoteScoped(openShared?.id ?? null, 1);
+
+  /**
+   * A new note in the partner's section — theirs from birth: filed in their
+   * folder and section, written through sharedPut, opened here to type into
+   * (Sean, 2026-09-15: "add… notes to shared… notes"). The Recipe page is
+   * not offered on a partner's note, so `recipe` stays unset.
+   */
+  const addSharedNote = (sec: Rec<'section'>) => {
+    const first = notesOf(sec.id)[0];
+    const rec: Rec<'note'> = {
+      id: newId(), type: 'note', updated: 0,
+      payload: { title: defaultNoteTitle(), body: '', date: null, folderId, sectionId: sec.id, ord: ordBetween(null, first?.payload.ord ?? null) },
+    };
+    void sharedPut(rec);
+    setOpenShared(rec);
+  };
 
   if (openShared) {
     const commitBody = () => {
       setSharedBodyEdit(false);
       if (draft !== openShared.payload.body) {
         const next = { ...openShared, payload: { ...openShared.payload, body: draft } };
+        setOpenShared(next);
+        void sharedPut(next);
+      }
+    };
+    const commitTitle = () => {
+      const t = (titleDraft ?? openShared.payload.title).trim();
+      setTitleDraft(null);
+      if (t !== '' && t !== openShared.payload.title) {
+        const next = { ...openShared, payload: { ...openShared.payload, title: t } };
         setOpenShared(next);
         void sharedPut(next);
       }
@@ -1276,7 +1434,17 @@ function SharedNotes({ viewKey, partner }: { viewKey: string; partner: string })
           </Pressable>
         </View>
         <Scroll contentContainerStyle={s.editor}>
-          <Text style={s.sharedTitle}>{openShared.payload.title}</Text>
+          <TextInput
+            testID="shared-note-title"
+            style={[s.title, s.sharedTitleField]}
+            value={titleDraft ?? openShared.payload.title}
+            placeholder="Title"
+            placeholderTextColor={T.muted}
+            onFocus={() => setTitleDraft(openShared.payload.title)}
+            onChangeText={setTitleDraft}
+            onBlur={commitTitle}
+            onSubmitEditing={commitTitle}
+          />
           {openShared.payload.date && <Text style={s.sharedDate}>{openShared.payload.date}</Text>}
           {isRecipeNote(openShared.payload) && (
             <View testID="shared-scale-row" style={s.scaleRow}>
@@ -1321,6 +1489,20 @@ function SharedNotes({ viewKey, partner }: { viewKey: string; partner: string })
               <NoteBody body={sharedScale === 1 ? openShared.payload.body : scaleRecipeBody(openShared.payload.body, sharedScale)} recipe={isRecipeNote(openShared.payload)} />
             </Pressable>
           )}
+          {/* Deleting a partner's note is a tombstone written where it
+              lives, through sharedPut; the server accepts it inside the
+              shared scope exactly as it accepts an edit. Same pill as my
+              own editor's, bottom right. */}
+          <View style={s.footRow}>
+            <View />
+            <DeletePill
+              key={openShared.id}
+              onDelete={() => {
+                void sharedPut({ ...openShared, deleted: true });
+                setOpenShared(null);
+              }}
+            />
+          </View>
         </Scroll>
       </View>
     );
@@ -1337,6 +1519,7 @@ function SharedNotes({ viewKey, partner }: { viewKey: string; partner: string })
           <View key={sec.id} style={s.section}>
             <View style={s.secHead}>
               <Text style={s.secName}>{sec.payload.name}</Text>
+              <CircleBtn testID={`shared-secadd-${sec.payload.name}`} glyph="+" label="Add" color={T.accent} size={22} onPress={() => addSharedNote(sec)} />
             </View>
             {notesOf(sec.id).map((n) => (
               <View key={n.id} style={s.row}>
@@ -1393,6 +1576,12 @@ const s = themed(() => StyleSheet.create({
   // two in the one place the whole change is about.
   sharedRow: { paddingLeft: 24 },
   ownerBadge: { color: T.accent, fontSize: 12, fontWeight: '700', backgroundColor: T.accentSoft, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3, overflow: 'hidden' },
+  // The ChefMind folder badge: the owner badge's pill with the hat inside it.
+  chefBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: T.accentSoft, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3, overflow: 'hidden' },
+  chefBadgeText: { color: T.accent, fontSize: 12, fontWeight: '700' },
+  // The hat right of a ChefMind section's name — the same 20x20 box the
+  // chevron gets, so it lines up with the controls beside it.
+  chefHat: { width: 20, height: 20, alignItems: 'center', justifyContent: 'center' },
   folderRule: { flex: 1, height: 1, backgroundColor: T.lineSoft },
   section: { gap: 6 },
   secHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
@@ -1432,6 +1621,9 @@ const s = themed(() => StyleSheet.create({
   rowBody: { flex: 1, alignSelf: 'stretch', flexDirection: 'row', alignItems: 'center', gap: 8 },
   rowNoSelect: { userSelect: 'none', /* a swipe row permits only VERTICAL panning, so a horizontal swipe never scrolls the list under it on web — Sean, 2026-09-06 */ touchAction: 'pan-y' } as import('react-native').ViewStyle,
   sharedTitle: { color: T.text, fontSize: 22, fontWeight: '800' },
+  // The partner's note title as a field: my editor's `title` box, no flex —
+  // it stands alone on its line rather than beside a date button.
+  sharedTitleField: { flex: 0 },
   sharedDate: { color: T.dim, fontSize: 13, marginTop: 2 },
   sharedFolderChip: { color: T.text, fontSize: 15, fontWeight: '800', paddingHorizontal: 10, paddingVertical: 2, borderRadius: 999, overflow: 'hidden' },
   gripHidden: { opacity: 0 },

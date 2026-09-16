@@ -86,7 +86,7 @@ export function FolderPick({ app }: { app: 'reminders' | 'notes' }) {
                         <WebHitSlop />
                         <Text style={[s.box, allOn && s.boxOn]}>{allOn ? '☑' : '☐'}</Text>
                       </Pressable>
-                      <Pressable style={s.rowMain} onPress={() => { setPrefs({ lastView: 'all', hidden: [], hiddenShared: [] }); setOpen(false); }}>
+                      <Pressable testID="pick-all" style={s.rowMain} onPress={() => { setPrefs({ lastView: 'all', hidden: [], hiddenShared: [] }); setOpen(false); }}>
                         <PieDot rainbow colors={folders.map((f) => f.payload.color)} size={14} />
                         <Text style={[s.rowText, view === 'all' && s.rowActive]}>All</Text>
                       </Pressable>

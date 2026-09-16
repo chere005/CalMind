@@ -1060,8 +1060,8 @@ test("sharing: a calendar shows under the partner's day-panel group; notes read 
   // A recipe is a note the Recipe page SAVED (2026-08-19) — the flag rides
   // the payload through sync, which is what dresses the partner's copy.
   await pageA.getByTestId('recipe-import').click();
-  await expect(pageA.getByTestId('recipe-save')).toBeVisible({ timeout: 10_000 });
-  await pageA.getByTestId('recipe-save').click();
+  await expect(pageA.getByTestId('recipe-back')).toBeVisible({ timeout: 10_000 });
+  await pageA.getByTestId('recipe-back').click();
   await pageA.waitForTimeout(2_000);
   await pageB.reload();
   await pageB.getByTestId('tab-notes').click();
@@ -1175,7 +1175,7 @@ test('unticking Include notes shows what it would drop, rather than hiding it', 
   );
   await page.getByTestId('note-title').click();
   await page.getByTestId('recipe-import').click();
-  await expect(page.getByTestId('recipe-save')).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByTestId('recipe-back')).toBeVisible({ timeout: 10_000 });
 
   // Ticked: the lines are listed and no warning is needed.
   // Two matches: the leftovers list and the ingredient row it also parses
@@ -1618,7 +1618,7 @@ test('recipe lines reorder by dragging the marker they already wear', async ({ p
 
   // The order is what gets saved, not merely what is drawn — read out of the
   // badges, which carry the measures in the rendered body now.
-  await page.getByTestId('recipe-save').click();
+  await page.getByTestId('recipe-back').click();
   await expect(page.getByTestId('note-body-view').getByTestId('ing-unit')).toHaveText(['1 cup', '3', '2 cups']);
   const body = await page.getByTestId('note-body-view').innerText();
   expect(body.indexOf('milk')).toBeLessThan(body.indexOf('flour'));
@@ -1687,7 +1687,7 @@ test('the Recipe page can shed the non-recipe notes with its checkbox', async ({
   // The checkbox shows because free text exists; untick and save.
   await expect(page.getByTestId('recipe-incnotes')).toBeVisible();
   await page.getByTestId('recipe-incnotes').click();
-  await page.getByTestId('recipe-save').click();
+  await page.getByTestId('recipe-back').click();
   const body = page.getByTestId('note-body-view');
   await expect(body).toContainText('flour');
   await expect(body).not.toContainText('Grandma');

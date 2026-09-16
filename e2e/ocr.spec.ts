@@ -69,7 +69,7 @@ test('the recipe importer reads photos into a formatted note', async ({ page, co
   expect(steps).toContain('whisk everything together');
   expect(steps).toContain('fry in butter until golden');
 
-  await page.getByTestId('recipe-save').click();
+  await page.getByTestId('recipe-back').click();
   // Saved back into the note: title claimed, marker body rendered.
   await expect(page.getByPlaceholder('Title')).toHaveValue(/Midnight Pancakes/i);
   const body = await page.getByTestId('note-body-view').innerText();
@@ -126,8 +126,10 @@ test('an awkward card: no title, a wordy last ingredient, a method with no headi
   // Include notes, rather than parsed and dropped. `extra` used to be
   // read-only state seeded when the editor opened, so anything a photo
   // brought with it went straight on the floor.
+  // In the sheet, not the note behind it — the recipe autosaves as it
+  // imports (2026-09-15), so the note already carries the same words.
   await expect(
-    page.getByText(/whisk everything together/i),
+    page.getByRole('dialog').getByText(/whisk everything together/i),
     'the unheaded method is kept as a note rather than discarded',
   ).toBeVisible();
 });

@@ -44,6 +44,7 @@ export function ItemModal({
   rec,
   date: date0,
   text0,
+  dest0,
   onClose,
   onSaved,
 }: {
@@ -54,10 +55,16 @@ export function ItemModal({
   /** Pre-filled line for create mode — a tapped recipe ingredient or step
    *  arriving as a reminder-to-be (Sean, 2026-08-18). */
   text0?: string;
+  /**
+   * Where a NEW item starts out filed — a section or calendar id, mine or
+   * the partner's. The + on a partner's shared section passes that section,
+   * so "add to what I am looking at" needs no picking. Ignored in edit mode.
+   */
+  dest0?: string | null;
   onClose: () => void;
   onSaved?: (id: string, kind: ItemKind) => void;
 }) {
-  const { recs, mutate, sharedRecs } = useStore();
+  const { recs, mutate, sharedRecs, sharedPut, sharedPartner, sharedPartnerLabel } = useStore();
   const clock24 = useClock24();
   const today = todayStr();
   const [kind, setKind] = useState<ItemKind>(kind0);
@@ -76,8 +83,21 @@ export function ItemModal({
         dest: rec.type === 'event' ? (rec.payload as Rec<'event'>['payload']).calendarId : (rec.payload as Rec<'reminder'>['payload']).sectionId,
       };
     }
-    return { text: text0 ?? '', date: date0 ?? null, time: null, end: null, endDate: null, repeat: null, dest: null as string | null };
-  }, [mode, rec, date0, text0]);
+    return { text: text0 ?? '', date: date0 ?? null, time: null, end: null, endDate: null, repeat: null, dest: dest0 ?? null };
+  }, [mode, rec, date0, text0, dest0]);
+
+  /**
+   * THE PARTNER'S, not mine — and every write below follows this one bit.
+   *
+   * Sean, 2026-09-15: "allow users to modify and add events/reminders/notes to
+   * shared events/reminders/notes." A record that is in the partner's shared
+   * pull and not in my store is theirs: it saves and deletes through
+   * sharedPut (the server checks it stays inside what they share), its kind
+   * cannot be converted (a conversion is a new record and a tombstone across
+   * two stores), and it moves only among THEIR containers — moving it into
+   * mine would be a copy and a delete, not a move.
+   */
+  const sharedRec = mode === 'edit' && !!rec && !recs.some((r) => r.id === rec.id) && sharedRecs.some((r) => r.id === rec.id);
 
   const [text, setText] = useState(init.text);
   const [date, setDate] = useState<string | null>(init.date);
@@ -103,25 +123,40 @@ export function ItemModal({
   const [dest, setDest] = useState<string | null>(init.dest);
   const [err, setErr] = useState('');
 
-  const { calendars, sectionChoices } = useMemo(() => {
-    const folders = recs.filter((r): r is Rec<'folder'> => r.type === 'folder').sort(byRecOrd);
-    const sections = recs.filter((r): r is Rec<'section'> => r.type === 'section').sort(byRecOrd);
+  /**
+   * The destinations: mine, then the partner's shared ones.
+   *
+   * The partner's are back in the menu. They were taken out on Sean's word
+   * (2026-08-20: "adding events or reminders shouldn't show shared lists in
+   * the dropdown") and are put back on his later word (2026-09-15: "allow
+   * users to modify and add events/reminders/notes to shared
+   * events/reminders/notes") — the menu is the one place an item's home is
+   * chosen, so it is where adding to theirs has to be possible. They sit
+   * AFTER mine and every label leads with @partner, so whose list a row is
+   * about to land in is never a guess. For a record that is already theirs
+   * only their containers are offered (see sharedRec).
+   */
+  const { calendars, sectionChoices, sharedIds } = useMemo(() => {
     const app = kind === 'note' ? 'notes' : 'reminders';
-    return {
-      calendars: recs.filter((r): r is Rec<'calendar'> => r.type === 'calendar').sort(byRecOrd),
-      sectionChoices: folders
-        .filter((f) => (f.payload.app ?? 'reminders') === app)
-        .flatMap((f) => sections.filter((x) => x.payload.folderId === f.id).map((x) => ({ sec: x, label: `${f.payload.name} · ${x.payload.name}`, color: f.payload.color }))),
+    const choicesOf = (pool: typeof recs, prefix: string) => {
+      const folders = pool.filter((r): r is Rec<'folder'> => r.type === 'folder').sort(byRecOrd);
+      const sections = pool.filter((r): r is Rec<'section'> => r.type === 'section').sort(byRecOrd);
+      return {
+        calendars: pool.filter((r): r is Rec<'calendar'> => r.type === 'calendar').sort(byRecOrd)
+          .map((c) => ({ cal: c, label: `${prefix}${c.payload.name}` })),
+        sectionChoices: folders
+          .filter((f) => (f.payload.app ?? 'reminders') === app)
+          .flatMap((f) => sections.filter((x) => x.payload.folderId === f.id).map((x) => ({ sec: x, label: `${prefix}${f.payload.name} · ${x.payload.name}`, color: f.payload.color }))),
+      };
     };
-  }, [recs, kind]);
-
-  // NO shared destinations here any more. The suite's second picker pair —
-  // the partner's folders under mine, ids wearing a '~' — was carried over
-  // and then removed on Sean's word (2026-08-20: "adding events or reminders
-  // shouldn't show shared lists in the dropdown"). Adding INTO a partner's
-  // list still exists where the partner's list is what you are looking at:
-  // the shared folder view's own + (SharedReminders, sharedPut). Shared
-  // calendars were never offered (his earlier word, 2026-08-19).
+    const mine = sharedRec ? { calendars: [], sectionChoices: [] } : choicesOf(recs, '');
+    const theirs = sharedPartner ? choicesOf(sharedRecs, `@${sharedPartnerLabel ?? sharedPartner} · `) : { calendars: [], sectionChoices: [] };
+    return {
+      calendars: [...mine.calendars, ...theirs.calendars],
+      sectionChoices: [...mine.sectionChoices, ...theirs.sectionChoices],
+      sharedIds: new Set([...theirs.calendars.map((c) => c.cal.id), ...theirs.sectionChoices.map((c) => c.sec.id)]),
+    };
+  }, [recs, sharedRecs, sharedPartner, sharedPartnerLabel, sharedRec, kind]);
 
   // The record can go while this sheet is open — deleted on the phone while
   // the desktop still has it up, which the 30s pull brings in underneath.
@@ -139,7 +174,11 @@ export function ItemModal({
   /** The picked destination, falling back to the app default, then the first. */
   const resolvedDest = useMemo(() => {
     if (kind === 'event') {
-      return calendars.find((c) => c.id === dest) ?? calendars.find((c) => c.id === prefsOf(recs, 'calendar').defaultCalendarId) ?? calendars[0];
+      return (
+        calendars.find((c) => c.cal.id === dest)?.cal ??
+        calendars.find((c) => c.cal.id === prefsOf(recs, 'calendar').defaultCalendarId)?.cal ??
+        calendars[0]?.cal
+      );
     }
     const app = kind === 'note' ? ('notes' as const) : ('reminders' as const);
     return (
@@ -148,6 +187,8 @@ export function ItemModal({
       sectionChoices[0]?.sec
     );
   }, [kind, dest, calendars, sectionChoices, recs]);
+  /** Does the save land in the partner's store? Theirs to begin with, or filed into one of their containers. */
+  const toShared = sharedRec || (!!resolvedDest && sharedIds.has(resolvedDest.id));
 
   const save = () => {
     const raw = text.trim();
@@ -201,7 +242,8 @@ export function ItemModal({
     }
     // A changed kind on an existing item is a conversion — core's rules:
     // one-way into notes, reminder⇄event, subtasks keep the reminder home.
-    if (mode === 'edit' && rec && kind !== rec.type) {
+    // Never for a partner's record: the kind pills are not drawn for one.
+    if (mode === 'edit' && rec && kind !== rec.type && !sharedRec) {
       const freshId = newId();
       const res =
         kind === 'note'
@@ -240,44 +282,51 @@ export function ItemModal({
       return;
     }
     const id = mode === 'edit' && rec ? rec.id : newId();
-    if (mode === 'create' && resolvedDest) {
+    // Un-hiding the destination is a preference of MINE; a partner's list
+    // has no show/hide box of that kind here.
+    if (mode === 'create' && resolvedDest && !toShared) {
       const app = kind === 'event' ? ('calendar' as const) : kind === 'note' ? ('notes' as const) : ('reminders' as const);
       const container = kind === 'event' ? resolvedDest.id : (resolvedDest as Rec<'section'>).payload.folderId;
       const widen = showAgain(recs, app, container);
       if (widen) mutate((e) => e.put(widen));
     }
-    mutate((e) => {
-      if (kind === 'event') {
-        const payload: Rec<'event'>['payload'] = {
-          text: title, date: finalDate ?? today, time: finalTime, end: finalEnd, endDate: finalEndDate, repeat: finalRepeat,
-          calendarId: resolvedDest.id,
-          ord: mode === 'edit' && rec ? (rec.payload as { ord: string }).ord : ordBetween(null, null),
+    // ONE record, built once, then handed to whichever store it belongs to:
+    // mine through the engine, the partner's through sharedPut (which stamps
+    // it and reconciles). Building it twice for two sinks is how the two
+    // would drift.
+    let out: ItemRec;
+    if (kind === 'event') {
+      const payload: Rec<'event'>['payload'] = {
+        text: title, date: finalDate ?? today, time: finalTime, end: finalEnd, endDate: finalEndDate, repeat: finalRepeat,
+        calendarId: resolvedDest.id,
+        ord: mode === 'edit' && rec ? (rec.payload as { ord: string }).ord : ordBetween(null, null),
+      };
+      out = { id, type: 'event', updated: 0, payload };
+    } else {
+      const sec = resolvedDest as Rec<'section'>;
+      if (kind === 'reminder') {
+        const prev = mode === 'edit' && rec?.type === 'reminder' ? rec.payload : null;
+        out = {
+          id, type: 'reminder', updated: 0,
+          payload: {
+            text: title, due: finalDate, time: finalTime, done: prev?.done ?? false, repeat: finalRepeat,
+            folderId: sec.payload.folderId, sectionId: sec.id,
+            indent: prev?.indent ?? 0, ord: prev?.ord ?? ordBetween(null, null),
+          },
         };
-        e.put({ id, type: 'event', updated: 0, payload });
       } else {
-        const sec = resolvedDest as Rec<'section'>;
-        if (kind === 'reminder') {
-          const prev = mode === 'edit' && rec?.type === 'reminder' ? rec.payload : null;
-          e.put({
-            id, type: 'reminder', updated: 0,
-            payload: {
-              text: title, due: finalDate, time: finalTime, done: prev?.done ?? false, repeat: finalRepeat,
-              folderId: sec.payload.folderId, sectionId: sec.id,
-              indent: prev?.indent ?? 0, ord: prev?.ord ?? ordBetween(null, null),
-            },
-          });
-        } else {
-          const prev = mode === 'edit' && rec?.type === 'note' ? rec.payload : null;
-          e.put({
-            id, type: 'note', updated: 0,
-            payload: {
-              title, body: prev?.body ?? '', date: finalDate,
-              folderId: sec.payload.folderId, sectionId: sec.id, ord: prev?.ord ?? ordBetween(null, null),
-            },
-          });
-        }
+        const prev = mode === 'edit' && rec?.type === 'note' ? rec.payload : null;
+        out = {
+          id, type: 'note', updated: 0,
+          payload: {
+            title, body: prev?.body ?? '', date: finalDate,
+            folderId: sec.payload.folderId, sectionId: sec.id, ord: prev?.ord ?? ordBetween(null, null),
+          },
+        };
       }
-    });
+    }
+    if (toShared) void sharedPut(out);
+    else mutate((e) => e.put(out));
     onSaved?.(id, kind);
     onClose();
   };
@@ -289,7 +338,7 @@ export function ItemModal({
         <Pressable style={s.card} onPress={() => {}}>
           <Scroll contentContainerStyle={s.scroll}>
             <Text style={s.h2}>{mode === 'create' ? 'New' : 'Edit'}</Text>
-            {(mode === 'create' || rec?.type !== 'note') && (
+            {(mode === 'create' || rec?.type !== 'note') && !sharedRec && (
               <View style={s.rowWrap}>
                 {(['event', 'reminder', 'note'] as ItemKind[]).map((k) => (
                   <Pill key={k} testID={`kind-${k}`} label={k[0]!.toUpperCase() + k.slice(1)} primary={kind === k} onPress={() => { setKind(k); setDest(null); }} />
@@ -378,17 +427,21 @@ export function ItemModal({
                 <Dropdown
                   testID="item-dest"
                   value={resolvedDest?.id ?? null}
-                  options={calendars.map((c) => ({ id: c.id, label: c.payload.name, color: c.payload.color }))}
+                  options={calendars.map((c) => ({ id: c.cal.id, label: c.label, color: c.cal.payload.color }))}
                   onPick={setDest}
                 />
               ) : (
                 <Dropdown
+                  testID="item-dest"
                   value={resolvedDest?.id ?? null}
                   options={sectionChoices.map((c) => ({ id: c.sec.id, label: c.label, color: c.color }))}
                   onPick={setDest}
                 />
               )}
             </View>
+            {/* Said out loud, once the choice points at the partner's list:
+                the save is a write into THEIR store. */}
+            {toShared && <Text testID="item-shared-note" style={s.sharedNote}>Saves to @{sharedPartnerLabel ?? sharedPartner}'s list</Text>}
 
             {err !== '' && <Text style={s.err}>{err}</Text>}
             <View style={s.actions}>
@@ -396,7 +449,16 @@ export function ItemModal({
                   red — on Sean's word (2026-08-20): "make the delete button
                   on that edit screen match the delete button from the notes
                   screen." One component now, ui's DeletePill. */}
-              {mode === 'edit' && rec ? <DeletePill onDelete={() => { mutate((e) => e.del(rec.id)); onClose(); }} /> : <View />}
+              {/* A partner's record is deleted where it lives: a tombstone
+                  through sharedPut, which the server accepts inside the
+                  shared scope exactly as it accepts an edit. */}
+              {mode === 'edit' && rec ? (
+                <DeletePill onDelete={() => {
+                  if (sharedRec) void sharedPut({ ...rec, deleted: true });
+                  else mutate((e) => e.del(rec.id));
+                  onClose();
+                }} />
+              ) : <View />}
               <View style={s.actRight}>
                 <Pill label="Cancel" onPress={onClose} />
                 <Pill label="Save" primary onPress={save} />
@@ -423,9 +485,12 @@ const s = themed(() => StyleSheet.create({
   h2: { color: T.text, fontSize: 18, fontWeight: '700' },
   label: { color: T.dim, fontSize: 13 },
   rowWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center' },
-  miniField: { minWidth: 90, paddingVertical: 6 },
+  // Sized to a time ("12:30pm") and no wider, as the Add screen's is — one line
+  // for Time, start, "to", end and the ×.
+  miniField: { flex: 0, flexGrow: 0, flexBasis: 'auto', width: 92, minWidth: 0, paddingVertical: 6, paddingHorizontal: 10 },
   repN: { color: T.text, fontSize: 14, minWidth: 20, textAlign: 'center' },
   err: { color: T.danger, fontSize: 13 },
+  sharedNote: { color: T.accent, fontSize: 12, fontWeight: '600' },
   actions: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 6 },
   actRight: { flexDirection: 'row', gap: 8 },
 }));

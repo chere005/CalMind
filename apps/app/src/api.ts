@@ -71,8 +71,21 @@ export const changePassword = (s: Session, oldPass: string, newPass: string) =>
   apiPost<{ token: string }>(s.serverUrl, { action: 'change_password', old: oldPass, new: newPass }, s.token);
 export const logout = (s: Session) => apiPost(s.serverUrl, { action: 'logout' }, s.token).catch(() => null);
 
-/** The core engine's transport, bound to a session. */
-export const syncTransport = (s: Session): Transport => async (req: SyncRequest) => {
-  const r = await apiPost<SyncResponse>(s.serverUrl, { action: 'sync', cursor: req.cursor, changes: req.changes }, s.token);
+/**
+ * The core engine's transport, bound to a session — and to a SPACE.
+ *
+ * '' is this app's own store and sends no `space` at all, byte for byte the
+ * request it always sent. Anything else names one of the server's other
+ * stores for the same account (SYNC_SPACES in server/lib/app.php — 'chef' is
+ * ChefMind's), which the store reads through a second engine so recipes can
+ * be drawn here. Named on the request, never sanitised: the server whitelists
+ * it and answers 400 to a space it does not know.
+ */
+export const syncTransport = (s: Session, space = ''): Transport => async (req: SyncRequest) => {
+  const r = await apiPost<SyncResponse>(
+    s.serverUrl,
+    { action: 'sync', ...(space ? { space } : {}), cursor: req.cursor, changes: req.changes },
+    s.token,
+  );
   return { cursor: r.cursor, changes: r.changes, rejected: r.rejected };
 };

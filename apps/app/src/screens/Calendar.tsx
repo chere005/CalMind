@@ -781,7 +781,12 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
         {!folded.has('events:@') && sharedItems.events.map((e) => (
           <View key={`sh${e.id}`} style={s.row}>
             <View style={[s.dot, s.rowDot, { backgroundColor: sharedCalById.get(e.payload.calendarId)?.color ?? T.folderBlue }]} />
-            <Text numberOfLines={1} style={s.rowText}>{e.payload.text}</Text>
+            {/* A partner's row opens in the item sheet on a tap, and the
+                sheet saves it back to THEIR store (Sean, 2026-09-15: "modify
+                … shared events"). Their reminders and notes below, the same. */}
+            <Pressable testID="shared-event-row" style={s.rowBodyFlex} onPress={() => setModal({ mode: 'edit', kind: 'event', rec: e })}>
+              <Text numberOfLines={1} style={s.rowText}>{e.payload.text}</Text>
+            </Pressable>
             <Text style={s.chip}>{eventDayLabel(e.payload.date, e.payload.time, e.payload.endDate, e.payload.end, day, clock24)}</Text>
           </View>
         ))}
@@ -859,7 +864,9 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
             >
               {shTick.done(r) && <Text style={s.tickMark}>✓</Text>}
             </Pressable>
-            <Text numberOfLines={1} style={s.rowText}>{r.payload.text}</Text>
+            <Pressable testID="shared-reminder-row" style={s.rowBodyFlex} onPress={() => setModal({ mode: 'edit', kind: 'reminder', rec: r })}>
+              <Text numberOfLines={1} style={s.rowText}>{r.payload.text}</Text>
+            </Pressable>
             {overdue && <Text style={[s.chip, { color: T.overdue }]}>{dueLabel(r.payload.due!)}</Text>}
             {r.payload.time && <Text style={s.chip}>{timeLabel(r.payload.time, clock24)}</Text>}
           </View>
@@ -913,7 +920,9 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
         {!folded.has('notes:@') && sharedItems.notes.map((n) => (
           <View key={`sh${n.id}`} style={s.row}>
             <Text style={[s.markGlyph, { color: T.dim }]}>▤</Text>
-            <Text numberOfLines={1} style={s.rowText}>{n.payload.title}</Text>
+            <Pressable testID="shared-note-row" style={s.rowBodyFlex} onPress={() => setModal({ mode: 'edit', kind: 'note', rec: n })}>
+              <Text numberOfLines={1} style={s.rowText}>{n.payload.title}</Text>
+            </Pressable>
           </View>
         ))}
         {items.events.length + items.reminders.length + items.notes.length +

@@ -152,7 +152,7 @@ test('what was typed by hand survives closing the editor', async ({ page }) => {
   await page.getByTestId('ing-field').press('Enter');
   await page.getByTestId('step-field').fill('Fry until golden');
   await page.getByTestId('step-field').press('Enter');
-  await page.getByTestId('recipe-save').click();
+  await page.getByTestId('recipe-back').click();
 
   // Back through the editor: the note is what persists, so reopening it is
   // the only thing that proves the typing reached the note rather than a

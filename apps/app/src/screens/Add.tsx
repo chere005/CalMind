@@ -44,7 +44,7 @@ export function Add({
    *  both outrank it, exactly as ItemModal ranks its own date. */
   date0?: string | null;
 }) {
-  const { recs, mutate } = useStore();
+  const { recs, mutate, sharedRecs, sharedPut, sharedPartner, sharedPartnerLabel } = useStore();
   // EVENT first, on Sean's word (2026-08-12). The + used to open on Reminder
   // — the suite's order, kept because it was the suite's — and he asked for
   // the card that is actually reached for from this button.
@@ -82,17 +82,35 @@ export function Add({
   const baseDay = date0 ?? today;
   const todayLabel = new Date(`${baseDay}T12:00:00`).toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
 
-  const { sectionChoices, calendars } = useMemo(() => {
-    const folders = recs.filter((r): r is Rec<'folder'> => r.type === 'folder').sort(byRecOrd);
-    const sections = recs.filter((r): r is Rec<'section'> => r.type === 'section').sort(byRecOrd);
+  /**
+   * Mine, then the partner's shared containers, each of theirs labelled
+   * @partner — the same menu ItemModal draws, for the same reason (Sean,
+   * 2026-09-15: "allow users to… add events/reminders/notes to shared
+   * events/reminders/notes"; his 2026-08-20 word that took them out of this
+   * menu is superseded by it). Picking one of theirs sends the add through
+   * sharedPut into THEIR store; `sharedIds` is how the save knows.
+   */
+  const { sectionChoices, calendars, sharedIds } = useMemo(() => {
     const app = kind === 'note' ? 'notes' : 'reminders';
-    return {
-      sectionChoices: folders
-        .filter((f) => (f.payload.app ?? 'reminders') === app)
-        .flatMap((f) => sections.filter((x) => x.payload.folderId === f.id).map((x) => ({ sec: x, label: `${f.payload.name} · ${x.payload.name}`, color: f.payload.color }))),
-      calendars: recs.filter((r): r is Rec<'calendar'> => r.type === 'calendar').sort(byRecOrd),
+    const choicesOf = (pool: typeof recs, prefix: string) => {
+      const folders = pool.filter((r): r is Rec<'folder'> => r.type === 'folder').sort(byRecOrd);
+      const sections = pool.filter((r): r is Rec<'section'> => r.type === 'section').sort(byRecOrd);
+      return {
+        sectionChoices: folders
+          .filter((f) => (f.payload.app ?? 'reminders') === app)
+          .flatMap((f) => sections.filter((x) => x.payload.folderId === f.id).map((x) => ({ sec: x, label: `${prefix}${f.payload.name} · ${x.payload.name}`, color: f.payload.color }))),
+        calendars: pool.filter((r): r is Rec<'calendar'> => r.type === 'calendar').sort(byRecOrd)
+          .map((c) => ({ cal: c, label: `${prefix}${c.payload.name}` })),
+      };
     };
-  }, [recs, kind]);
+    const mine = choicesOf(recs, '');
+    const theirs = sharedPartner ? choicesOf(sharedRecs, `@${sharedPartnerLabel ?? sharedPartner} · `) : { sectionChoices: [], calendars: [] };
+    return {
+      sectionChoices: [...mine.sectionChoices, ...theirs.sectionChoices],
+      calendars: [...mine.calendars, ...theirs.calendars],
+      sharedIds: new Set([...theirs.calendars.map((c) => c.cal.id), ...theirs.sectionChoices.map((c) => c.sec.id)]),
+    };
+  }, [recs, sharedRecs, sharedPartner, sharedPartnerLabel, kind]);
 
   const add = (): boolean => {
     const raw = text.trim();
@@ -135,35 +153,52 @@ export function Add({
     const endDate = kind === 'event' ? normalizeEndDate(date ?? today, endDatePicked) : null;
     const title = clean || raw;
     let createdNoteId: string | null = null;
-    mutate((e) => {
-      if (kind === 'event') {
-        const cal = calendars.find((c) => c.id === destId) ?? calendars.find((c) => c.id === prefsOf(recs, 'calendar').defaultCalendarId) ?? calendars[0]!;
+    // The record is built once and handed to the store it belongs to — mine
+    // through the engine, the partner's through sharedPut when the chosen
+    // container is one of theirs. Un-hiding the destination is a preference
+    // of MINE, so it happens only on my side.
+    let out: Rec<'event'> | Rec<'reminder'> | Rec<'note'>;
+    let toShared = false;
+    if (kind === 'event') {
+      const cal =
+        calendars.find((c) => c.cal.id === destId)?.cal ??
+        calendars.find((c) => c.cal.id === prefsOf(recs, 'calendar').defaultCalendarId)?.cal ??
+        calendars[0]!.cal;
+      toShared = sharedIds.has(cal.id);
+      out = { id: newId(), type: 'event', updated: 0, payload: { text: title, date: date ?? today, time, end, endDate, repeat, calendarId: cal.id, ord: ordBetween(null, null) } };
+      if (!toShared) {
         // Whatever you just added has to be visible afterwards.
         const widen = showAgain(recs, 'calendar', cal.id);
-        if (widen) e.put(widen);
-        e.put({ id: newId(), type: 'event', updated: 0, payload: { text: title, date: date ?? today, time, end, endDate, repeat, calendarId: cal.id, ord: ordBetween(null, null) } });
-      } else {
-        const app = kind === 'note' ? ('notes' as const) : ('reminders' as const);
-        const pick =
-          sectionChoices.find((c) => c.sec.id === destId) ??
-          sectionChoices.find((c) => c.sec.id === prefsOf(recs, app).defaultSectionId) ??
-          sectionChoices[0]!;
-        const { folderId } = pick.sec.payload;
-        const widen = showAgain(recs, kind === 'reminder' ? 'reminders' : 'notes', folderId);
-        if (widen) e.put(widen);
-        if (kind === 'reminder') {
-          // `date ?? today`, matching what the event above has always done.
-          // A reminder filed from here with no date landed undated, which puts
-          // it in the all-view and on no day — Sean asked for today, which is
-          // also the only day this button can mean.
-          e.put({ id: newId(), type: 'reminder', updated: 0, payload: { text: title, due: date ?? today, time, done: false, repeat, folderId, sectionId: pick.sec.id, indent: 0, ord: ordBetween(null, null) } });
-        } else {
-          const noteId = newId();
-          e.put({ id: noteId, type: 'note', updated: 0, payload: { title, body: '', date, folderId, sectionId: pick.sec.id, ord: ordBetween(null, null) } });
-          createdNoteId = noteId;
-        }
+        if (widen) mutate((e) => e.put(widen));
       }
-    });
+    } else {
+      const app = kind === 'note' ? ('notes' as const) : ('reminders' as const);
+      const pick =
+        sectionChoices.find((c) => c.sec.id === destId) ??
+        sectionChoices.find((c) => c.sec.id === prefsOf(recs, app).defaultSectionId) ??
+        sectionChoices[0]!;
+      const { folderId } = pick.sec.payload;
+      toShared = sharedIds.has(pick.sec.id);
+      if (!toShared) {
+        const widen = showAgain(recs, kind === 'reminder' ? 'reminders' : 'notes', folderId);
+        if (widen) mutate((e) => e.put(widen));
+      }
+      if (kind === 'reminder') {
+        // `date ?? today`, matching what the event above has always done.
+        // A reminder filed from here with no date landed undated, which puts
+        // it in the all-view and on no day — Sean asked for today, which is
+        // also the only day this button can mean.
+        out = { id: newId(), type: 'reminder', updated: 0, payload: { text: title, due: date ?? today, time, done: false, repeat, folderId, sectionId: pick.sec.id, indent: 0, ord: ordBetween(null, null) } };
+      } else {
+        const noteId = newId();
+        out = { id: noteId, type: 'note', updated: 0, payload: { title, body: '', date, folderId, sectionId: pick.sec.id, ord: ordBetween(null, null) } };
+        // A note of MINE opens in the editor; one filed into the partner's
+        // folder stays where it landed — the editor is for my store.
+        if (!toShared) createdNoteId = noteId;
+      }
+    }
+    if (toShared) void sharedPut(out);
+    else mutate((e) => e.put(out));
     setText('');
     if (createdNoteId) {
       onNoteCreated?.(createdNoteId);
@@ -211,16 +246,22 @@ export function Add({
           {kind === 'event' ? (
             <Dropdown
               testID="add-dest"
-              value={destId ?? calendars[0]?.id ?? null}
-              options={calendars.map((c) => ({ id: c.id, label: c.payload.name, color: c.payload.color }))}
+              value={destId ?? calendars[0]?.cal.id ?? null}
+              options={calendars.map((c) => ({ id: c.cal.id, label: c.label, color: c.cal.payload.color }))}
               onPick={setDestId}
             />
           ) : (
             <Dropdown
+              testID="add-dest"
               value={destId ?? sectionChoices[0]?.sec.id ?? null}
               options={sectionChoices.map((c) => ({ id: c.sec.id, label: c.label, color: c.color }))}
               onPick={setDestId}
             />
+          )}
+          {/* Said out loud once the choice is the partner's: this add is a
+              write into THEIR store. */}
+          {destId !== null && sharedIds.has(destId) && (
+            <Text testID="add-shared-note" style={s.sharedNote}>Saves to @{sharedPartnerLabel ?? sharedPartner}'s list</Text>
           )}
         </View>
 
@@ -382,9 +423,14 @@ const s = themed(() => StyleSheet.create({
   panelInline: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   panelInlineMain: { flex: 1, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
   panelLabel: { color: T.dim, fontSize: 13 },
-  miniField: { minWidth: 78, paddingVertical: 8 },
+  // A time is at most seven characters ("12:30pm"), so the field is sized to
+  // that and no wider — Sean, 2026-09-15: "make the time fields smaller so
+  // they fit on one line." Field's own flex made each one take the row, so
+  // Time, its start, "to" and its end wrapped onto two lines at 480.
+  miniField: { flex: 0, flexGrow: 0, flexBasis: 'auto', width: 92, minWidth: 0, paddingVertical: 8, paddingHorizontal: 10 },
   repN: { color: T.text, fontSize: 14, minWidth: 20, textAlign: 'center' },
   err: { color: T.danger, fontSize: 13 },
+  sharedNote: { color: T.accent, fontSize: 12, fontWeight: '600', marginTop: 6 },
   doneBtn: {
     backgroundColor: T.accent,
     borderRadius: 14,

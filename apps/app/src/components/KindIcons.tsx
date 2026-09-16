@@ -37,6 +37,29 @@ export function PageGlyph({ color, size = 11 }: { color: string; size?: number }
   );
 }
 
+/**
+ * A chef's toque — the ChefMind mark. Drawn right of a Notes section whose
+ * recipes live in ChefMind's store (Sean, 2026-09-15: "a chef hat icon to the
+ * right to indicate they are coming from ChefMind"). A puffed crown over a
+ * band, stroke only like the rest of this file, so it reads at 14pt beside a
+ * section name without turning into a blob.
+ */
+export function ChefHatGlyph({ color = T.dim, size = 14 }: { color?: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24">
+      <Path
+        d="M 7 17 V 12.6 A 3.4 3.4 0 0 1 6.4 6 A 3.8 3.8 0 0 1 12 4.2 A 3.8 3.8 0 0 1 17.6 6 A 3.4 3.4 0 0 1 17 12.6 V 17 Z"
+        fill="none"
+        stroke={color}
+        strokeWidth={1.8}
+        strokeLinejoin="round"
+      />
+      <Path d="M 7 17 H 17 M 7 20 H 17" stroke={color} strokeWidth={1.8} strokeLinecap="round" />
+      <Path d="M 7 17 V 20 M 17 17 V 20" stroke={color} strokeWidth={1.8} />
+    </Svg>
+  );
+}
+
 // ---------------------------------------------------------------- tab bar
 
 export function TickCircleIcon({ size = 20, color = T.accent }: { size?: number; color?: string }) {

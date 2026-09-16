@@ -40,8 +40,8 @@ test('scaling reads the recipe differently and writes nothing', async ({ page })
   // A recipe is a note the Recipe page SAVED (2026-08-19) — typed markers
   // alone stay plain, so convert before expecting the scale row.
   await page.getByTestId('recipe-import').click();
-  await expect(page.getByTestId('recipe-save')).toBeVisible({ timeout: 10_000 });
-  await page.getByTestId('recipe-save').click();
+  await expect(page.getByTestId('recipe-back')).toBeVisible({ timeout: 10_000 });
+  await page.getByTestId('recipe-back').click();
 
   const body = page.getByTestId('note-body-view');
   await expect(page.getByTestId('scale-row')).toBeVisible();
@@ -96,8 +96,8 @@ test('scaling never reaches the stored recipe, even through the Recipe editor', 
   await page.getByTestId('note-title').click();
   // Convert — a recipe is a note the Recipe page saved (2026-08-19).
   await page.getByTestId('recipe-import').click();
-  await expect(page.getByTestId('recipe-save')).toBeVisible({ timeout: 10_000 });
-  await page.getByTestId('recipe-save').click();
+  await expect(page.getByTestId('recipe-back')).toBeVisible({ timeout: 10_000 });
+  await page.getByTestId('recipe-back').click();
 
   // Double it, then open the structured editor and save from there. This is
   // the path where a doubling could be written back permanently: the editor
@@ -105,12 +105,12 @@ test('scaling never reaches the stored recipe, even through the Recipe editor', 
   await page.getByTestId('scale-double').click();
   await expect(page.getByTestId('note-body-view').getByTestId('ing-unit').first()).toHaveText('4 cups');
   await page.getByTestId('recipe-import').click();
-  await expect(page.getByTestId('recipe-save')).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByTestId('recipe-back')).toBeVisible({ timeout: 10_000 });
   // Name in the row, measure in the badge — together they are the claim.
   const flourRow = page.getByTestId('ing-row').filter({ hasText: 'flour' });
   await expect(flourRow, 'the editor shows what the note says, not what the scale was showing').toContainText('flour');
   await expect(flourRow.getByTestId('ing-unit')).toHaveText('2 cups');
-  await page.getByTestId('recipe-save').click();
+  await page.getByTestId('recipe-back').click();
 
   // Back on the note, and still two cups — through a reload, so this is the
   // stored record and not a stale screen.

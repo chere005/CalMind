@@ -111,7 +111,7 @@ test('the toast stays on top of a sheet (Sean: "just make the toast always on to
   await page.getByTestId('note-copymd').click();
   await expect(page.getByTestId('toast')).toBeVisible();
   await page.getByTestId('recipe-import').click();
-  await expect(page.getByTestId('recipe-save'), 'the sheet is open').toBeVisible({ timeout: 10_000 });
+  await expect(page.getByTestId('recipe-back'), 'the sheet is open').toBeVisible({ timeout: 10_000 });
   await expect(page.getByTestId('toast'), 'and the toast outlives its arrival').toBeVisible();
   const zs = await page.getByTestId('toast').evaluate((el) => {
     let fill: HTMLElement | null = el as HTMLElement;
@@ -125,7 +125,7 @@ test('the toast stays on top of a sheet (Sean: "just make the toast always on to
         cs.isolation === 'isolate' || cs.contain.includes('paint') || cs.contain.includes('strict');
       if (makesContext) capping.push(`${a.tagName}:${cs.zIndex}`);
     }
-    const modal = [...document.body.children].find((c) => c !== document.querySelector('#root') && c.querySelector('[data-testid="recipe-save"]'));
+    const modal = [...document.body.children].find((c) => c !== document.querySelector('#root') && c.querySelector('[data-testid="recipe-back"]'));
     return {
       fillZ: fill ? getComputedStyle(fill).zIndex : null,
       capping,
