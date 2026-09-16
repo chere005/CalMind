@@ -151,7 +151,7 @@ function NoteBody({ body, recipe, onLine }: { body: string; recipe: boolean; onL
 }
 
 export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | null; onOpenConsumed?: () => void }) {
-  const { recs, mutate, sharedRecs, sharedPartnerLabel, syncState, persistFailed, chefRecs, chefMutate } = useStore();
+  const { recs, mutate, sharedRecs, sharedPartnerLabel, syncState, persistFailed, chefRecs } = useStore();
   const nav = useNav();
   const { view, visible: visibleFolders, visibleShared, sharedView, sharedPartner } = useFolderView('notes');
   const setNotePrefs = (lastView: string) => mutate((e) => e.put(prefsPut(recs, 'notes', { lastView })));
@@ -414,11 +414,14 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
    * folders are. The hat right of each section name is the whole of the
    * marking; the badge on the folder head names the app.
    *
-   * Written back the same way they arrive: an edit to one of these goes
-   * through chefMutate and reaches ChefMind on the next sync. Nothing here
-   * copies a recipe into my store, and nothing of mine leaks into theirs —
-   * which store a note belongs to is decided by its id (isChef), never by
-   * where on the screen it was tapped.
+   * READ HERE, NEVER WRITTEN. Sean, later the same day: "disable editing
+   * ChefMind recipes from CalMind." A tap opens the recipe in a reader
+   * (ChefRecipeView) — title, card, the scale buttons a cook wants — with no
+   * editor, no +, no delete; ChefMind is where a recipe is changed. The
+   * store keeps only a read model of that space (chefRecs) and no way to
+   * write it, so nothing here can copy a recipe into my store or leak one
+   * of mine into theirs. Which store a note belongs to is decided by which
+   * list it was found in (open vs chefOpen), never by where it was tapped.
    */
   const chef = useMemo(() => {
     const cFolders = chefRecs
@@ -430,10 +433,8 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
       folders: cFolders,
       sectionsOf: (fid: string) => cSections.filter((x) => x.payload.folderId === fid),
       notesOf: (sid: string) => cNotes.filter((x) => x.payload.sectionId === sid),
-      ids: new Set(chefRecs.map((r) => r.id)),
     };
   }, [chefRecs]);
-  const isChef = (id: string) => chef.ids.has(id);
 
   /** Every section, so the button can both act and show which way it points. */
   const mySectionIds = folders.flatMap((f) => sectionsOf(f.id).map((x) => x.id));
@@ -501,19 +502,10 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
     if (res.error === 'a folder keeps its last section') setEmptyAsk({ sectionId, slot });
   });
 
-  // Mine first, then ChefMind's: a recipe opened from under the hat is
-  // edited in this same editor, and every write to it below goes through
-  // mutateOpen — ChefMind's engine for ChefMind's note, mine for mine.
-  const open = openId
-    ? ((recs.find((r) => r.id === openId) ?? chefRecs.find((r) => r.id === openId)) as Rec<'note'> | undefined)
-    : undefined;
-  const openIsChef = !!open && isChef(open.id);
-  const mutateOpen = openIsChef ? chefMutate : mutate;
-  // The containers a note may move between are its OWN store's: ChefMind's
-  // folders for a ChefMind recipe, mine for mine. Moving a record across
-  // stores is not a move, it is a copy and a delete, and this editor does
-  // neither.
-  const originRecs = openIsChef ? chefRecs : recs;
+  const open = openId ? (recs.find((r) => r.id === openId) as Rec<'note'> | undefined) : undefined;
+  // A ChefMind recipe opened from under the hat is READ in ChefRecipeView,
+  // never edited here — see `chef`.
+  const chefOpen = openId && !open ? (chefRecs.find((r) => r.id === openId && r.type === 'note') as Rec<'note'> | undefined) : undefined;
   /** Nobody has named this note yet — it still wears the date it was born with. */
   const generatedTitle = !!open && looksLikeDefaultNoteTitle(open.payload.title);
   // Only OUR bodies scale — the markers are what say the ingredients have
@@ -522,14 +514,14 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
   const shownBody = open ? (scale === 1 ? open.payload.body : scaleRecipeBody(open.payload.body, scale)) : '';
 
   const goesChoices = useMemo(() => {
-    const allFolders = originRecs
+    const allFolders = recs
       .filter((r): r is Rec<'folder'> => r.type === 'folder' && (r.payload.app ?? 'reminders') === 'notes')
       .sort(byRecOrd);
-    const allSections = originRecs.filter((r): r is Rec<'section'> => r.type === 'section').sort(byRecOrd);
+    const allSections = recs.filter((r): r is Rec<'section'> => r.type === 'section').sort(byRecOrd);
     return allFolders.flatMap((f) =>
       allSections.filter((x) => x.payload.folderId === f.id).map((x) => ({ sec: x, label: `${f.payload.name} · ${x.payload.name}` })),
     );
-  }, [originRecs]);
+  }, [recs]);
   const noteFolderOptions = useMemo(() => {
     const seen = new Map<string, string>();
     for (const c of goesChoices) {
@@ -586,39 +578,24 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
     setOpenId(id);
   };
 
-  /**
-   * The same +, on one of ChefMind's sections: the recipe is born in
-   * ChefMind's store — its folder, its section, its ord — and opens here
-   * ready to type, exactly as one of mine does. `recipe` is left unset; the
-   * Recipe page is the one place a note becomes a recipe, there as here.
-   */
-  const addChefNote = (section: Rec<'section'>) => {
-    const id = newId();
-    chefMutate((e) => {
-      const first = chef.notesOf(section.id)[0];
-      e.put({
-        id, type: 'note', updated: 0,
-        payload: { title: defaultNoteTitle(), body: '', date: null, folderId: section.payload.folderId, sectionId: section.id, ord: ordBetween(null, first?.payload.ord ?? null) },
-      });
-    });
-    freshEdit.current = id;
-    setOpenId(id);
-  };
-
   const wrapSel = (before: string, after = before) => {
     if (!open) return;
     const b = open.payload.body;
     const { start, end } = sel;
     const next = b.slice(0, start) + before + b.slice(start, end) + after + b.slice(end);
-    mutateOpen((e) => e.put({ ...open, payload: { ...open.payload, body: next } }));
+    mutate((e) => e.put({ ...open, payload: { ...open.payload, body: next } }));
   };
   const linePrefix = (marker: string) => {
     if (!open) return;
     const b = open.payload.body;
     const at = b.lastIndexOf('\n', Math.max(0, sel.start - 1)) + 1;
     const next = b.slice(0, at) + marker + b.slice(at);
-    mutateOpen((e) => e.put({ ...open, payload: { ...open.payload, body: next } }));
+    mutate((e) => e.put({ ...open, payload: { ...open.payload, body: next } }));
   };
+
+  if (chefOpen) {
+    return <ChefRecipeView note={chefOpen} onBack={() => setOpenId(null)} />;
+  }
 
   if (sharedView && sharedPartner) {
     return <SharedNotes viewKey={sharedView} partner={sharedPartner} />;
@@ -668,7 +645,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
             options={noteFolderOptions}
             onPick={(fid) => {
               const firstSec = goesChoices.find((c) => c.sec.payload.folderId === fid)?.sec;
-              if (firstSec) mutateOpen((e) => e.put({ ...open, payload: { ...open.payload, folderId: fid, sectionId: firstSec.id } }));
+              if (firstSec) mutate((e) => e.put({ ...open, payload: { ...open.payload, folderId: fid, sectionId: firstSec.id } }));
             }}
           />
           <Dropdown
@@ -676,7 +653,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
             options={goesChoices.filter((c) => c.sec.payload.folderId === open.payload.folderId).map((c) => ({ id: c.sec.id, label: c.sec.payload.name }))}
             onPick={(sid) => {
               const sec = goesChoices.find((c) => c.sec.id === sid)?.sec;
-              if (sec) mutateOpen((e) => e.put({ ...open, payload: { ...open.payload, folderId: sec.payload.folderId, sectionId: sec.id } }));
+              if (sec) mutate((e) => e.put({ ...open, payload: { ...open.payload, folderId: sec.payload.folderId, sectionId: sec.id } }));
             }}
             gold
           />
@@ -749,15 +726,15 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
                 // every note nobody renamed onto the calendar.
                 if (!raw || open.payload.date || looksLikeDefaultNoteTitle(raw)) return;
                 const [title, date] = parseWhenFromText(raw, todayStr(), nowStr());
-                if (date) mutateOpen((e) => e.put({ ...open, payload: { ...open.payload, title: title || raw, date } }));
+                if (date) mutate((e) => e.put({ ...open, payload: { ...open.payload, title: title || raw, date } }));
               }}
               onChangeText={(t) => {
                 setTitleDraft(t);
-                mutateOpen((e) => e.put({ ...open, payload: { ...open.payload, title: t } }));
+                mutate((e) => e.put({ ...open, payload: { ...open.payload, title: t } }));
               }}
             />
             {open.payload.date ? (
-              <Pressable style={s.addDate} onPress={() => mutateOpen((e) => e.put({ ...open, payload: { ...open.payload, date: null } }))}>
+              <Pressable style={s.addDate} onPress={() => mutate((e) => e.put({ ...open, payload: { ...open.payload, date: null } }))}>
                 <Text style={s.addDateText}>{open.payload.date} ×</Text>
               </Pressable>
             ) : (
@@ -790,7 +767,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
             <View style={s.metaRow}>
               <Pill
                 label="Today"
-                onPress={() => { mutateOpen((e) => e.put({ ...open, payload: { ...open.payload, date: todayStr() } })); setDateOpen(false); }}
+                onPress={() => { mutate((e) => e.put({ ...open, payload: { ...open.payload, date: todayStr() } })); setDateOpen(false); }}
               />
               {/* The circle-with-a-calendar — "the m/d text box should be a
                   calendar picker in add date on notes app" (Sean, 2026-08-20). */}
@@ -800,7 +777,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
           {edPickOpen && (
             <DayPick
               value={open.payload.date}
-              onPick={(d) => { mutateOpen((e) => e.put({ ...open, payload: { ...open.payload, date: d } })); setDateOpen(false); }}
+              onPick={(d) => { mutate((e) => e.put({ ...open, payload: { ...open.payload, date: d } })); setDateOpen(false); }}
               onClose={() => setEdPickOpen(false)}
             />
           )}
@@ -825,7 +802,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
             (() => {
               const es = splitRecipeBody(open.payload.body)!;
               const put = (before: string, after: string) =>
-                mutateOpen((e) => e.put({ ...open, payload: { ...open.payload, body: joinRecipeBody(before, es.recipe, after) } }));
+                mutate((e) => e.put({ ...open, payload: { ...open.payload, body: joinRecipeBody(before, es.recipe, after) } }));
               return (
                 <View style={s.body}>
                   <TextInput
@@ -891,7 +868,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
               onSelectionChange={(ev) => setSel(ev.nativeEvent.selection)}
               onChangeText={(t) => {
                 setDraft(t);
-                mutateOpen((e) => e.put({ ...open, payload: { ...open.payload, body: t } }));
+                mutate((e) => e.put({ ...open, payload: { ...open.payload, body: t } }));
               }}
             />
           ) : (
@@ -926,12 +903,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
           )}
 
           {recipeOpen && (
-            <RecipeEditor
-              note={open}
-              onClose={() => setRecipeOpen(false)}
-              // A ChefMind recipe saves back to ChefMind — see RecipeEditor's `put`.
-              put={openIsChef ? (rec) => chefMutate((e) => e.put(rec)) : undefined}
-            />
+            <RecipeEditor note={open} onClose={() => setRecipeOpen(false)} />
           )}
           {/* A tapped ingredient or step, on its way to being a reminder —
               today by default, and the manual-beats-parsed rules apply to
@@ -978,7 +950,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
                   (Sean, 2026-08-20). Keyed by note so arming one can never
                   prime the next (armeddelete.spec), which useNoteScoped did
                   for the old inline version. */}
-              <DeletePill key={open.id} onDelete={() => { setOpenId(null); mutateOpen((e) => e.del(open.id)); }} />
+              <DeletePill key={open.id} onDelete={() => { setOpenId(null); mutate((e) => e.del(open.id)); }} />
             </View>
           </View>
         </Scroll>
@@ -1173,10 +1145,9 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
         ))}
         {/* ChefMind's recipes, under All, after my folders and before the
             partner's: their folders, their sections, the hat right of each
-            section name saying whose they are. No grips, no swipe, no rename
-            — the structure is ChefMind's to arrange — but a + per section
-            (a recipe can start here) and a tap opens the recipe in the
-            editor above, writing back to ChefMind. See `chef`. */}
+            section name saying whose they are. No grips, no swipe, no rename,
+            no + — the recipes are ChefMind's to change — and a tap opens the
+            recipe in ChefRecipeView, a reader. See `chef`. */}
         {view === 'all' && chef.folders.map((f) => (
           <View key={`chef${f.id}`} style={s.folderBlock} testID={`chef-folder-${f.payload.name}`}>
             <View testID={`head-fold-chef-${f.payload.name}`} style={s.folderHead}>
@@ -1207,7 +1178,6 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
                   <View testID={`chef-hat-${sec.payload.name}`} style={s.chefHat} accessibilityLabel="From ChefMind">
                     <ChefHatGlyph color={T.gold} size={14} />
                   </View>
-                  <CircleBtn testID={`chef-secadd-${sec.payload.name}`} glyph="+" label="Add a recipe" color={T.accent} size={22} onPress={() => addChefNote(sec)} />
                 </View>
                 {!nfolded.has(`chef:${sec.id}`) && chef.notesOf(sec.id).map((n) => (
                   <View key={n.id} style={[s.row, s.sharedRow]}>
@@ -1364,6 +1334,54 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
     </View>
   );
 }
+
+/**
+ * A ChefMind recipe, READ. Sean, 2026-09-15: "disable editing ChefMind
+ * recipes from CalMind." What a cook wants from a recipe on this screen —
+ * the title, the card, half/double — and nothing that writes: no title
+ * field, no body editor, no Recipe page, no delete. ChefMind is where a
+ * recipe is changed; this app only draws what that app holds. Tapping an
+ * ingredient still makes a reminder of MINE (the item sheet, my store) —
+ * that is CalMind's own feature and touches nothing of ChefMind's.
+ */
+function ChefRecipeView({ note, onBack }: { note: Rec<'note'>; onBack: () => void }) {
+  const [scale, setScale] = useState(1);
+  const [remindText, setRemindText] = useState<string | null>(null);
+  const isRecipe = isRecipeNote(note.payload);
+  const body = scale === 1 ? note.payload.body : scaleRecipeBody(note.payload.body, scale);
+  return (
+    <View style={s.page} testID="chef-note-view">
+      <View style={s.edHead}>
+        <CircleBtn testID="chef-note-back" glyph="‹" size={TOPBAR_CTRL} label="Back" onPress={onBack} />
+        <View style={s.chefBadge}>
+          <ChefHatGlyph color={T.accent} size={13} />
+          <Text style={s.chefBadgeText}>ChefMind</Text>
+        </View>
+      </View>
+      <Scroll contentContainerStyle={s.editor}>
+        <Text style={s.sharedTitle} testID="chef-note-title">{note.payload.title}</Text>
+        {note.payload.date && <Text style={s.sharedDate}>{note.payload.date}</Text>}
+        {isRecipe && (
+          <View testID="chef-scale-row" style={s.scaleRow}>
+            {SCALES.map(([f, label, id]) => (
+              <Pressable key={id} testID={`chef-scale-${id}`} style={[s.scalePill, scale === f && s.scalePillOn]} onPress={() => setScale(f)} hitSlop={6}>
+                <Text style={[s.scaleText, scale === f && s.scaleTextOn]}>{label}</Text>
+              </Pressable>
+            ))}
+          </View>
+        )}
+        <View style={s.body} testID="chef-note-body">
+          {body === '' ? <Text style={s.bodyPlaceholder}>Nothing written yet</Text> : <NoteBody body={body} recipe={isRecipe} onLine={(t) => setRemindText(t)} />}
+        </View>
+        <Text style={s.chefReadOnly}>Edited in ChefMind</Text>
+      </Scroll>
+      {remindText !== null && (
+        <ItemModal mode="create" kind="reminder" text0={remindText} date={todayStr()} onClose={() => setRemindText(null)} />
+      )}
+    </View>
+  );
+}
+
 
 /**
  * A partner's shared note folder: their sections and rows, read-only — a tap
@@ -1582,6 +1600,8 @@ const s = themed(() => StyleSheet.create({
   // The hat right of a ChefMind section's name — the same 20x20 box the
   // chevron gets, so it lines up with the controls beside it.
   chefHat: { width: 20, height: 20, alignItems: 'center', justifyContent: 'center' },
+  // The one line under a ChefMind recipe that says where it is edited.
+  chefReadOnly: { color: T.muted, fontSize: 12, alignSelf: 'flex-end', marginTop: 6 },
   folderRule: { flex: 1, height: 1, backgroundColor: T.lineSoft },
   section: { gap: 6 },
   secHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },

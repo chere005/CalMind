@@ -12,11 +12,11 @@ import { expect, test, type Page } from '@playwright/test';
  *
  *   1. the recipe is DRAWN — its folder wears the ChefMind badge, its section
  *      the hat, its row opens the ordinary editor;
- *   2. an edit and an add made here land in ChefMind's space and NOT in mine.
- *      A build that put the recipe through the wrong engine would render
- *      identically and copy every edited recipe into my own notes, which is
- *      the bug the second engine exists to make impossible — so the assertion
- *      is made against both stores, over the API, not against the screen.
+ *   2. opening one WRITES NOTHING — not to ChefMind's space, not to mine.
+ *      Sean, later the same day: "disable editing ChefMind recipes from
+ *      CalMind." A build that still routed a tap into the editor would look
+ *      right on screen and change ChefMind's store, so both stores are read
+ *      back over the API.
  */
 const API = 'http://127.0.0.1:8790/calmind/api/index.php';
 const SESSION_KEY = 'calmind.session@127.0.0.1_8790_calmind';
@@ -52,7 +52,7 @@ async function sync(page: Page, tok: string, space: string, changes: Rec[] = [])
   return body.changes;
 }
 
-test("ChefMind's recipes show under the hat, and edits made here go back to ChefMind", async ({ page }) => {
+test("ChefMind's recipes show under the hat, read-only — opening one writes nothing anywhere", async ({ page }) => {
   test.setTimeout(120_000);
   await signup(page);
   const tok = await token(page);
@@ -82,30 +82,27 @@ test("ChefMind's recipes show under the hat, and edits made here go back to Chef
   const hatBox = (await page.getByTestId('chef-hat-Pasta').boundingBox())!;
   expect(hatBox.x, 'hat is right of the section name').toBeGreaterThan(nameBox.x + nameBox.width - 1);
 
-  // Open it, rename it, leave.
+  // Open it: a READER, not the editor (Sean, later that day: "disable editing
+  // ChefMind recipes from CalMind"). No title field, no body editor, no +.
   await row.click();
-  await expect(page.getByTestId('note-title')).toHaveValue('Cacio e Pepe');
-  await page.getByTestId('note-title').fill('Cacio e Pepe (ours)');
-  await page.getByTestId('note-back').click();
-  await expect(page.getByTestId('chef-note-row').filter({ hasText: 'Cacio e Pepe (ours)' })).toBeVisible();
+  await expect(page.getByTestId('chef-note-view')).toBeVisible();
+  await expect(page.getByTestId('chef-note-title')).toHaveText('Cacio e Pepe');
+  await expect(page.getByTestId('chef-note-body')).toContainText('Pecorino');
+  await expect(page.getByTestId('note-title'), 'no title field on a ChefMind recipe').toHaveCount(0);
+  await expect(page.getByTestId('note-body-view'), 'no body editor either').toHaveCount(0);
+  await page.getByTestId('chef-note-back').click();
+  await expect(row).toBeVisible();
+  await expect(page.getByTestId(/^chef-secadd-/), 'no + on a ChefMind section').toHaveCount(0);
 
-  // …and add one under the hat.
-  await page.getByTestId('chef-secadd-Pasta').click();
-  await page.getByTestId('note-title').fill('Gnocchi');
-  await page.getByTestId('note-back').click();
-  await expect(page.getByTestId('chef-note-row').filter({ hasText: 'Gnocchi' })).toBeVisible();
-
-  // The edits push themselves (the store debounces a sync 800ms after a
-  // write); read BOTH stores back over the API once they have landed.
-  await expect.poll(async () => {
-    const chef = await sync(page, tok, 'chef');
-    const renamed = chef.find((r) => r.id === recipe.id);
-    const added = chef.find((r) => r.type === 'note' && r.payload['title'] === 'Gnocchi' && !r.deleted);
-    return renamed?.payload['title'] === 'Cacio e Pepe (ours)' && !!added;
-  }, { message: "ChefMind's space holds the rename and the new recipe", timeout: 20_000 }).toBe(true);
-
+  // Nothing was written anywhere: ChefMind's record is byte-for-byte what was
+  // seeded (same stamp), and my own store never gained a copy.
+  await page.waitForTimeout(2500); // past the store's 800ms push debounce, had anything been dirty
+  const chef = await sync(page, tok, 'chef');
+  const held = chef.find((r) => r.id === recipe.id)!;
+  expect(held.updated, "ChefMind's recipe was not touched").toBe(now);
+  expect(held.payload['title']).toBe('Cacio e Pepe');
+  expect(chef.filter((r) => r.type === 'note').length, 'no recipe was added to ChefMind').toBe(1);
   const mine = await sync(page, tok, '');
   expect(mine.some((r) => r.id === recipe.id), 'the recipe was never copied into my own store').toBe(false);
-  expect(mine.some((r) => r.type === 'note' && r.payload['title'] === 'Gnocchi'), 'nor was the one added under the hat').toBe(false);
-  expect(mine.some((r) => r.type === 'note' && r.payload['title'] === 'Cacio e Pepe (ours)')).toBe(false);
+  expect(mine.some((r) => r.type === 'note' && r.payload['title'] === 'Cacio e Pepe')).toBe(false);
 });

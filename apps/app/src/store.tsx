@@ -56,10 +56,10 @@ const snapKey = (user: string) => `calmind.snapshot.${user}@${instanceTag()}`;
  * CalMind normalize pass over it would plant a Calendar folder and a habit
  * section in an app that has neither.
  *
- * The two engines never mix records: a chef record is only ever put through
- * chefMutate, and `chefRecs` is the read model the Notes screen draws under
- * the hat. Keeping the id sets apart is what makes "which store does this
- * edit go to" a lookup rather than a guess.
+ * The two engines never mix records: nothing here puts a record into the
+ * chef engine, and `chefRecs` is the read model the Notes screen draws under
+ * the hat. With no writes the engine is only ever pulled from — a sync with
+ * nothing dirty pushes nothing.
  */
 const CHEF_SPACE = 'chef';
 const chefSnapKey = (user: string) => `calmind.snapshot.chef.${user}@${instanceTag()}`;
@@ -176,9 +176,10 @@ type Store = {
   sharedRecs: AnyRec[];
   sharedPut: (rec: AnyRec) => Promise<void>;
   /** ChefMind's records — the same account's `chef` space, see CHEF_SPACE.
-   *  Drawn by Notes under the chef's hat; edited ONLY through chefMutate. */
+   *  Drawn by Notes under the chef's hat, READ-ONLY: there is no write path
+   *  into that space from here (Sean, 2026-09-15: "disable editing ChefMind
+   *  recipes from CalMind"). */
   chefRecs: AnyRec[];
-  chefMutate: (fn: (engine: SyncEngine) => void) => void;
 };
 
 const Ctx = createContext<Store | null>(null);
@@ -439,24 +440,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     [refresh, persistNow, syncSoon],
   );
   mutateRef.current = mutate;
-
-  /**
-   * The same gesture against ChefMind's engine. Persisted and pushed by the
-   * same two calls — persistNow writes both snapshots, syncNow syncs both
-   * spaces — so an edit to a recipe made here reaches ChefMind on the next
-   * round trip exactly as one of my own edits reaches my other devices.
-   */
-  const chefMutate = useCallback(
-    (fn: (engine: SyncEngine) => void) => {
-      fn(chefRef.current);
-      refresh();
-      if (sessionRef.current) {
-        persistNow(sessionRef.current.username);
-        syncSoon();
-      }
-    },
-    [refresh, persistNow, syncSoon],
-  );
 
 
   // A tick from the watch is a tap by other means: the same toggle, the same
@@ -728,7 +711,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, [sharedRecs, sharedPartner, sharedPartnerLabel]);
 
   return (
-    <Ctx.Provider value={{ ready, session, recs, syncState, persistFailed, refusedLabels, signIn, signOut, setSession, mutate, syncNow, undoLastDelete, partners, sharedPartner, sharedPartnerLabel, sharedRecs, sharedPut, chefRecs, chefMutate }}>
+    <Ctx.Provider value={{ ready, session, recs, syncState, persistFailed, refusedLabels, signIn, signOut, setSession, mutate, syncNow, undoLastDelete, partners, sharedPartner, sharedPartnerLabel, sharedRecs, sharedPut, chefRecs }}>
       {children}
     </Ctx.Provider>
   );
