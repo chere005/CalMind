@@ -74,7 +74,7 @@ async function signupAndMock(page: Page) {
 async function subscribe(page: Page, url: string) {
   await page.getByTestId('tab-calendar').click();
   await page.getByTestId('pick-calendar').click();
-  await page.getByText('Manage calendars', { exact: true }).click();
+  await page.getByTestId('manage-calendars-row').click();
   await page.getByTestId('calsub-url').fill(url);
   await page.getByTestId('calsub-add').click();
   await page.getByText('Done', { exact: true }).click();
@@ -122,7 +122,7 @@ test('deleting the subscription takes its events with it', async ({ page }) => {
   await expect(page.getByText('Subscribed', { exact: true })).toBeVisible({ timeout: 10_000 });
 
   await page.getByTestId('pick-calendar').click();
-  await page.getByText('Manage calendars', { exact: true }).click();
+  await page.getByTestId('manage-calendars-row').click();
   // ConfirmDelete arms on the first press, fires on the second.
   const scope = page.locator('div').filter({ hasText: /^Subscribed by link/ }).last();
   await page.getByLabel('Delete').last().click();

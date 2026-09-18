@@ -9,6 +9,18 @@
  */
 import { test, expect, type Page } from '@playwright/test';
 
+/**
+ * Search moved out of the top bar and into the username menu (Sean,
+ * 2026-09-16): the bar is for what the screen IS, and a door belongs with
+ * Settings. Two taps now, and every caller goes through here so the next move
+ * is one edit.
+ */
+async function openSearch(page: import('@playwright/test').Page) {
+  await page.getByTestId('topbar-sync').click();
+  await page.getByTestId('menu-search').click();
+}
+
+
 let seq = 0;
 async function signup(page: Page): Promise<string> {
   const user = `se${Date.now()}${seq++}`;
@@ -46,7 +58,7 @@ test('the button sits in the bar, and one query finds all three kinds', async ({
   await signup(page);
   await seed(page);
   await page.getByTestId('tab-reminders').click();
-  await page.getByTestId('topbar-search').click();
+  await openSearch(page);
   await page.getByTestId('search-field').fill('harvest');
   const rows = page.getByTestId('search-row');
   await expect(rows).toHaveCount(3);
@@ -59,7 +71,7 @@ test('the kind filter cuts, and is REMEMBERED across a close and a reload', asyn
   await signup(page);
   await seed(page);
   await page.getByTestId('tab-reminders').click();
-  await page.getByTestId('topbar-search').click();
+  await openSearch(page);
   await page.getByTestId('search-field').fill('harvest');
   await expect(page.getByTestId('search-row')).toHaveCount(3);
   await page.getByTestId('search-kinds').click();
@@ -72,7 +84,7 @@ test('the kind filter cuts, and is REMEMBERED across a close and a reload', asyn
   await page.getByTestId('search-back').click();
   await page.reload();
   await expect(page.getByTestId('tab-reminders')).toBeVisible({ timeout: 20_000 });
-  await page.getByTestId('topbar-search').click();
+  await openSearch(page);
   await expect(page.getByTestId('search-kinds')).toContainText('Notes');
   await page.getByTestId('search-field').fill('harvest');
   await expect(page.getByTestId('search-row')).toHaveCount(1);
@@ -83,7 +95,7 @@ test('alphabetical sorts by the whole text, and the arrow flips it', async ({ pa
   await signup(page);
   await seed(page);
   await page.getByTestId('tab-reminders').click();
-  await page.getByTestId('topbar-search').click();
+  await openSearch(page);
   await page.getByTestId('search-field').fill('harvest');
   await page.getByTestId('search-sort').click();
   await page.getByText('Alphabetical', { exact: true }).click();
@@ -101,7 +113,7 @@ test('tapping a note result opens that note', async ({ page }) => {
   await signup(page);
   await seed(page);
   await page.getByTestId('tab-reminders').click();
-  await page.getByTestId('topbar-search').click();
+  await openSearch(page);
   await page.getByTestId('search-field').fill('garden');
   await expect(page.getByTestId('search-row')).toHaveCount(1);
   await page.getByTestId('search-row').first().click();

@@ -32,6 +32,21 @@ async function longPress(page: Page, locator: ReturnType<Page['getByTestId']>) {
   await page.mouse.up();
 }
 
+/**
+ * A hold on a CARET, pressed dead centre.
+ *
+ * `longPress` above aims at `box.x + 20`, which is fine on a row and off the
+ * right edge of a 20pt caret. The fold gesture needs the press to land on the
+ * control it is asking about, so this one takes the middle.
+ */
+async function holdCaret(page: Page, locator: ReturnType<Page['getByTestId']>) {
+  const box = (await locator.boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.waitForTimeout(500);
+  await page.mouse.up();
+}
+
 // The badge's family icon sits between name and measure in a row's text
 // now; the claims these arrays make are about WORDS and ORDER, so the icon
 // is stripped before comparing.
@@ -516,7 +531,9 @@ test("the calendar panel's edit mode can be left at all", async ({ page }) => {
   await expect(page.getByText('dentist')).toBeVisible();
 
   await longPress(page, page.getByText('dentist'));
-  await expect(page.getByTestId('cal-completed')).toBeVisible();
+  // The row's edit cluster is what a long press opens — Completed used to be
+  // the stand-in here and it lives in the username menu now.
+  await expect(page.getByTestId('dp-ev-copy')).toBeVisible();
   // The day's own title is a label, not a control: tapping it leaves.
   await page.getByTestId('cal-day-title').click();
   // The row controls are gone again — the panel is out of edit mode.
@@ -766,36 +783,53 @@ test('a note takes a date from the LIST, and the calendar opens it for editing',
   await expect(page.getByText('dated note')).toHaveCount(0);
 });
 
-test('collapse-all folds and unfolds, on the list AND on the calendar', async ({ page }) => {
-  // The control exists on all four tabs and nothing drove it: chevrons.spec
-  // checks it is the right GLYPH and the right box, which says nothing about
-  // whether pressing it folds anything. Calendar's is new — it was the one
-  // tab without one, which is the only thing the top-bar measurement found
-  // to be inconsistent.
+test('holding a caret folds its whole level; a tap is still one section', async ({ page }) => {
+  // The collapse-all button is gone (Sean, 2026-09-16) and the gesture that
+  // replaced it is a HOLD on any caret. Which way it goes is read off the
+  // caret that was held, so the same gesture closes a level and opens it —
+  // there is no toggle state to be out of step with what is on screen.
   await signup(page);
 
-  // Reminders: folding the sections takes the rows with them.
   await page.getByTestId('tab-reminders').click();
   await page.getByTestId('secadd-General').first().click();
   await page.getByTestId('rem-add-field').fill('fold me');
   await page.getByTestId('rem-add-field').press('Enter');
   await page.keyboard.press('Escape');
   await expect(page.getByText('fold me')).toBeVisible();
-  await page.getByLabel('Collapse all').click();
+
+  const sectionCaret = page.getByTestId('secfold-General').first();
+  // Held OPEN: the level closes.
+  await holdCaret(page, sectionCaret);
   await expect(page.getByText('fold me')).toBeHidden();
-  // The arrow turns around, so the control says which way it will go next.
-  await page.getByLabel('Expand all').click();
+  // Held CLOSED: the level opens. Same gesture, opposite direction, read off
+  // the caret rather than off some remembered all-or-nothing.
+  await holdCaret(page, sectionCaret);
   await expect(page.getByText('fold me')).toBeVisible();
 
-  // Calendar: the same control folds the day panel's groups.
+  // A TAP still means this one only — the hold did not swallow the press.
+  await sectionCaret.click();
+  await expect(page.getByText('fold me')).toBeHidden();
+  await sectionCaret.click();
+  await expect(page.getByText('fold me')).toBeVisible();
+
+  // The FOLDER level, which the old button could never reach: it only ever
+  // meant sections, so folders were unreachable from the bar entirely.
+  const folderCaret = page.locator('[data-testid^="foldfold-"]').first();
+  await holdCaret(page, folderCaret);
+  await expect(page.getByTestId('secfold-General')).toHaveCount(0);
+  await holdCaret(page, folderCaret);
+  await expect(page.getByTestId('secfold-General').first()).toBeVisible();
+
+  // Calendar: the same hold on a day-panel group head.
   await page.getByTestId('tab-calendar').click();
   await page.getByTestId('tab-add').click();
   await page.getByTestId('add-text').fill('fold this event');
   await page.getByText('Done', { exact: true }).click();
   await expect(page.getByText('fold this event')).toBeVisible();
-  await page.getByLabel('Collapse all').click();
+  const group = page.getByTestId('dp-group-head').first();
+  await holdCaret(page, group);
   await expect(page.getByText('fold this event')).toBeHidden();
-  await page.getByLabel('Expand all').click();
+  await holdCaret(page, group);
   await expect(page.getByText('fold this event')).toBeVisible();
 });
 
@@ -1420,7 +1454,8 @@ test('a fully-done colour leaves the month cell unless Completed is shown', asyn
   await expect.poll(() => cellIcons.count()).toBeGreaterThan(0); // the open box marks today
   await page.getByTestId('day-tick').first().click(); // its colour is fully done now
   await expect.poll(() => cellIcons.count()).toBe(0); // hidden, not greyed
-  await page.getByTestId('cal-completed').click();
+  await page.getByTestId('topbar-sync').click();
+  await page.getByTestId('menu-completed').click();
   await expect.poll(() => cellIcons.count()).toBeGreaterThan(0); // Completed brings it back
 });
 

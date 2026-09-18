@@ -4,9 +4,8 @@
  * convert out and never repeat; a date in the title puts one on the calendar.
  */
 import React, { useEffect, useMemo, useState, useRef } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { defaultNoteTitle, looksLikeDefaultNoteTitle, deleteSection, renameSection, sectionNameTaken, byRecOrd, ingredientParts, isRecipeNote, joinRecipeBody, richLines, scaleRecipeBody, splitRecipeBody, duplicateItem, prefsPut, moveNote, moveSection, moveSectionEmptyingFolder, newId, nowStr, ordBetween, parseWhenFromText, todayStr, type Rec } from '@calmind/core';
+import { chefDateOf, setChefDate, dayHeading, LONG_PRESS_MS, defaultNoteTitle, looksLikeDefaultNoteTitle, deleteSection, renameSection, sectionNameTaken, byRecOrd, ingredientParts, isRecipeNote, joinRecipeBody, richLines, scaleRecipeBody, splitRecipeBody, duplicateItem, prefsPut, moveNote, moveSection, moveSectionEmptyingFolder, newId, nowStr, ordBetween, parseWhenFromText, todayStr, type Rec } from '@calmind/core';
 import * as Clipboard from 'expo-clipboard';
 import { useStore } from '../store';
 import { UnitBadge } from '../components/IngredientBadge';
@@ -15,7 +14,8 @@ import { useNav } from '../nav';
 import { themed, T } from '../theme';
 import { TopBar } from '../chrome';
 import { FolderPick, useFolderView } from '../components/FolderPick';
-import { CircleBtn, CollapseAllBtn, ConfirmDelete, DayPickBtn, DeletePill, Field, Pill, Scroll, TOPBAR_CTRL, TOPBAR_DOT_TOP, WebHitSlop } from '../ui';
+import { CircleBtn, ConfirmDelete, DayPickBtn, DeletePill, Field, FoldCaret, Pill, Scroll, TOPBAR_CTRL, TOPBAR_DOT_TOP, WebHitSlop } from '../ui';
+import { useFolds } from '../folds';
 import { DayPick } from '../components/DayPick';
 import { Dropdown } from '../components/Dropdown';
 import { useRowDrag } from '../components/rowdrag';
@@ -219,43 +219,15 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
    * pressing back left you in Notes — one tab away from what you were doing.
    */
   const cameFromTab = useRef(false);
-  const [nfolded, setNFolded] = useState<Set<string>>(new Set());
-  const [foldedFolders, setFoldedFolders] = useState<Set<string>>(new Set());
-  useEffect(() => {
-    AsyncStorage.getItem('calmind.foldedFolders.notes')
-      .then((raw) => raw && setFoldedFolders(new Set(JSON.parse(raw))))
-      // Corrupt fold state is a cosmetic loss; unguarded it was an unhandled
-      // rejection as well, which is a cosmetic loss that shouts.
-      .catch(() => {});
-  }, []);
-  const toggleFolderFold = (id: string) => {
-    const next = new Set(foldedFolders);
-    if (next.has(id)) next.delete(id);
-    else next.add(id);
-    setFoldedFolders(next);
-    // Swallowed deliberately, and this is the triage: what is lost when a
-    // fold write fails is which sections were collapsed, next launch. No
-    // user content, nothing unrecoverable, and an alert about a collapsed
-    // folder would be worse than the loss. The failures worth surfacing in
-    // this app are the ones that lose DATA or lie about state — see
-    // store.tsx's persistFailed and the shared-write reconcile.
-    AsyncStorage.setItem('calmind.foldedFolders.notes', JSON.stringify([...next])).catch(() => {});
-  };
-  useEffect(() => {
-    AsyncStorage.getItem('calmind.folded.notes')
-      .then((raw) => raw && setNFolded(new Set(JSON.parse(raw))))
-      .catch(() => {});
-  }, []);
-  const foldSave = (next: Set<string>) => {
-    setNFolded(next);
-    AsyncStorage.setItem('calmind.folded.notes', JSON.stringify([...next])).catch(() => {});
-  };
-  const toggleNFold = (id: string) => {
-    const next = new Set(nfolded);
-    if (next.has(id)) next.delete(id);
-    else next.add(id);
-    foldSave(next);
-  };
+  // Two levels, one hook each — see folds.ts for what the six hand-rolled
+  // copies of this had drifted into. The old local names are kept so every
+  // read below still says what it means.
+  const sectionFolds = useFolds('calmind.folded.notes');
+  const folderFolds = useFolds('calmind.foldedFolders.notes');
+  const nfolded = sectionFolds.shut;
+  const foldedFolders = folderFolds.shut;
+  const toggleNFold = sectionFolds.toggle;
+  const toggleFolderFold = folderFolds.toggle;
   useEffect(() => {
     if (!pageEdit || typeof document === 'undefined') return;
     const onKey = (ev: KeyboardEvent) => { if (ev.key === 'Escape') setPageEdit(false); };
@@ -456,10 +428,21 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
         )
       : [];
   const allSectionIds = [...mySectionIds, ...chefSectionIds, ...sharedSectionIds];
-  const allCollapsed = allSectionIds.length > 0 && allSectionIds.every((id) => nfolded.has(id));
-  const collapseAllNotes = () => {
-    foldSave(allCollapsed ? new Set<string>() : new Set(allSectionIds));
-  };
+  /** The folder level, keyed exactly as its carets key their folds. */
+  const allFolderIds = [
+    ...folders.map((f) => f.id),
+    ...(view === 'all' ? chef.folders.map((f) => `chef:${f.id}`) : []),
+    ...(view === 'all' && sharedPartner ? visibleShared.map((f) => `sh:${f.id}`) : []),
+  ];
+  /**
+   * Hold a caret, fold its whole level — the collapse-all button's job, moved
+   * onto the control it was describing (Sean, 2026-09-16). `wasOpen` is the
+   * state of the caret that was HELD: hold an open one and the level closes,
+   * hold a closed one and it opens. See Reminders for the whole story; this
+   * screen has the same two levels and three sources.
+   */
+  const foldAllSections = (wasOpen: boolean) => sectionFolds.foldAll(allSectionIds, wasOpen);
+  const foldAllFolders = (wasOpen: boolean) => folderFolds.foldAll(allFolderIds, wasOpen);
 
   // Every visible row in render order, plus a placeholder per empty section
   // so an empty section is a drop target (row-height only while dragging).
@@ -593,8 +576,102 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
     mutate((e) => e.put({ ...open, payload: { ...open.payload, body: next } }));
   };
 
+  /**
+   * The mini date/time editor: exactly the three controls Sean named — remove
+   * the date, set it to today, done. Nothing else, because a fourth control
+   * here is a second date picker nobody asked for and the note editor already
+   * has the full one.
+   *
+   * A FUNCTION rather than a block in one return, because the Recipe reader
+   * returns before that one is ever reached (Sean, 2026-09-18: "dates still
+   * need to be able to be added to recipes on calmind"). The card was
+   * mounted only on the list, so the one screen a recipe is actually read on
+   * could not raise it.
+   */
+  const dateCard = () => {
+    if (!dateFor) return null;
+    const mine = recs.find((x): x is Rec<'note'> => x.type === 'note' && x.id === dateFor && !x.deleted);
+    /* The same card dates a RECIPE, which is not mine to edit: the day
+       goes into CalMind's notes prefs under the chef id rather than into
+       the record. One card, because a second one would be the same four
+       controls drifting apart — the lesson the collapse-all taught. */
+    const recipe = mine
+      ? undefined
+      : chefRecs.find((x): x is Rec<'note'> => x.type === 'note' && x.id === dateFor && !x.deleted);
+    const note = mine ?? recipe;
+    if (!note) return null;
+    const value = recipe ? chefDateOf(recs, recipe.id) : note.payload.date;
+    const setDate = (date: string | null) =>
+      recipe
+        // e.all(), not recs: a second press in the same card must see the
+        // first one's write, which has landed in the engine and not yet
+        // in this render.
+        ? mutate((e) => e.put(setChefDate(e.all(), recipe.id, date)))
+        : mutate((e) => e.put({ ...note, payload: { ...note.payload, date } }));
+    return (
+      <Modal transparent animationType="fade" onRequestClose={() => setDateFor(null)}>
+        <Pressable style={s.dateBackdrop} onPress={() => setDateFor(null)}>
+          <Pressable style={s.dateCard} onPress={() => {}}>
+            <Text style={s.dateTitle} numberOfLines={1}>{note.payload.title}</Text>
+            {/* The circle-with-a-calendar, replacing the typed m/d box
+                everywhere (Sean, 2026-08-20). Picking through the grid
+                stores YYYY-MM-DD by construction — the class of bug the
+                old parse-on-submit comment guarded is unreachable now. */}
+            <View style={s.dateRow}>
+              <DayPickBtn testID="note-date-pick" value={value} onPress={() => setListPickOpen(true)} />
+            </View>
+            {listPickOpen && (
+              <DayPick
+                value={value}
+                onPick={(d) => setDate(d)}
+                onClose={() => setListPickOpen(false)}
+              />
+            )}
+            <View style={s.dateRow}>
+              <CircleBtn
+                testID="note-date-clear"
+                glyph="×"
+                label="Remove the date"
+                size={36}
+                onPress={() => { setDate(null); setDateFor(null); }}
+              />
+              <CircleBtn
+                testID="note-date-today"
+                glyph="◉"
+                label="Today"
+                size={36}
+                color={T.gold}
+                onPress={() => setDate(todayStr())}
+              />
+              <CircleBtn
+                testID="note-date-done"
+                glyph="✓"
+                label="Done"
+                size={36}
+                color={T.accent}
+                active
+                onPress={() => setDateFor(null)}
+              />
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+    );
+
+  };
+
   if (chefOpen) {
-    return <ChefRecipeView note={chefOpen} onBack={() => setOpenId(null)} />;
+    return (
+      <>
+        <ChefRecipeView
+          note={chefOpen}
+          planned={chefDateOf(recs, chefOpen.id)}
+          onPlan={() => setDateFor(chefOpen.id)}
+          onBack={() => setOpenId(null)}
+        />
+        {dateCard()}
+      </>
+    );
   }
 
   if (sharedView && sharedPartner) {
@@ -961,10 +1038,10 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
 
   return (
     <View style={s.page}>
-      {/* Right of the name, as in Reminders and as Sean asked. */}
+      {/* Nothing but the name and the picker: collapse-all is a held caret
+          now (Sean, 2026-09-16). Notes has no Completed to show. */}
       <TopBar
         title="Notes"
-        controls={<CollapseAllBtn open={!allCollapsed} onPress={collapseAllNotes} />}
         picker={<FolderPick app="notes" />}
       />
       {/* A live drag holds the scroll still — see Habits for the why. */}
@@ -987,10 +1064,13 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
                 below a list that fills the screen. The controls inside keep
                 their own presses — this fires on the row's bare surface. */}
             <View testID={`head-fold-${f.payload.name}`} style={s.folderHead}>
-              <Pressable onPress={() => toggleFolderFold(f.id)} hitSlop={8} style={s.chevWrap}>
-                <WebHitSlop />
-                <Chevron open={!foldedFolders.has(f.id)} color={T.text} />
-              </Pressable>
+              <FoldCaret
+                testID={`foldfold-${f.payload.name}`}
+                open={!foldedFolders.has(f.id)}
+                color={T.text}
+                onPress={() => toggleFolderFold(f.id)}
+                onLongPress={() => foldAllFolders(!foldedFolders.has(f.id))}
+              />
               <Text style={[s.folderName, { backgroundColor: f.payload.color + '33' }]}>{f.payload.name}</Text>
               <CircleBtn testID={`foldadd-${f.payload.name}`} glyph="+" label="Add" color={T.accent} size={22} onPress={() => { setAddingSection(f.id); setNewSecName(''); }} />
               <View style={s.folderRule} />
@@ -1017,10 +1097,12 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
                     <WebHitSlop slop={6} />
                     <Text style={s.rowGripText}>≡</Text>
                   </View>
-                  <Pressable testID={`secfold-${sec.payload.name}`} onPress={() => toggleNFold(sec.id)} hitSlop={8} style={s.chevWrap}>
-                    <WebHitSlop />
-                    <Chevron open={!nfolded.has(sec.id)} />
-                  </Pressable>
+                  <FoldCaret
+                    testID={`secfold-${sec.payload.name}`}
+                    open={!nfolded.has(sec.id)}
+                    onPress={() => toggleNFold(sec.id)}
+                    onLongPress={() => foldAllSections(!nfolded.has(sec.id))}
+                  />
                   {renamingSec === sec.id ? (
                     <Field
                       testID="nsec-rename"
@@ -1151,10 +1233,13 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
         {view === 'all' && chef.folders.map((f) => (
           <View key={`chef${f.id}`} style={s.folderBlock} testID={`chef-folder-${f.payload.name}`}>
             <View testID={`head-fold-chef-${f.payload.name}`} style={s.folderHead}>
-              <Pressable onPress={() => toggleFolderFold(`chef:${f.id}`)} hitSlop={8} style={s.chevWrap}>
-                <WebHitSlop />
-                <Chevron open={!foldedFolders.has(`chef:${f.id}`)} color={T.text} />
-              </Pressable>
+              <FoldCaret
+                testID={`foldfold-chef-${f.payload.name}`}
+                open={!foldedFolders.has(`chef:${f.id}`)}
+                color={T.text}
+                onPress={() => toggleFolderFold(`chef:${f.id}`)}
+                onLongPress={() => foldAllFolders(!foldedFolders.has(`chef:${f.id}`))}
+              />
               <Text style={[s.folderName, { backgroundColor: f.payload.color + '33' }]}>{f.payload.name}</Text>
               {/* Beside the name, LEFT of the divider — where the partner's
                   owner badge sits, for the same reason: a label on the
@@ -1168,10 +1253,12 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
             {!foldedFolders.has(`chef:${f.id}`) && chef.sectionsOf(f.id).map((sec) => (
               <View key={sec.id} style={s.section}>
                 <View testID={`head-sec-chef-${sec.payload.name}`} style={[s.secHead, s.sharedSecHead]}>
-                  <Pressable testID={`chef-secfold-${sec.payload.name}`} onPress={() => toggleNFold(`chef:${sec.id}`)} hitSlop={8} style={s.chevWrap}>
-                    <WebHitSlop />
-                    <Chevron open={!nfolded.has(`chef:${sec.id}`)} />
-                  </Pressable>
+                  <FoldCaret
+                    testID={`chef-secfold-${sec.payload.name}`}
+                    open={!nfolded.has(`chef:${sec.id}`)}
+                    onPress={() => toggleNFold(`chef:${sec.id}`)}
+                    onLongPress={() => foldAllSections(!nfolded.has(`chef:${sec.id}`))}
+                  />
                   <Text style={s.secName}>{sec.payload.name}</Text>
                   {/* THE HAT, right of the name: this section's recipes are
                       ChefMind's (Sean, 2026-09-15). */}
@@ -1179,18 +1266,54 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
                     <ChefHatGlyph color={T.gold} size={14} />
                   </View>
                 </View>
-                {!nfolded.has(`chef:${sec.id}`) && chef.notesOf(sec.id).map((n) => (
+                {!nfolded.has(`chef:${sec.id}`) && chef.notesOf(sec.id).map((n) => {
+                  /* A DATE is the one thing CalMind may add to a recipe, and
+                     it is not added to the recipe: it lives in CalMind's own
+                     notes prefs, keyed by the chef id, so ChefMind never sees
+                     it on any device. See core's chefdate.ts. Everything else
+                     about this row stays read-only — no grip, no duplicate,
+                     no delete — because the recipes are ChefMind's to
+                     change. */
+                  const planned = chefDateOf(recs, n.id);
+                  return (
                   <View key={n.id} style={[s.row, s.sharedRow]}>
                     <Pressable
                       testID="chef-note-row"
                       onPress={() => setOpenId(n.id)}
+                      // Holding a row arms edit mode, the same as on my own
+                      // rows — which is how a recipe is reached to be dated.
+                      // Without it the hold fell through to onPress and
+                      // opened the reader, so the one thing CalMind may do to
+                      // a recipe had no way in.
+                      onLongPress={() => setPageEdit(true)}
+                      delayLongPress={LONG_PRESS_MS}
                       style={s.rowBody}
                     >
                       <Text style={s.rowTitle} numberOfLines={1}>{n.payload.title}</Text>
-                      <Text style={s.chev}>›</Text>
+                      {!pageEdit && <Text style={s.chev}>›</Text>}
                     </Pressable>
+                    {/* ALWAYS, not only in edit mode: a recipe planned for
+                        Thursday is a thing the list should say without being
+                        asked twice. It still opens the same card. */}
+                    {planned && (
+                      <Pressable testID={`chef-datechip-${n.payload.title}`} onPress={() => setDateFor(n.id)} hitSlop={6}>
+                        <WebHitSlop slop={6} />
+                        <Text style={s.dateChip}>{dayHeading(planned, todayStr())}</Text>
+                      </Pressable>
+                    )}
+                    {pageEdit && (
+                      <CircleBtn
+                        testID={`chef-date-${n.payload.title}`}
+                        glyph="📅"
+                        label={planned ? 'Change the day this is planned for' : 'Plan this for a day'}
+                        size={22}
+                        color={planned ? T.accent : T.dim}
+                        onPress={() => setDateFor(n.id)}
+                      />
+                    )}
                   </View>
-                ))}
+                  );
+                })}
               </View>
             ))}
           </View>
@@ -1204,7 +1327,13 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
                 {/* Collapsible like my own, and the fold is MINE — device-local
                     AsyncStorage, never written to their store, never synced.
                     Folding their list away changes nothing on their screen. */}
-                <Pressable style={s.folderHead} onPress={() => toggleFolderFold(`sh:${f.id}`)} hitSlop={8}>
+                <Pressable
+                  style={s.folderHead}
+                  onPress={() => toggleFolderFold(`sh:${f.id}`)}
+                  onLongPress={() => foldAllFolders(!foldedFolders.has(`sh:${f.id}`))}
+                  delayLongPress={LONG_PRESS_MS}
+                  hitSlop={8}
+                >
                   <View style={s.chevWrap}><WebHitSlop /><Chevron open={!foldedFolders.has(`sh:${f.id}`)} color={T.text} /></View>
                   <Text style={[s.folderName, { backgroundColor: f.payload.color + '33' }]}>{f.payload.name}</Text>
                   {/* Beside the name, LEFT of the divider. It used to sit
@@ -1225,7 +1354,14 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
                           section id can never collide with one of mine, and
                           the fold is MINE — device-local, never written to
                           their store, never synced. */}
-                      <Pressable testID={`shared-secfold-${sec.payload.name}`} style={[s.secHead, s.sharedSecHead]} onPress={() => toggleNFold(`sh:${sec.id}`)} hitSlop={8}>
+                      <Pressable
+                        testID={`shared-secfold-${sec.payload.name}`}
+                        style={[s.secHead, s.sharedSecHead]}
+                        onPress={() => toggleNFold(`sh:${sec.id}`)}
+                        onLongPress={() => foldAllSections(!nfolded.has(`sh:${sec.id}`))}
+                        delayLongPress={LONG_PRESS_MS}
+                        hitSlop={8}
+                      >
                         <View style={s.chevWrap}><WebHitSlop /><Chevron open={!nfolded.has(`sh:${sec.id}`)} /></View>
                         <Text style={s.secName}>{sec.payload.name}</Text>
                       </Pressable>
@@ -1251,65 +1387,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
         {pageEdit && <Pressable style={s.editBackdropFill} onPress={() => setPageEdit(false)} />}
         </EditExit>
       </Scroll>
-      {/* The mini date/time editor: exactly the three controls Sean named —
-          remove the date, set it to today, done. Nothing else, because a
-          fourth control here is a second date picker nobody asked for and
-          the note editor already has the full one. */}
-      {dateFor && (() => {
-        const note = recs.find((x): x is Rec<'note'> => x.type === 'note' && x.id === dateFor && !x.deleted);
-        if (!note) return null;
-        const setDate = (date: string | null) =>
-          mutate((e) => e.put({ ...note, payload: { ...note.payload, date } }));
-        return (
-          <Modal transparent animationType="fade" onRequestClose={() => setDateFor(null)}>
-            <Pressable style={s.dateBackdrop} onPress={() => setDateFor(null)}>
-              <Pressable style={s.dateCard} onPress={() => {}}>
-                <Text style={s.dateTitle} numberOfLines={1}>{note.payload.title}</Text>
-                {/* The circle-with-a-calendar, replacing the typed m/d box
-                    everywhere (Sean, 2026-08-20). Picking through the grid
-                    stores YYYY-MM-DD by construction — the class of bug the
-                    old parse-on-submit comment guarded is unreachable now. */}
-                <View style={s.dateRow}>
-                  <DayPickBtn testID="note-date-pick" value={note.payload.date} onPress={() => setListPickOpen(true)} />
-                </View>
-                {listPickOpen && (
-                  <DayPick
-                    value={note.payload.date}
-                    onPick={(d) => setDate(d)}
-                    onClose={() => setListPickOpen(false)}
-                  />
-                )}
-                <View style={s.dateRow}>
-                  <CircleBtn
-                    testID="note-date-clear"
-                    glyph="×"
-                    label="Remove the date"
-                    size={36}
-                    onPress={() => { setDate(null); setDateFor(null); }}
-                  />
-                  <CircleBtn
-                    testID="note-date-today"
-                    glyph="◉"
-                    label="Today"
-                    size={36}
-                    color={T.gold}
-                    onPress={() => setDate(todayStr())}
-                  />
-                  <CircleBtn
-                    testID="note-date-done"
-                    glyph="✓"
-                    label="Done"
-                    size={36}
-                    color={T.accent}
-                    active
-                    onPress={() => setDateFor(null)}
-                  />
-                </View>
-              </Pressable>
-            </Pressable>
-          </Modal>
-        );
-      })()}
+      {dateCard()}
       {emptyAsk && (
         <Modal transparent animationType="fade" onRequestClose={() => setEmptyAsk(null)}>
           <Pressable style={s.askBackdrop} onPress={() => setEmptyAsk(null)}>
@@ -1344,7 +1422,13 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
  * ingredient still makes a reminder of MINE (the item sheet, my store) —
  * that is CalMind's own feature and touches nothing of ChefMind's.
  */
-function ChefRecipeView({ note, onBack }: { note: Rec<'note'>; onBack: () => void }) {
+function ChefRecipeView({ note, planned, onPlan, onBack }: {
+  note: Rec<'note'>;
+  /** The day CalMind has this recipe planned for, or null. Never ChefMind's. */
+  planned: string | null;
+  onPlan: () => void;
+  onBack: () => void;
+}) {
   const [scale, setScale] = useState(1);
   const [remindText, setRemindText] = useState<string | null>(null);
   const isRecipe = isRecipeNote(note.payload);
@@ -1361,6 +1445,34 @@ function ChefRecipeView({ note, onBack }: { note: Rec<'note'>; onBack: () => voi
       <Scroll contentContainerStyle={s.editor}>
         <Text style={s.sharedTitle} testID="chef-note-title">{note.payload.title}</Text>
         {note.payload.date && <Text style={s.sharedDate}>{note.payload.date}</Text>}
+        {/*
+          PLAN A DAY, on the screen the recipe is actually read on — Sean,
+          2026-09-18: "dates still need to be able to be added to recipes on
+          calmind so they show up on the calendar."
+
+          It could be done before this, and only by holding a row in the list
+          to arm edit mode and then finding a 📅 on it. That is the gesture
+          for rearranging a list, not for the one thing this app may do to
+          somebody else's recipe — and the moment you want a day is while you
+          are looking at what it takes to cook.
+
+          The day lands in CalMind's notes prefs under the chef id, never on
+          the recipe: ChefMind is not told, on this device or any other. See
+          core's chefdate.ts.
+        */}
+        <Pressable
+          testID="chef-plan"
+          onPress={onPlan}
+          style={[s.planPill, planned !== null && s.planPillOn]}
+          accessibilityRole="button"
+          accessibilityLabel={planned === null ? 'Plan this for a day' : `Planned for ${planned}. Change the day`}
+          hitSlop={6}
+        >
+          <WebHitSlop slop={6} />
+          <Text style={[s.planText, planned !== null && s.planTextOn]}>
+            {planned === null ? '📅  Plan a day' : `📅  ${dayHeading(planned, todayStr())}`}
+          </Text>
+        </Pressable>
         {isRecipe && (
           <View testID="chef-scale-row" style={s.scaleRow}>
             {SCALES.map(([f, label, id]) => (
@@ -1650,6 +1762,17 @@ const s = themed(() => StyleSheet.create({
   editBackdropFill: { flexGrow: 1, minHeight: 160 },
   editDone: { marginLeft: 'auto' },
   dateChip: { color: T.gold, fontSize: 12, paddingHorizontal: 6 },
+  // The scale pills' shape — the two sit on the same screen and are the same
+  // weight of control, and a second outline for one of them would read as a
+  // different kind of thing.
+  planPill: {
+    alignSelf: 'flex-start', marginTop: 8,
+    paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999,
+    borderWidth: 1, borderColor: T.line, backgroundColor: T.surface,
+  },
+  planPillOn: { borderColor: T.accent, backgroundColor: T.accentSoft },
+  planText: { color: T.dim, fontSize: 13, fontWeight: '600' },
+  planTextOn: { color: T.accent },
   dateBackdrop: { flex: 1, backgroundColor: '#0009', alignItems: 'center', justifyContent: 'center', padding: 24 },
   dateCard: { width: '100%', maxWidth: 340, backgroundColor: T.surface, borderRadius: 14, borderWidth: 1, borderColor: T.line, padding: 16, gap: 12 },
   dateTitle: { color: T.text, fontSize: 15, fontWeight: '600' },

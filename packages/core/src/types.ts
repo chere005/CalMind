@@ -127,6 +127,16 @@ export type Prefs = {
    * absent means all three; unknown entries drop out on read.
    */
   searchKinds?: string[];
+  /**
+   * notes: the day CalMind has planned a ChefMind recipe for, keyed by the
+   * chef note's id.
+   *
+   * It is here, in CALMIND's prefs, rather than in the recipe, because the
+   * recipes are ChefMind's records and CalMind reads them and nothing else.
+   * See chefdate.ts for the whole argument; the short version is that "only
+   * known to CalMind" is the requirement, not a side effect.
+   */
+  chefDates?: Record<string, string>;
 };
 
 export type FolderMode = 'all' | 'dated' | 'none';

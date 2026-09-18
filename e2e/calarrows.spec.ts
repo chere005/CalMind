@@ -71,7 +71,7 @@ test('an open modal keeps the arrows — the month must not move behind it', asy
   const start = await heading(page);
 
   await page.getByTestId('pick-calendar').click();
-  await expect(page.getByText('Manage calendars', { exact: true })).toBeVisible();
+  await expect(page.getByTestId('manage-calendars-row')).toBeVisible();
   await page.keyboard.press('ArrowRight');
   await page.keyboard.press('ArrowRight');
   await expect.poll(() => heading(page), {

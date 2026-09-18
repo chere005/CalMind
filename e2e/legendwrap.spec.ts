@@ -26,7 +26,7 @@ test('a legend with many calendars wraps, balances, and names only what is in vi
   const names = ['Home', 'Work', 'Gym', 'Travel', 'Music', 'Garden'];
   await page.getByTestId('tab-calendar').click();
   await page.getByTestId('pick-calendar').click();
-  await page.getByText('Manage calendars', { exact: true }).click();
+  await page.getByTestId('manage-calendars-row').click();
   for (const n of names) {
     await page.getByPlaceholder('New calendar').fill(n);
     await page.getByPlaceholder('New calendar').press('Enter');
@@ -95,7 +95,7 @@ test('a legend with many calendars wraps, balances, and names only what is in vi
   // chips appearing proves the inclusion; only an empty one proves there is a
   // filter at all.
   await page.getByTestId('pick-calendar').click();
-  await page.getByText('Manage calendars', { exact: true }).click();
+  await page.getByTestId('manage-calendars-row').click();
   await page.getByPlaceholder('New calendar').fill('Dormant');
   await page.getByPlaceholder('New calendar').press('Enter');
   await page.getByText('Done', { exact: true }).click();

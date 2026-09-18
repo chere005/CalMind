@@ -21,6 +21,15 @@ import { expect, test, type Page } from '@playwright/test';
 const API = 'http://127.0.0.1:8790/calmind/api/index.php';
 const SESSION_KEY = 'calmind.session@127.0.0.1_8790_calmind';
 
+/** A long press, which is how the Notes list arms edit mode. */
+async function longPress(page: Page, locator: ReturnType<Page['getByTestId']>) {
+  const box = (await locator.boundingBox())!;
+  await page.mouse.move(box.x + 20, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.waitForTimeout(500);
+  await page.mouse.up();
+}
+
 async function signup(page: Page): Promise<string> {
   const user = `ch${Date.now()}`;
   await page.goto('.');
@@ -105,4 +114,117 @@ test("ChefMind's recipes show under the hat, read-only — opening one writes no
   const mine = await sync(page, tok, '');
   expect(mine.some((r) => r.id === recipe.id), 'the recipe was never copied into my own store').toBe(false);
   expect(mine.some((r) => r.type === 'note' && r.payload['title'] === 'Cacio e Pepe')).toBe(false);
+});
+
+test('CalMind can date a ChefMind recipe; the date is CalMind\'s alone and the calendar still opens the recipe', async ({ page }) => {
+  // Sean, 2026-09-16: "allow adding dates in CalMind to ChefMind entries…
+  // showing up on the calendar is only known to CalMind, and still points to
+  // the ChefMind recipe itself when opened from the calendar."
+  //
+  // Three claims, and the middle one is the one a screenshot cannot make:
+  // the day goes into CalMind's own notes prefs, so ChefMind's store must
+  // come back untouched and must never gain a pref of its own.
+  test.setTimeout(120_000);
+  await signup(page);
+  const tok = await token(page);
+
+  const now = Date.now();
+  const folder: Rec = { id: 'df0000000001', type: 'folder', updated: now, payload: { name: 'Recipes', color: '#7dc2ed', ord: 'V', app: 'notes' } };
+  const section: Rec = { id: 'ds0000000001', type: 'section', updated: now, payload: { name: 'Dinners', folderId: folder.id, ord: 'V' } };
+  const recipe: Rec = { id: 'dn0000000001', type: 'note', updated: now, payload: { title: 'Red lentil dal', body: 'Lentils, cumin, ginger.', date: null, folderId: folder.id, sectionId: section.id, ord: 'V' } };
+  await sync(page, tok, 'chef', [folder, section, recipe]);
+
+  await page.reload();
+  await expect(page.getByTestId('tab-reminders')).toBeVisible({ timeout: 20_000 });
+  await page.getByTestId('tab-notes').click();
+  const row = page.getByTestId('chef-note-row').filter({ hasText: 'Red lentil dal' });
+  await expect(row).toBeVisible({ timeout: 15_000 });
+
+  // Edit mode is where a date is added, exactly as it is on my own notes —
+  // and the recipe gets THAT control and no other: no grip, no duplicate, no
+  // delete, because the recipe is still ChefMind's to change.
+  await longPress(page, row);
+  const dateBtn = page.getByTestId('chef-date-Red lentil dal');
+  await expect(dateBtn, 'a recipe can be given a day').toBeVisible();
+  await expect(page.getByTestId('note-dup'), 'and nothing else — a recipe is not duplicated from here').toHaveCount(0);
+  await dateBtn.click();
+  await page.getByTestId('note-date-today').click();
+  await page.getByTestId('note-date-done').click();
+  await expect(page.getByTestId('chef-datechip-Red lentil dal'), 'the row says which day').toBeVisible();
+
+  // The calendar knows. The day panel grows a Recipes group on today.
+  await page.getByTestId('tab-calendar').click();
+  const calRow = page.getByTestId('dp-chef-row').filter({ hasText: 'Red lentil dal' });
+  await expect(calRow, 'the planned recipe is on the day').toBeVisible({ timeout: 10_000 });
+
+  // …and tapping it lands on the RECIPE — ChefMind's reader, not a note
+  // editor. That is the whole point of routing the id back through the Notes
+  // tab rather than opening something here.
+  await calRow.click();
+  await expect(page.getByTestId('chef-note-view')).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByTestId('chef-note-title')).toHaveText('Red lentil dal');
+  await expect(page.getByTestId('note-title'), 'still a reader, opened from the calendar').toHaveCount(0);
+
+  // Nothing of this reached ChefMind. Its recipe carries the stamp it was
+  // seeded with, and its space holds no pref record — the day lives in MY
+  // notes prefs, which is what "only known to CalMind" means.
+  await page.waitForTimeout(2500); // past the store's 800ms push debounce
+  const chef = await sync(page, tok, 'chef');
+  const held = chef.find((r) => r.id === recipe.id)!;
+  expect(held.updated, "ChefMind's recipe was not touched").toBe(now);
+  expect(held.payload['date'] ?? null, 'and it certainly did not gain a date').toBe(null);
+  expect(chef.some((r) => r.type === 'pref'), 'no pref was written into ChefMind\'s space').toBe(false);
+
+  const mine = await sync(page, tok, '');
+  const pref = mine.find((r) => r.type === 'pref' && r.id.endsWith('notes'));
+  expect(pref, 'the day is in MY notes prefs').toBeTruthy();
+  expect((pref!.payload['chefDates'] as Record<string, string>)[recipe.id], 'keyed by the chef id').toBeTruthy();
+  expect(mine.some((r) => r.id === recipe.id), 'the recipe was never copied into my own store').toBe(false);
+});
+
+test('a recipe is planned from the page you read it on, and the list says so without asking', async ({ page }) => {
+  // Sean, 2026-09-18: "dates still need to be able to be added to recipes on
+  // calmind so they show up on the calendar." It COULD be done before this,
+  // and only by holding a row to arm edit mode and finding a 📅 on it — the
+  // gesture for rearranging a list, for the one thing this app may do to
+  // somebody else's recipe. The moment you want a day is while you are
+  // reading what it takes to cook.
+  test.setTimeout(120_000);
+  await signup(page);
+  const tok = await token(page);
+
+  const now = Date.now();
+  const folder: Rec = { id: 'pf0000000001', type: 'folder', updated: now, payload: { name: 'Recipes', color: '#7dc2ed', ord: 'V', app: 'notes' } };
+  const section: Rec = { id: 'ps0000000001', type: 'section', updated: now, payload: { name: 'Dinners', folderId: folder.id, ord: 'V' } };
+  const recipe: Rec = { id: 'pn0000000001', type: 'note', updated: now, payload: { title: 'Ribollita', body: 'Bread, beans, kale.', date: null, folderId: folder.id, sectionId: section.id, ord: 'V' } };
+  await sync(page, tok, 'chef', [folder, section, recipe]);
+
+  await page.reload();
+  await expect(page.getByTestId('tab-reminders')).toBeVisible({ timeout: 20_000 });
+  await page.getByTestId('tab-notes').click();
+  const row = page.getByTestId('chef-note-row').filter({ hasText: 'Ribollita' });
+  await expect(row).toBeVisible({ timeout: 15_000 });
+
+  // An ordinary TAP — no hold, no edit mode.
+  await row.click();
+  await expect(page.getByTestId('chef-note-view')).toBeVisible();
+  const plan = page.getByTestId('chef-plan');
+  await expect(plan).toHaveText(/Plan a day/);
+  await plan.click();
+  await page.getByTestId('note-date-today').click();
+  await page.getByTestId('note-date-done').click();
+  await expect(plan, 'the page says which day it is planned for').toHaveText(/TODAY/);
+
+  // Back on the list, the row says so with nothing held down.
+  await page.getByTestId('chef-note-back').click();
+  await expect(page.getByTestId('chef-datechip-Ribollita')).toBeVisible();
+  await expect(page.getByTestId('chef-date-Ribollita'), 'and edit mode is still off').toHaveCount(0);
+
+  // The calendar has it, and ChefMind has heard nothing.
+  await page.getByTestId('tab-calendar').click();
+  await expect(page.getByTestId('dp-chef-row').filter({ hasText: 'Ribollita' })).toBeVisible({ timeout: 10_000 });
+  await page.waitForTimeout(2500); // past the store's 800ms push debounce
+  const chef = await sync(page, tok, 'chef');
+  expect(chef.find((r) => r.id === recipe.id)!.updated, "ChefMind's recipe was not touched").toBe(now);
+  expect(chef.some((r) => r.type === 'pref'), 'no pref was written into ChefMind\'s space').toBe(false);
 });

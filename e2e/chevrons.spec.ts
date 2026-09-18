@@ -79,64 +79,64 @@ test('no screen draws a collapse with a text glyph', () => {
   ).toEqual([]);
 });
 
-test('collapse-ALL is the double chevron, and row folds are not', () => {
-  // Folded, a single chevron in a 26pt bordered circle read as the nav Back
-  // button in its 28pt bordered circle — Sean's report. The double form is
-  // what tells "all of them" from "this one", so it has to be exactly on the
-  // collapse-alls and nowhere else.
-  //
-  // The collapse-all now lives in ui.tsx's CollapseAllBtn rather than being
-  // rebuilt on each screen, so the double chevron belongs THERE and a screen
-  // drawing one is a screen hand-rolling the control again.
-  const wrongAll: string[] = [];
-  const wrongRow: string[] = [];
+test('the fold-all gesture lives on the caret, not on a button', () => {
+  // The collapse-all button is gone (Sean, 2026-09-16): folding a level is a
+  // long press on any caret at it. Two things follow, and both are easy to
+  // undo by accident.
+  const ui = readFileSync(join(SRC, 'ui.tsx'), 'utf8');
+  expect(/export function FoldCaret\b/.test(ui), 'the caret is one component, in ui.tsx').toBe(true);
+  expect(/onLongPress/.test(ui), 'FoldCaret carries the hold').toBe(true);
+  expect(
+    /delayLongPress=\{LONG_PRESS_MS\}/.test(ui),
+    "the threshold comes from core, so no two holds in the app want different lengths of patience",
+  ).toBe(true);
+  expect(/CollapseAllBtn/.test(ui), 'the collapse-all button is gone from ui.tsx').toBe(false);
+
+  // Nothing draws the DOUBLE chevron any more. It existed to tell "all of
+  // them" from "this one" while both were buttons in the same bar; with the
+  // button gone the prop went with it, and a screen reintroducing one would
+  // be rebuilding the control the gesture replaced.
+  const doubles: string[] = [];
   for (const file of screens()) {
-    if (rel(file) === 'components/Chevron.tsx') continue;
     for (const m of readFileSync(file, 'utf8').matchAll(/<Chevron\b[^/>]*\/>/g)) {
-      const isDouble = /\bdouble\b/.test(m[0]);
-      // Only the shared button may draw the double form.
-      if (isDouble && rel(file) !== 'ui.tsx') wrongAll.push(`${rel(file)}: ${m[0].trim()}`);
-      // A screen still deciding "all of them" for itself is the old shape.
-      if (/allCollapsed/.test(m[0])) wrongRow.push(`${rel(file)}: ${m[0].trim()}`);
+      if (/\bdouble\b/.test(m[0])) doubles.push(`${rel(file)}: ${m[0].trim()}`);
     }
   }
-  expect(wrongAll, 'the collapse-all is CollapseAllBtn in ui.tsx; a screen drawing its own is how the four copies started').toEqual([]);
-  expect(wrongRow, 'a row fold is one section, not all of them').toEqual([]);
+  expect(doubles, 'the all-at-once control is a gesture now; it has no glyph of its own').toEqual([]);
+  expect(
+    /double/.test(readFileSync(join(SRC, 'components', 'Chevron.tsx'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')),
+    'and the prop itself is gone from Chevron, not just unused',
+  ).toBe(false);
 
-  // The shared button really is the double one — without this, deleting
-  // `double` from ui.tsx would satisfy every "nobody else draws it" rule
-  // above and quietly turn the collapse-all back into the Back button.
-  const ui = readFileSync(join(SRC, 'ui.tsx'), 'utf8');
-  const shared = /<Chevron\b[^/>]*\/>/.exec(ui)?.[0] ?? '';
-  expect(shared, 'CollapseAllBtn draws a chevron').not.toBe('');
-  expect(/\bdouble\b/.test(shared), `the shared collapse-all is the double chevron, got ${shared}`).toBe(true);
-});
-
-test('the collapse-all button is one box, not one per screen', () => {
-  // The chevron INSIDE it was already shared; the box around it was not.
-  // Notes drew 24, Reminders 26 and Habits a 30pt CircleBtn — the same
-  // control at three sizes, which is what Sean reported. Nothing above
-  // compared the boxes, so nothing caught it; then the box and the rest of
-  // the top bar drifted apart too (back 28, collapse-all 26, ring 32, pill
-  // 28) and Sean saw a ragged row.
-  //
-  // Both are now one thing: the button is a component and its box is
-  // TOPBAR_CTRL, the height every control in the bar shares. So the check is
-  // that no screen has grown a private one back.
+  // No screen decides the DIRECTION for itself: that is core's foldLevel.
+  // A screen computing `every(isFolded)` is the old button's logic growing
+  // back, and it is wrong in the half-folded case core's test pins.
   const strays: string[] = [];
   for (const file of screens()) {
-    for (const m of readFileSync(file, 'utf8').matchAll(/^\s*collapseAllBtn:\s*\{.*$/gm)) {
-      strays.push(`${rel(file)}: ${m[0].trim().slice(0, 60)}`);
+    const code = readFileSync(file, 'utf8');
+    if (/allCollapsed/.test(code)) strays.push(`${rel(file)}: allCollapsed`);
+  }
+  expect(strays, 'the hold reads its direction from the caret; a screen recomputing it is the old shape').toEqual([]);
+});
+
+test('every caret box is the same target, and only one file declares it', () => {
+  // The chevron INSIDE was already shared; the box around it was not. Notes
+  // drew 24, Reminders 26 and Habits a 30pt CircleBtn — the same control at
+  // three sizes, which is what Sean reported. Nothing compared the boxes, so
+  // nothing caught it.
+  //
+  // hitSlop is a no-op under react-native-web, so the BOX is the tap target:
+  // a screen shrinking its own to fit the 7pt glyph shrinks the target with
+  // it, on the one platform Sean actually holds in Safari.
+  const boxes: string[] = [];
+  for (const file of [...screens()]) {
+    for (const m of readFileSync(file, 'utf8').matchAll(/^\s*chevWrap:\s*\{[^}]*\}/gm)) {
+      boxes.push(`${rel(file)}: ${m[0].trim()}`);
     }
   }
-  expect(strays, 'the collapse-all box lives in ui.tsx as topbarCircle; a screen with its own is the drift starting again').toEqual([]);
-
-  // And it must be a real target on the web, where hitSlop does nothing.
-  const ui = readFileSync(join(SRC, 'ui.tsx'), 'utf8');
-  const ctrl = Number(/export const TOPBAR_CTRL = (\d+)/.exec(ui)?.[1] ?? 0);
-  expect(ctrl, 'the collapse-all circle IS the tap target — the chevron in it is decoration').toBeGreaterThanOrEqual(26);
-  const box = /topbarCircle:\s*\{[^}]*\}/.exec(ui)?.[0] ?? '';
-  expect(box, 'the shared top-bar circle exists').not.toBe('');
-  expect(/width:\s*TOPBAR_CTRL/.test(box) && /height:\s*TOPBAR_CTRL/.test(box),
-    `the shared circle is sized by TOPBAR_CTRL, not a literal: ${box}`).toBe(true);
+  expect(boxes.length, 'the caret box is declared somewhere — without this the scan passes on nothing')
+    .toBeGreaterThan(0);
+  const wrong = boxes.filter((b) => !(/width:\s*20\b/.test(b) && /height:\s*20\b/.test(b)));
+  expect(wrong, 'every caret box is 20 square; hitSlop does nothing on the web, so the box IS the target')
+    .toEqual([]);
 });

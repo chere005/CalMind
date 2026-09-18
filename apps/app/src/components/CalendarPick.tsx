@@ -207,11 +207,15 @@ export function CalendarPick() {
                     </View>
                   );
                 })}
-                <Pressable style={[s.row, s.manageRow]} onPress={() => { setOpen(false); setManage(true); }}>
-                  <Text style={s.manageText}>Manage calendars</Text>
+                {/* A TESTID, like the row under it: the label gained an
+                    ellipsis on 2026-09-18 and four specs that were reaching
+                    for it by its exact words stopped finding it. What a row
+                    is called is wording; what it IS should not be. */}
+                <Pressable testID="manage-calendars-row" style={[s.row, s.manageRow]} onPress={() => { setOpen(false); setManage(true); }}>
+                  <Text style={s.manageText}>Manage calendars…</Text>
                 </Pressable>
                 <Pressable testID="manage-reminders-row" style={[s.row, s.manageRow2]} onPress={() => { setOpen(false); setManageRem(true); }}>
-                  <Text style={s.manageText}>Manage reminders</Text>
+                  <Text style={s.manageText}>Manage reminders…</Text>
                 </Pressable>
               </Scroll>
             </Pressable>

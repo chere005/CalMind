@@ -6,6 +6,7 @@
 import { useRef, useState } from 'react';
 import { Platform, Pressable, ScrollView, type ScrollViewProps, StyleSheet, Text, TextInput, type TextInputProps, View } from 'react-native';
 import Svg, { Polyline } from 'react-native-svg';
+import { LONG_PRESS_MS } from '@calmind/core';
 import { themed, T } from './theme';
 import { Chevron } from './components/Chevron';
 
@@ -304,25 +305,55 @@ export function CircleBtn({
 }
 
 /**
- * The header's collapse-all toggle — the double chevron, in the top bar's own
- * circle.
+ * A fold caret: tap toggles its own section, HOLD folds or unfolds the whole
+ * level.
+ *
+ * This replaced the top bar's collapse-all button (Sean, 2026-09-16). That
+ * button was one control describing a hundred others from the other end of
+ * the screen, and it could only ever mean one level — Reminders and Notes
+ * have two, so the folders were never reachable from it at all. The gesture
+ * is on the caret it acts on now, and reads the direction off the caret that
+ * was HELD: hold an open one and the level closes, hold a closed one and the
+ * level opens. So "collapse everything" is always the same gesture on
+ * whatever is currently open, with no toggle state to guess at.
+ *
+ * `onLongPress` is optional because a lone caret with nothing beside it has
+ * no level to command — the caller simply leaves it off.
  *
  * Reminders, Notes, Habits and Calendar each carried a byte-identical
- * `collapseAllBtn` style and a byte-identical Pressable around it. Four copies
+ * `chevWrap` style and a byte-identical Pressable around Chevron. Four copies
  * is how the row came to disagree with itself in the first place, so there is
- * one here and the screens pass a handler.
+ * one here and the screens pass handlers.
  */
-export function CollapseAllBtn({ open, onPress }: { open: boolean; onPress: () => void }) {
+export function FoldCaret({
+  open,
+  onPress,
+  onLongPress,
+  color,
+  testID,
+}: {
+  open: boolean;
+  onPress: () => void;
+  /** Fold or unfold every caret at this level; `open` says which way. */
+  onLongPress?: (() => void) | undefined;
+  color?: string | undefined;
+  testID?: string | undefined;
+}) {
   return (
     <Pressable
+      testID={testID}
       onPress={onPress}
+      onLongPress={onLongPress}
+      // One threshold for every hold in the suite, from core.
+      delayLongPress={LONG_PRESS_MS}
       hitSlop={8}
       accessibilityRole="button"
-      accessibilityLabel={open ? 'Collapse all' : 'Expand all'}
-      style={s.topbarCircle}
+      accessibilityLabel={open ? 'Collapse' : 'Expand'}
+      accessibilityHint={onLongPress ? 'Hold to fold or unfold every one at this level' : undefined}
+      style={s.chevWrap}
     >
       <WebHitSlop />
-      <Chevron open={open} double />
+      <Chevron open={open} color={color} />
     </Pressable>
   );
 }
@@ -499,15 +530,10 @@ const s = themed(() => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  topbarCircle: {
-    width: TOPBAR_CTRL,
-    height: TOPBAR_CTRL,
-    borderRadius: TOPBAR_CTRL / 2,
-    borderWidth: 1,
-    borderColor: T.line,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  // The caret's BOX, which is the tap target — the glyph inside it is 7pt.
+  // Explicit, because hitSlop is a no-op under react-native-web: shrink the
+  // box to the drawing and the target goes with it.
+  chevWrap: { width: 20, height: 20, alignItems: 'center', justifyContent: 'center' },
   armed: { backgroundColor: T.danger, borderColor: T.danger },
   circleActive: { backgroundColor: T.accentInk, borderColor: T.accent },
   pressed: { opacity: 0.6 },

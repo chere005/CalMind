@@ -72,6 +72,7 @@ test('…and after the two seconds it goes, or the grace never ends', async ({ p
   });
 
   // And it really was completed, not discarded — Completed still holds it.
-  await page.getByRole('button', { name: 'Completed' }).click();
+  await page.getByTestId('topbar-sync').click();
+  await page.getByTestId('menu-completed').click();
   await expect(page.getByText('water the ferns'), 'it was ticked, not lost').toBeVisible();
 });

@@ -9,7 +9,6 @@
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { PanResponder, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import Svg, { Circle, Path } from 'react-native-svg';
 import {
   byRecOrd,
@@ -32,12 +31,12 @@ import {
 import { useStore } from '../store';
 import { themed, T } from '../theme';
 import { TopBar } from '../chrome';
-import { Chevron } from '../components/Chevron';
 import { SectionPick, useHabitSections } from '../components/SectionPick';
 import { EditExit } from '../components/EditExit';
 import { useRowDrag } from '../components/rowdrag';
 import { useSectionDrag } from '../components/sectiondrag';
-import { CircleBtn, CollapseAllBtn, ConfirmDelete, Scroll, WebHitSlop } from '../ui';
+import { CircleBtn, ConfirmDelete, FoldCaret, Scroll, WebHitSlop } from '../ui';
+import { useFolds } from '../folds';
 import { HabitEditor } from '../components/HabitEditor';
 
 // Habit sections sit in one flat list with no folder above them, so the
@@ -132,40 +131,14 @@ export function Habits() {
   const { width: winWidth } = useWindowDimensions();
   const [w, setW] = useState(0);
   const [ym, setYm] = useState(today.slice(0, 7));
-  const [folded, setFolded] = useState<Set<string>>(new Set());
+  /** One level here — see folds.ts, and core's foldLevel for the hold's rule. */
+  const sectionFolds = useFolds(FOLD_KEY);
+  const folded = sectionFolds.shut;
+  const toggleFold = sectionFolds.toggle;
+  const foldAllSections = (wasOpen: boolean) =>
+    sectionFolds.foldAll(sections.map((x) => x.id), wasOpen);
   /** Double-click detection — the desktop's way into edit mode. */
   const lastTap = React.useRef<{ id: string; at: number }>({ id: '', at: 0 });
-
-  useEffect(() => {
-    AsyncStorage.getItem(FOLD_KEY)
-      .then((raw) => raw && setFolded(new Set(JSON.parse(raw))))
-      .catch(() => {});
-  }, []);
-  const saveFold = (next: Set<string>) => {
-    setFolded(next);
-    // Swallowed deliberately, and this is the triage: what is lost when a
-    // fold write fails is which sections were collapsed, next launch. No
-    // user content, nothing unrecoverable, and an alert about a collapsed
-    // folder would be worse than the loss. The failures worth surfacing in
-    // this app are the ones that lose DATA or lie about state — see
-    // store.tsx's persistFailed and the shared-write reconcile.
-    AsyncStorage.setItem(FOLD_KEY, JSON.stringify([...next])).catch(() => {});
-  };
-  const toggleFold = (id: string) => {
-    const next = new Set(folded);
-    if (next.has(id)) next.delete(id);
-    else next.add(id);
-    saveFold(next);
-  };
-  const collapseAll = () => {
-    const all = sections.map((x) => x.id);
-    saveFold(all.every((id) => folded.has(id)) ? new Set() : new Set(all));
-  };
-  // Sean's rule for the collapse-all, already true in Reminders and Notes:
-  // it points sideways once everything is folded, exactly like the row
-  // chevrons it commands. An empty list is not "all collapsed" — with no
-  // sections, every() is vacuously true and the arrow would lie.
-  const allCollapsed = sections.length > 0 && sections.every((x) => folded.has(x.id));
 
   const view = prefsOf(recs, 'habits').view ?? 'week';
   const setView = (v: 'week' | 'month') => mutate((e) => e.put(prefsPut(recs, 'habits', { view: v })));
@@ -393,15 +366,12 @@ export function Habits() {
 
   return (
     <View style={s.page}>
+      {/* No edit pencil and no collapse-all: holding a habit or a section
+          enters edit mode, holding a caret folds the level, and a tap
+          outside leaves — the same gestures the other three screens use, so
+          Habits stops being the one that needs buttons nobody else needs. */}
       <TopBar
         title="Habits"
-        controls={
-          /* No edit pencil. Sean: holding a habit or a section enters edit
-             mode, and a tap outside leaves — the same gesture the other three
-             screens use, so Habits stops being the one that needs a button
-             nobody else needs. */
-          <CollapseAllBtn open={!allCollapsed} onPress={collapseAll} />
-        }
         copyMarkdown={() => viewMarkdown(pagerLabel, sections.map((sec) => ({
           name: sec.payload.name,
           lines: habitsOf(sec.id).map((h) => ({ text: h.payload.name, chip: frequencyOf(h) === 'always' ? null : frequencyOf(h) })),
@@ -484,10 +454,12 @@ export function Habits() {
                       <Text style={s.rowGripText}>≡</Text>
                     </View>
                   )}
-                  <Pressable onPress={() => toggleFold(sec.id)} hitSlop={8} style={s.chevWrap}>
-                    <WebHitSlop />
-                    <Chevron open={!folded.has(sec.id)} />
-                  </Pressable>
+                  <FoldCaret
+                    testID={`hsec-fold-${sec.payload.name}`}
+                    open={!folded.has(sec.id)}
+                    onPress={() => toggleFold(sec.id)}
+                    onLongPress={() => foldAllSections(!folded.has(sec.id))}
+                  />
                   {/* A KEY, not a control (Sean, 2026-08-20: "tapping the
                       colour icon shouldn't change colours in the habits page,
                       only through the edit menu colour picker").

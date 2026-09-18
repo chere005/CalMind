@@ -33,24 +33,27 @@ test('an icon button answers a press outside its drawn edge', async ({ page }) =
   await signUp(page, 'hit');
   await page.getByTestId('tab-calendar').click();
 
-  const btn = page.getByTestId('cal-completed');
+  // The month pager's back arrow. It used to be the Completed toggle, whose
+  // active background said plainly whether a press had landed — that control
+  // moved into the username menu on 2026-09-16, so the reading is the month
+  // LABEL instead: the same CircleBtn, the same WebHitSlop child, and an
+  // effect just as unambiguous.
+  const btn = page.getByTestId('cal-prev');
   await expect(btn).toBeVisible();
 
-  // A toggle whose active state is a background colour, so the DOM says
-  // plainly whether a press landed.
-  const bg = () => btn.evaluate((el) => getComputedStyle(el).backgroundColor);
+  const ym = () => page.getByTestId('cal-ym').innerText();
   const box = (await btn.boundingBox())!;
-  const atRest = await bg();
+  const atRest = await ym();
 
-  // ABOVE, not beside. The top bar's controls sit 8px apart with an 8px
-  // hitSlop each since the 2026-08-12 spacing change, so their reach now
-  // OVERLAPS and a press five pixels to the right belongs to the neighbour —
-  // measured, and a real consequence of even spacing rather than a bug. Above
-  // the button there is nothing to collide with, and it proves the same
-  // thing: the reach extends past the drawn edge.
+  // ABOVE, not beside. The bar's and the pager's controls sit 8-10px apart
+  // with an 8px hitSlop each, so their reach OVERLAPS and a press five pixels
+  // to the side belongs to the neighbour — measured, and a real consequence
+  // of even spacing rather than a bug. Above the arrow is the 10px gap under
+  // the top rule, where there is nothing to collide with, and it proves the
+  // same thing: the reach extends past the drawn edge.
   await page.mouse.click(box.x + box.width / 2, box.y - 5);
   await expect
-    .poll(bg, { message: 'a press five pixels outside the drawn edge is still on the button' })
+    .poll(ym, { message: 'a press five pixels outside the drawn edge is still on the button' })
     .not.toBe(atRest);
 
   // How far it reaches is read off the element rather than probed with more
@@ -144,7 +147,14 @@ test('extra tap area stays near its control, and off its neighbours', async ({ p
     // Add page has the one). They are not tight, and are not meant to be: the
     // landmark above says WHICH screen this is, and these only say it was not
     // empty when the scans ran.
-    expect(counted.buttons, `${tab}: the stolen-centre scan found controls at all`).toBeGreaterThanOrEqual(8);
+    //
+    // 8 → 6 on 2026-09-16: three circles left the top bar that day (the
+    // collapse-all for a held caret, Search and Completed for the username
+    // menu) and Add, which carries the fewest controls of the five, came back
+    // 7. Lowered rather than tightened — a floor that has to be edited every
+    // time the bar changes is a floor that will one day be edited to whatever
+    // the broken run reported.
+    expect(counted.buttons, `${tab}: the stolen-centre scan found controls at all`).toBeGreaterThanOrEqual(6);
     expect(counted.absolute, `${tab}: the overreach scan found extra tap area at all`).toBeGreaterThanOrEqual(1);
     expect(overreach, `${tab}: extra tap area is running well past its control`).toEqual([]);
 

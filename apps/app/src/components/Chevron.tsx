@@ -32,25 +32,23 @@ export const CHEVRON = 7;
 /** The weight the chevron has always been drawn at, as a ratio of its size. */
 const CHEVRON_STROKE = 2 / 11;
 
+/**
+ * There is no `double` form any more.
+ *
+ * Two stacked chevrons were the collapse-ALL button's glyph, there to stop it
+ * reading as the nav Back button sitting a few pixels away in the same bar.
+ * Sean removed that button on 2026-09-16 across the whole test suite: folding
+ * a level is a LONG PRESS on any caret at it, so the control that needed a
+ * glyph of its own no longer exists. See ui.tsx's FoldCaret.
+ */
 export function Chevron({
   open,
   size = CHEVRON,
   color,
-  double = false,
 }: {
   open: boolean;
   size?: number;
   color?: string;
-  /**
-   * Two stacked chevrons instead of one — the collapse-ALL control.
-   *
-   * Sean's: folded, a single chevron points right inside a 26pt bordered
-   * circle, and the nav Back button is a '‹' inside a 28pt bordered circle.
-   * Same shape, same circle, a few pixels apart in size, and only the
-   * direction telling them apart. Doubling the glyph says "all of them" and
-   * stops the two reading as the same button.
-   */
-  double?: boolean;
 }) {
   const w = size;
   const stroke = w * CHEVRON_STROKE;
@@ -60,13 +58,10 @@ export function Chevron({
   const arm = (top: number, h: number) =>
     `${pad},${top} ${w / 2},${top + h} ${w - pad},${top}`;
 
-  // Single: one chevron centred, dropping half the box.
-  // Double: two shallower ones, stacked, the pair centred as a whole — so
-  // both forms sit on the same optical centre and can share a box.
-  const h = double ? w * 0.3 : w / 2;
-  const span = double ? w * 0.34 + h : h;
-  const top = (w - span) / 2;
-  const tops = double ? [top, top + w * 0.34] : [top];
+  // One chevron centred, dropping half the box.
+  const h = w / 2;
+  const top = (w - h) / 2;
+  const tops = [top];
 
   return (
     <Svg

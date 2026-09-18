@@ -10,8 +10,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Clipboard from 'expo-clipboard';
 import { PanResponder, Pressable, StyleSheet, Text, View } from 'react-native';
 import {
+  LONG_PRESS_MS,
   addDays,
   cellMarks,
+  chefDatedDays,
+  chefDatesOn,
   type CellMark,
   dayHeading,
   dayItems,
@@ -37,7 +40,7 @@ import { useClock24 } from '../useClock24';
 import { themed, T } from '../theme';
 import { TopBar } from '../chrome';
 import { CalendarPick, useCalendarView } from '../components/CalendarPick';
-import { CalGlyph, PageGlyph, TickBoxGlyph } from '../components/KindIcons';
+import { CalGlyph, ChefHatGlyph, PageGlyph, TickBoxGlyph } from '../components/KindIcons';
 import { ItemModal, type ItemKind } from '../components/ItemModal';
 import { useSwipeLeft } from '../components/swiperow';
 import { BalancedRow } from '../components/BalancedRow';
@@ -45,7 +48,8 @@ import { Chevron } from '../components/Chevron';
 import { useSharedTick, useTickGrace } from '../components/tickgrace';
 import { EditExit } from '../components/EditExit';
 import { useToast } from '../components/Toast';
-import { CircleBtn, CollapseAllBtn, ConfirmDelete, Rule, Scroll, TOPBAR_CTRL, WebHitSlop } from '../ui';
+import { CircleBtn, ConfirmDelete, Rule, Scroll, WebHitSlop } from '../ui';
+import { useFolds } from '../folds';
 
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
@@ -61,7 +65,7 @@ export function calSelectedDay(): string {
 }
 
 export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => void }) {
-  const { recs, mutate, sharedRecs, sharedPartner, sharedPartnerLabel, session } = useStore();
+  const { recs, mutate, sharedRecs, sharedPartner, sharedPartnerLabel, session, chefRecs } = useStore();
   const { visible: visibleCals, calendars, visibleShared, visibleSubs } = useCalendarView();
   const clock24 = useClock24();
   const toast = useToast();
@@ -69,25 +73,10 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
   const [ym, setYm] = useState((calDay ?? today).slice(0, 7));
   const [day, setDayState] = useState(calDay ?? today);
   const setDay = (d: string) => { calDay = d; setDayState(d); };
-  const [folded, setFolded] = useState<Set<string>>(new Set());
-  useEffect(() => {
-    AsyncStorage.getItem('calmind.calFold')
-      .then((raw) => raw && setFolded(new Set(JSON.parse(raw))))
-      .catch(() => {});
-  }, []);
-  const toggleFold = (kind: string) => {
-    const next = new Set(folded);
-    if (next.has(kind)) next.delete(kind);
-    else next.add(kind);
-    setFolded(next);
-    // Swallowed deliberately, and this is the triage: what is lost when a
-    // fold write fails is which sections were collapsed, next launch. No
-    // user content, nothing unrecoverable, and an alert about a collapsed
-    // folder would be worse than the loss. The failures worth surfacing in
-    // this app are the ones that lose DATA or lie about state — see
-    // store.tsx's persistFailed and the shared-write reconcile.
-    AsyncStorage.setItem('calmind.calFold', JSON.stringify([...next])).catch(() => {});
-  };
+  /** One level here — the day panel's groups. See folds.ts. */
+  const groupFolds = useFolds('calmind.calFold');
+  const folded = groupFolds.shut;
+  const toggleFold = groupFolds.toggle;
   // Remembered, like calWeekMode and calFold beside it — the suite keeps this
   // in localStorage as calShowDone and restores it on load. It was the one
   // toggle on this screen that did not persist, so switching tabs (which
@@ -219,6 +208,17 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
   const legend = useMemo(() => monthLegend(drawn, cells, today, folderModes, showDone), [drawn, cells, today, folderModes, showDone]);
   const sharedLegend = useMemo(() => monthLegend(sharedDrawn, cells, today, folderModes, showDone), [sharedDrawn, cells, today, folderModes, showDone]);
   const items = useMemo(() => dayItems(drawn, day, today, folderModes), [drawn, day, today, folderModes]);
+  /**
+   * ChefMind recipes CalMind has planned for a day (Sean, 2026-09-16).
+   *
+   * They are not records of this store and never become any: the day lives in
+   * CalMind's notes prefs, keyed by the chef id, so ChefMind never learns of
+   * it. That is also why they ride BESIDE `items` rather than through core's
+   * dayItems — dayItems shapes this store's own records, and a recipe has no
+   * folder, no repeat and no lateness for it to reason about.
+   */
+  const chefDay = useMemo(() => chefDatesOn(recs, chefRecs, day), [recs, chefRecs, day]);
+  const chefDays = useMemo(() => chefDatedDays(recs, chefRecs), [recs, chefRecs]);
   // The suite drops a group whose every item is filtered out, so a day of
   // finished reminders wears no stray heading until Completed is switched on.
   // …|| grace.held: Sean's two seconds. A row that has just gone done stays
@@ -259,18 +259,24 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
     const keys: string[] = [];
     if (items.events.length) keys.push('events');
     if (sharedItems.events.length) keys.push('events:@');
+    // Subscribed was missing from this list while the collapse-all button
+    // owned it, so a fold-all left the one group nobody can edit standing
+    // open — the exact failure the comment above warns about.
+    if (subDay.length) keys.push('events:sub');
     if (myReminders.length) keys.push('reminders');
     if (theirReminders.length) keys.push('reminders:@');
     if (items.notes.length) keys.push('notes');
     if (sharedItems.notes.length) keys.push('notes:@');
+    if (chefDay.length) keys.push('recipes');
     return keys;
-  }, [items, sharedItems, myReminders, theirReminders]);
-  const allCollapsed = groupKeys.length > 0 && groupKeys.every((k) => folded.has(k));
-  const collapseAllGroups = () => {
-    const next = allCollapsed ? new Set<string>() : new Set(groupKeys);
-    setFolded(next);
-    AsyncStorage.setItem('calmind.calFold', JSON.stringify([...next])).catch(() => {});
-  };
+  }, [items, sharedItems, subDay, myReminders, theirReminders, chefDay]);
+  /**
+   * Hold a group head, fold every group on the day — the collapse-all
+   * button's job, moved onto the control it was describing (Sean,
+   * 2026-09-16). `wasOpen` is the state of the head that was HELD: hold an
+   * open one and the day closes, hold a closed one and it opens.
+   */
+  const foldAllGroups = (wasOpen: boolean) => groupFolds.foldAll(groupKeys, wasOpen);
 
   const calById = useMemo(() => new Map(recs.filter((r): r is Rec<'calendar'> => r.type === 'calendar').map((c) => [c.id, c.payload])), [recs]);
 
@@ -293,17 +299,21 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
   const LIST_DAYS = 92;
   const agenda = useMemo(() => {
     if (calView !== 'list') return [];
-    const out: { date: string; items: ReturnType<typeof dayItems> }[] = [];
+    const out: { date: string; items: ReturnType<typeof dayItems>; chef: Rec<'note'>[] }[] = [];
     for (let i = 0; i < LIST_DAYS; i++) {
       const d = addDays(today, i);
       const it = dayItems(drawn, d, today, folderModes);
       const shown = it.reminders.filter(({ rec: r, late }) => !r.payload.done || (showDone && !late));
-      if (it.events.length + shown.length + it.notes.length > 0) {
-        out.push({ date: d, items: { ...it, reminders: shown } });
+      // A day that holds nothing but a planned recipe is still a day with
+      // something on it — the list would otherwise disagree with the grid,
+      // which is drawing a hat on it.
+      const chef = chefDatesOn(recs, chefRecs, d);
+      if (it.events.length + shown.length + it.notes.length + chef.length > 0) {
+        out.push({ date: d, items: { ...it, reminders: shown }, chef });
       }
     }
     return out;
-  }, [calView, drawn, today, folderModes, showDone]);
+  }, [calView, drawn, today, folderModes, showDone, recs, chefRecs]);
 
   const page = (dir: -1 | 1) => {
     // The arrows and a sideways swipe do the same thing: a week in week
@@ -426,14 +436,15 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
     // a row is — renders a bare <div> whose click bubbles all the way up. So
     // the rule was closing edit mode on the very long-press that opened it,
     // and the Notes spec caught it the moment the collapse-all stopped being
-    // the first thing in the row.
+    // the first thing in the row. (Both of those controls have since left the
+    // bar — the collapse-all for a held caret, Completed for the menu.)
     //
     // Named prefixes, not a whole screen's: '[data-testid^="cal-"]' was tried
     // and it kept the day's own TITLE, which is a label and must exit.
     const KEEP = [
       '[role="button"]', 'input', 'textarea', 'select',
       '[data-testid^="dp-"]', '[data-testid^="day-"]', '[data-testid="cal-grid"]',
-      '[data-testid="cal-completed"]', '[data-testid="cal-edit-done"]',
+      '[data-testid="cal-edit-done"]',
       '[data-testid="cal-prev"]', '[data-testid="cal-next"]',
       '[data-testid^="pick-"]', '[data-testid^="tab-"]',
     ].join(',');
@@ -504,6 +515,10 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
           const color = m.state === 'done' ? m.color + '77' : m.color;
           return <TickBoxGlyph key={i} color={color} done={m.state === 'done'} />;
         })}
+        {/* A planned recipe, in the mark well with everything else that is on
+            the day. The hat, not a page glyph: a recipe is not one of this
+            store's notes and reads wrong wearing its icon. */}
+        {chefDays.has(d) && <ChefHatGlyph color={T.accent} size={11} />}
         {all.length > 6 && <Text style={s.markMore}>+</Text>}
       </View>
     );
@@ -536,13 +551,14 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
           same place rather than the bar having a hole on one tab. */}
       <TopBar
         title="Calendar"
-        controls={<CollapseAllBtn open={!allCollapsed} onPress={collapseAllGroups} />}
         copyMarkdown={() => viewMarkdown(dayLabel, [
           { name: 'Events', lines: items.events.map((e) => ({ text: e.payload.text, chip: eventDayLabel(e.payload.date, e.payload.time, e.payload.endDate, e.payload.end, day, clock24) })) },
           { name: 'Reminders', lines: myReminders.map(({ rec: r }) => ({ text: r.payload.text, chip: r.payload.time ? timeLabel(r.payload.time, clock24) : null })) },
           { name: sharedPartner ? `Shared — ${sharedPartner}` : 'Shared', lines: theirReminders.map(({ rec: r }) => ({ text: r.payload.text, chip: r.payload.time ? timeLabel(r.payload.time, clock24) : null })) },
+          { name: 'Recipes', lines: chefDay.map((n) => ({ text: n.payload.title, chip: null })) },
         ])}
-        completed={<CircleBtn testID="cal-completed" glyph="☑" label="Completed" size={TOPBAR_CTRL} active={showDone} onPress={() => setShowDone(!showDone)} />}
+        showCompleted={showDone}
+        onToggleCompleted={() => setShowDone(!showDone)}
         picker={<CalendarPick />}
       />
       {/* The date centred over the grid; ◉ jumps home to today. */}
@@ -570,7 +586,7 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
             {agenda.length === 0 && (
               <Text testID="cal-list-empty" style={s.listEmpty}>Nothing in the next three months</Text>
             )}
-            {agenda.map(({ date: d, items: it }) => (
+            {agenda.map(({ date: d, items: it, chef }) => (
               <View key={d} testID="cal-list-day" style={s.listDay}>
                 {/* The heading selects that day and folds back to the month,
                     so the list is a way IN rather than a dead end. */}
@@ -602,6 +618,12 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
                     <Text style={[s.markGlyph, { color: T.dim }]}>▤</Text>
                     <Text numberOfLines={1} style={s.rowText}>{n.payload.title}</Text>
                   </View>
+                ))}
+                {chef.map((n) => (
+                  <Pressable key={`chef${n.id}`} testID="cal-list-chef" style={s.listRow} onPress={() => onNoteCreated?.(n.id)}>
+                    <ChefHatGlyph color={T.accent} size={14} />
+                    <Text numberOfLines={1} style={s.rowText}>{n.payload.title}</Text>
+                  </Pressable>
                 ))}
               </View>
             ))}
@@ -738,7 +760,13 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
           <Text testID="cal-day-title" style={s.panelTitle}>{dayLabel}</Text>
         </View>
         {items.events.length > 0 && (
-          <Pressable testID="dp-group-head" style={s.groupHead} onPress={() => toggleFold('events')}>
+          <Pressable
+            testID="dp-group-head"
+            style={s.groupHead}
+            onPress={() => toggleFold('events')}
+            onLongPress={() => foldAllGroups(!folded.has('events'))}
+            delayLongPress={LONG_PRESS_MS}
+          >
             <Chevron open={!folded.has('events')} />
             <Text style={s.groupTitle}>Events</Text>
           </Pressable>
@@ -773,7 +801,13 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
           </View>
         ))}
         {sharedItems.events.length > 0 && (
-          <Pressable testID="dp-group-head" style={s.groupHead} onPress={() => toggleFold('events:@')}>
+          <Pressable
+            testID="dp-group-head"
+            style={s.groupHead}
+            onPress={() => toggleFold('events:@')}
+            onLongPress={() => foldAllGroups(!folded.has('events:@'))}
+            delayLongPress={LONG_PRESS_MS}
+          >
             <Chevron open={!folded.has('events:@')} />
             <Text style={[s.groupTitle, s.groupTitleShared]}>{sharedPartnerLabel}'s events</Text>
           </Pressable>
@@ -791,7 +825,13 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
           </View>
         ))}
         {subDay.length > 0 && (
-          <Pressable testID="dp-group-head" style={s.groupHead} onPress={() => toggleFold('events:sub')}>
+          <Pressable
+            testID="dp-group-head"
+            style={s.groupHead}
+            onPress={() => toggleFold('events:sub')}
+            onLongPress={() => foldAllGroups(!folded.has('events:sub'))}
+            delayLongPress={LONG_PRESS_MS}
+          >
             <Chevron open={!folded.has('events:sub')} />
             <Text style={s.groupTitle}>Subscribed</Text>
           </Pressable>
@@ -806,7 +846,13 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
           </View>
         ))}
         {myReminders.length > 0 && (
-          <Pressable testID="dp-group-head" style={s.groupHead} onPress={() => toggleFold('reminders')}>
+          <Pressable
+            testID="dp-group-head"
+            style={s.groupHead}
+            onPress={() => toggleFold('reminders')}
+            onLongPress={() => foldAllGroups(!folded.has('reminders'))}
+            delayLongPress={LONG_PRESS_MS}
+          >
             <Chevron open={!folded.has('reminders')} />
             <Text style={s.groupTitle}>Reminders</Text>
           </Pressable>
@@ -849,7 +895,13 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
           </View>
         ))}
         {theirReminders.length > 0 && (
-          <Pressable testID="dp-group-head" style={s.groupHead} onPress={() => toggleFold('reminders:@')}>
+          <Pressable
+            testID="dp-group-head"
+            style={s.groupHead}
+            onPress={() => toggleFold('reminders:@')}
+            onLongPress={() => foldAllGroups(!folded.has('reminders:@'))}
+            delayLongPress={LONG_PRESS_MS}
+          >
             <Chevron open={!folded.has('reminders:@')} />
             <Text style={[s.groupTitle, s.groupTitleShared]}>{sharedPartnerLabel}'s reminders</Text>
           </Pressable>
@@ -872,7 +924,13 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
           </View>
         ))}
         {items.notes.length > 0 && (
-          <Pressable testID="dp-group-head" style={s.groupHead} onPress={() => toggleFold('notes')}>
+          <Pressable
+            testID="dp-group-head"
+            style={s.groupHead}
+            onPress={() => toggleFold('notes')}
+            onLongPress={() => foldAllGroups(!folded.has('notes'))}
+            delayLongPress={LONG_PRESS_MS}
+          >
             <Chevron open={!folded.has('notes')} />
             <Text style={s.groupTitle}>Notes</Text>
           </Pressable>
@@ -912,7 +970,13 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
           </View>
         ))}
         {sharedItems.notes.length > 0 && (
-          <Pressable testID="dp-group-head" style={s.groupHead} onPress={() => toggleFold('notes:@')}>
+          <Pressable
+            testID="dp-group-head"
+            style={s.groupHead}
+            onPress={() => toggleFold('notes:@')}
+            onLongPress={() => foldAllGroups(!folded.has('notes:@'))}
+            delayLongPress={LONG_PRESS_MS}
+          >
             <Chevron open={!folded.has('notes:@')} />
             <Text style={[s.groupTitle, s.groupTitleShared]}>{sharedPartnerLabel}'s notes</Text>
           </Pressable>
@@ -925,8 +989,39 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
             </Pressable>
           </View>
         ))}
+        {/* What CalMind has planned to cook. Read-only here, exactly as under
+            the hat in Notes — and a tap opens the RECIPE, not a note editor:
+            the id goes back through onNoteCreated, the Notes tab recognises a
+            chef id and draws ChefRecipeView. Same door the day panel's own
+            notes use, so there is no second route to keep in step. */}
+        {chefDay.length > 0 && (
+          <Pressable
+            testID="dp-group-head"
+            style={s.groupHead}
+            onPress={() => toggleFold('recipes')}
+            onLongPress={() => foldAllGroups(!folded.has('recipes'))}
+            delayLongPress={LONG_PRESS_MS}
+          >
+            <Chevron open={!folded.has('recipes')} />
+            <Text style={s.groupTitle}>Recipes</Text>
+            <ChefHatGlyph color={T.gold} size={13} />
+          </Pressable>
+        )}
+        {!folded.has('recipes') && chefDay.map((n) => (
+          <View key={`chef${n.id}`} style={s.row}>
+            <ChefHatGlyph color={T.accent} size={14} />
+            <Pressable
+              testID="dp-chef-row"
+              style={s.rowBodyFlex}
+              onPress={() => onNoteCreated?.(n.id)}
+            >
+              <Text numberOfLines={1} style={s.rowText}>{n.payload.title}</Text>
+            </Pressable>
+          </View>
+        ))}
         {items.events.length + items.reminders.length + items.notes.length +
-          sharedItems.events.length + sharedItems.reminders.length + sharedItems.notes.length === 0 && (
+          sharedItems.events.length + sharedItems.reminders.length + sharedItems.notes.length +
+          chefDay.length === 0 && (
           <Text style={s.empty}>Nothing on this day</Text>
         )}
         </EditExit>

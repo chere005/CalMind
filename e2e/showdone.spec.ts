@@ -58,7 +58,8 @@ test('reminders remembers Completed across a tab switch and a reload', async ({ 
   await addAndTick(page, 'done thing');
   const row = page.getByTestId('rem-row').filter({ hasText: 'done thing' });
 
-  await page.getByRole('button', { name: 'Completed' }).click();
+  await page.getByTestId('topbar-sync').click();
+  await page.getByTestId('menu-completed').click();
   await expect(row, 'the toggle shows completed rows').toBeVisible();
 
   // The tab switch: this screen unmounts, which is what plain state loses.
@@ -71,7 +72,8 @@ test('reminders remembers Completed across a tab switch and a reload', async ({ 
   await expect(row, 'and after a reload').toBeVisible({ timeout: 10_000 });
 
   // Off must persist too, or "always on" would pass everything above.
-  await page.getByRole('button', { name: 'Completed' }).click();
+  await page.getByTestId('topbar-sync').click();
+  await page.getByTestId('menu-completed').click();
   await expect(row).toBeHidden();
   await page.getByTestId('tab-notes').click();
   await page.getByTestId('tab-reminders').click();
@@ -98,7 +100,8 @@ test('the calendar remembers Completed across a tab switch and a reload', async 
   // Two-second grace: wait it out rather than racing it.
   await expect(row).toBeHidden({ timeout: 10_000 });
 
-  await page.getByTestId('cal-completed').click();
+  await page.getByTestId('topbar-sync').click();
+  await page.getByTestId('menu-completed').click();
   await expect(row, 'the day panel shows completed rows').toBeVisible();
 
   await page.getByTestId('tab-notes').click();
@@ -137,7 +140,8 @@ test('Completed shows the SELECTED day\'s completions, not everything ever finis
   // was finished on another day.
   await page.getByTestId('tab-calendar').click();
   await expect(page.getByTestId('cal-day-title')).toBeVisible({ timeout: 10_000 });
-  await page.getByTestId('cal-completed').click();
+  await page.getByTestId('topbar-sync').click();
+  await page.getByTestId('menu-completed').click();
   await page.waitForTimeout(400);
   await expect(page.getByText('sweep the porch'), 'a past completion does not pile onto today')
     .toHaveCount(0);

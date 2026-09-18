@@ -24,7 +24,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Clipboard from 'expo-clipboard';
-import { byRecOrd, ordGap, deleteSection, duplicateItem, editReminderLine, moveReminderBlock, moveSection, moveSectionEmptyingFolder, newId, nowStr, ordBetween, parseWhenFromText, reminderLine, reminderToggle, remindersMarkdown, renameSection, repeatLabel, sectionNameTaken, sortByDate, timeLabel, todayStr, type Rec } from '@calmind/core';
+import { LONG_PRESS_MS, byRecOrd, ordGap, deleteSection, duplicateItem, editReminderLine, moveReminderBlock, moveSection, moveSectionEmptyingFolder, newId, nowStr, ordBetween, parseWhenFromText, reminderLine, reminderToggle, remindersMarkdown, renameSection, repeatLabel, sectionNameTaken, sortByDate, timeLabel, todayStr, type Rec } from '@calmind/core';
 import { useStore } from '../store';
 import { useClock24 } from '../useClock24';
 import { themed, T } from '../theme';
@@ -38,7 +38,8 @@ import { EditExit, stayInEdit } from '../components/EditExit';
 import { useSectionDrag, type SectionSlot } from '../components/sectiondrag';
 import { ItemModal } from '../components/ItemModal';
 import { useToast } from '../components/Toast';
-import { CircleBtn, CollapseAllBtn, ConfirmDelete, Field, Pill, Scroll, TOPBAR_CTRL, WebHitSlop } from '../ui';
+import { CircleBtn, ConfirmDelete, Field, FoldCaret, Pill, Scroll, WebHitSlop } from '../ui';
+import { useFolds } from '../folds';
 
 type FolderRec = Rec<'folder'>;
 type SectionRec = Rec<'section'>;
@@ -159,26 +160,15 @@ export function Reminders() {
   const [renamingSec, setRenamingSec] = useState<string | null>(null);
   const [renameSecText, setRenameSecText] = useState('');
   const lastSecTap = React.useRef<{ id: string; at: number }>({ id: '', at: 0 });
-  const [folded, setFolded] = useState<Set<string>>(new Set());
-  const [foldedFolders, setFoldedFolders] = useState<Set<string>>(new Set());
-  useEffect(() => {
-    AsyncStorage.getItem('calmind.foldedFolders.reminders')
-      .then((raw) => raw && setFoldedFolders(new Set(JSON.parse(raw))))
-      .catch(() => {});
-  }, []);
-  const toggleFolderFold = (id: string) => {
-    const next = new Set(foldedFolders);
-    if (next.has(id)) next.delete(id);
-    else next.add(id);
-    setFoldedFolders(next);
-    // Swallowed deliberately, and this is the triage: what is lost when a
-    // fold write fails is which sections were collapsed, next launch. No
-    // user content, nothing unrecoverable, and an alert about a collapsed
-    // folder would be worse than the loss. The failures worth surfacing in
-    // this app are the ones that lose DATA or lie about state — see
-    // store.tsx's persistFailed and the shared-write reconcile.
-    AsyncStorage.setItem('calmind.foldedFolders.reminders', JSON.stringify([...next])).catch(() => {});
-  };
+  // Two levels, one hook each — see folds.ts for what the six hand-rolled
+  // copies of this had drifted into. The old local names are kept so every
+  // read below still says what it means.
+  const sectionFolds = useFolds(FOLD_KEY);
+  const folderFolds = useFolds('calmind.foldedFolders.reminders');
+  const folded = sectionFolds.shut;
+  const foldedFolders = folderFolds.shut;
+  const toggleFold = sectionFolds.toggle;
+  const toggleFolderFold = folderFolds.toggle;
   // No lastTap here any more: the double-tap-to-arm-edit-mode gesture is
   // gone from a ROW, because a single tap now opens the row for retyping
   // (Sean, 2026-08-20) and the second tap of a double would land in the
@@ -209,20 +199,6 @@ export function Reminders() {
       const row = e.all().find((x) => x.id === id);
       if (row?.type === 'reminder' && row.payload.text.trim() === '') e.del(id);
     });
-  };
-
-  // Collapse state survives visits, per the suite's localStorage habit.
-  useEffect(() => {
-    AsyncStorage.getItem(FOLD_KEY)
-      .then((raw) => raw && setFolded(new Set(JSON.parse(raw))))
-      .catch(() => {});
-  }, []);
-  const toggleFold = (id: string) => {
-    const next = new Set(folded);
-    if (next.has(id)) next.delete(id);
-    else next.add(id);
-    setFolded(next);
-    AsyncStorage.setItem(FOLD_KEY, JSON.stringify([...next])).catch(() => {});
   };
 
   const { folders, sectionsOf, remindersOf } = useMemo(() => {
@@ -414,14 +390,14 @@ export function Reminders() {
     });
   };
 
-  /** Every section, so the button can both act and show which way it points. */
+  /** Every section, so a held caret has a level to act on. */
   const mySectionIds = folders.flatMap((f) => sectionsOf(f.id).map((x) => x.id));
   // …and the partner's, when their blocks are actually on screen. Sean asked
-  // for this after the shared folds landed: a collapse-all that skipped them
-  // left the button claiming "all collapsed" over sections that were still
-  // open. Only under the All view with a partner, because that is the only
-  // place those blocks render — counting sections that are not drawn would
-  // make the arrow point the wrong way for a reason nobody could see.
+  // for this after the shared folds landed: a fold-all that skipped them left
+  // sections standing open that the gesture claimed to have closed. Only
+  // under the All view with a partner, because that is the only place those
+  // blocks render — folding sections that are not drawn would leave a
+  // surprise waiting behind the next view switch.
   const sharedSectionIds =
     view === 'all' && sharedPartner
       ? visibleShared.flatMap((f) =>
@@ -431,12 +407,24 @@ export function Reminders() {
         )
       : [];
   const allSectionIds = [...mySectionIds, ...sharedSectionIds];
-  const allCollapsed = allSectionIds.length > 0 && allSectionIds.every((id) => folded.has(id));
-  const collapseAll = () => {
-    const next = allCollapsed ? new Set<string>() : new Set(allSectionIds);
-    setFolded(next);
-    AsyncStorage.setItem(FOLD_KEY, JSON.stringify([...next])).catch(() => {});
-  };
+  /** The folder level, keyed exactly as its carets key their folds. */
+  const allFolderIds = [
+    ...folders.map((f) => f.id),
+    ...(view === 'all' && sharedPartner ? visibleShared.map((f) => `sh:${f.id}`) : []),
+  ];
+  /**
+   * Hold a caret, fold its whole level — the collapse-all button's job, moved
+   * onto the control it was describing (Sean, 2026-09-16).
+   *
+   * `wasOpen` is the state of the caret that was HELD, not a toggle of some
+   * remembered all-or-nothing: hold an open one and the level closes, hold a
+   * closed one and it opens. That makes "put this all away" one gesture on
+   * whatever is still open, with nothing to guess at — which the old button
+   * could not do, since it could only ever mean one of this screen's two
+   * levels and had picked sections.
+   */
+  const foldAllSections = (wasOpen: boolean) => sectionFolds.foldAll(allSectionIds, wasOpen);
+  const foldAllFolders = (wasOpen: boolean) => folderFolds.foldAll(allFolderIds, wasOpen);
 
   /** The visible list as Markdown — sean's personal tool, as in prod. */
   const copyMarkdown = (): string => {
@@ -487,15 +475,14 @@ export function Reminders() {
 
   return (
     <View style={s.page}>
-      {/* Collapse-all sits in the TOP BAR, right of the name, where the
-          Calendar's picker sits — Sean's placement. It is a view control like
-          the picker beside it, not a list action, and the toolbar row below
-          is for things that act on the list. */}
+      {/* Nothing but the name and the picker: collapse-all is a held caret
+          now, and Completed moved into the username menu (Sean, 2026-09-16).
+          The bar is what the screen IS and where it is pointed. */}
       <TopBar
         title="Reminders"
-        controls={<CollapseAllBtn open={!allCollapsed} onPress={collapseAll} />}
         copyMarkdown={copyMarkdown}
-        completed={<CircleBtn testID="rem-completed" glyph="☑" label="Completed" size={TOPBAR_CTRL} active={showDone} onPress={() => setShowDone(!showDone)} />}
+        showCompleted={showDone}
+        onToggleCompleted={() => setShowDone(!showDone)}
         picker={<FolderPick app="reminders" />}
       />
 
@@ -525,10 +512,13 @@ export function Reminders() {
                 their own presses — this fires on the row's bare surface. */}
             <View testID={`head-fold-${f.payload.name}`} style={s.folderHead}>
               {/* The folder's colour is the wash behind its name, not a dot beside it. */}
-              <Pressable onPress={() => toggleFolderFold(f.id)} hitSlop={8} style={s.chevWrap}>
-                <WebHitSlop />
-                <Chevron open={!foldedFolders.has(f.id)} color={T.text} />
-              </Pressable>
+              <FoldCaret
+                testID={`foldfold-${f.payload.name}`}
+                open={!foldedFolders.has(f.id)}
+                color={T.text}
+                onPress={() => toggleFolderFold(f.id)}
+                onLongPress={() => foldAllFolders(!foldedFolders.has(f.id))}
+              />
               <Text style={[s.folderName, { backgroundColor: f.payload.color + '33' }]}>{f.payload.name}</Text>
               <CircleBtn testID={`foldadd-${f.payload.name}`} glyph="+" label="Add" color={T.accent} size={22} onPress={() => { setAddingSection(f.id); setNewName(''); }} />
               <View style={s.folderRule} />
@@ -559,10 +549,12 @@ export function Reminders() {
                     <WebHitSlop slop={6} />
                       <Text style={s.rowGripText}>≡</Text>
                     </View>
-                    <Pressable testID={`secfold-${sec.payload.name}`} onPress={() => toggleFold(sec.id)} hitSlop={8} style={s.chevWrap}>
-                      <WebHitSlop />
-                      <Chevron open={!isFolded} />
-                    </Pressable>
+                    <FoldCaret
+                      testID={`secfold-${sec.payload.name}`}
+                      open={!isFolded}
+                      onPress={() => toggleFold(sec.id)}
+                      onLongPress={() => foldAllSections(!isFolded)}
+                    />
                     {renamingSec === sec.id ? (
                       <Field
                         testID="sec-rename"
@@ -815,7 +807,13 @@ export function Reminders() {
                     device's AsyncStorage under the same key as my own folds,
                     is never written to their store and never synced, so
                     folding Aki's list away changes nothing on Aki's screen. */}
-                <Pressable style={s.folderHead} onPress={() => toggleFolderFold(`sh:${f.id}`)} hitSlop={8}>
+                <Pressable
+                  style={s.folderHead}
+                  onPress={() => toggleFolderFold(`sh:${f.id}`)}
+                  onLongPress={() => foldAllFolders(!foldedFolders.has(`sh:${f.id}`))}
+                  delayLongPress={LONG_PRESS_MS}
+                  hitSlop={8}
+                >
                   <View style={s.chevWrap}><WebHitSlop /><Chevron open={!foldedFolders.has(`sh:${f.id}`)} color={T.text} /></View>
                   <Text style={[s.folderName, { backgroundColor: f.payload.color + '33' }]}>{f.payload.name}</Text>
                   {/* Beside the name, LEFT of the divider. It used to sit
@@ -836,7 +834,14 @@ export function Reminders() {
                           section id can never collide with one of mine, and
                           the fold is MINE — device-local, never written to
                           their store, never synced. */}
-                      <Pressable testID={`shared-secfold-${sec.payload.name}`} style={[s.secHead, s.sharedSecHead]} onPress={() => toggleFold(`sh:${sec.id}`)} hitSlop={8}>
+                      <Pressable
+                        testID={`shared-secfold-${sec.payload.name}`}
+                        style={[s.secHead, s.sharedSecHead]}
+                        onPress={() => toggleFold(`sh:${sec.id}`)}
+                        onLongPress={() => foldAllSections(!folded.has(`sh:${sec.id}`))}
+                        delayLongPress={LONG_PRESS_MS}
+                        hitSlop={8}
+                      >
                         <View style={s.chevWrap}><WebHitSlop /><Chevron open={!folded.has(`sh:${sec.id}`)} /></View>
                         <Text style={s.secName}>{sec.payload.name}</Text>
                         {/* Adding INTO the partner's section, from where it is
