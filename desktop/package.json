@@ -1,7 +1,7 @@
 {
   "name": "@calmind/desktop",
   "private": true,
-  "version": "1.30.0",
+  "version": "1.31.0",
   "scripts": {
     "dev": "tauri dev",
     "build": "tauri build",
