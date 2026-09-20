@@ -19,6 +19,7 @@ import { useFolds } from '../folds';
 import { DayPick } from '../components/DayPick';
 import { Dropdown } from '../components/Dropdown';
 import { useRowDrag } from '../components/rowdrag';
+import { dropTarget, slotEntries } from '../components/rowslots';
 import { useSectionDrag, type SectionSlot } from '../components/sectiondrag';
 import { useSwipeLeft } from '../components/swiperow';
 import { Chevron } from '../components/Chevron';
@@ -444,33 +445,50 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
   const foldAllSections = (wasOpen: boolean) => sectionFolds.foldAll(allSectionIds, wasOpen);
   const foldAllFolders = (wasOpen: boolean) => folderFolds.foldAll(allFolderIds, wasOpen);
 
-  // Every visible row in render order, plus a placeholder per empty section
-  // so an empty section is a drop target (row-height only while dragging).
-  type FlatEntry = { kind: 'row'; rec: Rec<'note'>; sectionId: string } | { kind: 'empty'; sectionId: string };
+  /**
+   * EXACTLY what is drawn, in drawing order — section headers included, and
+   * nothing at all from inside a folded section or a folded folder (Sean,
+   * 2026-09-19: "dragging was buggy … when sections were closed and between
+   * sections generally", then "make sure this bug doesn't appear in dragging
+   * on any screen in any app").
+   *
+   * rowdrag measures the entries that register a ref, so a list carrying rows
+   * that render nothing put every index past a collapsed section out by the
+   * number of rows hidden inside it, and the drop landed at an index that
+   * pointed somewhere nobody aimed. The headers are in here because they are
+   * what makes "the end of this section" a place you can drop: without them
+   * the gap between two sections is ONE boundary spanning the header, so a row
+   * dragged to the bottom of its own section always joined the next one.
+   * rowslots.ts turns a boundary into a landing, and Reminders and Habits read
+   * the same rule from the same file.
+   */
+  type FlatEntry = { kind: 'row'; rec: Rec<'note'>; sectionId: string } | { kind: 'empty' | 'head'; sectionId: string };
   const flatRows = useMemo(() => {
     const out: FlatEntry[] = [];
     for (const f of folders) {
+      if (foldedFolders.has(f.id)) continue;
       for (const sec of sectionsOf(f.id)) {
+        out.push({ kind: 'head', sectionId: sec.id });
+        if (nfolded.has(sec.id)) continue;
         const rows = notesOf(sec.id);
         if (rows.length === 0) out.push({ kind: 'empty', sectionId: sec.id });
         for (const n of rows) out.push({ kind: 'row', rec: n, sectionId: sec.id });
       }
     }
     return out;
-  }, [folders, sectionsOf, notesOf]);
+  }, [folders, sectionsOf, notesOf, foldedFolders, nfolded]);
   const drag = useRowDrag(flatRows.length, (from, to) => {
     const src = flatRows[from];
     if (src?.kind !== 'row') return;
-    const slotIdx = to > from ? to + 1 : to;
-    const before = flatRows[slotIdx];
-    const destSectionId = before?.sectionId ?? flatRows[flatRows.length - 1]?.sectionId ?? src.sectionId;
-    const beforeId = before?.kind === 'row' ? before.rec.id : null;
-    const res = moveNote(recs, src.rec.id, destSectionId, beforeId);
+    const target = dropTarget(slotEntries(flatRows), from, to);
+    if (!target) return;
+    const res = moveNote(recs, src.rec.id, target.sectionId, target.beforeId);
     if ('error' in res) return;
     mutate((e) => res.put.forEach((r) => e.put(r)));
   });
   const flatIdxOf = (id: string) => flatRows.findIndex((x) => x.kind === 'row' && x.rec.id === id);
   const emptyIdxOf = (sectionId: string) => flatRows.findIndex((x) => x.kind === 'empty' && x.sectionId === sectionId);
+  const headIdxOf = (sectionId: string) => flatRows.findIndex((x) => x.kind === 'head' && x.sectionId === sectionId);
 
   const [emptyAsk, setEmptyAsk] = useState<{ sectionId: string; slot: SectionSlot } | null>(null);
   const [renamingSec, setRenamingSec] = useState<string | null>(null);
@@ -1088,9 +1106,13 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
             {!foldedFolders.has(f.id) && sectionsOf(f.id).map((sec) => (
               <View key={sec.id} style={s.section}>
                 {secDrag.lineKey === `before:${sec.id}` && <View style={s.dropLine} />}
+                {/* The ROW drag's own line, above the header: this boundary is
+                    the END of the section before it, which is the drop the
+                    list could not express until the header became an entry. */}
+                {drag.slot !== null && headIdxOf(sec.id) === drag.slot && <View style={s.dropLine} />}
                 <View
                   testID={`head-sec-${sec.payload.name}`}
-                  ref={secDrag.registerHeader(sec.id, f.id)}
+                  ref={(r) => { secDrag.registerHeader(sec.id, f.id)(r); drag.registerRow(headIdxOf(sec.id))(r); }}
                   style={[s.secHead, secDrag.dragging === sec.id && { opacity: 0.55 }]}
                 >
                   <View testID={`nsec-grip-${sec.payload.name}`} {...(pageEdit ? secDrag.gripFor(sec.id) : {})} style={[s.rowGrip, !pageEdit && s.gripHidden]} pointerEvents={pageEdit ? 'auto' : 'none'} hitSlop={6}>

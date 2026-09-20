@@ -23,6 +23,13 @@ done
 echo "==> core"
 npm run -s test:core -- --reporter=dot
 
+# The app's own pure logic — no browser, no export. Small on purpose: only
+# what a screen has handed to a plain function lives here (rowslots, the row
+# drag's landing rule), because the gesture suites cost an export and this
+# suite may not.
+echo "==> app"
+npm run -s test:app -- --reporter=dot
+
 echo "==> server"
 npm run -s test:server
 

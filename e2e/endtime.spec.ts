@@ -228,3 +228,87 @@ test('the edit sheet can turn an event into a multi-day span', async ({ page }) 
   await page.getByText('Save', { exact: true }).click();
   await expect(page.getByText('9am →', { exact: true }), 'now a span from its start day').toBeVisible();
 });
+
+test('the edit sheet keeps the start and the end on one line, each naming its day', async ({ page }) => {
+  // Sean, 2026-09-19: "start/end date … doesn't always bring up the right
+  // buttons … they should stay on the same line and the start/end date should
+  // always appear". Before this the end day was a SECOND row carrying its own
+  // label and its own None pill, and the start circle went blank whenever the
+  // day was today — so the two halves of one span sat 44px apart and neither
+  // of them read as a date. Measured, not eyeballed: same row means same y.
+  test.setTimeout(90_000);
+  await page.setViewportSize({ width: 375, height: 900 });
+  await signup(page);
+  await page.getByTestId('tab-calendar').click();
+  await page.getByTestId('tab-add').click();
+  await page.getByTestId('add-kind-event').click();
+  await page.getByTestId('add-text').fill('standup');
+  await page.getByText('+ Time', { exact: true }).click();
+  await page.getByPlaceholder('2:30pm').fill('9am');
+  await page.getByText('Done', { exact: true }).last().click();
+
+  await longPress(page, page.getByText('standup', { exact: true }));
+  await page.getByLabel('Edit').first().click();
+  await expect(page.getByPlaceholder(/What\?/)).toBeVisible();
+
+  const start = page.getByTestId('item-date');
+  const end = page.getByTestId('item-end-date');
+  // A same-day event still NAMES its end — the day it starts on, never blank.
+  const today = new Date();
+  const dayLabel = today.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  await expect(start).toHaveAccessibleName(`Date: ${dayLabel}`);
+  await expect(end).toHaveAccessibleName(`Date: ${dayLabel}`);
+
+  const [sb, eb] = [await start.boundingBox(), await end.boundingBox()];
+  expect(sb!.y, 'the end day sits on the start day’s line').toBe(eb!.y);
+  expect(eb!.x, 'and after it, not before').toBeGreaterThan(sb!.x);
+
+  // The kind pills must not move the pickers around: a reminder has no end,
+  // and its start stays exactly where the event's was.
+  await page.getByTestId('kind-reminder').click();
+  await expect(end).toHaveCount(0);
+  expect((await start.boundingBox())!.x).toBe(sb!.x);
+  await page.getByTestId('kind-event').click();
+  await expect(end).toHaveCount(1);
+  expect((await start.boundingBox())!.x).toBe(sb!.x);
+});
+
+test('a start dragged past the end collapses the span in the row, not silently on save', async ({ page }) => {
+  // The save has always run normalizeEndDate — an end at or before the start
+  // is dropped — but the row went on showing the stale end until you saved,
+  // so the span you were looking at was not the span you filed. The row now
+  // reads through the same call.
+  test.setTimeout(90_000);
+  await signup(page);
+  await page.getByTestId('tab-calendar').click();
+  await page.getByTestId('tab-add').click();
+  await page.getByTestId('add-kind-event').click();
+  await page.getByTestId('add-text').fill('summit');
+  await page.getByText('+ Time', { exact: true }).click();
+  await page.getByPlaceholder('2:30pm').fill('9am');
+  await page.getByText('Done', { exact: true }).last().click();
+
+  await longPress(page, page.getByText('summit', { exact: true }));
+  await page.getByLabel('Edit').first().click();
+
+  // An end day next month: the row reads the span.
+  const n = new Date();
+  const target = new Date(n.getFullYear(), n.getMonth() + 1, 16);
+  const iso = `${target.getFullYear()}-${String(target.getMonth() + 1).padStart(2, '0')}-16`;
+  const endLabel = target.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  await page.getByTestId('item-end-date').click();
+  await page.getByTestId('daypick-next').click();
+  await page.getByLabel(iso).click();
+  await expect(page.getByTestId('item-end-date')).toHaveAccessibleName(`Date: ${endLabel}`);
+
+  // Now drag the START past it — the end must follow the start, there and then.
+  const later = new Date(n.getFullYear(), n.getMonth() + 2, 20);
+  const laterIso = `${later.getFullYear()}-${String(later.getMonth() + 1).padStart(2, '0')}-20`;
+  const laterLabel = later.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  await page.getByTestId('item-date').click();
+  await page.getByTestId('daypick-next').click();
+  await page.getByTestId('daypick-next').click();
+  await page.getByLabel(laterIso).click();
+  await expect(page.getByTestId('item-date')).toHaveAccessibleName(`Date: ${laterLabel}`);
+  await expect(page.getByTestId('item-end-date'), 'the span collapsed in view').toHaveAccessibleName(`Date: ${laterLabel}`);
+});

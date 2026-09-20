@@ -7,8 +7,8 @@
 # number kept right by remembering to keep it right is the same duplication
 # this repo distrusts everywhere else; it just happens to be in prose.
 #
-# WHAT IT CHECKS: core, gesture, WebKit, server and the deploy guards, each
-# measured rather than asserted. The playwright totals come from `--list`, so
+# WHAT IT CHECKS: core, app, gesture, WebKit, server and the deploy guards,
+# each measured rather than asserted. The playwright totals come from `--list`, so
 # no suite is actually run for them.
 #
 # WHAT IT DOES NOT, and why, because a checker that quietly covers less than it
@@ -23,8 +23,11 @@ cd "$(dirname "$0")/.."
 
 # TWO lines, not one — the counts wrap, and reading only the first left the
 # desktop and deploy-guard claims empty while reporting them as mismatches.
-LINE=$(grep -A1 -E '^core \*\*[0-9]+\*\* · gesture' TODO.md | tr '\n' ' ' || true)
-[ -n "$LINE" ] || { echo "TODO.md has no suite-counts line starting 'core **N** · gesture'" >&2; exit 1; }
+# Anchored on the FIRST claim only: the line grew an `app **N**` between core
+# and gesture, and a pattern naming the next claim along breaks every time a
+# suite is added — which is the one moment this check has to keep working.
+LINE=$(grep -A1 -E '^core \*\*[0-9]+\*\*' TODO.md | tr '\n' ' ' || true)
+[ -n "$LINE" ] || { echo "TODO.md has no suite-counts line starting 'core **N**'" >&2; exit 1; }
 
 claim() { printf '%s' "$LINE" | grep -oE "$1 \*\*[0-9]+\*\*" | grep -oE '[0-9]+'; }
 
@@ -50,6 +53,11 @@ SKIPPED=$(grep -rlE 'test\.(skip|fixme)\(' e2e/*.spec.ts | wc -l | tr -d ' ')
 
 cmp_count core "$(claim core)" \
   "$(npx vitest run --root packages/core 2>&1 | grep -oE 'Tests +[0-9]+ passed' | grep -oE '[0-9]+' | head -1)"
+# The app's own pure-logic suite (apps/app/test) — small, and counted for the
+# same reason as the rest: a suite nothing counts is a suite that can quietly
+# stop running.
+cmp_count app "$(claim app)" \
+  "$(npx vitest run --root apps/app 2>&1 | grep -oE 'Tests +[0-9]+ passed' | grep -oE '[0-9]+' | head -1)"
 cmp_count gesture "$(claim gesture)" "$(( $(listed) - SKIPPED ))"
 cmp_count WebKit "$(claim WebKit)" "$(listed x playwright.webkit.config.ts)"
 cmp_count server "$(claim server)" \

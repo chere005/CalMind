@@ -34,6 +34,7 @@ import { TopBar } from '../chrome';
 import { SectionPick, useHabitSections } from '../components/SectionPick';
 import { EditExit } from '../components/EditExit';
 import { useRowDrag } from '../components/rowdrag';
+import { dropTarget, slotEntries } from '../components/rowslots';
 import { useSectionDrag } from '../components/sectiondrag';
 import { CircleBtn, ConfirmDelete, FoldCaret, Scroll, WebHitSlop } from '../ui';
 import { useFolds } from '../folds';
@@ -234,31 +235,48 @@ export function Habits() {
     };
   }, [edit]);
 
-  // One flat list of every draggable entry, in drawn order — an empty section
-  // contributes a placeholder so a habit can be dropped into it.
-  type FlatEntry = { kind: 'row'; rec: Rec<'habit'>; sectionId: string } | { kind: 'empty'; sectionId: string };
+  /**
+   * EXACTLY what is drawn, in drawn order — the section HEADERS included, and
+   * nothing at all from inside a FOLDED section (Sean, 2026-09-19: "make sure
+   * this bug doesn't appear in dragging on any screen in any app").
+   *
+   * This list used to take every habit of every section whether or not the
+   * section was open, while the screen draws none of a folded one — so
+   * rowdrag, which measures only what registers a ref, had a hole wherever a
+   * section was shut and every index below it was out by the habits hidden
+   * inside. The headers are here because they are what makes "the end of this
+   * section" a place a habit can land: with no header entry, the gap between
+   * two sections is a single boundary spanning it, and a habit dragged to the
+   * bottom of its own section always joined the next one. rowslots.ts holds
+   * the rule; Notes and Reminders read the same file.
+   *
+   * An empty OPEN section still contributes a placeholder, so it stays a drop
+   * target of its own.
+   */
+  type FlatEntry = { kind: 'row'; rec: Rec<'habit'>; sectionId: string } | { kind: 'empty' | 'head'; sectionId: string };
   const flatRows = useMemo(() => {
     const out: FlatEntry[] = [];
     for (const sec of sections) {
+      out.push({ kind: 'head', sectionId: sec.id });
+      if (folded.has(sec.id)) continue;
       const rows = habitsOf(sec.id);
       if (rows.length === 0) out.push({ kind: 'empty', sectionId: sec.id });
       for (const h of rows) out.push({ kind: 'row', rec: h, sectionId: sec.id });
     }
     return out;
-  }, [sections, habitsOf]);
+  }, [sections, habitsOf, folded]);
   const drag = useRowDrag(flatRows.length, (from, to) => {
     const src = flatRows[from];
     if (src?.kind !== 'row') return;
-    const slotIdx = to > from ? to + 1 : to;
-    const before = flatRows[slotIdx];
-    const destSectionId = before?.sectionId ?? flatRows[flatRows.length - 1]?.sectionId ?? src.sectionId;
-    const beforeId = before?.kind === 'row' ? before.rec.id : null;
-    const res = moveHabit(recs, src.rec.id, destSectionId, beforeId);
+    const target = dropTarget(slotEntries(flatRows), from, to);
+    if (!target) return;
+    const res = moveHabit(recs, src.rec.id, target.sectionId, target.beforeId);
     if ('error' in res) return;
     mutate((e) => res.put.forEach((r) => e.put(r)));
   });
   const flatIdxOf = (id: string) => flatRows.findIndex((x) => x.kind === 'row' && x.rec.id === id);
   const emptyIdxOf = (sectionId: string) => flatRows.findIndex((x) => x.kind === 'empty' && x.sectionId === sectionId);
+  const headIdxOf = (sectionId: string) => flatRows.findIndex((x) => x.kind === 'head' && x.sectionId === sectionId);
   const secDrag = useSectionDrag((sectionId, slot) => {
     const res = moveHabitSection(recs, sectionId, slot.beforeSectionId);
     if (!('error' in res)) mutate((e) => res.put.forEach((r) => e.put(r)));
@@ -436,9 +454,12 @@ export function Habits() {
             {sections.map((sec) => (
               <View key={sec.id} style={s.section}>
                 {secDrag.lineKey === `before:${sec.id}` && <View style={s.dropLine} />}
+                {/* The ROW drag's own line, above the header: this boundary is
+                    the END of the section before it. */}
+                {drag.slot !== null && headIdxOf(sec.id) === drag.slot && <View style={s.dropLine} />}
                 <View
                   testID={`head-sec-${sec.payload.name}`}
-                  ref={secDrag.registerHeader(sec.id, HFOLDER)}
+                  ref={(r) => { secDrag.registerHeader(sec.id, HFOLDER)(r); drag.registerRow(headIdxOf(sec.id))(r); }}
                   style={[s.secHead, secDrag.dragging === sec.id && s.dragging]}
                 >
                   {/* Floats too, for the same reason as the row's: the

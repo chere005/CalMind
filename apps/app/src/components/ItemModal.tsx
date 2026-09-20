@@ -124,6 +124,28 @@ export function ItemModal({
   const [err, setErr] = useState('');
 
   /**
+   * What each picker NAMES (Sean, 2026-09-19: "the start/end date should
+   * always appear").
+   *
+   * An event always files on a day, so its start picker always names one —
+   * today, when nothing else has been chosen. A reminder or a note can truly
+   * have no date, and there the bare circle IS what None looks like.
+   *
+   * An event with no later end day ends on the day it starts, so that is the
+   * day the end picker names; it is never blank. Collapsing a span back is
+   * DayPick's own Clear (core's normalizeEndDate drops an equal-or-earlier day
+   * anyway), which is why this row no longer carries an End-day None pill —
+   * the pill that used to make the two halves different shapes.
+   *
+   * The end is read through normalizeEndDate — the SAME call the save makes —
+   * so the row can never show a span the save is about to drop. Moving the
+   * start past the end used to leave "Oct 20 to Oct 16" sitting there and then
+   * quietly file a single day.
+   */
+  const startDay = kind === 'event' ? date ?? today : date;
+  const endDay = (startDay ? normalizeEndDate(startDay, endDate) : null) ?? startDay;
+
+  /**
    * The destinations: mine, then the partner's shared ones.
    *
    * The partner's are back in the menu. They were taken out on Sean's word
@@ -347,25 +369,35 @@ export function ItemModal({
             )}
             <Field value={text} onChangeText={setText} placeholder="What? — “Vet 8/3 2pm”" autoFocus={mode === 'create'} onSubmitEditing={save} />
 
-            <Text style={s.label}>Date</Text>
+            {/* One line for the whole span, and a picker that always NAMES
+                its day — Sean, 2026-09-19: "they should stay on the same line
+                and the start/end date should always appear". Until now the end
+                day was a second row with its own label and its own None pill,
+                while the start circle went blank whenever the day was today,
+                so the two halves of one span neither lined up nor read as
+                days. The Add screen's Date panel is the same line, in the same
+                words ("Date … to …"), which is the point.
+
+                The circle-with-a-calendar, never an m/d box (Sean,
+                2026-08-20); it names the day itself, so no chip.
+
+                The span comes FIRST and the None/Today shortcuts trail it, so
+                that a row too narrow to hold everything (a 375pt phone, once
+                both days are named) wraps a shortcut down instead of breaking
+                the start away from the end — the one thing this row is not
+                allowed to do. */}
             <View style={s.rowWrap}>
+              <Text style={s.label}>Date</Text>
+              <DayPickBtn testID="item-date" value={startDay} onPress={() => setPick('date')} />
+              {kind === 'event' && (
+                <>
+                  <Text style={s.label}>to</Text>
+                  <DayPickBtn testID="item-end-date" value={endDay} onPress={() => setPick('endDate')} />
+                </>
+              )}
               {kind !== 'event' && <Pill label="None" primary={!date} onPress={() => { setDate(null); setDateTouched(true); }} />}
               <Pill label="Today" primary={date === today} onPress={() => { setDate(today); setDateTouched(true); }} />
-              {/* The circle-with-a-calendar, never an m/d box (Sean,
-                  2026-08-20); it names the picked day itself, so no chip. */}
-              <DayPickBtn testID="item-date" value={date && date !== today ? date : null} onPress={() => setPick('date')} />
             </View>
-
-            {/* An event can END on a later day — a multi-day span. None keeps
-                it a single day; a day at or before the start collapses back to
-                single-day in core (normalizeEndDate). */}
-            {kind === 'event' && (
-              <View style={s.rowWrap}>
-                <Text style={s.label}>End day</Text>
-                <Pill label="None" primary={!endDate} onPress={() => setEndDate(null)} />
-                <DayPickBtn testID="item-end-date" value={endDate} onPress={() => setPick('endDate')} />
-              </View>
-            )}
 
             {!showTime ? (
               <Pill label="+ Time" onPress={() => setShowTime(true)} />
@@ -469,7 +501,7 @@ export function ItemModal({
       </Pressable>
       {pick && (
         <DayPick
-          value={pick === 'endDate' ? endDate : date}
+          value={pick === 'endDate' ? endDay : startDay}
           onPick={(d) => { if (pick === 'endDate') setEndDate(d); else { setDate(d); setDateTouched(true); } }}
           onClose={() => setPick(null)}
         />

@@ -31,6 +31,7 @@ import { themed, T } from '../theme';
 import { TopBar } from '../chrome';
 import { FolderPick, useFolderView } from '../components/FolderPick';
 import { useRowDrag } from '../components/rowdrag';
+import { dropTarget, slotEntries } from '../components/rowslots';
 import { useSwipeLeft } from '../components/swiperow';
 import { useSharedTick, useTickGrace } from '../components/tickgrace';
 import { Chevron } from '../components/Chevron';
@@ -217,14 +218,31 @@ export function Reminders() {
     };
   }, [recs, visibleFolders]);
 
-  // Every visible row in render order — plus one placeholder per EMPTY
-  // section, so an empty section is a drop target. Placeholders take a row's
-  // height only while a drag is live, which keeps the index math uniform.
-  type FlatEntry = { kind: 'row'; rec: ReminderRec; sectionId: string } | { kind: 'empty'; sectionId: string };
+  /**
+   * EXACTLY what is drawn, in drawing order — the section HEADERS included,
+   * and nothing from inside a folded section OR a folded folder (Sean,
+   * 2026-09-19: "make sure this bug doesn't appear in dragging on any screen
+   * in any app").
+   *
+   * This list already knew to skip a folded section; it did not know about a
+   * folded FOLDER, whose sections the render drops whole — so one collapsed
+   * folder put every index below it out by everything inside it. And the
+   * headers are here because they are what makes "the end of this section" a
+   * place a row can land: without one, the gap between two sections is a
+   * single boundary spanning the header, and a reminder dragged to the bottom
+   * of its own section always joined the next one instead. rowslots.ts holds
+   * the rule; Notes and Habits read the same file.
+   *
+   * A placeholder still stands in for an EMPTY open section, and takes a row's
+   * height only while a drag is live.
+   */
+  type FlatEntry = { kind: 'row'; rec: ReminderRec; sectionId: string } | { kind: 'empty' | 'head'; sectionId: string };
   const flatRows = useMemo(() => {
     const out: FlatEntry[] = [];
     for (const f of folders) {
+      if (foldedFolders.has(f.id)) continue;
       for (const sec of sectionsOf(f.id)) {
+        out.push({ kind: 'head', sectionId: sec.id });
         if (folded.has(sec.id)) continue;
         const rows = remindersOf(sec.id).filter((r) => showDone || !r.payload.done || grace.held(r.id));
         if (rows.length === 0) out.push({ kind: 'empty', sectionId: sec.id });
@@ -232,21 +250,20 @@ export function Reminders() {
       }
     }
     return out;
-  }, [folders, sectionsOf, remindersOf, folded, showDone, grace.version]);
+  }, [folders, sectionsOf, remindersOf, folded, foldedFolders, showDone, grace.version]);
 
   const drag = useRowDrag(flatRows.length, (from, to) => {
     const src = flatRows[from];
     if (src?.kind !== 'row') return;
-    const slotIdx = to > from ? to + 1 : to;
-    const before = flatRows[slotIdx];
-    const destSectionId = before?.sectionId ?? flatRows[flatRows.length - 1]?.sectionId ?? src.sectionId;
-    const beforeId = before?.kind === 'row' ? before.rec.id : null;
-    const res = moveReminderBlock(recs, src.rec.id, destSectionId, beforeId);
+    const target = dropTarget(slotEntries(flatRows), from, to);
+    if (!target) return;
+    const res = moveReminderBlock(recs, src.rec.id, target.sectionId, target.beforeId);
     if ('error' in res) return;
     mutate((e) => res.put.forEach((r) => e.put(r)));
   });
   const flatIdxOf = (id: string) => flatRows.findIndex((x) => x.kind === 'row' && x.rec.id === id);
   const emptyIdxOf = (sectionId: string) => flatRows.findIndex((x) => x.kind === 'empty' && x.sectionId === sectionId);
+  const headIdxOf = (sectionId: string) => flatRows.findIndex((x) => x.kind === 'head' && x.sectionId === sectionId);
 
   // Level 0: sections travel as blocks and land only between sections. When
   // the move would empty a folder, the suite asks first — so do we.
@@ -540,9 +557,12 @@ export function Reminders() {
               return (
                 <View key={sec.id} style={s.section}>
                   {secDrag.lineKey === `before:${sec.id}` && <View style={s.dropLine} />}
+                  {/* The ROW drag's own line, above the header: this boundary
+                      is the END of the section before it. */}
+                  {drag.slot !== null && headIdxOf(sec.id) === drag.slot && <View style={s.dropLine} />}
                   <View
                     testID={`head-sec-${sec.payload.name}`}
-                    ref={secDrag.registerHeader(sec.id, f.id)}
+                    ref={(r) => { secDrag.registerHeader(sec.id, f.id)(r); drag.registerRow(headIdxOf(sec.id))(r); }}
                     style={[s.secHead, secDrag.dragging === sec.id && { opacity: 0.55 }]}
                   >
                     <View testID={`sec-grip-${sec.payload.name}`} {...(pageEdit ? secDrag.gripFor(sec.id) : {})} style={[s.rowGrip, !pageEdit && s.gripHidden]} pointerEvents={pageEdit ? 'auto' : 'none'} hitSlop={6}>
