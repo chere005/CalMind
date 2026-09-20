@@ -435,5 +435,61 @@
     "text": "Lunch",
     "date": "2026-08-01",
     "time": "12:30"
+  },
+  {
+    "name": "a weekday range is an all-day span, and the token leaves the title",
+    "input": "conference mon-wed",
+    "today": "2026-08-01",
+    "text": "conference",
+    "date": "2026-08-03",
+    "time": null
+  },
+  {
+    "name": "the long spelling and the short one mix, in any case",
+    "input": "Conference Monday-Wed",
+    "today": "2026-08-01",
+    "text": "Conference",
+    "date": "2026-08-03",
+    "time": null
+  },
+  {
+    "name": "SHOUTED, and spaced around the dash",
+    "input": "retreat MON - WEDNESDAY",
+    "today": "2026-08-01",
+    "text": "retreat",
+    "date": "2026-08-03",
+    "time": null
+  },
+  {
+    "name": "the word instead of the dash, and its introducing from",
+    "input": "cover from mon to fri",
+    "today": "2026-08-01",
+    "text": "cover",
+    "date": "2026-08-03",
+    "time": null
+  },
+  {
+    "name": "a range that crosses the weekend starts on the coming Friday",
+    "input": "away fri-mon",
+    "today": "2026-08-01",
+    "text": "away",
+    "date": "2026-08-07",
+    "time": null
+  },
+  {
+    "name": "a time written beside a range still applies",
+    "input": "standup mon-wed 9am",
+    "today": "2026-08-01",
+    "text": "standup",
+    "date": "2026-08-03",
+    "time": "09:00"
+  },
+  {
+    "name": "a weekday glued to a word by a dash is part of the word",
+    "input": "sun-dried tomatoes",
+    "today": "2026-08-01",
+    "text": "sun-dried tomatoes",
+    "date": null,
+    "time": null
   }
 ]

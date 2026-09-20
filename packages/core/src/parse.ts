@@ -240,9 +240,42 @@ const REL_CLOCK_RE = /\bin\s+(an?|\d{1,3})\s*(hours?|hrs?|minutes?|mins?)\b/i;
 // down" — but this is a quick-add box, not prose, and Sean asked for the
 // shorthand by name. Next occurrence, and a weekday naming today stays
 // today, exactly the bare-m/d rule.
-const WEEKDAY_RE =
-  /\b(sun(?:day)?|mon(?:day)?|tue(?:s(?:day)?)?|wed(?:nesday|s)?|thu(?:rs?(?:day)?)?|fri(?:day)?|sat(?:urday)?)\b/i;
+const WEEKDAY_ALT =
+  'sun(?:day)?|mon(?:day)?|tue(?:s(?:day)?)?|wed(?:nesday|s)?|thu(?:rs?(?:day)?)?|fri(?:day)?|sat(?:urday)?';
+const WEEKDAY_RE = new RegExp(`\\b(${WEEKDAY_ALT})\\b`, 'i');
 const WEEKDAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+
+/**
+ * A RANGE of weekdays — Sean, 2026-09-19: "calmind should have mon-wed parsing
+ * that would be an all day event and any varient like Monday-Wed case
+ * insensitive".
+ *
+ * Both halves are weekday names, in any spelling the single-day rule already
+ * takes, either way round in case, joined by a dash of any width or by the
+ * words people write instead. Built from WEEKDAY_ALT so the two rules cannot
+ * drift apart: a spelling the single day understands, the range understands.
+ *
+ * The "from" of "from mon to wed" is part of the instruction and leaves with
+ * it, the same judgement `lift` already makes about "at" and "on".
+ *
+ * It is deliberately anchored on two weekday NAMES at both ends, which is what
+ * keeps it out of ordinary prose: "sun-dried tomatoes" has no weekday on its
+ * right, and "she sat down" has no dash.
+ */
+const DAY_RANGE_RE = new RegExp(
+  `\\b(?:from\\s+)?(${WEEKDAY_ALT})\\s*(?:-|–|—|to|through|thru|till|until)\\s*(${WEEKDAY_ALT})\\b`,
+  'i',
+);
+
+/** Which day of the week a written name is; -1 when it is not one. */
+const dayOfWeek = (name: string): number => WEEKDAYS.indexOf(name.slice(0, 3).toLowerCase());
+
+/** The next `dow` on or after `today` — a day naming today stays today, the
+ *  rule the single weekday has always followed. */
+function nextDow(today: string, dow: number): string {
+  const [y, m, d] = today.split('-').map(Number) as [number, number, number];
+  return shiftDate(today, (dow - new Date(y, m - 1, d, 12).getDay() + 7) % 7, 'day');
+}
 
 const SPAN_UNIT = (raw: string): 'day' | 'week' | 'month' | 'year' => {
   const u = raw.toLowerCase();
@@ -300,18 +333,51 @@ export function parseRelativeDate(text: string, today: string): [string, string 
     const by = { yesterday: -1, today: 0, tomorrow: 1 }[w[1]!.toLowerCase()] ?? 0;
     return [lift(text, w.index, w[0].length), shiftDate(today, by, 'day')];
   }
-  const wd = WEEKDAY_RE.exec(text);
-  if (wd) {
-    const dow = WEEKDAYS.indexOf(wd[1]!.slice(0, 3).toLowerCase());
-    const [y, m, d] = today.split('-').map(Number) as [number, number, number];
-    const ahead = (dow - new Date(y, m - 1, d, 12).getDay() + 7) % 7;
-    return [lift(text, wd.index, wd[0].length), shiftDate(today, ahead, 'day')];
+  // Every weekday in the line, not just the first, so a hyphenated word can
+  // be stepped over: "sun-dried tomatoes on friday" is Friday's, and
+  // "sun-dried tomatoes" alone has no day in it at all. A weekday glued to a
+  // word by a dash is part of that word — the RANGE has already had its look
+  // by the time this runs, so anything still wearing a dash is a compound and
+  // not an instruction. (Before this, "sun" was lifted out of "sun-dried" and
+  // left "-dried" in the title, which nothing had ever looked at.)
+  for (const wd of text.matchAll(new RegExp(WEEKDAY_RE.source, 'gi'))) {
+    const after = text.slice(wd.index + wd[0].length);
+    if (/^\s*[-–—]\s*[A-Za-z]/.test(after)) continue;
+    if (/[-–—]\s*$/.test(text.slice(0, wd.index))) continue;
+    return [lift(text, wd.index, wd[0].length), nextDow(today, dayOfWeek(wd[1]!))];
   }
   const s = REL_SPAN_RE.exec(text);
   if (!s) return [text, null];
   const n = countOf(s[1]!);
   if (!Number.isFinite(n)) return [text, null];
   return [lift(text, s.index, s[0].length), shiftDate(today, n, SPAN_UNIT(s[2]!))];
+}
+
+/**
+ * "mon-wed", "Monday – Wed", "from mon to wed" → [cleanedText, start, end].
+ *
+ * The start is the next of the first day named, counting today (the single
+ * weekday's own rule), and the end is the first of the second day on or after
+ * it — so "fri-mon" is the weekend, not a walk backwards through the week.
+ * Naming one day twice ("mon-mon") is one day: the end lands on the start, and
+ * core's normalizeEndDate reads an end that is not LATER as no span at all.
+ *
+ * No time comes out of this, which is the point — an event with a span and no
+ * clock is the all-day event Sean asked for, and the day panel already says
+ * "all day" for one. A time written beside it still applies: "mon-wed 9am" is
+ * a span that starts at nine, not a refusal.
+ */
+export function parseDayRangeFromText(
+  text: string,
+  today: string,
+): [string, string | null, string | null] {
+  const m = DAY_RANGE_RE.exec(text);
+  if (!m) return [text, null, null];
+  const from = dayOfWeek(m[1]!);
+  const to = dayOfWeek(m[2]!);
+  if (from < 0 || to < 0) return [text, null, null];
+  const start = nextDow(today, from);
+  return [lift(text, m.index, m[0].length), start, shiftDate(start, (to - from + 7) % 7, 'day')];
 }
 
 /** "in an hour", "in 30mins" → [cleanedText, date, time] off the given clock. */
@@ -389,7 +455,7 @@ export function parseWhenFromText(
   today: string,
   now?: string,
   lift: { date?: boolean; time?: boolean } = {},
-): [string, string | null, string | null, string | null] {
+): [string, string | null, string | null, string | null, string | null] {
   const liftDate = lift.date ?? true;
   const liftTime = lift.time ?? true;
   const [protectedText, held] = protectEscapes(text);
@@ -397,6 +463,7 @@ export function parseWhenFromText(
   let d: string | null = null;
   let t: string | null = null;
   let e: string | null = null;
+  let ed: string | null = null;
   if (liftDate) {
     const [t1, date] = parseDateFromText(out, today);
     out = t1;
@@ -425,6 +492,17 @@ export function parseWhenFromText(
     }
   }
   if (liftDate && d === null) {
+    // The RANGE before the single day, for the reason the time range goes
+    // before TIME_RE: "mon-wed" would otherwise have "mon" lifted out of it
+    // and leave "-wed" sitting in the title.
+    const [t4, from, to] = parseDayRangeFromText(out, today);
+    if (from !== null) {
+      out = t4;
+      d = from;
+      ed = to;
+    }
+  }
+  if (liftDate && d === null) {
     const [t4, rel] = parseRelativeDate(out, today);
     if (rel !== null) {
       out = t4;
@@ -438,8 +516,10 @@ export function parseWhenFromText(
   // A FOURTH element, appended rather than inserted: every existing caller
   // destructures three and is untouched by this. Only the kinds that HAVE an
   // end (events) reach for it — a reminder has no end field, and the range
-  // still earns its keep there by taking both tokens out of the title.
-  return [restoreEscapes(out, held), d, t, e];
+  // still earns its keep there by taking both tokens out of the title. The
+  // FIFTH is the end DAY, appended for the same reason and read by the same
+  // kinds: "mon-wed" is an event that runs to Wednesday.
+  return [restoreEscapes(out, held), d, t, e, ed];
 }
 
 /** Local 'HH:MM' — the `now` a caller passes so a bare time can tell whether

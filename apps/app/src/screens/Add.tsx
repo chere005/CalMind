@@ -133,7 +133,7 @@ export function Add({
     const ft = parseClockField(timeField);
     // Manual-beats-parsed (Sean, 2026-08-18): a category the fields settled
     // is not lifted from the line — the token stays, unused.
-    const [clean, pd, pt, pe] = parseWhenFromText(raw, today, nowStr(), { date: fd === null, time: ft === null });
+    const [clean, pd, pt, pe, pEndDate] = parseWhenFromText(raw, today, nowStr(), { date: fd === null, time: ft === null });
     // The launch day (date0) is an INCUMBENT, ranked as ItemModal ranks its
     // own: an explicit typed token beats it, but a bare "2pm" only IMPLIES a
     // day and that implication is a fallback, not an instruction — it must
@@ -149,8 +149,10 @@ export function Add({
     const fe = parseClockField(endField);
     const end = kind === 'event' && time !== null ? fe ?? pe : null;
     // The end DAY (events only), kept only when it is after the start day —
-    // core drops an equal-or-earlier one back to same-day.
-    const endDate = kind === 'event' ? normalizeEndDate(date ?? today, endDatePicked) : null;
+    // core drops an equal-or-earlier one back to same-day. A day picked by
+    // hand outranks one written in the line ("conference mon-wed"), the same
+    // order every other pair here follows.
+    const endDate = kind === 'event' ? normalizeEndDate(date ?? today, endDatePicked ?? pEndDate) : null;
     const title = clean || raw;
     let createdNoteId: string | null = null;
     // The record is built once and handed to the store it belongs to — mine
@@ -363,6 +365,7 @@ export function Add({
           <Text style={s.helpRow}>·  <Text style={s.helpBold}>8/3/26</Text> or <Text style={s.helpBold}>8/3/2026</Text> — a full date</Text>
           <Text style={s.helpRow}>·  <Text style={s.helpBold}>tomorrow</Text>, <Text style={s.helpBold}>today</Text> or <Text style={s.helpBold}>yesterday</Text></Text>
           <Text style={s.helpRow}>·  <Text style={s.helpBold}>friday</Text> or <Text style={s.helpBold}>fri</Text> — the next one to come</Text>
+          <Text style={s.helpRow}>·  <Text style={s.helpBold}>mon-wed</Text> or <Text style={s.helpBold}>Monday to Wed</Text> — an all-day event across those days</Text>
           <Text style={s.helpRow}>·  <Text style={s.helpBold}>in 2 weeks</Text>, <Text style={s.helpBold}>3 days</Text>, <Text style={s.helpBold}>1 month</Text> — that far from today</Text>
           <Text style={s.helpRow}>·  <Text style={s.helpBold}>in an hour</Text> or <Text style={s.helpBold}>in 30mins</Text> — a time from now</Text>
           <Text style={s.helpRow}>·  e.g. <Text style={s.helpBold}>Vet 8/3 2pm</Text> → “Vet”, Aug 3, 2:00pm</Text>

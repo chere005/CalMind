@@ -312,3 +312,38 @@ test('a start dragged past the end collapses the span in the row, not silently o
   await expect(page.getByTestId('item-date')).toHaveAccessibleName(`Date: ${laterLabel}`);
   await expect(page.getByTestId('item-end-date'), 'the span collapsed in view').toHaveAccessibleName(`Date: ${laterLabel}`);
 });
+
+test('a weekday range typed into the line makes an all-day span', async ({ page }) => {
+  // Sean, 2026-09-19: "calmind should have mon-wed parsing that would be an
+  // all day event and any varient like Monday-Wed case insensitive". Typed,
+  // not picked: the line alone has to make the span, take its own words out
+  // of the title, and leave no clock behind — an event with no time is the
+  // all-day event, and the day panel says so.
+  test.setTimeout(90_000);
+  await signup(page);
+  await page.getByTestId('tab-calendar').click();
+  await page.getByTestId('tab-add').click();
+  await page.getByTestId('add-kind-event').click();
+  await page.getByTestId('add-text').fill('Conference Monday-Wed');
+  await page.getByText('Done', { exact: true }).last().click();
+
+  // It files on the coming Monday, so the day panel has to go there. The
+  // month may turn over on the way, which the grid's own arrow handles.
+  const now = new Date();
+  const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + ((1 - now.getDay() + 7) % 7));
+  await expect(page.getByTestId('cal-day-title')).toBeVisible();
+  if (monday.getMonth() !== now.getMonth()) await page.getByTestId('cal-next').click();
+  await page.getByTestId('cal-cell').getByText(String(monday.getDate()), { exact: true }).first().click();
+  await expect(page.getByTestId('cal-day-title')).toContainText(` ${monday.getDate()}`);
+
+  // The title kept its words and lost the range, and there is no clock on it.
+  await expect(page.getByText('Conference', { exact: true })).toBeVisible();
+  await expect(page.getByText('all day', { exact: true }), 'no time was written, so none was invented').toBeVisible();
+
+  // The span is the point: the Wednesday two days on carries it as well.
+  const wed = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 2);
+  if (wed.getMonth() !== monday.getMonth()) await page.getByTestId('cal-next').click();
+  await page.getByTestId('cal-cell').getByText(String(wed.getDate()), { exact: true }).first().click();
+  await expect(page.getByTestId('cal-day-title')).toContainText(` ${wed.getDate()}`);
+  await expect(page.getByText('Conference', { exact: true }), 'it runs to the Wednesday').toBeVisible();
+});
