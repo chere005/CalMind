@@ -1,10 +1,11 @@
 # The CalMind sync API
 
-The one HTTP surface every CalMind client talks to. This is the reference; the
-[README's "The sync model"](../README.md) is the one-paragraph version, and
-[`spec/protocol.json`](../spec/protocol.json) is the machine-checked contract
-both the server and every client core assert against — where a value appears in
-both places, that file is the source of truth and this page is describing it.
+The one HTTP surface every CalMind client talks to. This is the reference;
+[ARCHITECTURE.md's "The sync model"](../ARCHITECTURE.md#the-sync-model) is the
+one-paragraph version, and [`spec/protocol.json`](../spec/protocol.json) is
+the machine-checked contract both the server and every client core assert
+against — where a value appears in both places, that file is the source of
+truth and this page is describing it.
 
 MyCalMind speaks none of this (it has no server); ChefMind speaks all of it,
 against these same accounts, kept apart by a sync **space**.

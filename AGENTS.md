@@ -4,10 +4,11 @@ The baseline for all of Sean's repos lives in ~/GIT/AgentSuite/AGENTS.md
 and is imported here; this file holds only what is true of THIS repo.
 @../AgentSuite/AGENTS.md
 
-Sean's calendar/reminders/notes/habits/recipes app. `README.md` is the map,
-`TESTING.md` is what the tests are worth, `PARITY.md` is the ledger of what
-shipped, `TODO.md` is the live list (and holds the suite counts — no number is
-written into prose anywhere else).
+Sean's calendar/reminders/notes/habits/recipes app. `ARCHITECTURE.md` is the
+map — `README.md` is the short front door and points at it — `TESTING.md` is
+what the tests are worth, `PARITY.md` is the ledger of what shipped, `TODO.md`
+is the live list (and holds the suite counts — no number is written into prose
+anywhere else).
 
 ## Standing rules
 
@@ -135,9 +136,9 @@ one rule (the 12/24-hour clock) has three implementations and its own seam
 check.
 
 **Sync.** Local-first, per-record last-write-wins on `updated`, one endpoint
-shape (README's "The sync model"). `apps/app/src/store.tsx` is the app's only
-stateful seam — a React context around core's `SyncEngine`; AsyncStorage and
-the server round-trip trail behind it, debounced. Drag order is
+shape (ARCHITECTURE.md's "The sync model"). `apps/app/src/store.tsx` is the
+app's only stateful seam — a React context around core's `SyncEngine`;
+AsyncStorage and the server round-trip trail behind it, debounced. Drag order is
 `payload.ord`, a fractional key on the record, because array position cannot
 survive per-record merging.
 

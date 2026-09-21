@@ -2,8 +2,9 @@
 # Does TODO.md's suite-counts line still tell the truth?
 #
 # That line exists because the README used to carry its own numbers and its
-# "145 tests" went stale unnoticed. The README points here now — and then the
-# line itself went stale, by three, in the session that added the tests. A
+# "145 tests" went stale unnoticed. ARCHITECTURE.md points here now (since the
+# 2026-09-21 split the README carries no numbers at all) — and then the line
+# itself went stale, by three, in the session that added the tests. A
 # number kept right by remembering to keep it right is the same duplication
 # this repo distrusts everywhere else; it just happens to be in prose.
 #
@@ -72,7 +73,7 @@ cmp_count desktop "$(claim desktop)" "$(grep -oE 'ok "' desktop/smoke.sh | wc -l
 
 echo
 if [ "$BAD" -gt 0 ]; then
-  echo "$BAD count(s) stale in TODO.md — the README points at that line." >&2
+  echo "$BAD count(s) stale in TODO.md — ARCHITECTURE.md points at that line." >&2
   exit 1
 fi
 echo "suite counts: TODO.md agrees with the suites."

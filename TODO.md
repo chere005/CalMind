@@ -1,7 +1,8 @@
 # TODO — what is still owed
 
-`README.md` is the map, `TESTING.md` is what the tests are worth, `PARITY.md`
-is the ledger of what shipped. This is the live list, highest first.
+`ARCHITECTURE.md` is the map (`README.md` is the short front door in front of
+it), `TESTING.md` is what the tests are worth, `PARITY.md` is the ledger of
+what shipped. This is the live list, highest first.
 Standing rules live in `CLAUDE.md`, not here.
 
 Compressed 2026-08-19 (1,400 → this), on Sean's word: "cut any old dead
@@ -36,7 +37,7 @@ native seam checkers no browser can reach: `npm run test:watch`,
 
 `npm run test:counts` checks this line against the suites, so it cannot
 drift silently; `live` needs the deployed server and is the one figure still
-on trust. The README points here rather than carrying its own numbers.
+on trust. ARCHITECTURE.md points here rather than carrying its own numbers.
 `npm run test:dev` is the between-runs mini-suite (typechecks, core, server,
 counts — ~40s, no browser).
 

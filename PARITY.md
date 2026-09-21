@@ -1339,7 +1339,8 @@ no evidence either way.
   pixels are not, and cannot be from here.
 - **Why the companion path does not update the watch app.** Until that is
   known, the wrist needs the direct install.
-- **E2EE and store builds** — neither started; see README's milestones.
+- **E2EE and store builds** — neither started; see ARCHITECTURE.md's
+  milestones (they were the README's until the 2026-09-21 split).
 
 ## Iteration — the top bar's one scale, and the complication says "now"
 
