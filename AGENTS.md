@@ -181,19 +181,29 @@ CoreMind's AGENTS.md for that graph). As of 2026-08-23:
 - **Windows** — desktop, built and smoke-tested in CI via
   `.github/workflows/desktop-windows.yml`, dispatched at the end of
   `dtp`/`tdtp`.
-- **iOS** — installs to the physical phone via `tools/build-platforms.sh
-  --ios` (devicectl), after the push and never fatal. Counts against Apple's
-  free-tier cap of 3 apps installed on one physical device at a time; the
-  phone currently carries CalMind, ChefMind, and AcctMind. TWO PHONES ARE
-  PAIRED with this Mac, so the picker takes the one named `iPhoooooone`
-  (`IOS_DEVICE` overrides); requiring exactly one reachable device refused
-  three releases in a row while the right phone sat there.
-- **watchOS** — a real paired-watch companion app, CalMindWatch, plus a
-  CalMindComplication and CalMindWidget extension (`apps/app/targets/watch`,
-  `apps/app/targets/watchwidget`). Installs to a paired Apple Watch when one
-  is reachable. MyCalMind's iOS build also produces a watch companion (same
-  CalMindWatch product name, kept deliberately) but has not installed it to a
-  watch; ChefMind and AcctMind have no watchOS target at all.
+- **iOS** — installs to the paired phones via `tools/build-platforms.sh
+  --ios` (devicectl), after the push and never fatal.
+
+  THREE PHONES are paired and on the network — Sean's (`iPhoooooone`),
+  Autumn's and Patricia's — and since 2026-09-21 a release installs to ALL
+  of them: one build, then an install per phone, warning on a phone that
+  refuses and failing only when NONE took it. `IOS_DEVICE` still narrows it
+  to a single named handset when that is what you want.
+
+  It installed to exactly one before that, and before THAT it required
+  exactly one reachable device, which refused three releases in a row while
+  the right phone sat there.
+
+  There is no per-phone app cap to ration. Apple's free-tier limit of 3 apps
+  on a device does not apply: the team (2LGYTL3FSJ, "Sean Cheren") is PAID,
+  and its Xcode-managed profile carries `TimeToLive 365` where a personal
+  team's carries 7. Sean, 2026-09-21: "no more caps per phone."
+
+  A phone that is not yet REGISTERED with the team is refused by devicectl
+  with a provisioning error. Building against it once registers it —
+  `IOS_DEVICE='Its Name' sh tools/build-platforms.sh --ios` — after which
+  every later profile includes it and the plain install works.
+
 - **Android** — builds, installs, and launches on a local emulator via
   `tools/build-platforms.sh --android` (confirmed 2026-08-23).
 

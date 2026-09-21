@@ -1,13 +1,13 @@
 #!/bin/sh
 # The platforms this repo ships that server/deploy.sh does not: the macOS
-# desktop bundle, an iOS build installed on the connected iPhone — carrying
-# the watch companion onto a paired Apple Watch when one is reachable — and
-# an Android build on an emulator. Windows is CI's
+# desktop bundle, one iOS build installed on every phone CalMind belongs on —
+# carrying the watch companion onto a paired Apple Watch when one is reachable
+# — and an Android build on an emulator. Windows is CI's
 # (.github/workflows/desktop-windows.yml) — Tauri does not cross-compile.
 #
 #   sh tools/build-platforms.sh              all three
 #   sh tools/build-platforms.sh --mac        just the desktop bundle
-#   sh tools/build-platforms.sh --ios        just the phone (watch rides along)
+#   sh tools/build-platforms.sh --ios        just the phones (watch rides along)
 #   sh tools/build-platforms.sh --android    just the emulator
 #   sh tools/build-platforms.sh --dry-run    print the plan
 #
@@ -56,7 +56,7 @@ BUILD_SCRATCH="$ROOT/$APPDIR/ios"
 
 if [ "$DRY" = 1 ]; then
   [ "$WANT_MAC" = 1 ]     && echo "would: npm run export:web (clean), npm -w $DESKTOP_WS run build, then install to /Applications"
-  [ "$WANT_IOS" = 1 ]     && echo "would: prebuild $APPDIR (ios) if no workspace, sync app.json's version into it, xcodebuild Release, devicectl install (watch companion too, when one is reachable)"
+  [ "$WANT_IOS" = 1 ]     && echo "would: prebuild $APPDIR (ios) if no workspace, sync app.json's version into it, xcodebuild Release against one reachable phone, devicectl install that one bundle to every phone this app belongs on (watch companion too, when one is reachable)"
   [ "$WANT_ANDROID" = 1 ] && echo "would: prebuild $APPDIR (android), gradlew assembleRelease, adb install"
   exit 0
 fi
@@ -164,53 +164,118 @@ fi
 # --------------------------------------------------------------------- iOS
 if [ "$WANT_IOS" = 1 ]; then
   echo "==> iOS"
+
+  # THE PHONES CalMind BELONGS ON. Sean, 2026-09-21, after a release reached a
+  # single handset: "you should have dtp to all platforms and all 3 phones and
+  # my watch". So a release is not "install to the phone" — and it is not
+  # "install to whatever is plugged in" either. Each app in the suite belongs
+  # on a SPECIFIC set of handsets, and that set is a fact about the app, not
+  # about what is on the desk: "the only apps installed on autumn's phone are
+  # ChefMind and CalMind", "patricia's phone only gets CalMind", "my phone gets
+  # all 6 (including the test ones)". CalMind is the app that is on all three,
+  # which is why all three are listed here and why this list is not shared.
+  #
+  # BY UDID, NEVER BY NAME. Two of these three names carry an apostrophe and
+  # they are not the same character: devicectl reports Autumn's with a plain
+  # ASCII ' (U+0027) and Patricia‘s with a CURLY one (U+2018) — read off the
+  # live list on 2026-09-21, not guessed. A name matched in a script is a name
+  # you typed at both ends, so it matches in a test and not on the day. The
+  # udid is what devicectl, the provisioning profile and -destination all
+  # speak anyway.
+  #
+  # IOS_PHONES replaces the list wholesale (udids, space- or newline-separated)
+  # and IOS_DEVICE, below, still narrows a run to one handset by name.
+  if [ -z "${IOS_PHONES:-}" ]; then
+    IOS_PHONES="00008130-000E3D060E20001C"              # iPhoooooone, Sean's
+    IOS_PHONES="$IOS_PHONES 00008130-001A645E1E98001C"  # Autumn's iPhone 15 Pro
+    IOS_PHONES="$IOS_PHONES 00008130-0002605E0243001C"  # Patricia‘s iPhone
+  fi
+
   DEVJSON=$(mktemp -t calmind-devices)
   xcrun devicectl list devices --json-output "$DEVJSON" >/dev/null 2>&1 \
     || { echo "devicectl cannot list devices — is Xcode installed?" >&2; exit 1; }
+  # Every iPhone this Mac can reach right now, one "<udid> <name>" per line.
   # The UDID, not the CoreDevice identifier: xcodebuild's -destination matches
-  # a physical device by UDID, and handing it the other one finds nothing.
-  # WHICH PHONE, when more than one is paired. Requiring EXACTLY one made a
-  # second paired handset refuse every install on this machine — three releases
-  # in a row reported "no single reachable iPhone" with the right phone sitting
-  # there the whole time (2026-08-23). One device is used as before; several are
-  # disambiguated by NAME, defaulting to Sean's. An ambiguous set still fails,
-  # and now says what it saw.
-  UDID=$(IOS_DEVICE="${IOS_DEVICE:-iPhoooooone}" python3 - "$DEVJSON" <<'PY'
+  # a physical device by UDID, and handing it the other one finds nothing. The
+  # name comes along only so the run can say which phone it is talking about.
+  SEEN=$(mktemp -t calmind-seen)
+  # This one outlives the build — it is read again after the .app exists, to
+  # name each phone — so it is cleaned up on the way OUT. Removing it inline,
+  # the way $DEVJSON is, would leave it behind on exactly the runs that fail.
+  trap 'rm -f "$SEEN"' EXIT
+  python3 - "$DEVJSON" >"$SEEN" <<'PY' || { echo "could not read the device list" >&2; exit 1; }
 import json, sys
 d = json.load(open(sys.argv[1]))
-import os
 # tunnelState: a paired phone that is merely idle lists as 'disconnected'
 # until something warms the tunnel, so excluding it skipped the iOS step of
 # CalMind 1.17.0 with the phone sitting right there (2026-08-30). Only
 # 'unavailable' is a genuinely absent device — the second paired handset
 # proves it.
-avail = [(x.get('deviceProperties', {}).get('name', '?'), x['hardwareProperties']['udid'])
-         for x in d.get('result', {}).get('devices', [])
-         if x.get('hardwareProperties', {}).get('platform') == 'iOS'
-         and x.get('connectionProperties', {}).get('tunnelState') in ('connected', 'available', 'disconnected')
-         and x.get('hardwareProperties', {}).get('udid')]
-want = os.environ.get('IOS_DEVICE', '')
-named = [u for n, u in avail if n == want]
-if len(avail) == 1:
-    print(avail[0][1])
-elif len(named) == 1:
-    print(named[0])
-else:
-    for n, _ in avail:
-        print('    seen: ' + n, file=sys.stderr)
-    print('')
+for x in d.get('result', {}).get('devices', []):
+    hw = x.get('hardwareProperties', {})
+    if hw.get('platform') != 'iOS' or not hw.get('udid'):
+        continue
+    if x.get('connectionProperties', {}).get('tunnelState') not in ('connected', 'available', 'disconnected'):
+        continue
+    print(hw['udid'] + ' ' + x.get('deviceProperties', {}).get('name', '?'))
 PY
-)
   rm -f "$DEVJSON"
-  # The phone holds 3 apps at a time on the free team (AGENTS.md): CalMind,
-  # ChefMind, AcctMind. Nothing here frees a slot — it installs over this
-  # app's own.
-  [ -n "$UDID" ] || {
-    echo "no usable iPhone: none reachable, or several and none named '${IOS_DEVICE:-iPhoooooone}'" >&2
+  # Two questions, and they are NOT the same one: is this udid in the list
+  # devicectl just gave us, and what is the phone called. Answering the first
+  # with the second — treating "no name came back" as "no such phone" — would
+  # report a connected handset as switched off and quietly skip it, and the
+  # run would still exit 0 having missed a phone. The name is for the humans
+  # reading the output; only phone_seen decides anything.
+  phone_seen() { awk -v u="$1" '$1 == u { found = 1 } END { exit !found }' "$SEEN"; }
+  phone_name() { awk -v u="$1" '$1 == u { sub(/^[^ ]* */, ""); print ($0 == "" ? u : $0); exit }' "$SEEN"; }
+
+  # IOS_DEVICE is the older override and it still wins: it narrows the whole
+  # run — build and install — to the one reachable handset with that name. It
+  # is deliberately by name, because a name is what you have when someone hands
+  # you a phone; the list above is by udid because that is what survives.
+  if [ -n "${IOS_DEVICE:-}" ]; then
+    NAMED=''; NAMEDN=0
+    while read -r _u _n; do
+      [ "$_n" = "$IOS_DEVICE" ] || continue
+      NAMED="$_u"; NAMEDN=$((NAMEDN + 1))
+    done < "$SEEN"
+    [ "$NAMEDN" = 1 ] || {
+      echo "IOS_DEVICE='$IOS_DEVICE' matched $NAMEDN reachable iPhones" >&2
+      while read -r _u _n; do echo "    seen: $_n" >&2; done < "$SEEN"
+      exit 1
+    }
+    IOS_PHONES="$NAMED"
+  fi
+
+  # A listed phone devicectl does not report at all is SKIPPED with a note, not
+  # an error: it is switched off or off the network, which is a normal Tuesday
+  # and not a broken release. Refusing the run over it would be the 2026-08-23
+  # bug in a new costume — the script demanded EXACTLY one reachable device
+  # then, and a second paired handset made it report "no single reachable
+  # iPhone" for three releases in a row with the right phone sitting there the
+  # whole time.
+  PHONES=''; UDID=''
+  for U in $IOS_PHONES; do
+    if ! phone_seen "$U"; then
+      echo "    skipping $U — devicectl does not see it (switched off, or off the network)"
+      continue
+    fi
+    PHONES="$PHONES $U"
+    # The FIRST phone on the list that devicectl reports is the one the build
+    # is aimed at — list order, not whoever replied quickest, so two runs with
+    # the same phones on the desk build against the same handset. Every
+    # reachable phone gets the install either way: nothing about the bundle is
+    # per-handset, so this choice only decides whose tunnel gets warmed.
+    [ -n "$UDID" ] || UDID="$U"
+  done
+  [ -n "$PHONES" ] || {
+    echo "no usable iPhone: none of the phones this app belongs on are reachable" >&2
     echo "  Plug one in, or name it:  IOS_DEVICE='Some iPhone' sh tools/build-platforms.sh --ios" >&2
+    echo "  or aim the run elsewhere: IOS_PHONES='<udid> <udid>' sh tools/build-platforms.sh --ios" >&2
     exit 1
   }
-  echo "    device: $UDID"
+  echo "    building on: $UDID ($(phone_name "$UDID"))"
+  for U in $PHONES; do echo "    installing to: $(phone_name "$U")"; done
 
   prebuild_ios || exit 1
   SCHEME=$(basename "$IOS_WS" .xcworkspace)
@@ -285,14 +350,47 @@ PY
   BUNDLE="$DERIVED/Build/Products/Release-iphoneos/$SCHEME.app"
   [ -d "$BUNDLE" ] || { echo "the build succeeded and produced no $SCHEME.app" >&2; exit 1; }
   # devicectl installs onto a LOCKED phone; only launching needs it awake.
-  xcrun devicectl device install app --device "$UDID" "$BUNDLE" \
-    || { echo "the install failed — is the phone paired with this Mac?" >&2; exit 1; }
-  echo "    installed $SCHEME.app"
+  #
+  # ONE BUILD, EVERY PHONE. The .app is not per-handset — it is signed for a
+  # profile that carries every registered device — so the build above happened
+  # once and this walks the list installing that same bundle.
+  #
+  # There is NO per-phone app cap to ration here, and the comment that stood in
+  # this spot until 2026-09-21 — counting the phone's slots against Apple's
+  # free-tier limit of 3 apps on a device, CalMind, ChefMind, AcctMind and no
+  # room for a fourth — was describing a limit this suite is not under. The
+  # team, 2LGYTL3FSJ ("Sean Cheren"), is PAID, and the profile is the tell: an
+  # Xcode-managed profile for this team carries TimeToLive 365 where a personal
+  # team's carries 7. Sean, 2026-09-21: "no more caps per phone."
+  OK=0
+  for U in $PHONES; do
+    N=$(phone_name "$U")
+    # Retried once — the same shape, and for the same reason, as the watch
+    # install below: the first call routinely times out enabling developer
+    # disk image services and succeeds immediately afterwards.
+    if xcrun devicectl device install app --device "$U" "$BUNDLE" \
+       || xcrun devicectl device install app --device "$U" "$BUNDLE"; then
+      OK=$((OK + 1))
+      echo "    installed $SCHEME.app on $N"
+    else
+      echo "    the install failed on $N ($U) — is it paired with this Mac?" >&2
+      echo "    If it is not REGISTERED with the team yet, devicectl refuses with a" >&2
+      echo "    provisioning error and one build against it is the cure:" >&2
+      echo "      IOS_PHONES=$U sh tools/build-platforms.sh --ios" >&2
+    fi
+  done
+  # THE FAILURE RULE, and it is not the old one. A release that reached two of
+  # the three phones SHIPPED: the build is live on a handset Sean can open, and
+  # a phone that refused is a phone — asleep, unregistered, someone else's
+  # pocket — not a broken build. Only NONE is the failure the single `exit 1`
+  # here used to catch, back when there was one phone and "the install failed"
+  # and "nothing got installed" were the same sentence.
+  [ "$OK" -gt 0 ] || { echo "not one phone took $SCHEME.app" >&2; exit 1; }
 
   # The watch companion (apps/app/targets/watch) is embedded under Watch/ in
   # the phone bundle and installs SEPARATELY — devicectl talks to the watch
   # as its own device. Not fatal when no single watch answers: the phone
-  # install above is the release artifact, the watch is its rider.
+  # installs above are the release artifact, the watch is its rider.
   WATCHAPP=$(ls -d "$BUNDLE"/Watch/*.app 2>/dev/null | head -1)
   if [ -n "$WATCHAPP" ]; then
     echo "==> watch app"
