@@ -466,7 +466,28 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
   const flatRows = useMemo(() => {
     const out: FlatEntry[] = [];
     for (const f of folders) {
-      if (foldedFolders.has(f.id)) continue;
+      /*
+       * A CLOSED FOLDER IS STILL A PLACE TO DROP — Sean, 2026-09-21: "make
+       * it possible to drag items between sections and folders".
+       *
+       * It was `continue`, and a folder with its chevron shut contributed
+       * NOTHING: no entry, no measured midpoint, no boundary. So the one
+       * folder you most want to file something into — the one you are not
+       * currently reading — was the one folder you could not reach, and the
+       * gesture just skipped over it to whatever came next.
+       *
+       * One head entry, keyed to the folder's FIRST section, is the whole
+       * fix. It is exactly what a shut SECTION already does (rowslots.ts:
+       * "drop a row just under a folded header and it lands at the end of
+       * that folded section"), one level up, so the same rule answers both
+       * without learning what a folder is. A folder with no sections in it
+       * has nowhere to put anything and stays skipped.
+       */
+      if (foldedFolders.has(f.id)) {
+        const first = sectionsOf(f.id)[0];
+        if (first) out.push({ kind: 'head', sectionId: first.id });
+        continue;
+      }
       for (const sec of sectionsOf(f.id)) {
         out.push({ kind: 'head', sectionId: sec.id });
         if (nfolded.has(sec.id)) continue;
@@ -489,6 +510,18 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
   const flatIdxOf = (id: string) => flatRows.findIndex((x) => x.kind === 'row' && x.rec.id === id);
   const emptyIdxOf = (sectionId: string) => flatRows.findIndex((x) => x.kind === 'empty' && x.sectionId === sectionId);
   const headIdxOf = (sectionId: string) => flatRows.findIndex((x) => x.kind === 'head' && x.sectionId === sectionId);
+  /**
+   * A CLOSED folder's own entry, or -1 when the folder is open.
+   *
+   * -1 matters: the folder head must be registered with the drag ONLY while
+   * it stands in for the whole folder. Register it always and rowdrag
+   * measures a midpoint for an index that is not in the flat list, and
+   * `destFor` — which counts measured midpoints — puts every boundary below
+   * it out by one.
+   */
+  const folderHeadIdx = (folderId: string) => (
+    foldedFolders.has(folderId) ? headIdxOf(sectionsOf(folderId)[0]?.id ?? '\u0000') : -1
+  );
 
   const [emptyAsk, setEmptyAsk] = useState<{ sectionId: string; slot: SectionSlot } | null>(null);
   const [renamingSec, setRenamingSec] = useState<string | null>(null);
@@ -1081,7 +1114,17 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
                 out is the ONLY exit, so it must not depend on blank space
                 below a list that fills the screen. The controls inside keep
                 their own presses — this fires on the row's bare surface. */}
-            <View testID={`head-fold-${f.payload.name}`} style={s.folderHead}>
+            {/* The boundary above a CLOSED folder, and the folder head's own
+                measurement — it is a drop target only while it is shut, and
+                registering it when it is open would give rowdrag a midpoint
+                for an index the flat list does not have. */}
+            {folderHeadIdx(f.id) >= 0 && drag.slot === folderHeadIdx(f.id) && <View style={s.dropLine} />}
+            <View
+              testID={`head-fold-${f.payload.name}`}
+              style={s.folderHead}
+              collapsable={false}
+              ref={folderHeadIdx(f.id) >= 0 ? drag.registerRow(folderHeadIdx(f.id)) : undefined}
+            >
               <FoldCaret
                 testID={`foldfold-${f.payload.name}`}
                 open={!foldedFolders.has(f.id)}

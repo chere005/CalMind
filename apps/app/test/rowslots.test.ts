@@ -79,3 +79,38 @@ describe('an open section with nothing in it', () => {
     expect(dropTarget(list, 1, 3)).toEqual({ sectionId: 'B', beforeId: null });
   });
 });
+
+describe('a FOLDER that is shut', () => {
+  /*
+   * Sean, 2026-09-21: "make it possible to drag items between sections and
+   * folders." A closed folder contributed NOTHING to the flat list until
+   * then — no entry, no midpoint, no boundary — so the one folder you most
+   * want to file something into, the one you are not currently reading, was
+   * the one folder the gesture skipped straight over.
+   *
+   * The screens fix it by pushing ONE head entry for a shut folder, keyed to
+   * that folder's FIRST section. This rule needs no change to answer it,
+   * which is the point: a shut folder and a shut section are the same
+   * question one level apart. What is pinned here is the SHAPE the screens
+   * now build, because that contract is the half a screen can get wrong.
+   *
+   * A: open, one row. F: a shut folder standing in as its first section, f1.
+   * C: open, one row.
+   */
+  const list = [H('A'), R('A', 'a1'), H('f1'), H('C'), R('C', 'c1')];
+
+  test('takes a row dropped under the folder, into its first section', () => {
+    expect(dropTarget(list, 1, 2)).toEqual({ sectionId: 'f1', beforeId: null });
+  });
+
+  test('leaves the section after the folder reachable, not swallowed', () => {
+    expect(dropTarget(list, 1, 3)).toEqual({ sectionId: 'C', beforeId: 'c1' });
+  });
+
+  test('reads the boundary ABOVE the shut folder as the end of the section over it', () => {
+    // Dragging c1 up onto the folder's head: above a header is always the
+    // end of whatever is drawn above, and a shut folder is a header like
+    // any other as far as this rule is concerned.
+    expect(dropTarget(list, 4, 2)).toEqual({ sectionId: 'A', beforeId: null });
+  });
+});

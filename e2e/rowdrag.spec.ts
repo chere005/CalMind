@@ -71,6 +71,21 @@ async function sectionOf(page: Page, text: string): Promise<string | null> {
   }, text);
 }
 
+/** Which FOLDER a row is drawn under, read off the folder heads above it. */
+async function folderOf(page: Page, text: string): Promise<string | null> {
+  return page.evaluate((t) => {
+    const row = [...document.querySelectorAll('[data-testid="rem-row"]')].find((e) => (e.textContent ?? '').includes(t));
+    if (!row) return null;
+    let n: Element | null = row;
+    while (n?.parentElement) {
+      n = n.parentElement;
+      const head = n.querySelector('[data-testid^="head-fold-"]');
+      if (head) return (head.getAttribute('data-testid') ?? '').replace('head-fold-', '');
+    }
+    return null;
+  }, text);
+}
+
 /** Drag a row's grip by dy, the way a finger does it. */
 async function dragRow(page: Page, text: string, dy: number) {
   const grip = page.getByTestId('rem-row').filter({ hasText: text }).first().getByTestId('row-grip');
@@ -201,4 +216,53 @@ test('a shut FOLDER above does not redirect a drag below it', async ({ page }) =
     .poll(() => page.getByTestId('rem-body').allTextContents(), { message: 'it moved exactly one place', timeout: 10_000 })
     .toEqual(['b', 'a', 'c']);
   expect(await sectionOf(page, 'a')).toBe('Junk');
+});
+
+test('a shut FOLDER can be dropped INTO, and the row joins it', async ({ page }) => {
+  // Sean, 2026-09-21: "make it possible to drag items between sections and
+  // folders." Between OPEN folders already worked — the flat list spans them
+  // all and `moveReminderBlock` re-files `folderId` from the destination
+  // section. A SHUT one was the hole: it contributed no entry, no midpoint
+  // and no boundary, so the one folder you most want to file into — the one
+  // you are not reading — was the one the gesture skipped clean over.
+  //
+  // One head entry, keyed to the folder's FIRST section, is the whole fix,
+  // and it is what a shut SECTION has always done one level down. A new
+  // folder is seeded with a General of its own, so that is where the row
+  // lands and no second section is needed to show it.
+  test.setTimeout(120_000);
+  await signup(page);
+  await page.getByTestId('tab-reminders').click();
+  // A new folder lands BELOW, so Attic is the one under the rows.
+  await page.getByTestId('pick-reminders').click();
+  await page.getByText('Manage folders…').click();
+  await page.getByPlaceholder('New folder').fill('Attic');
+  await page.getByPlaceholder('New folder').press('Enter');
+  await page.getByText('Done', { exact: true }).click();
+  await expect(page.getByTestId('head-fold-Attic')).toBeVisible();
+
+  for (const t of ['two', 'one']) await addRow(page, 'General', t);
+  await expect
+    .poll(() => page.getByTestId('rem-body').allTextContents(), { timeout: 10_000 })
+    .toEqual(['one', 'two']);
+  expect(await folderOf(page, 'two')).toBe('Reminders');
+
+  const rowH = (await page.getByTestId('rem-row').first().boundingBox())!.height;
+  await editMode(page);
+  await page.getByTestId('foldfold-Attic').click();
+  await page.waitForTimeout(300);
+
+  // Well past Attic's head — a drop beyond the last entry is the end of the
+  // last thing drawn, which is that head.
+  await dragRow(page, 'two', rowH * 5);
+  await expect
+    .poll(() => page.getByTestId('rem-body').allTextContents(), { message: 'it left the folder it was in', timeout: 10_000 })
+    .toEqual(['one']);
+
+  // Open Attic again and there it is.
+  await page.getByTestId('foldfold-Attic').click();
+  await expect
+    .poll(() => page.getByTestId('rem-body').allTextContents(), { timeout: 10_000 })
+    .toEqual(['one', 'two']);
+  expect(await folderOf(page, 'two')).toBe('Attic');
 });
