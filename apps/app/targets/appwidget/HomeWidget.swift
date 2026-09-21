@@ -525,8 +525,15 @@ struct Provider: AppIntentTimelineProvider {
                 if !l.isReminder, !wanted.isEmpty {
                     guard let c = l.calendarId, wanted.contains(c) else { return nil }
                 }
+                // THE FALLBACK IS PER KIND, since 2026-09-21. A reminder's
+                // colour is its FOLDER's and it drives the tick box, so when
+                // the feed has none — a cache written before the feed sent
+                // one, or a folder since deleted — the box falls back to the
+                // green it always was, not to LABEL, which is text grey and
+                // would draw an invisible box on the card's dark ground.
+                let fallback = l.isReminder ? REMINDER : LABEL
                 return Line(id: l.id, text: l.text, time: l.time, isReminder: l.isReminder,
-                            overdue: l.overdue, color: l.color.map(hexColor) ?? LABEL,
+                            overdue: l.overdue, color: l.color.map(hexColor) ?? fallback,
                             pending: pending)
             }
             return lines.isEmpty ? nil
@@ -732,10 +739,20 @@ struct HomeWidgetView: View {
             if line.isReminder {
                 // The box is the control. Everything else falls through to
                 // the widget's own tap, which opens the app.
+                // THE BOX TAKES ITS FOLDER'S COLOUR — Sean, 2026-09-21:
+                // "calmind widget make sure checkbox matches folder color."
+                // The feed sends it now (core's watchWidget); REMINDER is the
+                // fallback for a cache written before it did, and for a
+                // reminder whose folder has gone.
+                //
+                // OVERDUE STILL WINS. Red is the one thing on this row that
+                // is news, and a folder colour that overwrote it would trade
+                // a signal for decoration. The dot beside an event has
+                // always worked this way too.
                 Button(intent: TickIntent(id: line.id)) {
                     Image(systemName: line.pending ? "checkmark.square.fill" : "square")
                         .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(line.overdue ? OVERDUE : REMINDER)
+                        .foregroundStyle(line.overdue ? OVERDUE : line.color)
                 }
                 .buttonStyle(.plain)
             } else {

@@ -276,7 +276,17 @@ export type WidgetLine = {
   time: string | null;
   isReminder: boolean;
   overdue: boolean;
-  /** The calendar's colour for an event; null for a reminder. */
+  /**
+   * The colour this line is drawn in: an EVENT takes its calendar's, a
+   * REMINDER takes its FOLDER's.
+   *
+   * Sean, 2026-09-21: "calmind widget make sure checkbox matches folder
+   * color." It was null for every reminder, so the widget had nothing to
+   * read and painted every tick box one constant green — beside event dots
+   * that did carry their calendar's colour, which is the inverse of what the
+   * app shows. Null still means "no colour known", which a cache written
+   * before today will say for every reminder in it; the widget falls back.
+   */
   color: string | null;
   /** Which calendar an event belongs to, so the widget's picker can filter
    *  it. Null for a reminder — a reminder has no calendar, and its own
@@ -337,6 +347,14 @@ export function widgetDays(
       .filter((r): r is Rec<'calendar'> => r.type === 'calendar' && !r.deleted)
       .map((c) => [c.id, c.payload.color]),
   );
+  // The reminder half of the same idea. A reminder belongs to a FOLDER, and
+  // the folder's colour is what the app paints its tick box with, so the
+  // widget has to be told it — the feed is the only thing that knows both.
+  const folderColor = new Map(
+    recs
+      .filter((r): r is Rec<'folder'> => r.type === 'folder' && !r.deleted)
+      .map((f) => [f.id, f.payload.color]),
+  );
 
   const out: WidgetDay[] = [];
   for (let i = 0; i < (opts.days ?? WIDGET_DAYS); i++) {
@@ -363,7 +381,13 @@ export function widgetDays(
     for (const { rec: r, overdue } of reminders) {
       if (r.payload.done || ticked.has(r.id)) continue;
       if (wanted.size > 0 && !wanted.has(r.payload.folderId)) continue;
-      lines.push({ id: r.id, text: r.payload.text, time: r.payload.time, isReminder: true, overdue, color: null, calendarId: null, end: null });
+      lines.push({
+        id: r.id, text: r.payload.text, time: r.payload.time, isReminder: true, overdue,
+        // Null when the folder has gone: the widget falls back rather than
+        // drawing a box in no colour at all.
+        color: folderColor.get(r.payload.folderId) ?? null,
+        calendarId: null, end: null,
+      });
     }
     // A day with nothing on it is not a heading — the widget has room for a
     // handful of lines and an empty date spends one of them saying nothing.

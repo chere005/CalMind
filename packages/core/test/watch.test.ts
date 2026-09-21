@@ -308,6 +308,26 @@ describe('widgetDays — the widget shows what the CALENDAR shows', () => {
     expect(d[0]!.lines.map((l) => l.id)).toEqual(['r', 'e']);
   });
 
+  it("a reminder carries its FOLDER's colour, so the widget's tick box can match it", () => {
+    // Sean, 2026-09-21: "calmind widget make sure checkbox matches folder
+    // color." It was null for every reminder, so the widget had nothing to
+    // read and painted one constant green beside event dots that DID carry
+    // their calendar's colour — the inverse of what the app shows.
+    const d = widgetDays([...base, rem('r', TODAY, '09:00'), ev('e', TODAY, '10:00')], TODAY);
+    const byId = Object.fromEntries(d[0]!.lines.map((l) => [l.id, l.color]));
+    expect(byId['r']).toBe('#123456');   // the folder's
+    expect(byId['e']).toBe('#60a5fa');   // the calendar's, unchanged
+  });
+
+  it('a reminder whose folder is gone carries no colour, rather than a wrong one', () => {
+    // The widget falls back to its own green. Inventing a colour here would
+    // put a box on the card in whatever the last folder happened to be.
+    const orphan = rem('r', TODAY, null, 'nosuchfolder');
+    const d = widgetDays([...base, sec('s1', 'nosuchfolder'), orphan, modes({ nosuchfolder: 'all' })], TODAY);
+    const line = d.flatMap((x) => x.lines).find((l) => l.id === 'r');
+    if (line !== undefined) expect(line.color).toBeNull();
+  });
+
   it("a folder set to 'none' never reaches the widget — the rule that was ignored", () => {
     const recs = [...base, rem('r', TODAY, null), modes({ f1: 'none' })];
     expect(widgetDays(recs, TODAY)).toEqual([]);
@@ -360,11 +380,15 @@ describe('widgetDays — the widget shows what the CALENDAR shows', () => {
     expect(widgetDays(recs, TODAY, { days: 20 }).map((x) => x.date)).toEqual([TODAY, '2026-08-12', '2026-08-20']);
   });
 
-  it('an event carries its calendar colour, a reminder carries none', () => {
+  it('every line carries the colour of the thing it belongs to', () => {
+    // It read "a reminder carries none" until 2026-09-21, and that WAS the
+    // behaviour: the widget had nothing to colour a tick box with and used
+    // one constant green. A reminder now carries its folder's colour, the
+    // way an event has always carried its calendar's.
     const d = widgetDays([...base, ev('e', TODAY, null), rem('r', TODAY, null)], TODAY);
     const byId = new Map(d[0]!.lines.map((l) => [l.id, l]));
     expect(byId.get('e')!.color).toBe('#60a5fa');
-    expect(byId.get('r')!.color).toBeNull();
+    expect(byId.get('r')!.color).toBe('#123456');
   });
 
   it('an empty store is an empty widget, not a crash', () => {
