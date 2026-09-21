@@ -1,0 +1,25 @@
+pkgbase = calmind-desktop
+	pkgdesc = Reminders, calendar, notes and habits in a native window (Tauri 2 shell)
+	pkgver = 1.32.0
+	pkgrel = 1
+	url = https://github.com/chere005/CalMind
+	arch = x86_64
+	license = BSD-3-Clause
+	makedepends = rust
+	makedepends = nodejs
+	makedepends = npm
+	makedepends = git
+	depends = webkit2gtk-4.1
+	depends = gtk3
+	depends = libsoup3
+	depends = dbus
+	depends = libayatana-appindicator
+	depends = glibc
+	depends = gcc-libs
+	depends = hicolor-icon-theme
+	source = calmind-desktop-1.32.0::git+https://github.com/chere005/CalMind.git#tag=1.32.0
+	source = calmind.desktop
+	sha256sums = SKIP
+	sha256sums = 3f47902be371f14407d2ef63644626a1d37201277abcf53e30c4565ae812f633
+
+pkgname = calmind-desktop

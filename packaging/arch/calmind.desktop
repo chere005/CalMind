@@ -1,0 +1,26 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=CalMind
+GenericName=Reminders, Calendar, Notes, Habits
+Comment=CalMind in a native window — the same app the website serves
+Exec=calmind
+Icon=calmind
+Terminal=false
+Categories=Office;Calendar;
+Keywords=reminders;calendar;notes;habits;todo;
+
+# StartupWMClass makes the taskbar group the window with THIS launcher instead
+# of showing a second, unnamed entry. The right value is whatever the window
+# actually reports, and nobody has looked yet — this was written on a Mac.
+# On the Arch box, with CalMind running under X11:
+#
+#     xprop WM_CLASS        # then click the CalMind window
+#
+# and add the SECOND string it prints as:
+#
+#     StartupWMClass=<that value>
+#
+# Under Wayland the equivalent is the app id; `gdbus`/your compositor's
+# window-info tool will show it. Leaving the line out is harmless — you just
+# may get a duplicate taskbar entry.

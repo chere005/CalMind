@@ -1,0 +1,362 @@
+# CalMind Desktop for Linux — dispatch only. NOT YET COMMITTED, NEVER RUN.
+#
+# WHAT THIS IS. The Linux twin of .github/workflows/desktop-windows.yml,
+# written on a Mac on 2026-09-21 from that file's shape. Tauri does not
+# cross-compile, so a Linux artifact can only come from a Linux machine: this
+# job is that machine. Same dispatch style as Windows (never on push — the
+# dtp/tdtp lane fires it, the Actions tab is how you ask in between), same
+# smoke discipline, same refusal to call a run green when it produced nothing.
+#
+# HONESTY, UP FRONT. No step below has ever executed. This file was written
+# and checked on macOS: the YAML parses, every `run:` block passes `bash -n`,
+# and the two facts that usually sink a first Linux run — the apt package
+# names and the `--bundles` flag — were verified as noted at each step. That
+# is all. The first real run is the first evidence.
+#
+# THE ONE THING THAT WILL BREAK A FIRST RUN, AND IT IS NOT A PACKAGE NAME.
+# On Ubuntu /bin/sh is dash. Two of this repo's shell scripts are bash
+# wearing a `sh` invocation:
+#
+#   desktop/stage-dist.sh    tauri runs it as beforeBuildCommand, literally
+#                            `sh stage-dist.sh`, through the system shell
+#   desktop/check-assets.sh  root package.json runs it as
+#                            `test:desktop: sh desktop/check-assets.sh`
+#
+# Both resolve their own location with ${BASH_SOURCE[0]}, which dash cannot
+# expand: it prints "27: Bad substitution", the whole command substitution
+# dies so ROOT collapses to "/", and stage-dist.sh then looks for
+# //apps/app/app.json and exits 1 — taking the tauri build with it, before a
+# crate compiles. Reproduced with dash on the Mac on 2026-09-21, so
+# this is a measured failure, not a worry. It has never bitten anyone because
+# macOS /bin/sh is bash, Arch /usr/bin/sh is bash (it is in the core/bash
+# package's file list), and on the Windows runner `sh` is Git Bash. Ubuntu is
+# the first platform where it is false, and the FIRST thing it breaks is the
+# build, at the beforeBuildCommand, before a single Rust crate compiles.
+#
+# This file works around it below by pointing /bin/sh at bash for the job.
+# The real fix belongs in the repo and is one line either way:
+#   * `desktop/stage-dist.sh` — use `$0` instead of ${BASH_SOURCE[0]}. Correct
+#     for every caller, and it fixes the same latent bug in ChefMind and
+#     AcctMind. Costs two repos: the file is mode `exact` in CoreMind's
+#     consumers/CalMind.tsv (line 58), so canon has to carry the same bytes
+#     or check-drift.sh fails the release.
+#   * or `desktop/src-tauri/tauri.conf.json` — `bash stage-dist.sh` for
+#     beforeBuildCommand and beforeDevCommand. One repo (that file is mode
+#     `fork`), but it changes a hook the mac and Windows lanes also run, so
+#     it wants a green mac build before anyone trusts it.
+# Neither has been done, and neither is assumed by this file.
+#
+# WHAT IT NEEDS THAT DOES NOT EXIST YET:
+#   * nothing in tauri.conf.json. This job passes `--bundles deb,rpm,appimage`
+#     on the command line (see the build step), so it works whether or not
+#     config/tauri.conf.linux-targets.patch has landed. That is deliberate: the Windows
+#     job's first "success" uploaded ZERO artifacts because bundle.targets
+#     knew nothing about its platform, and a check that cannot fail is worse
+#     than no check.
+#   * tools/dtp.sh ~line 298 should gain a second dispatch beside the Windows
+#     one, non-fatal in the same way:
+#         gh workflow run desktop-linux \
+#           && echo "==> desktop-linux dispatched" \
+#           || echo "   WARNING: desktop-linux dispatch failed" >&2
+#
+# WHY THE RUNNER IS PINNED, AND TO 24.04. Tauri's own CI example still says
+# `ubuntu-22.04`; GitHub began deprecating the Ubuntu 22 images on 2026-09-17
+# with brownouts that fail jobs outright, fully unsupported by 2027-04-17
+# (actions/runner-images#14254). `ubuntu-latest` is 24.04 today but is a label
+# that moves under you — the release lane should not discover a new base
+# distro on a Tuesday. Pinned cost: the .deb links against noble's glibc
+# (2.39), so it installs on noble-or-newer and on Arch (far newer), not on
+# older distros. Nobody has asked for older.
+name: desktop-linux
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: dtolnay/rust-toolchain@stable
+
+      # WebKitGTK **4.1**, not 4.0 — and that is read off this repo, not off a
+      # docs page: desktop/src-tauri/Cargo.lock resolves tauri 2.11.5 /
+      # wry 0.55.1 / the webkit2gtk crate 2.0.2 with `soup3`, which is the 4.1
+      # API. A 4.0 dev package would not link.
+      #
+      # Package names are THE classic failure here, so every one of these was
+      # checked on 2026-09-21 against Launchpad's archive API — exact name,
+      # Published, ubuntu/noble/amd64 — and not copied from a tutorial:
+      #   libwebkit2gtk-4.1-dev        2.52.6-0ubuntu0.24.04.1
+      #   build-essential              12.10ubuntu1
+      #   curl 8.5.0 / wget 1.21.4 / file 1:5.45
+      #   libxdo-dev                   1:3.20160805.1-5build1
+      #   libssl-dev                   3.0.13-0ubuntu3.15
+      #   libayatana-appindicator3-dev 0.5.93-1build3
+      #   librsvg2-dev                 2.58.0+dfsg-1build1
+      #   patchelf                     0.18.0-1.1build1
+      #   rpm                          4.18.2+dfsg-2.1build2
+      #   xvfb 2:21.1.12 / xdotool 1:3.20160805.1
+      # (Tauri's page also offers the older `libappindicator3-dev`, which does
+      # still exist in noble — 12.10.1+20.10 — but the ayatana one is the line
+      # Tauri now publishes, and the same page's ARCH line was found stale on
+      # the same day, so prefer the maintained fork on both.)
+      #
+      # Beyond Tauri's published list: `patchelf` is used by the AppImage
+      # bundler, `rpm` is belt-and-braces for the rpm bundler (Tauri v2 packs
+      # RPMs from a Rust crate and may not shell out at all — unverified, and
+      # the package is a couple of seconds), and `xvfb`/`xdotool` exist only
+      # for the smoke, which cannot prove a WINDOW without a display.
+      #
+      # DELIBERATELY ABSENT: libdbus-1-dev. tauri 2.11.5's default features
+      # include `dbus`, so tao pulls the dbus crate, and libdbus-sys probes
+      # pkg-config for dbus-1 at BUILD time — a missing dev package there is
+      # a link error, not a runtime one. It is not added because it already
+      # arrives: libwebkit2gtk-4.1-dev → libgtk-3-dev → libatk-bridge2.0-dev
+      # → libatspi2.0-dev → libdbus-1-dev, computed over noble's own
+      # main+universe Packages index (archive.ubuntu.com) on 2026-09-21, not
+      # guessed. `--no-install-recommends` drops Recommends, never Depends,
+      # so that chain survives it. The same index confirms every root package
+      # on this list exists in noble main or universe.
+      - name: Install system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev \
+            build-essential \
+            curl wget file \
+            libxdo-dev \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            rpm \
+            xvfb xdotool
+
+      # See the header. Without this the build dies in beforeBuildCommand with
+      # "Bad substitution" and nothing else in this file ever gets a chance.
+      # debconf + dpkg-reconfigure is dash's own supported switch, not a
+      # hand-made symlink; `sudo ln -sf bash /usr/bin/sh` is the blunt
+      # equivalent. UNVERIFIED like everything else here — nobody has watched
+      # this step run.
+      # The switch is ASSERTED, not printed. `ls -l /bin/sh` alone is a step
+      # that cannot fail: if the reconfigure silently does nothing (debconf
+      # frontend fallback, a renamed template, an image that already moved
+      # /bin/sh), the job carries on and dies four steps later inside
+      # beforeBuildCommand with "Bad substitution" — the failure this step
+      # exists to prevent, reported as something else. The last line runs the
+      # actual expansion that dash cannot do, in whatever `sh` now is: bash
+      # prints nothing and exits 0, dash exits 2 with "Bad substitution".
+      # Both halves were run on this Mac against /bin/dash and /bin/bash on
+      # 2026-09-21; the dpkg-reconfigure itself has not been run anywhere.
+      - name: Point /bin/sh at bash (repo scripts are bash, see header)
+        run: |
+          set -eu
+          echo "dash dash/sh boolean false" | sudo debconf-set-selections
+          sudo DEBIAN_FRONTEND=noninteractive dpkg-reconfigure -f noninteractive dash
+          ls -l /bin/sh
+          SH=$(readlink -f /bin/sh)
+          case "$SH" in
+            *bash) echo "/bin/sh -> $SH" ;;
+            *) echo "/bin/sh is still $SH — stage-dist.sh would die in beforeBuildCommand"; exit 1 ;;
+          esac
+          sh -c ': "${BASH_SOURCE[0]:-}"' || {
+            echo "/bin/sh still cannot expand \${BASH_SOURCE[0]} — the repo's sh scripts will fail"
+            exit 1
+          }
+
+      - name: Install deps
+        run: npm ci
+
+      # export:web, not a bare `expo export` — the head patch rides in it, and
+      # the Linux bundle should carry the same index.html the site serves.
+      - name: Export the web app
+        run: npm run export:web
+
+      # projectPath: desktop, so tauri runs `sh stage-dist.sh` (the
+      # beforeBuildCommand) in desktop/ — it is resolved against the CALLER'S
+      # cwd, and running the build from the repo root is exactly how this dies
+      # with "sh: stage-dist.sh: No such file or directory".
+      #
+      # `--bundles` is passed rather than relied on from tauri.conf.json, for
+      # the zero-artifact reason in the header. Flag shape confirmed against
+      # this repo's own pinned CLI (tauri-cli 2.11.4, `npx tauri build --help`
+      # on the Mac): `-b, --bundles [<BUNDLES>...]  Space or comma separated
+      # list of bundles to package`. Its possible-values list is filtered by
+      # host platform — on macOS it prints `ios, app, dmg` — which is the same
+      # filtering that makes adding Linux targets to tauri.conf.json harmless
+      # to the mac build. The three Linux spellings are not taken from a docs
+      # page either: tauri-bundler 2.9.4 (the bundler this CLI pins) was
+      # fetched from static.crates.io on 2026-09-21 and
+      # `PackageType::from_short_name` (src/bundle/settings.rs:63-77) accepts
+      # exactly "deb", "rpm" and "appimage" — and there is no pacman arm,
+      # which is why Arch builds from source. Read off the source, not run on
+      # Linux; if a spelling were wrong the CLI would say so and this step
+      # would fail loudly, which is the right failure.
+      #
+      # APPIMAGE_EXTRACT_AND_RUN: the appimage bundler downloads linuxdeploy
+      # (itself an AppImage) and runs it; on 24.04 that path hits FUSE and
+      # AppArmor's unprivileged-userns restriction (tauri-apps/tauri#14796).
+      # Self-extraction avoids FUSE — but be honest about what this env line
+      # is worth: the bundler ALREADY does it. In tauri-bundler 2.9.4,
+      # src/bundle/linux/appimage/linuxdeploy.rs:189-193 sets
+      # APPIMAGE_EXTRACT_AND_RUN=1 on the linuxdeploy command AND passes
+      # --appimage-extract-and-run, and appimagetool inherits the environment
+      # from there (read from the crate source on 2026-09-21). So this is
+      # belt-and-braces for anything the bundler spawns that it does not set
+      # the variable on, not the fix for #14796. If appimage still fails, the
+      # documented sledgehammer is
+      #     sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+      # left commented on purpose — it turns off a kernel confinement for the
+      # whole runner, and the cheaper answer is to drop `appimage` from the
+      # list below. The .deb is the artifact this lane actually needs; the
+      # AppImage is a convenience, and Arch installs from source anyway
+      # (Tauri has no pacman target).
+      - name: Build the Linux bundles
+        uses: tauri-apps/tauri-action@v0
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: "1"
+        with:
+          projectPath: desktop
+          args: --bundles deb,rpm,appimage
+
+      # The headless half, which the Windows job does not have and should.
+      # This is `npm run test:desktop` — desktop/check-assets.sh — and it is
+      # the check whose ABSENCE cost the macOS app: the shell served an export
+      # built for /calmind at the root, every asset 404'd, and all six smoke
+      # checks stayed green over a window reading "SyntaxError: Unexpected
+      # token '<'". It runs here because the build above just staged
+      # desktop/dist-desktop, and it needs no display at all.
+      #
+      # `bash …`, not `npm run test:desktop`, even with /bin/sh switched
+      # above: that script IS bash, and naming it keeps this step honest if
+      # the switch is ever removed.
+      - name: Check the shell can load what it ships
+        run: bash desktop/check-assets.sh
+
+      # Then the same bar the Windows job holds: install the package the way a
+      # user's machine would, launch what it installed, and require a real
+      # window rather than a process that merely has not exited yet. A window
+      # showing an error page still passes — the same honest limitation
+      # desktop/smoke.sh states; check-assets.sh above is what covers it.
+      #
+      # THE .deb, NOT THE AppImage: dpkg can be ASKED what it installed, and
+      # "the installer reported success but installed no binary" is a failure
+      # this repo has already met on Windows.
+      #
+      # WEBKIT_DISABLE_DMABUF_RENDERER / LIBGL_ALWAYS_SOFTWARE are for the
+      # HARNESS, not the app: Xvfb has no GPU, and the DMABUF path is the
+      # documented cause of blank windows and Error 71 on machines where
+      # WebKitGTK and the driver disagree (v2.tauri.app/develop/debug/
+      # linux-graphics). Shipping them inside the app would hide a real bug;
+      # setting them for a screenless runner is just telling the truth about
+      # the hardware. They are also the first thing to try if a user's Arch
+      # box shows a blank window — see INSTALL.md §5.
+      - name: Smoke the .deb on the runner
+        env:
+          WEBKIT_DISABLE_DMABUF_RENDERER: "1"
+          LIBGL_ALWAYS_SOFTWARE: "1"
+        run: |
+          set -eu
+          BUNDLE=desktop/src-tauri/target/release/bundle
+          DEB=$(ls "$BUNDLE"/deb/*.deb 2>/dev/null | head -1 || true)
+          if [ -z "$DEB" ]; then
+            echo "no .deb to smoke — the build produced:"
+            ls -R "$BUNDLE" 2>/dev/null || echo "  (no bundle directory at all)"
+            exit 1
+          fi
+          DEB=$(readlink -f "$DEB")
+          echo "installing $DEB"
+          sudo apt-get install -y "$DEB"
+
+          # Ask dpkg what landed instead of guessing the name: Tauri derives
+          # the Linux binary from productName ("CalMind"), while the crate is
+          # calmind-desktop, and which one reaches /usr/bin is not something
+          # this Mac can settle.
+          PKG=$(dpkg-deb -f "$DEB" Package)
+          BIN=""
+          for f in $(dpkg -L "$PKG" | grep '^/usr/bin/'); do
+            if [ -f "$f" ] && [ -x "$f" ]; then BIN="$f"; break; fi
+          done
+          if [ -z "$BIN" ]; then
+            echo "the .deb reported success but installed no CalMind binary"
+            dpkg -L "$PKG"
+            exit 1
+          fi
+          echo "installed $BIN (package $PKG)"
+
+          # Does it carry TONIGHT'S export? The bundle filename is
+          # content-hashed and survives into the binary as a plain string,
+          # which is the only cheap link between "it built" and "it has this
+          # code in it" — desktop/smoke.sh's middle check, ported. The
+          # emptiness guard is not paranoia: an earlier version of that check
+          # grepped for the empty string and printed a confident tick.
+          # UNVERIFIED on Linux; if this fails while the app plainly works,
+          # suspect the asset index rather than the build.
+          JS=$(grep -oE 'index-[a-f0-9]+\.js' apps/app/dist/index.html | head -1 || true)
+          if [ -z "$JS" ]; then
+            echo "no exported bundle name in apps/app/dist/index.html"
+            exit 1
+          fi
+          if strings -a "$BIN" | grep -qF "$JS"; then
+            echo "it carries THIS export ($JS)"
+          else
+            echo "the .deb was built from a different export than apps/app/dist holds"
+            strings -a "$BIN" | grep -oE 'index-[a-f0-9]+\.js' | sort -u | head -3
+            exit 1
+          fi
+
+          # A screen, so "is there a window" is answerable at all.
+          Xvfb :99 -screen 0 1280x800x24 >/tmp/xvfb.log 2>&1 &
+          XVFB=$!
+          sleep 2
+          if ! kill -0 "$XVFB" 2>/dev/null; then
+            echo "Xvfb did not start:"; cat /tmp/xvfb.log; exit 1
+          fi
+          export DISPLAY=:99
+
+          echo "launching $BIN"
+          "$BIN" >/tmp/calmind.log 2>&1 &
+          APP=$!
+          sleep 8
+          if ! kill -0 "$APP" 2>/dev/null; then
+            echo "the installed app exited within 8 seconds:"
+            cat /tmp/calmind.log
+            exit 1
+          fi
+
+          # The window takes a beat to be titled; three looks over six seconds,
+          # same as the Windows job's MainWindowTitle poll.
+          WIN=""
+          for _ in 1 2 3; do
+            WIN=$(xdotool search --name CalMind 2>/dev/null | head -1 || true)
+            [ -n "$WIN" ] && break
+            sleep 2
+          done
+          if [ -z "$WIN" ]; then
+            echo "the app is running but shows no CalMind window"
+            cat /tmp/calmind.log
+            kill "$APP" 2>/dev/null || true
+            exit 1
+          fi
+          echo "window up: $(xdotool getwindowname "$WIN") — stopping it"
+          kill "$APP" 2>/dev/null || true
+          kill "$XVFB" 2>/dev/null || true
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: CalMind-linux
+          # error, not the default warn: the Windows job once went green
+          # having uploaded nothing at all, and that is the kind of check
+          # that cannot fail. Note these are ACTIONS ARTIFACTS — they expire
+          # and need an authenticated download, so they are proof and a
+          # convenience, not a distribution channel. A PKGBUILD cannot
+          # source() one; that is why INSTALL.md builds from source.
+          if-no-files-found: error
+          path: |
+            desktop/src-tauri/target/release/bundle/deb/*.deb
+            desktop/src-tauri/target/release/bundle/rpm/*.rpm
+            desktop/src-tauri/target/release/bundle/appimage/*.AppImage

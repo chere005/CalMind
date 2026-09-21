@@ -34,7 +34,10 @@
     "targets": [
       "app",
       "msi",
-      "nsis"
+      "nsis",
+      "deb",
+      "rpm",
+      "appimage"
     ],
     "icon": [
       "icons/icon.icns",

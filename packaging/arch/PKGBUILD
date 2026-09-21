@@ -1,0 +1,312 @@
+# Maintainer: Sean Cheren <seancheren@gmail.com>
+#
+# CalMind desktop for Arch Linux.
+#
+# WHAT THIS IS. CalMind's desktop surface is a Tauri 2 shell (repo: desktop/)
+# around the identical Expo web export the site serves. There is no new
+# backend and no Linux-specific code: the same bundle, in a native window,
+# talking to https://seancheren.com/calmind/api. This PKGBUILD builds that
+# shell FROM SOURCE on the machine you run it on.
+#
+# WHY FROM SOURCE AND NOT FROM A RELEASE ARTIFACT. Tauri does not
+# cross-compile, so a Linux binary has to be produced on Linux — either here
+# or in CI. CalMind has no Linux CI job and publishes no GitHub Release
+# (checked 2026-09-21: the releases API returns an empty list); the only
+# existing desktop CI (.github/workflows/desktop-windows.yml) uploads a
+# workflow ARTIFACT, which expires and needs an authenticated download, so it
+# cannot be a PKGBUILD source=() at all. Building here needs no release
+# infrastructure to exist first. If a desktop-linux workflow later publishes a
+# real .deb or AppImage to a Release, a second, much smaller PKGBUILD that
+# repackages it becomes the faster option — this one stays correct either way.
+#
+# ---------------------------------------------------------------------------
+# HONESTY, AND THE LIMITS OF THIS FILE
+#
+# This file was written on macOS. It has NEVER been run. No part of it has
+# been built, installed, or launched on Arch Linux or on any Linux machine.
+# Treat every step below as a considered proposal, not a tested recipe.
+#
+# What IS verified, and how:
+#   * Every pacman package name below was checked against the CURRENT official
+#     Arch repositories on 2026-09-21 via archlinux.org's package JSON API
+#     (https://archlinux.org/packages/search/json/?name=<pkg> for existence,
+#     https://archlinux.org/packages/<repo>/<arch>/<pkg>/json/ for
+#     provides/depends). The repo and version seen are noted beside each name.
+#   * webkit2gtk-4.1 is the right major version: this shell resolves
+#     tauri 2.11.5 / wry 0.55.1 / webkit2gtk (crate) 2.0.2 with soup3, which
+#     binds the WebKitGTK 4.1 API — read out of desktop/src-tauri/Cargo.lock,
+#     so it does not depend on Tauri's docs being current.
+#   * Tauri's own Arch line IS out of date today: it still says
+#     `libappindicator-gtk3`, which is NOT in the official repos (the JSON API
+#     returns zero results). The live package is `libayatana-appindicator`
+#     (extra 0.6.0-2). Copying the docs verbatim gives "target not found".
+#   * pkgver=1.32.0 is the newest tag on origin, from
+#     https://api.github.com/repos/chere005/CalMind/tags (2026-09-21).
+#     Tags here are bare version numbers, no leading "v".
+#   * The repo is public (GitHub API: "private": false), so the git source
+#     below clones without credentials, and tag 1.32.0 is on origin
+#     (dc87f815) and is the tree this Mac has checked out.
+#   * `npm ci` will get a Linux tauri CLI. The committed package-lock.json
+#     pins @tauri-apps/cli-linux-x64-gnu 2.11.4 alongside the darwin ones, so
+#     the platform-specific binary npm needs on Arch is in the lockfile. (Had
+#     it not been, `npm ci` would install the JS wrapper and no `tauri`
+#     binary, and build() would die with "command not found" after the export
+#     had already run.)
+#   * `--no-bundle` is a real flag on the pinned CLI: `npx tauri build --help`
+#     against this repo's own @tauri-apps/cli 2.11.4, run on the Mac.
+#   * The binary is named calmind-desktop: [package] name in
+#     desktop/src-tauri/Cargo.toml, no [[bin]] override, and no cargo
+#     workspace above src-tauri, so target/ sits at desktop/src-tauri/target.
+#   * The five icons package() installs exist and are the sizes it files them
+#     under (read off the PNG headers: 32, 64, 128, 256 for 128x128@2x.png,
+#     512 for icon.png). LICENSE exists at the repo root and is BSD 3-Clause.
+#   * ON ARCH, `sh` IS bash: the core/bash package's file list contains
+#     usr/bin/sh. That is load-bearing here — see check() and the note above
+#     build() — and it is the reason this package can work on Arch while the
+#     same scripts break on Debian/Ubuntu, where /bin/sh is dash. Proven
+#     rather than assumed: run under dash, desktop/stage-dist.sh and
+#     desktop/check-assets.sh both print "27: Bad substitution" and fail,
+#     because they resolve their own location with ${BASH_SOURCE[0]}. dash is
+#     present on this Mac, so that failure was reproduced, not reasoned.
+#
+# What is NOT verified:
+#   * That the build completes. Nothing here has been compiled on Linux.
+#   * That the app launches or renders on Arch.
+#   * Whether libayatana-appindicator is actually needed at runtime — see the
+#     depends=() comment.
+#   * makepkg itself has never parsed this file; `bash -n` is the only check
+#     it has had.
+# ---------------------------------------------------------------------------
+
+pkgname=calmind-desktop
+# Bump this to build a newer release; nothing else in this file changes.
+# Check for a newer tag first:
+#     git ls-remote --tags https://github.com/chere005/CalMind.git
+# The version also lives in four files inside the repo (apps/app/app.json,
+# desktop/package.json, desktop/src-tauri/tauri.conf.json and
+# desktop/src-tauri/Cargo.toml) and the release lane owns those — this
+# PKGBUILD deliberately does not become a fifth place to forget.
+pkgver=1.32.0
+pkgrel=1
+# Kept under 80 characters and without the package name in it: both are
+# namcap warnings (pkgdesc-too-long, pkgdesc-contains-pkgname) and namcap is
+# the first thing an AUR reviewer runs. Not run here — there is no namcap on
+# a Mac; the two rules are being followed, not tested.
+pkgdesc="Reminders, calendar, notes and habits in a native window (Tauri 2 shell)"
+arch=('x86_64')
+url="https://github.com/chere005/CalMind"
+license=('BSD-3-Clause')
+
+# RUNTIME.
+#   webkit2gtk-4.1          extra 2.52.6-1  — the webview. 4.1, not 4.0:
+#                           webkit2gtk-4.0 and plain webkit2gtk are both GONE
+#                           from the official repos, and the lockfile says
+#                           this shell wants the 4.1 API regardless.
+#   gtk3                    extra 3.24.52-1 — webkit2gtk-4.1 depends on it
+#                           (confirmed in its depends list), so this is
+#                           belt-and-braces; the binary links gtk3 directly
+#                           and an implicit dep is one upstream decision away
+#                           from vanishing.
+#   libayatana-appindicator extra 0.6.0-2   — CONSERVATIVE, and probably not
+#                           needed. The evidence, which is stronger than the
+#                           lockfile alone: in tauri 2.11.5's own manifest
+#                           (read from the local cargo registry) the feature
+#                           is `tray-icon = ["dep:tray-icon"]` and `default =
+#                           ["wry","compression","common-controls-v6",
+#                           "dynamic-acl","x11","dbus"]` — tray-icon is not in
+#                           it, and desktop/src-tauri/Cargo.toml neither adds
+#                           it nor disables defaults. In Cargo.lock,
+#                           libappindicator is reachable from exactly one
+#                           place, tray-icon's dependency list. So it should
+#                           not be linked. It stays in depends() only because
+#                           no Linux binary exists to look at, and a missing
+#                           .so at launch is a worse first impression than an
+#                           extra 200 KB. Settle it on the box:
+#                               ldd /usr/bin/calmind | grep -i appindicator
+#                           No hit means drop this line and rebuild.
+#   dbus                    core 1.16.2-1   — NOT optional, unlike the line
+#                           above it. The same tauri 2.11.5 manifest that
+#                           leaves tray-icon out of the defaults puts `dbus`
+#                           IN them, and Cargo.lock shows exactly one path to
+#                           it: tao → dbus 0.9.12 → libdbus-sys 0.2.7, which
+#                           links libdbus-1 and pkg-configs dbus-1 at build
+#                           time. Arch's `dbus` carries both the .so (it
+#                           provides libdbus-1.so=3-64) and usr/include/
+#                           dbus-1.0 — no separate -dev package here. In
+#                           practice it is always installed (core/systemd
+#                           depends on it, checked), so listing it changes
+#                           nothing today; it is listed because this package
+#                           links it and "systemd happens to pull it" is not
+#                           a dependency declaration, which is the same
+#                           standard gtk3 is listed under two lines up.
+#   libsoup3                extra 3.6.6-2   — the soup3 0.5.0 / soup3-sys
+#                           crates sit under webkit2gtk in Cargo.lock, so
+#                           libsoup-3.0 is linked by this binary and not
+#                           only by libwebkit2gtk. Same standard as gtk3.
+#   glibc / gcc-libs                        — libc and libgcc_s, which every
+#                           Rust binary links (gcc-libs provides
+#                           libgcc_s.so.1). Arch expects a compiled package
+#                           to declare these rather than inherit them.
+#   hicolor-icon-theme      extra 0.18-1    — owns /usr/share/icons/hicolor,
+#                           where the icons below land.
+#
+# Every entry except hicolor-icon-theme is ALSO pulled in transitively by
+# webkit2gtk-4.1 (its own depends list carries gtk3, libsoup3, glibc, and
+# dbus via at-spi2-core — read from the package JSON), so a wrong line here
+# cannot make the package uninstallable. It can still be wrong: these are
+# read off the dependency graph and off how Rust links, NOT off a real
+# binary. The authoritative list is one command on the box, after the first
+# build:  ldd /usr/bin/calmind
+depends=('webkit2gtk-4.1' 'gtk3' 'libsoup3' 'dbus' 'libayatana-appindicator'
+         'glibc' 'gcc-libs' 'hicolor-icon-theme')
+
+# BUILD.
+#   rust    extra 1.98.1-1 — provides=['cargo','rustfmt'] (checked), so do NOT
+#           list a `cargo` package: there isn't one on Arch. If you already
+#           use rustup, do not install this — the `rustup` package (extra
+#           1.29.1-1) provides AND conflicts with `rust`, and satisfies this
+#           makedepend on its own.
+#   nodejs / npm — for the Expo web export.
+#   git     for the source fetch. pkgconf and binutils come with base-devel,
+#           which makepkg assumes you have.
+makedepends=('rust' 'nodejs' 'npm' 'git')
+
+# A git source pinned to a tag, not a release tarball, for one reason: a
+# tarball source needs a sha256 and this file was written on a machine that
+# never downloaded one. SKIP on a git+tag source is normal practice; SKIP on a
+# tarball would be a checksum that checks nothing. If you prefer the tarball
+# (a ~16 MB clone vs a smaller snapshot), swap in:
+#     source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/$pkgver.tar.gz" 'calmind.desktop')
+#     # the tarball extracts to CalMind-$pkgver, so change the `cd` lines too
+# and run `updpkgsums` on the Arch box to fill in the real checksum.
+source=("$pkgname-$pkgver::git+https://github.com/chere005/CalMind.git#tag=$pkgver"
+        'calmind.desktop')
+sha256sums=('SKIP'
+            '3f47902be371f14407d2ef63644626a1d37201277abcf53e30c4565ae812f633')
+
+# Keep cargo's and npm's downloads inside the build dir rather than in
+# ~/.cargo and ~/.npm, so a package build does not quietly reshape the
+# invoking user's home. Set inside each function, NOT at the top level:
+# makepkg sources the PKGBUILD before it defines $srcdir, so a top-level
+# `export CARGO_HOME="$srcdir/..."` silently exports an empty-ish path.
+_env() {
+  export CARGO_HOME="$srcdir/.cargo-home"
+  export npm_config_cache="$srcdir/.npm-cache"
+  # makepkg passes the invoking user's environment straight through. A
+  # CARGO_TARGET_DIR exported in their shell (common enough — a shared
+  # target dir is a standard Rust disk-space trick) would move the build
+  # output away from desktop/src-tauri/target, where package() looks for it
+  # by a hardcoded path, and the build would succeed and then fail in
+  # package() with "No such file or directory". Unsetting it restores
+  # cargo's default: a target/ beside the manifest.
+  unset CARGO_TARGET_DIR
+}
+
+prepare() {
+  _env
+  cd "$pkgname-$pkgver"
+  # npm ci, not npm install: the root package-lock.json is the point, and this
+  # is a build of a specific tag. It installs every workspace (packages/*,
+  # apps/app, desktop), which is where @tauri-apps/cli comes from.
+  npm ci
+  cargo fetch --locked --manifest-path desktop/src-tauri/Cargo.toml
+}
+
+build() {
+  _env
+  cd "$pkgname-$pkgver"
+
+  # 1. The web export. `export:web` is the repo's own script and it ends in
+  #    tools/patch-web-html.mjs, so the bundle carries the same head patch and
+  #    PWA furniture the live site serves. A bare `expo export` does not.
+  npm run export:web
+
+  # 2. The shell. Three things about this line, each of which has cost this
+  #    repo time on another platform:
+  #
+  #    --no-bundle, because we are making an Arch package, not a .deb. Tauri's
+  #    Linux bundler would produce deb/rpm/AppImage and we would then be
+  #    unpacking one to get the binary back out. (It is also why this PKGBUILD
+  #    does not care whether bundle.targets has gained Linux entries yet — and
+  #    why it needs no AppImage tooling downloaded mid-build.)
+  #
+  #    `npm -w @calmind/desktop`, run from the repo ROOT, so that the tauri
+  #    CLI runs with desktop/ as its working directory. That is where
+  #    stage-dist.sh lives, and tauri.conf.json's beforeBuildCommand names it
+  #    by a bare relative path (`sh stage-dist.sh`). Every build path in this
+  #    repo arranges the same cwd: tools/build-platforms.sh:143 does
+  #    `cd "$ROOT" && npm -w "$DESKTOP_WS" run build`, desktop/smoke.sh:39
+  #    does `cd "$ROOT/desktop" && npx tauri build`, and the Windows workflow
+  #    passes `projectPath: desktop` to tauri-action. This one IS settled, on
+  #    both ends: tauri-cli runs the hook with `cwd = script_cwd.unwrap_or
+  #    (frontend_dir)` (crates/tauri-cli/src/helpers/mod.rs), and a probe
+  #    build run on this Mac on 2026-09-21 — a copy of desktop/ outside the
+  #    repo, with beforeBuildCommand replaced by `echo ... $PWD; exit 3` —
+  #    printed the desktop/ directory. So the hook's cwd is desktop/ when the
+  #    CLI is invoked there, and `sh stage-dist.sh` resolves. Invoke it from
+  #    the repo root instead and it does not.
+  #
+  #    Note what that hook implies on Arch: tauri runs it through the system
+  #    shell, so `sh stage-dist.sh` executes under /bin/sh. stage-dist.sh is
+  #    bash (it uses ${BASH_SOURCE[0]}) and Arch's /bin/sh is bash, so this
+  #    works here. It does NOT work on Debian/Ubuntu, where /bin/sh is dash —
+  #    see the header. That is a CI problem, not an Arch one.
+  #
+  #    That staging is not a detail: the export is built for the base path
+  #    /calmind, so stage-dist.sh copies it UNDER that path and the window
+  #    opens /calmind/index.html. Skip it and the window shows
+  #    "SyntaxError: Unexpected token '<'" — the bug that meant the macOS app
+  #    had never once rendered while its smoke test passed every check.
+  npm -w @calmind/desktop run tauri -- build --no-bundle
+}
+
+check() {
+  cd "$pkgname-$pkgver"
+  # The repo's own headless gate, and the only check here that can run on a
+  # build machine with no display. It reads the window's start URL out of
+  # tauri.conf.json, finds that page in the staged tree, and requires every
+  # asset it references to resolve. It is what `npm run test:desktop` runs,
+  # and it needs no GUI — but it has only ever been run on macOS.
+  #
+  # `bash`, not `sh`, and not for style. check-assets.sh is NOT POSIX sh: its
+  # shebang is `#!/usr/bin/env bash` and it locates itself with
+  # ${BASH_SOURCE[0]}. Under a real POSIX shell the whole command
+  # substitution dies, so ROOT becomes "/" — reproduced with dash on the Mac,
+  # which prints "27: Bad substitution" and then looks for
+  # //desktop/dist-desktop. On Arch
+  # `sh` is bash so `sh` would in fact work; naming bash means this line does
+  # not depend on that, and `npm run test:desktop` (which does say `sh`) is
+  # fine here for the same Arch-only reason.
+  # (`makepkg --nocheck` skips this if you must.)
+  bash desktop/check-assets.sh
+}
+
+package() {
+  cd "$pkgname-$pkgver"
+
+  # Installed as `calmind`, though the Rust crate — and therefore the built
+  # file — is `calmind-desktop`. The command you type should be the app's
+  # name; the crate name is an implementation detail of the shell.
+  install -Dm755 desktop/src-tauri/target/release/calmind-desktop \
+                 "$pkgdir/usr/bin/calmind"
+
+  install -Dm644 "$srcdir/calmind.desktop" \
+                 "$pkgdir/usr/share/applications/calmind.desktop"
+
+  # The icon set in desktop/src-tauri/icons/ is generated from the canonical
+  # one-stroke CM mark by `npx tauri icon`. These five are the square PNGs
+  # (confirmed present in the tree); the rest of that directory is Windows
+  # Store tiles, .icns, .ico and the mobile sets, none of which mean anything
+  # here. 128x128@2x.png is a 256px image despite the name.
+  local _i
+  for _i in 32 64 128; do
+    install -Dm644 "desktop/src-tauri/icons/${_i}x${_i}.png" \
+      "$pkgdir/usr/share/icons/hicolor/${_i}x${_i}/apps/calmind.png"
+  done
+  install -Dm644 "desktop/src-tauri/icons/128x128@2x.png" \
+    "$pkgdir/usr/share/icons/hicolor/256x256/apps/calmind.png"
+  install -Dm644 "desktop/src-tauri/icons/icon.png" \
+    "$pkgdir/usr/share/icons/hicolor/512x512/apps/calmind.png"
+
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
