@@ -145,6 +145,66 @@ if [ "$WANT_MAC" = 1 ]; then
   APPBUNDLE=$(ls -d "$ROOT"/desktop/src-tauri/target/release/bundle/macos/*.app 2>/dev/null | head -1)
   [ -n "$APPBUNDLE" ] || { echo "the build reported success and produced no .app" >&2; exit 1; }
   echo "    $APPBUNDLE"
+  # WAS IT OPEN? Sean, 2026-09-21: "make sure to reopen already opened apps in
+  # a dtp.. i was looking at an old acctmind". An rm -rf and a cp -R under a
+  # RUNNING app change nothing you can see: macOS still has the old bundle's
+  # code mapped, the window keeps the JS it launched with, and the release
+  # looks like it did nothing. That is the afternoon he spent reading a stale
+  # AcctMind while the same build was live on the web, on his phone and in
+  # /Applications.
+  #
+  # MATCH THE BUNDLE PATH, NOT THE APP NAME. The executable inside the bundle
+  # is not named after the app — AcctMind.app runs
+  # Contents/MacOS/acctmind-desktop, and CalMind.app runs
+  # Contents/MacOS/calmind-desktop — so `pgrep -x CalMind` finds nothing and
+  # the whole feature silently no-ops on exactly the app that prompted it.
+  # APPNAME comes off $APPBUNDLE, the same variable the install below uses, so
+  # the two can never disagree about which app this is, and the leading
+  # /Applications/ keeps MyCalMind.app out of CalMind.app's match.
+  #
+  # THIS ASKS BEFORE THE SMOKE RUNS, NOT AFTER, and that ordering is the whole
+  # feature. desktop/smoke.sh launches the new bundle, then quits `app
+  # "CalMind"` BY NAME and, if that is refused, `pkill -f calmind-desktop` —
+  # neither of which can tell his /Applications copy from the one it launched
+  # itself. Probe after the smoke and his app is already gone, WASRUNNING
+  # reads 0, and the reopen never fires: the exact stale-window afternoon this
+  # exists to prevent, with a clean lane log over it. Quitting first also
+  # means the smoke launches the bundle it is trying to test, instead of
+  # LaunchServices activating the already-running instance of the same bundle
+  # id.
+  APPNAME=$(basename "$APPBUNDLE" .app)
+  WASRUNNING=0
+  # 1 means "nothing of his is in the way" — the state the install wants, and
+  # the state we are already in when he had nothing open.
+  GONE=1
+  if pgrep -f "/Applications/$APPNAME.app/Contents/MacOS/" >/dev/null 2>&1; then
+    WASRUNNING=1
+  fi
+  if [ "$WASRUNNING" = 1 ]; then
+    echo "    $APPNAME is open — quitting it so the copy lands on a bundle nobody is running"
+    # ASKED, NOT KILLED. This is the gesture desktop/smoke.sh already uses. The
+    # app holds the only copy of whatever is unsaved in that window, and a
+    # release has no business destroying it, so this never escalates to
+    # kill -9: if it has not gone after a few seconds, say so and install over
+    # it anyway — a stale window is a smaller problem than a skipped deploy.
+    #
+    # `with timeout` is not decoration. A quit is an Apple Event, and osascript
+    # WAITS for the reply — two minutes by default. An app sitting on a "save
+    # changes?" sheet, or a first run where macOS is still showing its
+    # "Terminal wants to control CalMind" prompt, would hold the whole release
+    # there before the few-second loop below ever got to run. Five seconds
+    # abandons the WAIT, never the quit: the app goes on quitting, and the
+    # process table underneath is the signal we actually trust.
+    osascript -e "with timeout of 5 seconds" \
+              -e "quit app \"$APPNAME\"" \
+              -e "end timeout" >/dev/null 2>&1 || true
+    GONE=0
+    for _ in 1 2 3 4 5 6 7 8; do
+      pgrep -f "/Applications/$APPNAME.app/Contents/MacOS/" >/dev/null 2>&1 || { GONE=1; break; }
+      sleep 1
+    done
+    [ "$GONE" = 1 ] || echo "    $APPNAME would not quit — installing over it anyway" >&2
+  fi
   # The smoke's middle check is the one worth having: the content-hashed
   # bundle name links the .app to THIS export, so "it built" cannot be
   # mistaken for "it has tonight's work in it". --no-build: the build above
@@ -159,6 +219,24 @@ if [ "$WANT_MAC" = 1 ]; then
   cp -R "$APPBUNDLE" /Applications/ \
     || { echo "copying the .app into /Applications failed" >&2; exit 1; }
   echo "    installed: /Applications/$(basename "$APPBUNDLE")"
+  # AND PUT HIS SESSION BACK — only if it was open when this started. An app he
+  # had closed stays closed: a release that conjures windows onto his desktop
+  # is its own kind of rude. Best-effort, like the quit: failing to reopen a
+  # window must never turn a shipped release into a failed lane, so nothing
+  # here touches the exit status.
+  if [ "$WASRUNNING" = 1 ] && [ "$GONE" = 1 ]; then
+    if open -a "/Applications/$APPNAME.app" >/dev/null 2>&1; then
+      echo "    reopened: $APPNAME (it was running before the install)"
+    else
+      echo "    could not reopen $APPNAME — it was running before the install" >&2
+    fi
+  elif [ "$WASRUNNING" = 1 ]; then
+    # It refused to quit, so the process still on his screen is the one that
+    # was mapped BEFORE the copy — `open -a` would only bring that stale
+    # window forward and let the lane log call it "reopened", which is the
+    # same lie in different words. Say what is actually true instead.
+    echo "    $APPNAME never quit — the window still open is the build from BEFORE this install; quit and reopen it to see this one" >&2
+  fi
 fi
 
 # --------------------------------------------------------------------- iOS
