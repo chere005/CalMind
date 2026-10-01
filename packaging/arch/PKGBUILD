@@ -295,9 +295,9 @@ package() {
 
   # The icon set in desktop/src-tauri/icons/ is generated from the canonical
   # one-stroke CM mark by `npx tauri icon`. These five are the square PNGs
-  # (confirmed present in the tree); the rest of that directory is Windows
-  # Store tiles, .icns, .ico and the mobile sets, none of which mean anything
-  # here. 128x128@2x.png is a 256px image despite the name.
+  # (confirmed present in the tree); the only other files there are the .icns
+  # and .ico, which mean nothing here. 128x128@2x.png is a 256px image despite
+  # the name.
   local _i
   for _i in 32 64 128; do
     install -Dm644 "desktop/src-tauri/icons/${_i}x${_i}.png" \

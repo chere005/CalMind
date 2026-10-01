@@ -71,3 +71,7 @@ so treat the first one as unverified.
 
 `src-tauri/icons/` is generated from the canonical mark
 (`apps/app/assets/icon.png`, the one-stroke CM) via `npx tauri icon`.
+Afterwards delete the `android/` and `ios/` folders, `Square*Logo.png` and
+`StoreLogo.png` it also writes, as AcctMind's `tools/make-icons.sh` does:
+Expo makes the phone icons and no Windows Store package is built, so only
+`icon.icns`, `icon.ico`, `icon.png` and the 32/64/128/128@2x PNGs ship.

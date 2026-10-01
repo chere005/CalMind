@@ -19,7 +19,10 @@ server/data/
 *.log
 .DS_Store
 .claude/ralph-loop.local.md
+
+# Tauri build output; gen/ is regenerated on every build.
 desktop/src-tauri/target/
+desktop/src-tauri/gen/
 
 # Playwright writes failure artefacts here; they are never source.
 test-results/
