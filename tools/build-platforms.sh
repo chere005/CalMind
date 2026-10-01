@@ -58,8 +58,27 @@ if [ "$DRY" = 1 ]; then
   [ "$WANT_MAC" = 1 ]     && echo "would: npm run export:web (clean), npm -w $DESKTOP_WS run build, then install to /Applications"
   [ "$WANT_IOS" = 1 ]     && echo "would: prebuild $APPDIR (ios) if no workspace, sync app.json's version into it, xcodebuild Release against one reachable phone, devicectl install that one bundle to every phone this app belongs on (watch companion too, when one is reachable)"
   [ "$WANT_ANDROID" = 1 ] && echo "would: prebuild $APPDIR (android), gradlew assembleRelease, adb install"
+  echo "each block under the machine-wide heavy-build lock (tools/heavy-lock.sh)"
   exit 0
 fi
+
+# ------------------------------------------------------------ one at a time
+# Every platform block below runs under the machine-wide heavy-build lock,
+# tools/heavy-lock.sh — CoreMind canon, copied down byte for byte, so it is
+# sourced here and never edited here. "Never two heavy builds at once" was a
+# rule every AGENTS.md stated and nothing kept: on 2026-09-30 one session's
+# gradle ran beside another's xcodebuild and an AcctMind lane took 1574 s
+# instead of 246. Now a block that finds any other build running — this
+# repo's or another app's, this session's or another's — waits for it,
+# saying whose it is, instead of running beside it.
+#
+# Taken around each BLOCK, because a block is the unit the lane runs one at a
+# time (--mac before the tag, --ios and --android after the push). Let go
+# explicitly at each block's end; every `exit 1` inside one lets go through
+# the helper's EXIT trap — or, in the iOS block, through the trap that block
+# sets for its own temp file, which calls heavy_unlock too — and a kill -9
+# through the next waiter's takeover.
+. "$ROOT/tools/heavy-lock.sh"
 
 # The export the desktop shell stages: a CLEAN one. Unlike ChefMind, whose
 # deploy runs the head patch as a separate step, this repo's `export:web`
@@ -139,6 +158,7 @@ prebuild_ios() {
 # ------------------------------------------------------------------- macOS
 if [ "$WANT_MAC" = 1 ]; then
   echo "==> macOS desktop bundle"
+  heavy_lock "CalMind macOS" || exit 1
   ensure_dist || exit 1
   ( cd "$ROOT" && npm -w "$DESKTOP_WS" run build ) \
     || { echo "the macOS bundle failed to build" >&2; exit 1; }
@@ -237,11 +257,15 @@ if [ "$WANT_MAC" = 1 ]; then
     # same lie in different words. Say what is actually true instead.
     echo "    $APPNAME never quit — the window still open is the build from BEFORE this install; quit and reopen it to see this one" >&2
   fi
+  heavy_unlock
 fi
 
 # --------------------------------------------------------------------- iOS
 if [ "$WANT_IOS" = 1 ]; then
   echo "==> iOS"
+  # Before the device list, not after it: a wait for the lock can be long,
+  # and the phones read after it are the phones that are actually there.
+  heavy_lock "CalMind iOS" || exit 1
 
   # THE PHONES CalMind BELONGS ON. Sean, 2026-09-21, after a release reached a
   # single handset: "you should have dtp to all platforms and all 3 phones and
@@ -280,7 +304,12 @@ if [ "$WANT_IOS" = 1 ]; then
   # This one outlives the build — it is read again after the .app exists, to
   # name each phone — so it is cleaned up on the way OUT. Removing it inline,
   # the way $DEVJSON is, would leave it behind on exactly the runs that fail.
-  trap 'rm -f "$SEEN"' EXIT
+  #
+  # Setting it REPLACES the heavy-build lock's own EXIT trap (POSIX traps do
+  # not stack), so it lets the lock go as well. Without that, every `exit 1`
+  # below left the lock behind, held by a pid that no longer existed, for the
+  # next build to notice and break.
+  trap 'rm -f "$SEEN"; heavy_unlock' EXIT
   python3 - "$DEVJSON" >"$SEEN" <<'PY' || { echo "could not read the device list" >&2; exit 1; }
 import json, sys
 d = json.load(open(sys.argv[1]))
@@ -499,11 +528,16 @@ PY
       echo "      xcrun devicectl device install app --device <watch-udid> \"$WATCHAPP\""
     fi
   fi
+  heavy_unlock
 fi
 
 # ----------------------------------------------------------------- Android
 if [ "$WANT_ANDROID" = 1 ]; then
   echo "==> Android"
+  # Before the emulator boot, which is itself part of what must not run
+  # beside another build: on 2026-08-22 the emulator's CPU thread hung with a
+  # gradle and an xcodebuild going at once.
+  heavy_lock "CalMind Android" || exit 1
   export ANDROID_HOME="${ANDROID_HOME:-$HOME/Library/Android/sdk}"
   export ANDROID_SDK_ROOT="$ANDROID_HOME"
   export PATH="$ANDROID_HOME/platform-tools:$ANDROID_HOME/emulator:$PATH"
@@ -577,4 +611,5 @@ if [ "$WANT_ANDROID" = 1 ]; then
   done
   [ "$RUNNING" = 1 ] || { echo "installed and launched but never showed up running" >&2; exit 1; }
   echo "    installed and running: $PKG on $SERIAL"
+  heavy_unlock
 fi
