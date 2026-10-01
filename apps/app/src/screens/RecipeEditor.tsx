@@ -534,5 +534,4 @@ const s = themed(() => StyleSheet.create({
   extraDropped: { textDecorationLine: 'line-through', opacity: 0.55 },
   extraLine: { color: T.muted, fontSize: 14, lineHeight: 20 },
   hint: { color: T.muted, fontSize: 12, lineHeight: 17, marginTop: 14 },
-  footRow: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 16 },
 }));

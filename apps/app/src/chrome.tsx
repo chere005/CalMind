@@ -334,9 +334,6 @@ const s = themed(() => StyleSheet.create({
   // 8 between every button, Sean's number. It was 10 here with a further 4
   // either side of the picker, so the row had three different gaps in it.
   right: { flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 0 },
-  status: { width: 8, height: 8, borderRadius: 4 },
-  tip: { position: 'absolute', top: 14, right: 0, backgroundColor: T.surface2, borderWidth: 1, borderColor: T.line, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5, zIndex: 40, minWidth: 150 },
-  tipText: { color: T.text, fontSize: 12 },
   // Prod's header controls: the picker sits in a dark ringed circle, the
   // username in a thin outlined pill — header nav .who, carried over.
   // One row, one scale — every control is TOPBAR_CTRL high, the suite's

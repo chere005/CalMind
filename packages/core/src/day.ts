@@ -106,26 +106,6 @@ export function dayItems(recs: AnyRec[], date: string, today: string, modes?: Re
   return { events, reminders, notes };
 }
 
-export type DayMarks = { eventColors: string[]; reminderState: 'none' | 'open' | 'overdue' | 'done'; noteCount: number };
-
-/** The month cell's summary: event colors in first-appearance order, the worst
- *  reminder state (overdue beats open; done only when every one is ticked). */
-export function dayMarks(recs: AnyRec[], date: string, today: string): DayMarks {
-  const items = dayItems(recs, date, today);
-  const calById = new Map(of(recs, 'calendar').map((c) => [c.id, c.payload.color]));
-  const eventColors: string[] = [];
-  for (const e of items.events) {
-    const c = calById.get(e.payload.calendarId) ?? '#60a5fa';
-    if (!eventColors.includes(c)) eventColors.push(c);
-  }
-  let reminderState: DayMarks['reminderState'] = 'none';
-  if (items.reminders.length) {
-    const open = items.reminders.filter((r) => !r.rec.payload.done);
-    reminderState = open.length === 0 ? 'done' : open.some((r) => r.overdue) ? 'overdue' : 'open';
-  }
-  return { eventColors, reminderState, noteCount: items.notes.length };
-}
-
 /** One month-cell icon: a kind, its colour, and (for reminders) the worst state. */
 export type CellMark = { kind: 'event' | 'reminder' | 'note'; color: string; state?: 'open' | 'overdue' | 'done' };
 
@@ -230,22 +210,6 @@ export function monthGrid(year: number, month: number): (string | null)[] {
  *  date string" is precisely the pair that drifts apart on a DST weekend. */
 export function addDays(date: string, n: number): string {
   return shiftDate(date, n, 'day');
-}
-
-/**
- * The suite's week mode: one ROW of a month's grid, never a free-floating
- * seven days. The row is the one holding `date` in its own month's grid
- * (null-padded at both edges), so stepping the anchor across a month edge
- * lands on the neighbour month's first/last row — the ?wk=first|last idea.
- */
-export function weekOf(date: string): { ym: string; cells: (string | null)[] } {
-  const year = Number(date.slice(0, 4));
-  const month = Number(date.slice(5, 7));
-  const grid = monthGrid(year, month);
-  while (grid.length % 7 !== 0) grid.push(null);
-  const at = grid.indexOf(date);
-  const row = Math.max(0, Math.floor(at / 7));
-  return { ym: date.slice(0, 7), cells: grid.slice(row * 7, row * 7 + 7) };
 }
 
 /** The month grid with the neighbours' days filling the edges — full weeks,

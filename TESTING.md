@@ -100,7 +100,8 @@ fallback when no manifest exists.
   vectors in `spec/`, so any future port replays the same truths.
 - The day model: overdue collection on today, rideAlong riders, repeat
   expansion, cell marks (one icon per kind+colour, worst reminder state),
-  the legend, week rows (`weekOf` — a month ROW, the ?wk=first|last idea).
+  the legend, the two-week fold (`twoWeeksFrom` — fourteen days,
+  Sunday-aligned).
 - Manage rules: folder/section/calendar/habit-section delete and rename
   refusals and re-homes, block moves, the last-section-out ask,
   conversions (one-way into notes, reminder⇄event, subtasks keep home),
@@ -1208,8 +1209,8 @@ software: the editor closing to the notes list with the tab unchanged.
 
   All eighteen Modals were read for that shape on 2026-08-11 and only three
   files position anything absolutely at all. None is the dangerous case:
-  Reminders' `editCluster` floats over a ROW, and Notes' `edStatus` and
-  `goesMenu` live in the note editor, which is a screen rather than a Modal —
+  Reminders' `editCluster` floats over a ROW, and Notes' `edStatus` lives in
+  the note editor, which is a screen rather than a Modal —
   and `App.tsx` wraps every screen in a SafeAreaView on all four edges, so a
   screen-level `top` is already measured from below the notch.
 

@@ -514,7 +514,6 @@ const s = themed(() => StyleSheet.create({
   manageText: { color: T.dim, fontSize: 14 },
   renameField: { flex: 1, paddingVertical: 6 },
   label: { color: T.dim, fontSize: 13, marginTop: 6 },
-  rowWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   mlabel: { color: T.gold, fontSize: 13, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 12 },
   ownerBadge: { color: T.accent, fontSize: 12, fontWeight: '700', backgroundColor: T.accentSoft, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3, overflow: 'hidden', marginLeft: 'auto' },
   sharedCalName: { color: T.dim, fontSize: 15, flex: 1 },

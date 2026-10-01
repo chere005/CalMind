@@ -1109,13 +1109,11 @@ const s = themed(() => StyleSheet.create({
   // edit mode opened. Sean asked for the buttons to just appear, and a
   // list that jumps is the opposite of that.
   secHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6, minHeight: 28 },
-  chevron: { color: T.dim, fontSize: 16, width: 20, textAlign: 'center' },
   // An explicit HEIGHT, not the glyph's. This box had width 20 and no
   // height, so its height WAS the chevron — and on the web, where
   // hitSlop does nothing, taking the chevron from 11 to 7 would have
   // taken the tap target with it. 20x20 regardless of what is drawn.
   chevWrap: { width: 20, height: 20, alignItems: 'center', justifyContent: 'center' },
-  copyNote: { color: T.dim, fontSize: 12, alignSelf: 'center' },
   // ONE collapse-all across the app: Notes drew it at 24 and Reminders at
   // 26, and Habits drew a text '⌃' in a 30pt CircleBtn instead. Same
   // control, three sizes and two symbols. 26 is the largest of them, and
@@ -1156,7 +1154,6 @@ const s = themed(() => StyleSheet.create({
   // Fills whatever is left below the list, rather than a fixed 160: on a
   // short list the blank area a person actually taps is all of it.
   editBackdropFill: { flexGrow: 1, minHeight: 160 },
-  editDone: { marginLeft: 'auto' },
   rowIndented: { paddingLeft: 28 },
   rowBody: { flex: 1, alignSelf: 'stretch', paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   // The inline field wears the row's own height so swapping text for input
@@ -1192,24 +1189,4 @@ const s = themed(() => StyleSheet.create({
   chipOverdue: { color: T.overdue, fontWeight: '600' },
   rowRolled: { backgroundColor: T.accentSoft, borderRadius: 8 },
   chipRolled: { color: T.accent, fontWeight: '700' },
-  // minHeight 32 — a Pill's height — so the Done button appearing in edit
-  // mode cannot make this row taller. It could, and did: the toolbar grew by
-  // 6 and pushed the entire list down with it. The control Sean asked for to
-  // FIX the shift was the thing causing the remaining shift.
-  // 8pt below the divider on every tab. Measured before touching it: 6 on
-  // Reminders, 9 on Habits, 11 on Calendar, 16 on Notes. Sean named Habits as
-  // closest and a hair tall, so 8 is the target and every screen is tuned to
-  // land there rather than to carry the same number in its own style.
-  // paddingTop 0 — the gap below the divider is TopBar's now (chrome.tsx).
-  // minHeight is gone with it: at 42 against a 32pt button the row had 10pt
-  // of slack that `alignItems: center` split above and below, so the first
-  // thing you SEE still sat 5pt lower than on the other tabs even with the
-  // padding zeroed. The row's natural height is the button's, and the text
-  // beside it is shorter, so nothing was relying on the floor.
-  // paddingBottom 10 matches the gap above the row, so the toolbar sits in
-  // even air rather than being welded to the first folder — Sean's ask once
-  // the top gap landed. It is the toolbar's own, not the scroll's: the
-  // scroll's paddingTop is 0 by design (see the divider note above), and
-  // putting it back there would space every OTHER screen too.
-  toolbar: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingTop: 0, paddingBottom: 10 },
 }));

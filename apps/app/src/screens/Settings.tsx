@@ -245,7 +245,6 @@ const s = themed(() => StyleSheet.create({
   swatchOn: { borderWidth: 2, borderColor: T.accent },
   swatchDot: { width: 14, height: 14, borderRadius: 7 },
   ok: { color: T.accent, fontSize: 13 },
-  note: { color: T.dim, fontSize: 13 },
   footer: { flexDirection: 'row', justifyContent: 'space-around', marginTop: 10 },
   row: { flexDirection: 'row', justifyContent: 'center', marginTop: 8 },
 }));

@@ -1,11 +1,10 @@
 /**
  * The event end time (Sean's ask, 2026-08-18): timePlus is the "+1 hour"
  * presumption, timeRangeLabel is the chip both calendars draw. The weekday
- * and preposition parsing rides in spec/parse.json; what is here is the one
- * seam the spec cannot carry — the date FIELD accepting a weekday too.
+ * and preposition parsing rides in spec/parse.json.
  */
 import { describe, it, expect } from 'vitest';
-import { joinRecipeBody, parseDateField, parseWhenFromText, splitRecipeBody, timeLabel, timePlus, timeRangeLabel } from '../src/index';
+import { joinRecipeBody, parseWhenFromText, splitRecipeBody, timeLabel, timePlus, timeRangeLabel } from '../src/index';
 
 describe('timePlus — the presumed end', () => {
   it('adds an hour', () => expect(timePlus('15:00', 60)).toBe('16:00'));
@@ -22,13 +21,6 @@ describe('timeRangeLabel — the chip', () => {
   it('agrees with timeLabel on the halves', () => {
     expect(timeRangeLabel('09:15', '10:00')).toBe(`${timeLabel('09:15')}–${timeLabel('10:00')}`);
   });
-});
-
-describe('the date field accepts a weekday, like its neighbour', () => {
-  // 2026-08-18 is a Tuesday.
-  it('full form', () => expect(parseDateField('friday', '2026-08-18')).toBe('2026-08-21'));
-  it('short form', () => expect(parseDateField('fri', '2026-08-18')).toBe('2026-08-21'));
-  it('today, named', () => expect(parseDateField('tuesday', '2026-08-18')).toBe('2026-08-18'));
 });
 
 describe('manual-beats-parsed: the lift switches', () => {

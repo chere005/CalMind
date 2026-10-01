@@ -29,7 +29,6 @@ import type { AnyRec } from './types';
  * whose contents have since moved.
  */
 export const UNDOABLE = ['reminder', 'event', 'note', 'habit'] as const;
-export type UndoableType = (typeof UNDOABLE)[number];
 
 /**
  * The most recently deleted undoable record, or null.

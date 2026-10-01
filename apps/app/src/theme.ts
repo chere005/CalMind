@@ -1,5 +1,3 @@
-import { StyleSheet } from 'react-native';
-
 /**
  * The suite's THEMES table (lib/auth.php), same columns, same values —
  * midnight / sage / forest / olive, the boards Draft 3 was judged on.
@@ -113,11 +111,6 @@ export function themed<S extends object>(factory: () => S): S {
   });
 }
 
-/** Ready-made lazy sheet helper so call sites read naturally. */
-export function themedSheet<S extends StyleSheet.NamedStyles<S>>(factory: () => S): S {
-  return themed(factory);
-}
-
 /**
  * The suite's per-app palettes, computed values carried over from
  * lib/palette.php (Draft 3): blue/red/green/orange/purple/grey, each app
@@ -140,9 +133,6 @@ export const APP_PALETTES_SHARED: Record<'reminders' | 'calendar' | 'notes' | 'h
   notes: ['#badff5', '#f3bcc1', '#c4eccb', '#f7ceb9', '#cdc0f0', '#d4d6dc'],
   habits: ['#a1abf7', '#f2a292', '#9fe5cf', '#f8cd8c', '#d898ec', '#bec3cc'],
 };
-
-/** Legacy alias — callers should pick from APP_PALETTES by app. */
-export const FOLDER_PALETTE = [...APP_PALETTES.reminders];
 
 /** The page column: phone-first content centred on a wide window, suite-style. */
 export const PAGE_MAX_WIDTH = 640;

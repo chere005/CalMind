@@ -1733,9 +1733,7 @@ function SharedNotes({ viewKey, partner }: { viewKey: string; partner: string })
 
 const s = themed(() => StyleSheet.create({
   page: { flex: 1, backgroundColor: T.bg },
-  topbar: { height: 32, marginTop: 16, marginHorizontal: 16, marginBottom: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   toolRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  appname: { color: T.text, fontSize: 18, fontWeight: '700' },
   // flexGrow so the edit backdrop below the list has leftover height to take.
   // 8pt below the divider on every tab. Measured before touching it: 6 on
   // Reminders, 9 on Habits, 11 on Calendar, 16 on Notes. Sean named Habits as
@@ -1784,7 +1782,6 @@ const s = themed(() => StyleSheet.create({
   secHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
   secRename: { flex: 1, paddingVertical: 4 },
   secName: { color: T.gold, fontSize: 16, lineHeight: 20, fontWeight: '600' },
-  chevron: { color: T.dim, fontSize: 16, width: 20, textAlign: 'center' },
   // An explicit HEIGHT, not the glyph's. This box had width 20 and no
   // height, so its height WAS the chevron — and on the web, where
   // hitSlop does nothing, taking the chevron from 11 to 7 would have
@@ -1825,7 +1822,6 @@ const s = themed(() => StyleSheet.create({
   sharedFolderChip: { color: T.text, fontSize: 15, fontWeight: '800', paddingHorizontal: 10, paddingVertical: 2, borderRadius: 999, overflow: 'hidden' },
   gripHidden: { opacity: 0 },
   editBackdropFill: { flexGrow: 1, minHeight: 160 },
-  editDone: { marginLeft: 'auto' },
   dateChip: { color: T.gold, fontSize: 12, paddingHorizontal: 6 },
   // The scale pills' shape — the two sit on the same screen and are the same
   // weight of control, and a second outline for one of them would read as a
@@ -1866,20 +1862,15 @@ const s = themed(() => StyleSheet.create({
   footActs: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   copyBtnText: { color: T.dim, fontSize: 15, borderWidth: 1, borderColor: T.line, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 5, overflow: 'hidden' },
   ddPill: { borderWidth: 1, borderColor: T.line, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: T.surface },
-  ddPillGold: { borderColor: T.gold },
   backText: { color: T.accent, fontSize: 15, fontWeight: '600' },
-  ddText: { color: T.text, fontSize: 15, fontWeight: '600' },
-  ddTextGold: { color: T.gold, fontSize: 15, fontWeight: '600' },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   addDate: { borderWidth: 1, borderColor: T.accent, borderStyle: 'dashed', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10 },
   addDateText: { color: T.accent, fontSize: 14, fontWeight: '600' },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
-  dateField: { minWidth: 90, paddingVertical: 6 },
   footRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 },
   saved: { color: T.muted, fontSize: 12 },
   // The word turns with the state; a grey 'Not saved' would read as furniture.
   savedBad: { color: T.danger, fontWeight: '700' },
-  goesMenu: { position: 'absolute', left: 16, right: 16, top: 140, backgroundColor: T.surface, borderWidth: 1, borderColor: T.line, borderRadius: 14, padding: 12, gap: 8, flexDirection: 'row', flexWrap: 'wrap' },
   title: {
     flex: 1,
     color: T.text,
@@ -1892,8 +1883,6 @@ const s = themed(() => StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
   },
-  chip: { color: T.dim, fontSize: 12 },
-  ocrBusy: { color: T.dim, fontSize: 13, alignSelf: 'center' },
   bodyPlaceholder: { color: T.muted, fontSize: 16, lineHeight: 24 },
   rtLine: { flexDirection: 'row', alignItems: 'flex-start' },
   rtPress: { flex: 1, flexDirection: 'row', alignItems: 'flex-start' },

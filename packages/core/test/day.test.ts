@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { addDays, monthGridFilled, twoWeeksFrom, weekOf, cellMarks, dayItems, dayMarks, monthGrid, monthLegend } from '../src/day';
+import { addDays, monthGridFilled, twoWeeksFrom, cellMarks, dayItems, monthGrid, monthLegend } from '../src/day';
 import type { AnyRec, Rec } from '../src/types';
 
 const TODAY = '2026-08-07';
@@ -65,21 +65,6 @@ describe('dayItems — what lands on a day', () => {
     const n: Rec<'note'> = { id: 'n1', type: 'note', updated: 0, payload: { title: 'x', body: '', date: TODAY, folderId: 'f', sectionId: 's', ord: 'V' } };
     expect(dayItems([n], TODAY, TODAY).notes.length).toBe(1);
     expect(dayItems([n], '2026-08-08', TODAY).notes.length).toBe(0);
-  });
-});
-
-describe('dayMarks — the month cell summary', () => {
-  it('overdue beats open; done only when everything is ticked', () => {
-    const recs: AnyRec[] = [folder('f'), rem('a', TODAY), rem('late', '2026-08-01')];
-    expect(dayMarks(recs, TODAY, TODAY).reminderState).toBe('overdue');
-    const allDone: AnyRec[] = [folder('f'), rem('a', TODAY, { done: true })];
-    expect(dayMarks(allDone, TODAY, TODAY).reminderState).toBe('done');
-  });
-
-  it('event colors arrive in first-appearance order, deduped', () => {
-    const cal = (id: string, color: string): Rec<'calendar'> => ({ id, type: 'calendar', updated: 0, payload: { name: id, color, ord: 'V' } });
-    const recs: AnyRec[] = [cal('c1', '#111111'), cal('c2', '#222222'), ev('e1', TODAY, '09:00', { calendarId: 'c1' }), ev('e2', TODAY, '10:00', { calendarId: 'c2' }), ev('e3', TODAY, '11:00', { calendarId: 'c1' })];
-    expect(dayMarks(recs, TODAY, TODAY).eventColors).toEqual(['#111111', '#222222']);
   });
 });
 
@@ -166,25 +151,7 @@ describe('monthLegend — every calendar/folder with an item in the window', () 
   });
 });
 
-describe('weekOf — a month row, not a floating seven days', () => {
-  it('returns the 7-cell row holding the date', () => {
-    const w = weekOf('2026-08-08');
-    expect(w.cells).toHaveLength(7);
-    expect(w.cells).toContain('2026-08-08');
-    expect(w.ym).toBe('2026-08');
-  });
-  it('pads the month edges with nulls like the grid', () => {
-    // Aug 2026 starts on a Saturday: the first row is six nulls + the 1st.
-    const w = weekOf('2026-08-01');
-    expect(w.cells).toEqual([null, null, null, null, null, null, '2026-08-01']);
-  });
-  it('stepping the anchor across an edge lands on the neighbour month row', () => {
-    const back = addDays('2026-08-01', -7); // 2026-07-25
-    const w = weekOf(back);
-    expect(w.ym).toBe('2026-07');
-    expect(w.cells).toContain('2026-07-25');
-    expect(weekOf(addDays('2026-07-31', 7)).ym).toBe('2026-08');
-  });
+describe('addDays', () => {
   it('addDays crosses months and years', () => {
     expect(addDays('2026-12-30', 3)).toBe('2027-01-02');
     expect(addDays('2026-03-01', -1)).toBe('2026-02-28');

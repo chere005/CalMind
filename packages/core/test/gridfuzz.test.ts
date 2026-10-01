@@ -25,7 +25,7 @@
  * Asia/Kathmandu, checked, so pinning hides nothing.
  */
 import { describe, it, expect } from 'vitest';
-import { monthGrid, monthGridFilled, twoWeeksFrom, weekOf, addDays } from '../src/index';
+import { monthGrid, monthGridFilled, twoWeeksFrom, addDays } from '../src/index';
 
 const dayOf = (d: string) => new Date(`${d}T12:00:00Z`).getUTCDay();
 const daysIn = (y: number, m: number) => new Date(Date.UTC(y, m, 0)).getUTCDate();
@@ -79,8 +79,8 @@ describe('monthGrid', () => {
   });
 });
 
-describe('twoWeeksFrom and weekOf', () => {
-  it('give fourteen and seven days, Sunday-aligned, holding the date asked for', () => {
+describe('twoWeeksFrom', () => {
+  it('gives fourteen days, Sunday-aligned, holding the date asked for', () => {
     // A year of consecutive days, so every weekday and every month edge is
     // crossed, plus the US DST switch days explicitly.
     const dates: string[] = [];
@@ -94,11 +94,6 @@ describe('twoWeeksFrom and weekOf', () => {
       expect(dayOf(two[0]!), `${date} starts on a Sunday`).toBe(0);
       for (let i = 1; i < 14; i++) expect(addDays(two[i - 1]!, 1)).toBe(two[i]);
       expect(two.includes(date), `${date} is in its own fortnight`).toBe(true);
-
-      const wk = weekOf(date);
-      expect(wk.cells.length, `${date} week is seven cells`).toBe(7);
-      expect(wk.cells.includes(date), `${date} is in its own week`).toBe(true);
-      expect(wk.ym).toBe(date.slice(0, 7));
     }
   });
 });

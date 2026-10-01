@@ -3,9 +3,8 @@
  * Copy one CalMind account's records to another, over the sync API.
  *
  * For the test → prod move (Sean, 2026-08-20: "let me make new accounts, then
- * migrate the data over, ignoring previous passwords"). Not import-suite.php,
- * which converts the OLD PHP SUITE's per-user files; this is CalMind to
- * CalMind, where both ends already speak records and nothing needs reshaping.
+ * migrate the data over, ignoring previous passwords"). CalMind to CalMind:
+ * both ends already speak records and nothing needs reshaping.
  *
  *   php server/tools/copy-account.php \
  *     --from=https://…/test/calmind/api/index.php --from-token=… \
@@ -14,8 +13,8 @@
  * Records keep their ids and their `updated` stamps, so this is idempotent:
  * running it twice changes nothing the second time, and a record edited on the
  * destination AFTER the copy wins on the next run rather than being reverted.
- * That is the opposite of import-suite's future-stamping, and deliberate —
- * there is no reason to force here.
+ * Nothing is future-stamped to force its way in, deliberately — there is no
+ * reason to force here.
  *
  * TOMBSTONES COME TOO. A deleted record is a record with `deleted` set, and
  * leaving them behind would resurrect everything either of you has ever thrown
@@ -80,7 +79,7 @@ if (count($have) > 0) {
 if ($recs === []) { echo "nothing to copy\n"; exit(0); }
 if ($dry) { echo "--dry-run: nothing sent\n"; exit(0); }
 
-// MAX_BATCH is 500 server-side; 400 leaves room and matches import-suite.
+// MAX_BATCH is 500 server-side; 400 leaves room.
 $sent = 0;
 foreach (array_chunk($recs, 400) as $chunk) {
     $r = call($to, ['action' => 'sync', 'cursor' => 0, 'changes' => $chunk], $toTok);

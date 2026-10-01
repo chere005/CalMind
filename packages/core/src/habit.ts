@@ -24,7 +24,7 @@
  * with it for the same reason — it decided what a day's circle means while
  * sitting in a screen where nothing could test it.
  */
-import type { AnyRec, Rec } from './types';
+import type { Rec } from './types';
 
 export type Frequency = 'always' | 'weekdays' | 'never';
 
@@ -133,9 +133,4 @@ export function dayShares(
     const done = mine.filter((h) => isTicked(h.id, date)).length;
     return { color: sec.payload.color, frac: done / total, open: (mine.length - done) / total };
   });
-}
-
-/** Is `rec` a live habit? Narrowing helper, so screens stop re-writing it. */
-export function isHabit(r: AnyRec): r is Rec<'habit'> {
-  return r.type === 'habit' && !r.deleted;
 }

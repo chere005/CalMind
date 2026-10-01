@@ -1092,7 +1092,6 @@ const s = themed(() => StyleSheet.create({
   legend: {
     userSelect: 'none', flexGrow: 0 },
   legendInner: { paddingHorizontal: 16, paddingVertical: 6 },
-  legendRowLine: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 14, rowGap: 4, paddingVertical: 2 },
   // The label's own line-height is set so it sits on the chips' first line
   // rather than riding high above them; paddingTop nudges it onto the same
   // optical baseline as a 14px glyph.
@@ -1100,7 +1099,6 @@ const s = themed(() => StyleSheet.create({
   legendOwner: { color: T.muted, fontSize: 11, fontWeight: '800', letterSpacing: 0.6, lineHeight: 20, paddingTop: 1 },
   legendChips: { flex: 1, minWidth: 0 },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5, height: 20 },
-  legendShared: { color: T.muted },
   legendText: { color: T.text, fontSize: 13 },
   groupHead: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 },
   groupTitleShared: { color: T.muted },
@@ -1201,7 +1199,6 @@ const s = themed(() => StyleSheet.create({
   // day panel with two row heights. What remains dead is the 4pt above and
   // below, shared with the neighbouring row.
   rowBodyFlex: { flex: 1, alignSelf: 'stretch' },
-  editBackdropFill: { minHeight: 120 },
   rowText: { color: T.text, fontSize: 15, flex: 1 },
   rowDone: { color: T.muted, textDecorationLine: 'line-through' },
   chip: { color: T.dim, fontSize: 12 },

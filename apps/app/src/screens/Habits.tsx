@@ -737,11 +737,6 @@ const s = themed(() => StyleSheet.create({
   scroll: { padding: 16, paddingTop: 13, paddingBottom: 48, gap: 16, flexGrow: 1 },
   headRow: { flexDirection: 'row', alignItems: 'flex-end' },
   nameCol: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, paddingRight: 8 },
-  // The same box Reminders and Notes draw. Habits had a text '⌃' in a
-  // 30pt CircleBtn — the one collapse-all in the app that was neither
-  // the drawn chevron nor the right size, and the only one that never
-  // turned sideways when everything was folded.
-  renameField: { flex: 1, paddingVertical: 6 },
   dayCol: { width: 44, alignItems: 'center' },
   dayHead: { alignItems: 'center', borderRadius: 10, paddingHorizontal: 6, paddingVertical: 3, minWidth: 34 },
   dayHeadToday: { backgroundColor: T.accent },
@@ -753,11 +748,6 @@ const s = themed(() => StyleSheet.create({
   // The header's grip hangs to the LEFT of the row rather than over it: there
   // is empty margin there, and nothing to cover.
   gripFloatSec: { left: -22, backgroundColor: 'transparent' },
-  // The same 20x20 box Reminders and Notes give their fold chevrons.
-  // This Pressable had NO style, so its box was exactly the glyph and
-  // the slop was the whole target — measured at 7x7 drawn against the
-  // others' 20x20, which is the inconsistency Sean was pointing at.
-  chevWrap: { width: 20, height: 20, alignItems: 'center', justifyContent: 'center' },
   secDot: { width: 11, height: 11, borderRadius: 6 },
   secPill: { borderRadius: 999, paddingHorizontal: 14, paddingVertical: 5 },
   secPillText: { color: T.text, fontSize: 16, fontWeight: '700' },

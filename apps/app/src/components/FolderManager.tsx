@@ -199,7 +199,6 @@ const s = themed(() => StyleSheet.create({
   renameField: { flex: 1, paddingVertical: 6 },
   sharedName: { color: T.dim, fontSize: 15, flex: 1 },
   label: { color: T.dim, fontSize: 13, marginTop: 6 },
-  rowWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   ownerBadge: { color: T.accent, fontSize: 12, fontWeight: '700', backgroundColor: T.accentSoft, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3, overflow: 'hidden', marginLeft: 'auto' },
   hint: { color: T.muted, fontSize: 13, lineHeight: 18, marginTop: 10 },
   err: { color: T.danger, fontSize: 13 },
