@@ -10,7 +10,10 @@
 #
 # WHAT IT CHECKS: core, app, gesture, WebKit, server and the deploy guards,
 # each measured rather than asserted. The playwright totals come from `--list`, so
-# no suite is actually run for them.
+# no suite is actually run for them. Core, app and server are run here — unless
+# tools/test-dev.sh hands their numbers over (CALMIND_COUNT_CORE / _APP /
+# _SERVER), read off its own green run of the same tree moments before, which
+# is still a measurement and saves running each suite a second time.
 #
 # WHAT IT DOES NOT, and why, because a checker that quietly covers less than it
 # claims is the thing this repo keeps finding:
@@ -52,17 +55,26 @@ listed() { npx playwright test --list ${2:+-c "$2"} 2>/dev/null | grep -cE '^  [
 # stale the moment a bug is parked.
 SKIPPED=$(grep -rlE 'test\.(skip|fixme)\(' e2e/*.spec.ts | wc -l | tr -d ' ')
 
-cmp_count core "$(claim core)" \
-  "$(npx vitest run --root packages/core 2>&1 | grep -oE 'Tests +[0-9]+ passed' | grep -oE '[0-9]+' | head -1)"
+# A count tools/test-dev.sh hands over, measured off its OWN green run of the
+# same suite seconds earlier — or, from anyone else, nothing, and the suite is
+# run here exactly as it always was. Digits or it does not count: an empty or
+# mangled value means "measure it yourself", never "the claim is right".
+handed() { case "$1" in ''|*[!0-9]*) return 1 ;; esac; printf '%s' "$1"; }
+
+ACT=$(handed "${CALMIND_COUNT_CORE:-}") \
+  || ACT=$(npx vitest run --root packages/core 2>&1 | grep -oE 'Tests +[0-9]+ passed' | grep -oE '[0-9]+' | head -1)
+cmp_count core "$(claim core)" "$ACT"
 # The app's own pure-logic suite (apps/app/test) — small, and counted for the
 # same reason as the rest: a suite nothing counts is a suite that can quietly
 # stop running.
-cmp_count app "$(claim app)" \
-  "$(npx vitest run --root apps/app 2>&1 | grep -oE 'Tests +[0-9]+ passed' | grep -oE '[0-9]+' | head -1)"
+ACT=$(handed "${CALMIND_COUNT_APP:-}") \
+  || ACT=$(npx vitest run --root apps/app 2>&1 | grep -oE 'Tests +[0-9]+ passed' | grep -oE '[0-9]+' | head -1)
+cmp_count app "$(claim app)" "$ACT"
 cmp_count gesture "$(claim gesture)" "$(( $(listed) - SKIPPED ))"
 cmp_count WebKit "$(claim WebKit)" "$(listed x playwright.webkit.config.ts)"
-cmp_count server "$(claim server)" \
-  "$(php server/tools/test.php 2>&1 | grep -oE '[0-9]+ passed' | grep -oE '[0-9]+' | head -1)"
+ACT=$(handed "${CALMIND_COUNT_SERVER:-}") \
+  || ACT=$(php server/tools/test.php 2>&1 | grep -oE '[0-9]+ passed' | grep -oE '[0-9]+' | head -1)
+cmp_count server "$(claim server)" "$ACT"
 cmp_count 'deploy guards' "$(printf '%s' "$LINE" | grep -oE 'deploy guards \*\*[0-9]+\*\*' | grep -oE '[0-9]+')" \
   "$(sh tools/check-deploy-guards.sh 2>&1 | grep -oE '[0-9]+ passed' | grep -oE '[0-9]+' | head -1)"
 

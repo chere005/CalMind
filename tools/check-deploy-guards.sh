@@ -75,9 +75,21 @@ try "refuses a lib outside its instance"     's|LIB_DEST="/home/protected/calmin
 # …and the bare form must be TEST, which is the one case here that has to
 # SUCCEED to prove anything. Checked by reading what it announces, since a
 # neutered copy gets all the way through.
+#
+# The copy skips the typechecks and the core and server suites, the same way
+# it skips ssh and rsync. They prove nothing about WHICH instance a bare run
+# aims at, and they are not being skipped anywhere that counts: test:dev runs
+# them itself, and the real deploy runs them again on the tree it ships. Left
+# in, they made one test:dev run the server suite a third time — and a red
+# suite failed THIS case as "did not announce test alone", a wrong reason. A
+# sed that stops matching after an edit to deploy.sh only runs the real
+# suites here again: slower, never weaker. The lint stays; it is sub-second.
 copy="server/_guardcheck-bare-$$.sh"
 sed -e 's|^\( *\)ssh |\1echo "   [guardcheck] would ssh: " |' \
     -e 's|^\( *\)rsync |\1echo "   [guardcheck] would rsync: " |' \
+    -e 's|^npm run test:core .*|: # suites skipped in the guard copy|' \
+    -e 's|^php server/tools/test.php .*|: # suites skipped in the guard copy|' \
+    -e 's|if ! npx tsc --noEmit -p "\$P"|if ! true|' \
     server/deploy.sh > "$copy"
 chmod +x "$copy"
 if "./$copy" --dry-run --no-web --no-gestures >"$TMP/bare" 2>&1 && grep -q '==> targets: test$' "$TMP/bare"; then
