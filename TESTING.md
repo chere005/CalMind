@@ -400,10 +400,14 @@ parallel shards — each its own `php -S` on its own port (8790, 8793, and 8794
 with `CALMIND_E2E_SHARDS=3`) over its own data dir, into its own
 `test-results-<port>` — with the WebKit suite beside them on its own 8791,
 and the specs take their port from `e2e/port.ts`.
-`e2e/portguard.spec.ts` fails on a literal port in a spec, and proves on every
-shard's port that the storage keys port.ts derives are the ones the app
-writes: a key left on the wrong port does not fail, it makes corruptboot pass
-having tested nothing. And the deploy checks that the shards' "Running N
+`e2e/portguard.spec.ts` fails on a literal port in a spec, and proves that the
+storage keys port.ts derives are the ones the app writes — on whichever
+shard's port it lands, which is ONE port per run: sharding splits the tests,
+it does not repeat them. A key left on the wrong port does not fail, it makes
+corruptboot pass having tested nothing, so the specs that read storage prove
+their own key on their own port: corruptboot waits for the app's snapshot
+under the name it damages and needs the session it damaged gone, signout and
+chefnotes read back a session that must be there. And the deploy checks that the shards' "Running N
 tests" add up to `playwright test --list`, because Playwright lets an empty
 shard exit 0.
 

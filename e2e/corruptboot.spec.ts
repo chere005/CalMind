@@ -55,6 +55,18 @@ test('a good session with a corrupt snapshot signs in and resyncs', async ({ pag
   await page.getByText('Sign up', { exact: true }).click();
   await expect(page.getByTestId('tab-reminders')).toBeVisible({ timeout: 15_000 });
 
+  // The app's own snapshot, under exactly the name about to be damaged, on
+  // THIS spec's port. Without it a wrong key is a test of nothing: the app
+  // never reads it, boots clean and this passes. portguard proves the same
+  // derivation, but on whichever shard's port it lands, not on this one's.
+  // The snapshot is written when the first sync comes back, so it is waited for.
+  await expect
+    .poll(() => page.evaluate((k) => localStorage.getItem(k) !== null, snapshotKey(u)), {
+      message: `the app writes its snapshot as ${snapshotKey(u)}`,
+      timeout: 10_000,
+    })
+    .toBe(true);
+
   await page.evaluate((key) => {
     localStorage.setItem(key, 'not json at all');
   }, snapshotKey(u));

@@ -8,10 +8,16 @@
  * trouble: its API calls land on another slice's server, and a storage key
  * carrying that port is one the page never reads — corruptboot would seed a
  * key the app ignores, boot clean, and pass having tested nothing. The first
- * test keeps the literal out of the specs; the second runs in every slice and
- * proves, on THAT slice's port, that the keys port.ts derives are the ones the
- * app writes, so the derivation cannot drift from store.tsx's instanceTag()
- * without going red.
+ * test keeps the literal out of the specs; the second proves that the keys
+ * port.ts derives are the ones the app writes, so the derivation cannot drift
+ * from store.tsx's instanceTag() without going red.
+ *
+ * ON ONE PORT, not on every one: sharding splits the TESTS, so this runs in
+ * whichever slice it lands in, on that slice's port, and the slices holding
+ * corruptboot, signout or chefnotes may never see it. Those specs each prove
+ * their own key on their own port instead — corruptboot waits for the snapshot
+ * under the name it damages and needs the session it damaged gone; signout
+ * and chefnotes read back a session that must be there.
  */
 import { test, expect } from '@playwright/test';
 import { readdirSync, readFileSync } from 'node:fs';

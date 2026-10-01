@@ -11,7 +11,10 @@
  *
  * playwright.config.ts starts the server from the same variable, so the two
  * cannot disagree; e2e/portguard.spec.ts holds every spec to this file, and
- * proves on each port that the key derived here is the key the app writes.
+ * proves that the key derived here is the key the app writes — on whichever
+ * shard's port it lands, which is one port per run, not each. So every spec
+ * that reads storage through these keys proves its own on its own port too
+ * (see portguard's header for how each one does).
  * Unset, it is 8790 — a plain `npx playwright test` is what it always was.
  */
 const raw = process.env.CALMIND_E2E_PORT || '8790';
@@ -33,8 +36,9 @@ export const API = `${BASE}api/index.php`;
 /**
  * The storage-key suffix the app derives from its API URL — the same three
  * replaces as `instanceTag()` in apps/app/src/store.tsx, applied to the same
- * URL, so a change there that this misses fails portguard on every port
- * rather than turning the specs that read storage vacuous.
+ * URL, so a change there that this misses fails portguard, and the specs
+ * that read storage, on whatever port they run rather than turning those
+ * specs vacuous.
  */
 export const INSTANCE_TAG = API.replace(/^https?:\/\//, '')
   .replace(/\/api\/index\.php$/, '')
