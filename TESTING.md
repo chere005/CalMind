@@ -396,7 +396,8 @@ The rule read "one suite at a time" until 2026-10-01, but the incident was a
 port fight, never two suites as such. The deploy now runs the gesture suite as
 parallel shards — each its own `php -S` on its own port (8790, 8793, and 8794
 with `CALMIND_E2E_SHARDS=3`) over its own data dir, into its own
-`test-results-<port>` — and the specs take their port from `e2e/port.ts`.
+`test-results-<port>` — with the WebKit suite beside them on its own 8791,
+and the specs take their port from `e2e/port.ts`.
 `e2e/portguard.spec.ts` fails on a literal port in a spec, and proves on every
 shard's port that the storage keys port.ts derives are the ones the app
 writes: a key left on the wrong port does not fail, it makes corruptboot pass

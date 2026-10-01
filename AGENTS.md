@@ -105,10 +105,11 @@ npx playwright test e2e/callist.spec.ts -g "groups by day"
   420×900 Chromium, its own `php -S` on 8790 over a wiped data dir.
 - The DEPLOY runs that suite as parallel shards, each with its own server,
   data dir and `test-results-<port>`: 8790 and 8793 (8794 too with
-  `CALMIND_E2E_SHARDS=3`). Specs take the port from `e2e/port.ts`, never a
-  literal — `e2e/portguard.spec.ts` fails on one. Nothing else may hold
-  8790, 8791 (WebKit), 8793 or 8794 while a deploy runs; two runs on ONE
-  port fight, two on different ports do not.
+  `CALMIND_E2E_SHARDS=3`), and the WebKit suite beside them on 8791. Specs
+  take the port from `e2e/port.ts`, never a literal —
+  `e2e/portguard.spec.ts` fails on one. Nothing else may hold 8790, 8791,
+  8793 or 8794 while a deploy runs (AcctMind's harness also uses 8791); two
+  runs on ONE port fight, two on different ports do not.
 - There is no lint script. The only lint is PHP syntax, run inline by the
   deploy: `find server -name '*.php' -print0 | xargs -0 -n1 php -l`.
 - `npx playwright install webkit` once, before `npm run test:webkit`.

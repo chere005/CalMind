@@ -16,8 +16,18 @@ import { defineConfig, devices } from '@playwright/test';
  *   npx playwright install webkit                       # once
  *   npx playwright test -c playwright.webkit.config.ts
  */
+// The deploy runs this BESIDE the Chromium shards (server/deploy.sh), so it
+// keeps to its own port, data dir and output dir. Any spec it runs that asks
+// e2e/port.ts for the port must hear 8791 — this server's — and never the
+// first shard's 8790, where somebody else's server would answer.
+const PORT = 8791;
+process.env.CALMIND_E2E_PORT = String(PORT);
+
 export default defineConfig({
   testDir: './e2e',
+  // Playwright empties its output dir at the start of a run; the shards'
+  // are test-results-<port>, and this one must not be any of theirs.
+  outputDir: 'test-results-webkit',
   testMatch: [
     'app.spec.ts', 'interrupted.spec.ts', 'chrome.spec.ts', 'scale.spec.ts',
     'armeddelete.spec.ts', 'legendwrap.spec.ts', 'toolong.spec.ts',
@@ -55,13 +65,13 @@ export default defineConfig({
   globalSetup: './e2e/freshness.ts',
   use: {
     ...devices['Desktop Safari'],
-    baseURL: 'http://127.0.0.1:8791/calmind/',
+    baseURL: `http://127.0.0.1:${PORT}/calmind/`,
     viewport: { width: 420, height: 900 },
   },
   webServer: {
     command:
-      'rm -rf /tmp/calmind-e2e-webkit && mkdir -p /tmp/calmind-e2e-webkit && CALMIND_DATA_DIR=/tmp/calmind-e2e-webkit CALMIND_MEETREQ_USER=owner php -S 127.0.0.1:8791 e2e/router.php',
-    url: 'http://127.0.0.1:8791/calmind/',
+      `rm -rf /tmp/calmind-e2e-webkit && mkdir -p /tmp/calmind-e2e-webkit && CALMIND_DATA_DIR=/tmp/calmind-e2e-webkit CALMIND_MEETREQ_USER=owner php -S 127.0.0.1:${PORT} e2e/router.php`,
+    url: `http://127.0.0.1:${PORT}/calmind/`,
     reuseExistingServer: false,
     timeout: 15_000,
   },

@@ -374,7 +374,7 @@ if [ "$WEB" = 1 ]; then
       ''|*[!0-9]*|0) echo "could not count the gesture suite (playwright test --list) — not deploying" >&2; exit 1 ;;
     esac
     GDIR=$(mktemp -d -t calmind-gestures)
-    echo "==> gestures: $LISTED tests in $SHARDS shards (--no-gestures to skip)"
+    echo "==> gestures: $LISTED tests in $SHARDS shards, WebKit beside them (--no-gestures to skip)"
     G0=$(date +%s)
     # perl only to undo one thing the shell does: a background job of a
     # non-interactive sh starts with INT IGNORED, and Playwright only installs
@@ -382,6 +382,25 @@ if [ "$WEB" = 1 ]; then
     # Put back at default, a Ctrl-C reaches every shard the way it reached
     # the one foreground run, and stop_gates' INT always lands.
     UNIGNORE_INT='$SIG{INT} = "DEFAULT"; exec { $ARGV[0] } @ARGV or die "cannot run $ARGV[0]: $!\n"'
+
+    # …AND WEBKIT, which this gate did not run. The suite exists because a
+    # react-native-web `hitSlop` is a no-op in a browser and the browser that
+    # matters here is Safari — "verifying that fix in Chromium alone would have
+    # been checking it everywhere except where it matters", says its own
+    # config. Leaving it out of the gate meant precisely that: a Safari-only
+    # regression could ship. Sixteen specs, under thirty seconds, and the log
+    # is kept for the same reason as the one above — a gate that blocks
+    # without evidence costs more than the minute it saves.
+    #
+    # BESIDE the shards since 2026-10-01, not after them: it already had its
+    # own port (8791), its own wiped data dir (/tmp/calmind-e2e-webkit) and
+    # now its own output dir (test-results-webkit), so it shares nothing with
+    # them but this dist and the freshness gate. Started first, as the
+    # shortest; waited for, and judged, like any shard.
+    perl -e "$UNIGNORE_INT" "$PW" test -c playwright.webkit.config.ts >"$GDIR/webkit.log" 2>&1 &
+    WPID=$!
+    gate_track "$WPID"
+
     i=0
     for PORT in $SHARD_PORTS; do
       i=$((i + 1))
@@ -411,7 +430,13 @@ if [ "$WEB" = 1 ]; then
         RED=1
       fi
     done
-    GATE_PIDS=""
+    WRC=0; wait "$WPID" || WRC=$?
+    gate_untrack "$WPID"
+    if [ "$WRC" != 0 ]; then
+      echo "WebKit suite failed — not deploying. Last lines:" >&2
+      grep -E '✘|Error:|Timeout|[0-9]+ failed|webServer|already used|Failed to listen' "$GDIR/webkit.log" | tail -25 >&2
+      RED=1
+    fi
     if [ "$RED" = 0 ] && [ "$RAN_ALL" != "$LISTED" ]; then
       echo "the gesture shards ran $RAN_ALL tests between them; the suite holds $LISTED — not deploying" >&2
       RED=1
@@ -420,25 +445,8 @@ if [ "$WEB" = 1 ]; then
       echo "full output: $GDIR" >&2
       exit 1
     fi
-    echo "    $LISTED tests, every one accounted for, in $(( $(date +%s) - G0 ))s"
+    echo "    $LISTED tests, every one accounted for, and WebKit, in $(( $(date +%s) - G0 ))s"
     rm -rf "$GDIR"
-
-    # …AND WEBKIT, which this gate did not run. The suite exists because a
-    # react-native-web `hitSlop` is a no-op in a browser and the browser that
-    # matters here is Safari — "verifying that fix in Chromium alone would have
-    # been checking it everywhere except where it matters", says its own
-    # config. Leaving it out of the gate meant precisely that: a Safari-only
-    # regression could ship. Sixteen specs, under thirty seconds, and the log
-    # is kept for the same reason as the one above — a gate that blocks
-    # without evidence costs more than the minute it saves.
-    WLOG=$(mktemp -t calmind-webkit)
-    if ! npx playwright test -c playwright.webkit.config.ts >"$WLOG" 2>&1; then
-      echo "WebKit suite failed — not deploying. Last lines:" >&2
-      grep -E '✘|Error:|Timeout|[0-9]+ failed|webServer' "$WLOG" | tail -25 >&2
-      echo "full output: $WLOG" >&2
-      exit 1
-    fi
-    rm -f "$WLOG"
   fi
 
   # A native build's bundling step writes over dist, and an xcodebuild that
