@@ -44,9 +44,17 @@ test('the session key names the instance it belongs to', async ({ page }) => {
   expect(session[0]).toContain('@');
   expect(session[0], 'and the tag is the API this instance uses').toContain('_calmind');
 
-  const snap = ks.filter((k) => k.startsWith(`calmind.snapshot.${user}`));
-  expect(snap.length, 'the snapshot is namespaced too').toBe(1);
-  expect(snap[0]).toContain('@');
+  // The snapshot is written when the first sync comes back, which can be a
+  // beat after the tabs appear — on a loaded machine it was, and this read
+  // it too early and failed a gate (2026-10-01, the sharded gate's first
+  // flake check). So it is waited for, then held to the same two rules: one
+  // key for this user, and that key carries the instance tag.
+  const snaps = async () =>
+    (await keys(page)).filter((k) => k.startsWith(`calmind.snapshot.${user}`));
+  await expect
+    .poll(async () => (await snaps()).length, { message: 'the snapshot is namespaced too', timeout: 10_000 })
+    .toBe(1);
+  expect((await snaps())[0]).toContain('@');
 });
 
 test('a session written for one instance is not read by another on the same origin', async ({ page }) => {

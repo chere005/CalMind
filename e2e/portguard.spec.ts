@@ -53,8 +53,8 @@ test('the keys port.ts derives are the keys the app writes on this port', async 
   const sessions = () =>
     page.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith('calmind.session')));
   expect(await sessions(), `the app's session key on port ${PORT}`).toEqual([SESSION_KEY]);
-  // The snapshot is written behind a debounce, so it is waited for — under
-  // exactly the name corruptboot damages.
+  // The snapshot is written when the first sync comes back, so it is waited
+  // for — under exactly the name corruptboot damages.
   await expect
     .poll(() => page.evaluate((k) => localStorage.getItem(k) !== null, snapshotKey(u)), { timeout: 10_000 })
     .toBe(true);
