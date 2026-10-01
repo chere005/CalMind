@@ -48,13 +48,16 @@ test('the session key names the instance it belongs to', async ({ page }) => {
   // beat after the tabs appear — on a loaded machine it was, and this read
   // it too early and failed a gate (2026-10-01, the sharded gate's first
   // flake check). So it is waited for, then held to the same two rules: one
-  // key for this user, and that key carries the instance tag.
+  // key for this user, and that key carries the instance tag — both on ONE
+  // read after the wait, so a second key landing after the first still fails.
   const snaps = async () =>
     (await keys(page)).filter((k) => k.startsWith(`calmind.snapshot.${user}`));
   await expect
     .poll(async () => (await snaps()).length, { message: 'the snapshot is namespaced too', timeout: 10_000 })
     .toBe(1);
-  expect((await snaps())[0]).toContain('@');
+  const s = await snaps();
+  expect(s, 'exactly one snapshot key').toHaveLength(1);
+  expect(s[0], 'the snapshot key carries an instance tag').toContain('@');
 });
 
 test('a session written for one instance is not read by another on the same origin', async ({ page }) => {
