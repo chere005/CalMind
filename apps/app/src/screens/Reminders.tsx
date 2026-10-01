@@ -91,9 +91,9 @@ export function Reminders() {
     // did nothing, and a list longer than the window had no exit on screen at
     // all — measured before changing it.
     //
-    // Web only, like the Escape handler above it: this needs a document, and
-    // the phone's reliable way out is the Done button in the toolbar. That is
-    // a real divergence and it is deliberate, not an oversight.
+    // Web only, like the Escape handler above it: this needs a document. The
+    // phone's way out is EditExit, the Pressable wrapped round the list's
+    // content below — the native half of the same rule.
     // What may swallow a click and still MEAN "stay in edit mode".
     //
     // This was once just role/input/textarea, on the belief that every row and
