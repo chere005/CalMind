@@ -126,6 +126,11 @@ test('his taps are the final say on what a stranger is offered', async ({ page, 
   const pub = await anon.newPage();
   await pub.goto('request?u=owner');
   await expect(pub.getByText('Request a meeting')).toBeVisible({ timeout: 20_000 });
+  // The stranger's page opens on THIS month and draws only the weeks it
+  // needs, so in a month's last days next Monday can be off the grid
+  // entirely (Sep 30 2026: the grid ends Oct 3, the day is Oct 5). Page to
+  // it the way openAvailability does for his own view.
+  if (day.slice(0, 7) !== iso(new Date()).slice(0, 7)) await pub.getByTestId('req-next').click();
   const cell = pub.getByLabel(day, { exact: true }).first();
   await expect.poll(async () => cell.getAttribute('aria-disabled'), { timeout: 15_000 }).toBe('true');
   await anon.close();
