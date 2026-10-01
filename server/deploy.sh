@@ -121,6 +121,58 @@ echo "==> targets:$TARGETS"
 . ./server/deploy.conf
 [ -n "$SSH_DEST" ] || { echo "SSH_DEST not set in server/deploy.conf" >&2; exit 1; }
 
+# ONE SSH CONNECTION FOR THE WHOLE UPLOAD. Each instance makes seven calls —
+# three ssh, four rsync — and each used to open its own connection, so a
+# prod+test deploy paid fourteen handshakes. Now the first call opens a
+# master and the rest ride it (ControlPersist keeps it up between calls;
+# mux_close ends it with the run). Same commands, same files, same order:
+# only how the session is opened changed.
+#
+# The socket sits in a private mktemp dir (0700: nobody else on this machine
+# rides the connection) and its path stays short, because macOS refuses a
+# socket path over 104 bytes and ssh adds 17 of its own while it sets the
+# master up. A $TMPDIR long or odd enough to break that — a sandboxed
+# session's can be — gets no multiplexing rather than a broken one: RSH is
+# then plain ssh, which is exactly the old deploy.
+#
+# Every call still starts its line with `ssh ` or `rsync `, the spelling
+# tools/check-deploy-guards.sh rewrites to echo in its tampered copies. Keep
+# it that way: a call spelled any other way would reach the server from a
+# guard check.
+SSHMUX=""
+MUX_TMP=${TMPDIR:-/tmp}
+MUX_DIR=$(mktemp -d "${MUX_TMP%/}/calmind-ssh.XXXXXX" 2>/dev/null) || MUX_DIR=""
+case "$MUX_DIR" in
+  ''|*[!A-Za-z0-9._/-]*) ;;
+  *)
+    if [ ${#MUX_DIR} -le 80 ]; then
+      SSHMUX="-o ControlMaster=auto -o ControlPath=$MUX_DIR/m -o ControlPersist=120"
+    fi ;;
+esac
+RSH="ssh${SSHMUX:+ $SSHMUX}"
+mux_close() {
+  if [ -n "$SSHMUX" ]; then
+    ssh -O exit $SSHMUX "$SSH_DEST" >/dev/null 2>&1 || true
+  fi
+  if [ -n "$MUX_DIR" ]; then rm -rf "$MUX_DIR"; fi
+}
+
+# What has to happen however this run ends. On INT or TERM it runs, then the
+# signal is raised again, so whoever ran this still sees an interrupt rather
+# than an ordinary failure.
+cleanup() {
+  mux_close
+}
+on_signal() {
+  cleanup
+  trap - EXIT "$1"
+  kill -s "$1" $$
+  exit 1
+}
+trap cleanup EXIT
+trap 'on_signal INT' INT
+trap 'on_signal TERM' TERM
+
 echo "==> lint"
 # php -l exits non-zero PER FILE, but the old form piped every file through one
 # grep and ended in `|| true`, so the pipeline's status was grep's — and grep
@@ -277,14 +329,14 @@ upload_to() {
   guard_paths "$INST"
   # rsync only creates the final path element, so make the parents first.
   if [ -z "$DRY" ]; then
-    ssh "$SSH_DEST" "mkdir -p $LIB_DEST $DATA_DEST $WEB_DEST/api"
+    ssh $SSHMUX "$SSH_DEST" "mkdir -p $LIB_DEST $DATA_DEST $WEB_DEST/api"
   fi
 
   echo "==> [$INST] server/lib -> $LIB_DEST (config.php never sent)"
-  rsync -avL $DRY --exclude 'config.php' server/lib/ "$SSH_DEST:$LIB_DEST/"
+  rsync -avL $DRY -e "$RSH" --exclude 'config.php' server/lib/ "$SSH_DEST:$LIB_DEST/"
 
   echo "==> [$INST] api -> $WEB_DEST/api/"
-  rsync -avL $DRY server/public/api/ "$SSH_DEST:$WEB_DEST/api/"
+  rsync -avL $DRY -e "$RSH" server/public/api/ "$SSH_DEST:$WEB_DEST/api/"
 
   # WHICH lib this instance's API loads. Without it the API falls back to a
   # hardcoded /home/protected/calmind/lib — the TEST instance's — because the
@@ -298,7 +350,7 @@ upload_to() {
   # would otherwise not delete it but would race it.
   if [ -z "$DRY" ]; then
     echo "==> [$INST] api instance -> $LIB_DEST"
-    ssh "$SSH_DEST" "printf '%s\\n' '<?php return \"$LIB_DEST\";' > $WEB_DEST/api/instance.php"
+    ssh $SSHMUX "$SSH_DEST" "printf '%s\\n' '<?php return \"$LIB_DEST\";' > $WEB_DEST/api/instance.php"
   fi
 
   if [ "$WEB" = 1 ]; then
@@ -339,9 +391,9 @@ upload_to() {
     # It lives in dist deliberately (a bare `expo export` clears dist and takes
     # it with it, so a manifest can never outlive the bundle it measured), which
     # is exactly why the exclude has to be here rather than solved by moving it.
-    rsync -avL $DRY --exclude 'api' --exclude '.sources.json' apps/app/dist/ "$SSH_DEST:$WEB_DEST/"
+    rsync -avL $DRY -e "$RSH" --exclude 'api' --exclude '.sources.json' apps/app/dist/ "$SSH_DEST:$WEB_DEST/"
     # index.html must revalidate; the hashed bundles cache forever.
-    rsync -avL $DRY server/public/web.htaccess "$SSH_DEST:$WEB_DEST/.htaccess"
+    rsync -avL $DRY -e "$RSH" server/public/web.htaccess "$SSH_DEST:$WEB_DEST/.htaccess"
   fi
 
   # The web user must be able to CREATE the data dir's contents (it owns the data,
@@ -349,7 +401,7 @@ upload_to() {
   # hand the group over. Data contents themselves are never touched.
   if [ -z "$DRY" ]; then
     echo "==> [$INST] web-user perms (lib read, data dir writable)"
-    ssh "$SSH_DEST" "mkdir -p $DATA_DEST \
+    ssh $SSHMUX "$SSH_DEST" "mkdir -p $DATA_DEST \
       && chgrp -R web $INST_DIR \
       && chmod -R g+rX $LIB_DEST \
       && chmod g+rwx $INST_DIR $DATA_DEST"
@@ -378,6 +430,17 @@ upload_to() {
   fi
 
 }
+
+# PREFLIGHT, before anything is written: open the shared connection and use
+# it twice. A host that refuses a second session on one connection (sshd's
+# MaxSessions) stops the deploy HERE with nothing uploaded — not halfway
+# through prod, with a new lib behind an old web client. Read-only, so a dry
+# run makes it too; its rsyncs connect anyway.
+if [ -n "$SSHMUX" ]; then
+  echo "==> one ssh connection for the upload"
+  ssh $SSHMUX "$SSH_DEST" true
+  ssh $SSHMUX "$SSH_DEST" true
+fi
 
 for t in $TARGETS; do upload_to "$t"; done
 
