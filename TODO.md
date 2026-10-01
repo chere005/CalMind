@@ -30,7 +30,7 @@ file, and run this as part of ANY future compression.
 
 ## Suite counts, as of this commit
 
-core **754** · app **14** · gesture **292** (+2 skipped: the two live specs) · WebKit **15** · server **64** ·
+core **754** · app **14** · gesture **294** (+2 skipped: the two live specs) · WebKit **15** · server **64** ·
 live **19** with the API · desktop **7** (+3 in `npm run test:desktop`) · deploy guards **15** · plus the four
 native seam checkers no browser can reach: `npm run test:watch`,
 `npm run test:widget`, `npm run test:deploy`.
@@ -169,7 +169,8 @@ read the note-focus flake's twelve-occurrence history first
   untested by hand on his word: "i just want it to stay up to date."
 - Keep every suite in the counts above green, including the native four.
   `npm run test:dev` between runs; the deploy runs the browser gates
-  itself. One Playwright suite at a time.
+  itself. Never two Playwright runs on one port (the deploy's shards each
+  have their own: 8790, 8793, 8794).
 - Before trusting a new check, break the thing it guards and watch it go
   red.
 - Confirm live test == local dist by comparing `index.html` to

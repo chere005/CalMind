@@ -374,22 +374,35 @@ The family resemblance to the stale simulator earlier the same day is the
 point: an artefact that is consistent with ITSELF says nothing about whether it
 is the artefact you meant to test.
 
-### Never run two Playwright suites at once, 2026-08-12
+### Never two Playwright runs on one port, 2026-08-12
 
 Both configs bind their own port — 8790 for the gestures, 8791 for WebKit — and
 each starts its server with `reuseExistingServer: false`. Two runs of the SAME
-config therefore fight over one port, and the loser produces garbage that looks
-exactly like a code failure: a 24-minute run reporting 138 of 164 tests, a pile
-of `locator.fill` timeouts, and a spec named in the failure list.
+config on the same port therefore fight over it, and the loser produces garbage
+that looks exactly like a code failure: a 24-minute run reporting 138 of 164
+tests, a pile of `locator.fill` timeouts, and a spec named in the failure list.
 
 That was read as "the change under test broke the editor". It had not. The
 committed code, run alone afterwards, passed 162 with exit 0 — and the change
 was reverted on the strength of contaminated evidence before that was known.
 
-Two habits come out of it. Run one suite at a time, and check `lsof -ti
-tcp:8790` before believing a bad result. And do not pipe a diagnostic run
-through `tail`: the first attempt captured three lines and threw away every
-error, which is why it took three more runs to find out what had happened.
+Two habits come out of it. Never start a run on a port something else holds,
+and check `lsof -ti tcp:8790` before believing a bad result. And do not pipe a
+diagnostic run through `tail`: the first attempt captured three lines and threw
+away every error, which is why it took three more runs to find out what had
+happened.
+
+The rule read "one suite at a time" until 2026-10-01, but the incident was a
+port fight, never two suites as such. The deploy now runs the gesture suite as
+parallel shards — each its own `php -S` on its own port (8790, 8793, and 8794
+with `CALMIND_E2E_SHARDS=3`) over its own data dir, into its own
+`test-results-<port>` — and the specs take their port from `e2e/port.ts`.
+`e2e/portguard.spec.ts` fails on a literal port in a spec, and proves on every
+shard's port that the storage keys port.ts derives are the ones the app
+writes: a key left on the wrong port does not fail, it makes corruptboot pass
+having tested nothing. And the deploy checks that the shards' "Running N
+tests" add up to `playwright test --list`, because Playwright lets an empty
+shard exit 0.
 
 ### The WebKit suite is in the deploy gate now, 2026-08-11
 

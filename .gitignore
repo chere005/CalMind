@@ -24,8 +24,10 @@ server/data/
 desktop/src-tauri/target/
 desktop/src-tauri/gen/
 
-# Playwright writes failure artefacts here; they are never source.
+# Playwright writes failure artefacts here; they are never source. The deploy's
+# gesture shards each write their own, test-results-<port>.
 test-results/
+test-results-*/
 
 # Staged copy of the web export, built for the desktop shell by
 # desktop/stage-dist.sh. Generated on every build; never edited by hand.

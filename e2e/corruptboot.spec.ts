@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { SESSION_KEY, snapshotKey } from './port';
 
 /**
  * Storage keys carry an INSTANCE TAG since 2026-08-20 — prod, test and dev
@@ -27,10 +28,10 @@ import { expect, test } from '@playwright/test';
  */
 test('a session and snapshot that will not parse still let the app start', async ({ page }) => {
   await page.goto('.');
-  await page.evaluate(() => {
-    localStorage.setItem('calmind.session@127.0.0.1_8790_calmind', '{"token":"abc",BROKEN');
-    localStorage.setItem('calmind.snapshot.someone@127.0.0.1_8790_calmind', '{{{not json');
-  });
+  await page.evaluate(([session, snapshot]) => {
+    localStorage.setItem(session, '{"token":"abc",BROKEN');
+    localStorage.setItem(snapshot, '{{{not json');
+  }, [SESSION_KEY, snapshotKey('someone')]);
   await page.reload();
 
   // The login card, not a blank screen and not a spinner that never ends.
@@ -38,7 +39,7 @@ test('a session and snapshot that will not parse still let the app start', async
 
   // And the unparseable session is GONE, so the next launch is clean rather
   // than meeting the same bytes again.
-  const left = await page.evaluate(() => localStorage.getItem('calmind.session' + '@127.0.0.1_8790_calmind'));
+  const left = await page.evaluate((k) => localStorage.getItem(k), SESSION_KEY);
   expect(left).toBeNull();
 });
 
@@ -54,9 +55,9 @@ test('a good session with a corrupt snapshot signs in and resyncs', async ({ pag
   await page.getByText('Sign up', { exact: true }).click();
   await expect(page.getByTestId('tab-reminders')).toBeVisible({ timeout: 15_000 });
 
-  await page.evaluate((user) => {
-    localStorage.setItem(`calmind.snapshot.${user}@127.0.0.1_8790_calmind`, 'not json at all');
-  }, u);
+  await page.evaluate((key) => {
+    localStorage.setItem(key, 'not json at all');
+  }, snapshotKey(u));
   await page.reload();
 
   // Still signed in — the snapshot was only a cache, and the sync refills it.

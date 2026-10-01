@@ -22,6 +22,7 @@
  * project keeps finding are the ones nothing announces.
  */
 import { test, expect, type Page } from '@playwright/test';
+import { SESSION_KEY } from './port';
 
 /**
  * Storage keys carry an INSTANCE TAG since 2026-08-20 — prod, test and dev
@@ -70,7 +71,7 @@ test('online, the server refuses the leftover token', async ({ page }) => {
   await logOut(page, user);
 
   // The token really is still there — otherwise the rest proves nothing.
-  const onDisk = await page.evaluate(() => localStorage.getItem('calmind.session@127.0.0.1_8790_calmind'));
+  const onDisk = await page.evaluate((k) => localStorage.getItem(k), SESSION_KEY);
   expect(onDisk, 'the session should still be on disk; the removal was refused').not.toBeNull();
 
   await page.reload();

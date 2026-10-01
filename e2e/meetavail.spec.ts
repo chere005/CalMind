@@ -17,10 +17,10 @@
  * request page the instance serves, and the editor is drawn for it alone.
  */
 import { test, expect, type Page } from '@playwright/test';
+import { API } from './port';
 
 test.describe.configure({ mode: 'serial' });
 
-const API = 'http://127.0.0.1:8790/calmind/api/index.php';
 async function api<T>(body: object, token?: string): Promise<T> {
   const res = await fetch(API, {
     method: 'POST',

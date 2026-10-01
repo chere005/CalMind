@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { API, SESSION_KEY } from './port';
 
 /**
  * ChefMind's recipes, drawn in Notes under the chef's hat — and edited there.
@@ -18,8 +19,6 @@ import { expect, test, type Page } from '@playwright/test';
  *      right on screen and change ChefMind's store, so both stores are read
  *      back over the API.
  */
-const API = 'http://127.0.0.1:8790/calmind/api/index.php';
-const SESSION_KEY = 'calmind.session@127.0.0.1_8790_calmind';
 
 /** A long press, which is how the Notes list arms edit mode. */
 async function longPress(page: Page, locator: ReturnType<Page['getByTestId']>) {

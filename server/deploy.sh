@@ -157,10 +157,80 @@ mux_close() {
   if [ -n "$MUX_DIR" ]; then rm -rf "$MUX_DIR"; fi
 }
 
+# THE GESTURE RUNS GO IN THE BACKGROUND, and none may outlive this script.
+# Every Playwright process started below is in GATE_PIDS until it has been
+# waited for; one still running when the script ends — a Ctrl-C, a kill, a
+# set -e exit — is stopped here, before the script lets go.
+#
+# Stopped with INT, never TERM. INT is Playwright's "stop, and take your web
+# server with you"; TERM kills node outright and leaves its php -S (in a
+# process group of its own, out of reach of anything sent to ours) holding
+# the port, so the next run fails on "already used" — the server-left-up
+# trap in a new costume. ONE INT, then patience: a second one while it is
+# shutting down is what Playwright reads as "now", and that is the one that
+# can leave the server behind. So a second goes only after a minute, and
+# KILL — which certainly leaves it — after two, naming the ports to check.
+#
+# Each entry is pid=start-time, and a pid is signalled only while it is still
+# the process started here: the shell can reap a finished shard on its own,
+# and a pid freed minutes ago may belong to something else by the time a
+# Ctrl-C arrives.
+SHARD_PORTS="8790 8793 8794"
+GATE_PIDS=""
+gate_start() { ps -o lstart= -p "$1" 2>/dev/null | tr -s ' ' '_'; }
+gate_track() { GATE_PIDS="$GATE_PIDS $1=$(gate_start "$1")"; }
+gate_untrack() { GATE_PIDS=$(printf '%s\n' $GATE_PIDS | grep -v "^$1=" | tr '\n' ' '); }
+
+# One shard's own accounting, from its list-reporter log with any colour
+# codes stripped: "<ran> <ok>" — the N of its "Running N tests" line (0 when
+# there is none, which is exactly what an empty slice prints) and how many of
+# them it reported passed, skipped or flaky. The last summary line of each
+# kind wins, so a spec that prints something summary-shaped cannot inflate it.
+shard_tally() {
+  tr -d '\033' <"$1" | sed 's/\[[0-9;]*m//g' | awk '
+    /^Running [0-9]+ tests? using / { ran = $2 }
+    /^  [0-9]+ passed( \(.*\))?$/ { passed = $1 }
+    /^  [0-9]+ skipped$/ { skipped = $1 }
+    /^  [0-9]+ flaky$/ { flaky = $1 }
+    END { printf "%d %d\n", ran, passed + skipped + flaky }'
+}
+
+gate_alive() { # <pid=start>
+  st=$(ps -o stat= -p "${1%%=*}" 2>/dev/null) || return 1
+  case "$st" in ''|*Z*) return 1 ;; esac
+  [ -n "${1#*=}" ] && [ "$(gate_start "${1%%=*}")" = "${1#*=}" ]
+}
+stop_gates() {
+  [ -n "$GATE_PIDS" ] || return 0
+  for g in $GATE_PIDS; do
+    if gate_alive "$g"; then kill -INT "${g%%=*}" 2>/dev/null || true; fi
+  done
+  n=0
+  while :; do
+    left=""
+    for g in $GATE_PIDS; do
+      if gate_alive "$g"; then left="$left $g"; fi
+    done
+    [ -n "$left" ] || break
+    n=$((n + 1))
+    if [ "$n" = 60 ]; then
+      for g in $left; do kill -INT "${g%%=*}" 2>/dev/null || true; done
+    elif [ "$n" -ge 120 ]; then
+      echo "a gesture run would not stop — killed; its php -S may still hold one of $SHARD_PORTS" >&2
+      for g in $left; do kill -KILL "${g%%=*}" 2>/dev/null || true; done
+      break
+    fi
+    sleep 1
+  done
+  for g in $GATE_PIDS; do wait "${g%%=*}" 2>/dev/null || true; done
+  GATE_PIDS=""
+}
+
 # What has to happen however this run ends. On INT or TERM it runs, then the
 # signal is raised again, so whoever ran this still sees an interrupt rather
 # than an ordinary failure.
 cleanup() {
+  stop_gates
   mux_close
 }
 on_signal() {
@@ -263,21 +333,95 @@ if [ "$WEB" = 1 ]; then
     fi
     rm -f "$QLOG"
   elif [ "$GESTURES" = 1 ]; then
-    echo "==> gestures (--no-gestures to skip)"
     # Kept, not discarded. This gate stopped a deploy once with its output
     # going to /dev/null, so all anyone had was "gesture suite failed" — and
     # the suite then passed 117/117 on the very next run, which left no way to
     # tell a real regression from a flake, a port clash, or the harness's own
     # 15s server timeout under load. A gate that blocks without evidence costs
     # more than the minute it saves.
-    GLOG=$(mktemp -t calmind-gestures)
-    if ! npx playwright test >"$GLOG" 2>&1; then
-      echo "gesture suite failed — not deploying. Last lines:" >&2
-      grep -E '✘|Error:|Timeout|[0-9]+ failed|webServer' "$GLOG" | tail -25 >&2
-      echo "full output: $GLOG" >&2
+    #
+    # IN SHARDS since 2026-10-01. One Playwright process ran every spec in
+    # turn — eleven minutes, half of a whole tdtp. Now each shard runs one
+    # slice (--shard=i/N) against ITS OWN php -S on its own port, over its own
+    # wiped data dir, into its own output dir: still one worker over one fresh
+    # server per slice, which is what workers:1 is for, and still this dist
+    # through the same freshness gate. Shard 1 is 8790, so a plain `npx
+    # playwright test` is unchanged; then 8793 and 8794, which nothing else in
+    # the suite binds (8791 is WebKit's here and AcctMind's harness's, 8792
+    # ChefMind's router, 8799 AcctMind's server suite). Specs take their port
+    # from e2e/port.ts, and e2e/portguard.spec.ts keeps it that way.
+    #
+    # TWO shards unless CALMIND_E2E_SHARDS says 1 or 3. Some specs wait on
+    # real clocks and say so ("read 0 once… on a loaded machine"); three
+    # Chromiums, three servers and three runners come close to saturating
+    # this laptop, and a flake costs a whole lane.
+    #
+    # THE COUNT IS CHECKED, because a shard can pass by running nothing:
+    # Playwright suppresses "No tests found" whenever --shard is set, so an
+    # empty or mis-split slice exits 0. Every shard must report "Running N
+    # tests" with N > 0 and account for all N as passed or skipped, and the
+    # N's must add up to what `--list` says the suite holds right now. A red
+    # shard is waited out like the others, so every log is complete.
+    PW=./node_modules/.bin/playwright
+    [ -x "$PW" ] || { echo "no $PW — npm install, then deploy" >&2; exit 1; }
+    SHARDS="${CALMIND_E2E_SHARDS:-2}"
+    case "$SHARDS" in
+      1|2|3) ;;
+      *) echo "CALMIND_E2E_SHARDS must be 1, 2 or 3 (got '$SHARDS')" >&2; exit 1 ;;
+    esac
+    LISTED=$("$PW" test --list 2>/dev/null | sed -n 's/^Total: \([0-9][0-9]*\) tests\{0,1\} in .*/\1/p')
+    case "$LISTED" in
+      ''|*[!0-9]*|0) echo "could not count the gesture suite (playwright test --list) — not deploying" >&2; exit 1 ;;
+    esac
+    GDIR=$(mktemp -d -t calmind-gestures)
+    echo "==> gestures: $LISTED tests in $SHARDS shards (--no-gestures to skip)"
+    G0=$(date +%s)
+    # perl only to undo one thing the shell does: a background job of a
+    # non-interactive sh starts with INT IGNORED, and Playwright only installs
+    # its handler over that once it is up — an INT before then would vanish.
+    # Put back at default, a Ctrl-C reaches every shard the way it reached
+    # the one foreground run, and stop_gates' INT always lands.
+    UNIGNORE_INT='$SIG{INT} = "DEFAULT"; exec { $ARGV[0] } @ARGV or die "cannot run $ARGV[0]: $!\n"'
+    i=0
+    for PORT in $SHARD_PORTS; do
+      i=$((i + 1))
+      [ "$i" -le "$SHARDS" ] || break
+      CALMIND_E2E_PORT=$PORT perl -e "$UNIGNORE_INT" "$PW" test --shard="$i/$SHARDS" \
+        >"$GDIR/shard-$i.log" 2>&1 &
+      eval "SHARD_PID_$i=\$!"
+      gate_track $!
+    done
+    RAN_ALL=0; RED=0
+    i=0
+    for PORT in $SHARD_PORTS; do
+      i=$((i + 1))
+      [ "$i" -le "$SHARDS" ] || break
+      eval "P=\$SHARD_PID_$i"
+      RC=0; wait "$P" || RC=$?
+      gate_untrack "$P"
+      TALLY=$(shard_tally "$GDIR/shard-$i.log")
+      RAN=${TALLY% *}; OK=${TALLY#* }
+      RAN_ALL=$((RAN_ALL + RAN))
+      if [ "$RC" != 0 ]; then
+        echo "gesture shard $i/$SHARDS (port $PORT) failed — not deploying. Last lines:" >&2
+        grep -E '✘|Error:|Timeout|[0-9]+ failed|webServer|already used|Failed to listen' "$GDIR/shard-$i.log" | tail -25 >&2
+        RED=1
+      elif [ "$RAN" = 0 ] || [ "$OK" != "$RAN" ]; then
+        echo "gesture shard $i/$SHARDS (port $PORT) exited 0 having run $RAN test(s), $OK passed or skipped — not deploying" >&2
+        RED=1
+      fi
+    done
+    GATE_PIDS=""
+    if [ "$RED" = 0 ] && [ "$RAN_ALL" != "$LISTED" ]; then
+      echo "the gesture shards ran $RAN_ALL tests between them; the suite holds $LISTED — not deploying" >&2
+      RED=1
+    fi
+    if [ "$RED" = 1 ]; then
+      echo "full output: $GDIR" >&2
       exit 1
     fi
-    rm -f "$GLOG"
+    echo "    $LISTED tests, every one accounted for, in $(( $(date +%s) - G0 ))s"
+    rm -rf "$GDIR"
 
     # …AND WEBKIT, which this gate did not run. The suite exists because a
     # react-native-web `hitSlop` is a no-op in a browser and the browser that
