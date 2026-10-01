@@ -17,7 +17,7 @@ which is why they are listed here rather than left to be discovered.
 
 | run | what it watches | in the deploy gate? |
 |---|---|---|
-| `npm run test:dev` | the between-runs mini-suite: both typechecks, core, server, counts — ~40s, no browser, no export | (it IS four of the gates, run early) |
+| `npm run test:dev` | the between-runs mini-suite: both typechecks, core, server, counts — ~30s, no browser, no export | (it IS four of the gates, run early) |
 | `npm run test:core` | the behaviour itself, incl. the `spec/*.json` replay | **yes** |
 | `npm run test:server` | the API over real HTTP on a scratch dir | **yes** |
 | `npm run test:e2e` | gestures, real mouse, on the EXPORTED app | **yes** |
@@ -56,8 +56,10 @@ what's broken. After uploading, it proves the page it just served.
 
 `--quick` is Sean's fast lane for small fixes (2026-08-20): every gate that
 costs seconds stays — lint, both typechecks, core, server — and the
-twenty-minute gesture+WebKit run becomes a ~40s spot test (sign up, land on
-the calendar, add a reminder into a section, against the exported dist).
+full gesture+WebKit gate (about six minutes since it went to parallel
+shards on 2026-10-01; eleven and a half before) becomes a ~40s spot test
+(sign up, land on the calendar, add a reminder into a section, against the
+exported dist).
 "dtp" means this lane; "tdtp" means the full one, and it is where anything
 the quick lane let through gets caught. A red spot test still ships nothing.
 
@@ -404,6 +406,42 @@ writes: a key left on the wrong port does not fail, it makes corruptboot pass
 having tested nothing. And the deploy checks that the shards' "Running N
 tests" add up to `playwright test --list`, because Playwright lets an empty
 shard exit 0.
+
+### The sharded gate, broken on purpose, 2026-10-01
+
+Driven through neutered copies of `server/deploy.sh` (ssh/rsync rewritten to
+echo, `--dry-run`, an unroutable host, refusing ssh/rsync/scp/curl first on
+PATH) in scratch clones, so every run was the deploy's own gate code against
+the local `php -S` and nothing else. The full suite unless it says a 25-test
+cut of it, which is where the slower negatives ran:
+
+- **The same tests.** Two shards ran 148 + 148 = 296, three ran 99 + 99 + 98,
+  and in both cases the set they reported finishing was the set `--list`
+  names, test for test (`file:line › title`), each shard exactly its own
+  `--list --shard=i/N` slice, with the same status per test as one serial run
+  of the same tree: 294 passed, 2 skipped. WebKit: the same 15 either way.
+- **The time,** same tree, same machine, back to back: the gesture section
+  took 690 s serial (Chromium 663 s, then WebKit 27 s) and 374 s in two shards
+  with WebKit beside them (311 s in three). The whole gate copy, lint to the
+  echoed upload: 716 s → 400 s.
+- **A red test in any shard stops it.** One canary failing in shard 1, two in
+  shard 2 and one in WebKit: each run's failures printed under its own name,
+  every run waited out to its end (147 + 1 failed, 144 + 2 failed + 2
+  skipped, 14 + 1 failed), exit 1.
+- **WebKit is waited for.** On the cut, a WebKit-only failure that landed
+  108 s after both shards had finished green still stopped the gate.
+- **An empty shard stops it** (on the cut). Playwright exits 0, printing
+  nothing at all, for a shard that selects no tests; the gate says "exited 0
+  having run 0 test(s)". A wrong total (shards 1/3 and 2/3 run as if that
+  were all) fails "ran 18 tests between them; the suite holds 25". With the
+  two count checks deleted from the copy, both of those runs went green —
+  the checks are what catch it, nothing else does.
+- On the cut, a port held by something else fails its shard ("is already
+  used"), and a Ctrl-C (exit 130) or a TERM to the deploy (143) leaves
+  nothing listening on 8790, 8791, 8793 or 8794 and no runner behind.
+
+Two shards is the default; `CALMIND_E2E_SHARDS=3` saves about another minute
+for a third Chromium on a busy laptop.
 
 ### The WebKit suite is in the deploy gate now, 2026-08-11
 

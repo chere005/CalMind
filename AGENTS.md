@@ -81,7 +81,7 @@ anywhere else).
 
 ```sh
 npm install                       # once, at the root — npm workspaces
-npm run test:dev                  # between-runs suite: 2 typechecks, core, server, counts (~40s)
+npm run test:dev                  # between-runs suite: 2 typechecks, core, server, counts (~30s)
 npm test                          # core + server only
 npm run typecheck                 # tsc --noEmit over packages/core AND apps/app, separately
 ```
