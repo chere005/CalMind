@@ -58,19 +58,24 @@ if [ "$DRY" = 1 ]; then
   [ "$WANT_MAC" = 1 ]     && echo "would: npm run export:web (clean), npm -w $DESKTOP_WS run build, then install to /Applications"
   [ "$WANT_IOS" = 1 ]     && echo "would: prebuild $APPDIR (ios) if no workspace, sync app.json's version into it, xcodebuild Release against one reachable phone, devicectl install that one bundle to every phone this app belongs on (watch companion too, when one is reachable)"
   [ "$WANT_ANDROID" = 1 ] && echo "would: prebuild $APPDIR (android), gradlew assembleRelease, adb install"
-  echo "each block under the machine-wide heavy-build lock (tools/heavy-lock.sh)"
+  echo "each block under the suite's heavy-build lock (tools/heavy-lock.sh)"
   exit 0
 fi
 
 # ------------------------------------------------------------ one at a time
-# Every platform block below runs under the machine-wide heavy-build lock,
+# Every platform block below runs under the suite's heavy-build lock,
 # tools/heavy-lock.sh — CoreMind canon, copied down byte for byte, so it is
 # sourced here and never edited here. "Never two heavy builds at once" was a
 # rule every AGENTS.md stated and nothing kept: on 2026-09-30 one session's
 # gradle ran beside another's xcodebuild and an AcctMind lane took 1574 s
-# instead of 246. Now a block that finds any other build running — this
-# repo's or another app's, this session's or another's — waits for it,
+# instead of 246. Now a block that finds another build holding the lock —
+# this repo's or another app's, this session's or another's — waits for it,
 # saying whose it is, instead of running beside it.
+#
+# It sees only builds that TAKE it: the suite's build-platforms.sh, MyCalMind's
+# deploy-device.sh, AcctMind's building smoke and CoreMind's fallback. WriteMind,
+# the TestMindSuite forks, a hand-typed xcodebuild/gradle/cargo and an Xcode
+# window's build are not seen.
 #
 # Taken around each BLOCK, because a block is the unit the lane runs one at a
 # time (--mac before the tag, --ios and --android after the push). Let go

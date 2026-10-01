@@ -219,10 +219,11 @@ THIS REPO SHIPS ITSELF as of 2026-08-23 (Sean: "all apps should have a deploy
 on their own mechanism inside their repo"). `tools/build-platforms.sh` is this
 repo's own — the Mac bundle lands before the tag, the device builds after the
 push where they are reported but never fatal, one at a time — and since
-2026-10-01 each block (macOS, iOS, Android) runs under the machine-wide
+2026-10-01 each block (macOS, iOS, Android) runs under the suite's
 heavy-build lock, `tools/heavy-lock.sh` (CoreMind canon: source it, never
 edit it here), so a build from another lane or session waits, saying whose
-it is, instead of running beside it. CoreMind's
+it is, instead of running beside it. It sees only builds that take it —
+not WriteMind, the TestMindSuite forks, or a hand-typed or Xcode-window build. CoreMind's
 `bin/build-platforms.sh` remains the table-driven fallback for a checkout that
 predates it, and `bin/dtp.sh all` now delegates to each app's lane rather than
 building on their behalf.
