@@ -4,78 +4,22 @@ The baseline for all of Sean's repos lives in ~/GIT/AgentSuite/AGENTS.md
 and is imported here; this file holds only what is true of THIS repo.
 @../AgentSuite/AGENTS.md
 
-Sean's calendar/reminders/notes/habits/recipes app. `ARCHITECTURE.md` is the
-map — `README.md` is the short front door and points at it — `TESTING.md` is
-what the tests are worth, `PARITY.md` is the ledger of what shipped, `TODO.md`
-is the live list (and holds the suite counts — no number is written into prose
-anywhere else).
+Calendar/reminders/notes/habits/recipes app. Docs: `ARCHITECTURE.md` (map), `TESTING.md`, `PARITY.md`, `TODO.md` (live list; holds suite counts — write no number in prose).
 
-## Standing rules
+## Rules
 
-- **Behavior lives in `packages/core`.** A screen holds plumbing. If you can
-  describe a rule in a sentence, it belongs in core with a test.
-- **The old suite is still the spec, but it is HISTORY now.** It was deleted
-  from `seancheren-site` on 2026-08-22 (commit `665dff8`), superseded by this
-  repo. A working tree of it no longer exists, so grep the commit BEFORE the
-  deletion rather than the checkout:
-
-      git -C ~/GIT/seancheren-site grep -n '<pattern>' e9b9f28 -- calmind lib
-
-  It is still right more often than memory is, and it still settles arguments
-  that would otherwise cost Sean a message. Where its code and that repo's
-  own CLAUDE.md disagreed, that was a question for him — and the CLAUDE.md
-  has since been rewritten for what the site is now, so the CODE at e9b9f28
-  is the only half of that pair still standing.
-- **Web first, always.** Deploy the web BEFORE building and installing the
-  phone or watch app — Sean's instruction, 2026-08-10. The web deploy runs
-  the gates (lint, typecheck, suites), so a device build that goes first is a
-  build made against code the gates have not passed; and the app talks to the
-  API, so shipping the client ahead of the server it expects is the wrong
-  order to find out.
-- **A deploy means PROD** — Sean, 2026-08-21: "dtp should be prod now
-  generally". `./server/deploy.sh prod test --yes-prod [--quick]`, which
-  ships both instances off one run of the gates. Prod is where his devices,
-  his browser and the public request link all point, so a deploy that
-  stopped at test was a deploy he could not see; test rides along in the
-  same command so the sandbox does not drift behind the thing it is meant to
-  rehearse. `--yes-prod` stays mandatory and stays spelled out in the
-  command — the default changed, the explicitness did not.
-  `./server/deploy-prod.sh` is separate and unrelated: the one prod-legitimate
-  `.well-known` passkey payload, `--yes` to write, `--verify` read-only.
-  See `tools/check-deploy-guards.sh`.
-- **`dtp` / `tdtp` here: `npm run dtp` / `npm run tdtp`** (tools/dtp.sh,
-  tools/tdtp.sh). dtp is the quick lane (`--quick` gates plus
-  the spot test); tdtp runs the between-runs suite first and the full
-  gesture+WebKit gates in the deploy. Otherwise the two lanes are one lane:
-  the drift gate that can refuse before anything ships, the prod+test deploy,
-  the Mac bundle, the tag, the push, the Windows dispatch, then the device
-  builds. THE ORDER IS THE POINT and the Platforms section below is where it
-  is written — this bullet deliberately does not restate it, because the
-  short version is what went stale last time. Naming a platform (`--mac` / `--ios` / `--android`)
-  builds only that one; `--web` is how you say the release and no platform
-  builds; naming none means all three. Each run reports its start and finish
-  to seancheren.com/status, never fatally — unless `MIND_RUN_ID` is set,
-  which means CoreMind's `dtp all` already opened one card for the whole
-  batch and this lane defers to it (Sean, 2026-08-23: "there should be one
-  card per tdtp if multiple jobs are triggered in one batch").
-- **ChefMind and MyCalMind are their own repos now** (2026-08-22, history
-  preserved): github.com/chere005/ChefMind and github.com/chere005/MyCalMind,
-  expected as sibling checkouts at `~/GIT/ChefMind` and `~/GIT/MyCalMind`.
-  They are still CLONES kept in lockstep — a fix that belongs to the product
-  lands here first and gets copied down, deliberately, across repos. ChefMind
-  still syncs through THIS server (the `chef` space): its deploy and its core
-  suite read this checkout as `$CALMIND_REPO`, so changes to `server/lib`
-  keep the space contract or break ChefMind's gates, loudly.
-- **The widget page counts as a write here.** The baseline's rule about Sean's
-  data covers reading and writing; what is easy to miss in THIS repo is that
-  opening the Scriptable widget's feed page on his account is not a read — it
-  mutates his token store.
-
-- **The lane ends non-zero when a device build is owed.** The release still
-  shipped — live, tagged, status card closed `ok` severity 2 — but a run that
-  skipped a build for want of a phone must not hand back a clean 0, or "it all
-  worked" gets read off an exit status that never checked. CoreMind's batch
-  catches it and still ships every repo after this one.
+- **Core:** behavior lives in `packages/core`, with a test; screens hold plumbing only. **Spec:** `spec/*.json` vectors are the contract — amend a vector first, never edit a test to match new code.
+- **Old suite:** the pre-split code is history; grep `git -C ~/GIT/seancheren-site grep -n '<pattern>' e9b9f28 -- calmind lib` (not the checkout). Its code, not that repo's CLAUDE.md, is the spec.
+- **Web first:** deploy web BEFORE building/installing the phone or watch app (gates run in the web deploy; the app needs the server it expects).
+- **Deploy = PROD:** `./server/deploy.sh prod test --yes-prod [--quick]` ships both instances off one gate run; `--yes-prod` stays mandatory and spelled out.
+- **`./server/deploy-prod.sh`:** separate; the only prod `.well-known` passkey payload; `--yes` writes, `--verify` is read-only. See `tools/check-deploy-guards.sh`.
+- **Lanes:** `npm run dtp` (quick: `--quick` gates + spot test) / `npm run tdtp` (between-runs suite first, full gesture+WebKit gates in deploy). Order is in Platforms; do not restate it. **Lane flags:** `--mac`/`--ios`/`--android` build only that one; `--web` = release, no platform builds; none = all three.
+- **Status card:** each run reports start/finish to seancheren.com/status, never fatally; if `MIND_RUN_ID` is set, CoreMind's `dtp all` owns the one card and this lane defers.
+- **Exit code:** the lane ends non-zero when a device build is owed (release still shipped, card closed `ok` severity 2); CoreMind's batch continues to later repos.
+- **Sibling repos:** ChefMind (github.com/chere005/ChefMind) and MyCalMind (github.com/chere005/MyCalMind) live at `~/GIT/ChefMind`, `~/GIT/MyCalMind`; they are CLONES — fixes land here first, then copied down deliberately. **ChefMind sync:** ChefMind syncs through THIS server (`chef` space) and reads this checkout as `$CALMIND_REPO`; changes to `server/lib` must keep the space contract or its gates break.
+- **Widget page = write:** opening the Scriptable widget feed page on Sean's account mutates his token store; treat as a write to his data.
+- **Core drift gate:** `check-drift.sh` must pass or the lane refuses and names the copy-down; the lane never rewrites source mid-release.
+- Use Sean's own recipe notes/shapes (read via the app or round-tripped through core), not invented cards; every real recipe bug came from his.
 
 ## Commands
 
@@ -86,8 +30,6 @@ npm test                          # core + server only
 npm run typecheck                 # tsc --noEmit over packages/core AND apps/app, separately
 ```
 
-Running ONE test:
-
 ```sh
 npm run test:core -- order               # vitest, by test-FILE substring
 npm run test:core -- order -t "inverted" # …and by test name
@@ -95,199 +37,43 @@ npm run export:web && npx playwright test e2e/callist.spec.ts
 npx playwright test e2e/callist.spec.ts -g "groups by day"
 ```
 
-- Core's vitest runs under `TZ=America/Chicago`; invoking `vitest` directly
-  without it turns date tests red after 7pm.
-- `php server/tools/test.php` is all-or-nothing — no filter. It boots its own
-  `php -S` on a scratch dir, so never run it alongside another suite.
-- Playwright drives `apps/app/dist`, NOT the source. `e2e/freshness.ts`
-  compares source digests to the export and refuses a stale one, so a single
-  spec still needs `npm run export:web` after any source edit. One worker,
-  420×900 Chromium, its own `php -S` on 8790 over a wiped data dir.
-- The DEPLOY runs that suite as parallel shards, each with its own server,
-  data dir and `test-results-<port>`: 8790 and 8793 (8794 too with
-  `CALMIND_E2E_SHARDS=3`), and the WebKit suite beside them on 8791. Specs
-  take the port from `e2e/port.ts`, never a literal —
-  `e2e/portguard.spec.ts` fails on one. Nothing else may hold 8790, 8791,
-  8793 or 8794 while a deploy runs (AcctMind's harness also uses 8791); two
-  runs on ONE port fight, two on different ports do not.
-- There is no lint script. The only lint is PHP syntax, run inline by the
-  deploy: `find server -name '*.php' -print0 | xargs -0 -n1 php -l`.
-- `npx playwright install webkit` once, before `npm run test:webkit`.
-- `test:watch` / `test:widget` need `swift` and `python3` — they lift the real
-  Swift out of `apps/app/targets` rather than re-typing it.
-
-Local processes:
-
 ```sh
 php -S 127.0.0.1:8788 -t server/public   # the API; data in server/data/ or $CALMIND_DATA_DIR
 npm run web                              # Expo web on :8081, talking to :8788
 npm run export:web                       # export + tools/patch-web-html.mjs — never a bare expo export
 ```
 
+- Core vitest needs `TZ=America/Chicago`; bare `vitest` turns date tests red after 7pm. `php server/tools/test.php`: all-or-nothing, boots its own `php -S` on a scratch dir; never run beside another suite.
+- Playwright drives `apps/app/dist`, not source: `e2e/freshness.ts` refuses a stale export, so re-run `npm run export:web` after any edit. One worker, 420×900 Chromium, `php -S` on 8790, wiped data dir.
+- Deploy shards e2e: 8790, 8793 (8794 with `CALMIND_E2E_SHARDS=3`), WebKit on 8791; each has its own server, data dir, `test-results-<port>`. Specs take ports from `e2e/port.ts`, never literals (`e2e/portguard.spec.ts` fails on one).
+- Nothing else may hold 8790/8791/8793/8794 during a deploy (AcctMind's harness uses 8791); two runs on one port fight.
+- No lint script; the deploy runs `find server -name '*.php' -print0 | xargs -0 -n1 php -l`. `npx playwright install webkit` once before `npm run test:webkit`.
+- `test:watch`/`test:widget` need `swift` and `python3` (they lift real Swift from `apps/app/targets`).
+
 ## Architecture
 
-**`spec/*.json` → `packages/core` → every surface.** The JSON vectors are the
-behavior contract; `packages/core/test/spec.test.ts` replays them, and the
-suite's Swift/Kotlin cores replay the same files. Changing a behavior means
-amending a vector first — never editing a test to match new code.
-
-`@calmind/core` is consumed as TypeScript SOURCE (`main: ./src/index.ts`), has
-no dependencies and no build step. A core edit is live in metro and tsc
-immediately; it is NOT live in `apps/app/dist` until an export.
-
-One Expo app is web + iOS + Android. `desktop/` is a Tauri 2 shell around the
-identical web export. The watch app, complication and home-screen widget are
-Swift targets generated into the Xcode project from `apps/app/targets/*` —
-they are separate processes that decode core's `watchFeed` JSON, which is why
-one rule (the 12/24-hour clock) has three implementations and its own seam
-check.
-
-**Sync.** Local-first, per-record last-write-wins on `updated`, one endpoint
-shape (ARCHITECTURE.md's "The sync model"). `apps/app/src/store.tsx` is the
-app's only stateful seam — a React context around core's `SyncEngine`;
-AsyncStorage and the server round-trip trail behind it, debounced. Drag order is
-`payload.ord`, a fractional key on the record, because array position cannot
-survive per-record merging.
-
-The server is deliberately dumb: `server/public/api/index.php` is a thin
-front over `server/lib/app.php`, which merges by CLEAR metadata only —
-`payload` is opaque and stored encrypted at rest (`ENC1:`). A feature that
-seems to need the server to read a payload is client logic, or it is new clear
-metadata.
-
-**Instance separation.** prod/test/dev differ only by path on one origin, and
-localStorage ignores paths — so session and snapshot keys are suffixed with an
-`instanceTag` derived from the API URL (`store.tsx`). `apps/app/src/config.ts`
-is the one place that decides which API a surface talks to: same-origin for
-anything serving `api/` beside the page, `127.0.0.1:8788` for metro, and PROD
-for native and the desktop shell.
+- `@calmind/core` is consumed as TS SOURCE (`./src/index.ts`), no deps, no build: live in metro/tsc at once, NOT in `apps/app/dist` until export. Swift/Kotlin cores replay the same spec vectors; the 12/24-hour clock has three implementations (watch, complication, widget decode `watchFeed` JSON) plus a seam check.
+- `apps/app/src/store.tsx` is the only stateful seam (context around core's `SyncEngine`); drag order is `payload.ord` (fractional key), since array position can't survive per-record merge. Server is dumb: `server/public/api/index.php` fronts `server/lib/app.php`, merges by CLEAR metadata only; `payload` is opaque, encrypted at rest (`ENC1:`). A feature needing server payload reads is client logic or new clear metadata.
+- prod/test/dev differ only by path on one origin and localStorage ignores paths, so session/snapshot keys carry an `instanceTag` from the API URL; `apps/app/src/config.ts` alone picks the API (same-origin, `127.0.0.1:8788` for metro, PROD for native/desktop).
 
 ## Platforms
 
-CalMind is the origin app and the only repo in the suite with a full
-production server. A shared fix typically lands here first and gets promoted
-into CoreMind's canon — but canon then flows the other way on every deploy:
-CoreMind propagates it OUT into all four consumers, this repo included (see
-CoreMind's AGENTS.md for that graph). As of 2026-08-23:
+CalMind is the origin app and the only suite repo with a full production server. Shared fixes land here, get promoted to CoreMind canon, and CoreMind propagates canon OUT to all four consumers, this one included.
 
-- **Web** — its own production server. `./server/deploy.sh prod test
-  --yes-prod` ships both instances; see the deploy rule above. This is the
-  only app in the suite Sean's devices, browser, and the public request link
-  point at directly.
-- **macOS** — Tauri desktop bundle (`desktop/`), built by this repo's own
-  `tools/build-platforms.sh --mac` BEFORE the tag: a broken desktop build
-  leaves the version untagged and a re-run reuses it.
-- **The version lives in FOUR files, and the root `package.json` is not one of
-  them.** `apps/app/app.json`, `desktop/package.json`,
-  `desktop/src-tauri/tauri.conf.json` and `desktop/src-tauri/Cargo.toml` (that
-  last one `version = "x"`, not JSON) — the lane writes all four and then
-  GREPS each for the new number, because a `perl -i -pe` that matches nothing
-  exits 0 and reports success. That check is AcctMind's scar, not a
-  hypothetical: a release there shipped with the plist a version behind. The
-  lockfile is synced separately and the sync refuses if it changed more lines
-  than version fields.
-- **Windows** — desktop, built and smoke-tested in CI via
-  `.github/workflows/desktop-windows.yml`, dispatched at the end of
-  `dtp`/`tdtp`.
-- **iOS** — installs to the paired phones via `tools/build-platforms.sh
-  --ios` (devicectl), after the push and never fatal.
+- **Web** — own production server; the only app Sean's devices, browser and public request link hit directly.
+- **macOS** — Tauri bundle (`desktop/`), built by `tools/build-platforms.sh --mac` BEFORE the tag; a failed build leaves the version untagged and a re-run reuses it.
+- **Version lives in FOUR files** (root `package.json` is not one): `apps/app/app.json`, `desktop/package.json`, `desktop/src-tauri/tauri.conf.json`, `desktop/src-tauri/Cargo.toml` (`version = "x"`, not JSON). The lane writes and GREPS each (a no-match `perl -i` exits 0); lockfile syncs separately and refuses if more than version lines changed.
+- **Windows** — built and smoke-tested in CI (`.github/workflows/desktop-windows.yml`), dispatched at the end of `dtp`/`tdtp`.
+- **iOS** — `tools/build-platforms.sh --ios` (devicectl) after the push, never fatal; installs to ALL three paired phones (Sean's `iPhoooooone`, Autumn's, Patricia's): one build, per-phone install, warn on refusal, fail only if none took it. `IOS_DEVICE` narrows to one. **iOS cap/registering:** no per-phone app cap (team 2LGYTL3FSJ is PAID, profile `TimeToLive 365`). Unregistered phone → devicectl provisioning error → run `IOS_DEVICE='Its Name' sh tools/build-platforms.sh --ios` once.
+- **Android** — `tools/build-platforms.sh --android` builds, installs and launches on a local emulator.
+- **Order:** drift gate → prod+test deploy → Mac bundle → tag → push → Windows dispatch → device builds, one at a time. Each block runs under `tools/heavy-lock.sh` (CoreMind canon: source it, never edit); it only sees builds that take it (not PrivateApp, Test* forks, hand/Xcode builds). CoreMind's `bin/build-platforms.sh` is the fallback for a checkout predating this one; `bin/dtp.sh all` delegates to each app's lane.
 
-  THREE PHONES are paired and on the network — Sean's (`iPhoooooone`),
-  Autumn's and Patricia's — and since 2026-09-21 a release installs to ALL
-  of them: one build, then an install per phone, warning on a phone that
-  refuses and failing only when NONE took it. `IOS_DEVICE` still narrows it
-  to a single named handset when that is what you want.
+## Traps
 
-  It installed to exactly one before that, and before THAT it required
-  exactly one reachable device, which refused three releases in a row while
-  the right phone sat there.
-
-  There is no per-phone app cap to ration. Apple's free-tier limit of 3 apps
-  on a device does not apply: the team (2LGYTL3FSJ, "Sean Cheren") is PAID,
-  and its Xcode-managed profile carries `TimeToLive 365` where a personal
-  team's carries 7. Sean, 2026-09-21: "no more caps per phone."
-
-  A phone that is not yet REGISTERED with the team is refused by devicectl
-  with a provisioning error. Building against it once registers it —
-  `IOS_DEVICE='Its Name' sh tools/build-platforms.sh --ios` — after which
-  every later profile includes it and the plain install works.
-
-- **Android** — builds, installs, and launches on a local emulator via
-  `tools/build-platforms.sh --android` (confirmed 2026-08-23).
-
-THIS REPO SHIPS ITSELF as of 2026-08-23 (Sean: "all apps should have a deploy
-on their own mechanism inside their repo"). `tools/build-platforms.sh` is this
-repo's own — the Mac bundle lands before the tag, the device builds after the
-push where they are reported but never fatal, one at a time — and since
-2026-10-01 each block (macOS, iOS, Android) runs under the suite's
-heavy-build lock, `tools/heavy-lock.sh` (CoreMind canon: source it, never
-edit it here), so a build from another lane or session waits, saying whose
-it is, instead of running beside it. It sees only builds that take it —
-not PrivateApp, the TestMindSuite forks, or a hand-typed or Xcode-window build. CoreMind's
-`bin/build-platforms.sh` remains the table-driven fallback for a checkout that
-predates it, and `bin/dtp.sh all` now delegates to each app's lane rather than
-building on their behalf.
-
-A CORE DRIFT GATE runs before anything ships: `check-drift.sh` for this repo
-must pass, or the lane refuses and names the copy-down. It never rewrites
-source mid-release — a lane that edits the tree it is about to tag cannot be
-trusted about what shipped.
-
-## Traps that have cost real time here
-
-- **A `click()` on a control that has gone does not fail fast.** It waits out
-  the entire test budget and reads as a hang. Every speculative click needs
-  its own short timeout: `click({ timeout: 1_500 }).catch(() => {})`. This one
-  landed four times in a single session.
-- **A check that cannot fail looks exactly like one that passes.** Five green
-  checks turned out to be worthless in one session — a shell grep for the
-  empty string, a browser test that could not see `openssl_verify` disabled, a
-  PHP spec reading an ENCRYPTED store with `json_decode`, an absence assertion
-  on a container that was not there. Before trusting a new test, break the
-  thing it guards and watch it go red.
-- **`dist` holds more than one `index-*.js`** — the entry bundle and an async
-  chunk. `find … | head -1` picks between them arbitrarily. Read the name out
-  of `dist/index.html`, and compare index.html to index.html when asking
-  whether a deploy landed.
-- **`npm run test:deploy` leaves the web export looking stale.** The guard
-  proves "a core type error stops the deploy" by appending a bad line to
-  `packages/core/src/order.ts`, running the typecheck, and restoring the file
-  with `cp` — same bytes, new mtime. So the very next gesture or WebKit run
-  dies in `e2e/freshness.ts` naming `order.ts`, and it reads like something
-  edited core behind your back. `git diff` is the tell: clean means it was
-  only the mtime. Re-export and carry on; run `test:deploy` last.
-- **Comments state intent; the code may have drifted.** Two real bugs came
-  from reading one against the other — the widget key rotating on every open
-  while its comment said "handed out once", and a login page that only
-  sometimes rendered the theme it claimed to always render.
-- **Some bugs are only visible on a phone.** A React Native `Modal` is its own
-  window, outside the app's safe area, so anything absolutely positioned in
-  one sits under the clock. Three such bugs were invisible in every browser
-  test — a browser has no status bar to hide under. Open it on the simulator
-  and look.
-- **Measure tap targets from the real screenshot's pixels.** The image you are
-  shown is resized; eyeballing coordinates off it wastes taps. `xcrun simctl
-  io <udid> screenshot` and find the target, then divide by the scale.
-- **`hitSlop` is a no-op under react-native-web.** So a control is exactly as
-  big as it is drawn on the web, and bigger on the native builds — the two
-  disagree, silently, in the direction that hurts Safari on a phone. Proven by
-  clicking five pixels outside a button and watching nothing happen, then
-  clicking its centre and watching it fire. When a press has to work, measure
-  the box; do not read `hitSlop={8}` in the source and assume 16 more pixels.
-  Padding plus a negative margin is the usual fix, but not when the border and
-  `borderRadius` are on the pressable itself — padding pushes the visible edge
-  outward. Move the visual to an inner View instead.
-- **An offset from an element's own edge is not a check.** A click three pixels
-  in from the right edge lands inside the element whatever size it is, so it
-  passes with the bug present and with it absent. Measure from the centre
-  outward by a fixed distance you can justify.
-- **Ask what happens when a write fails.** The worst bugs found here were all
-  silent: an oversized record dropped while the app said "synced", a damaged
-  store file reading as an empty account, a device that could not save its own
-  snapshot. Search for `.catch(() => {})` and triage each by what is lost.
-
-## Test data
-
-Invented recipe cards agree with whoever invented them. Every real recipe bug
-this project has found came from Sean's own notes — read through the app, or
-round-tripped through core by shape. Prefer his shapes to your imagination.
+- **`click()` on a gone control** waits out the whole test budget and reads as a hang → give speculative clicks `click({ timeout: 1_500 }).catch(() => {})`.
+- **Checks that cannot fail** (empty-string grep, test blind to disabled `openssl_verify`, PHP spec `json_decode`-ing an ENCRYPTED store, absence assertion on a missing container) → break the guarded thing and watch it go red first.
+- **`dist` holds several `index-*.js`** (entry + async chunk); `find … | head -1` is arbitrary → read the name from `dist/index.html`; compare index.html to index.html for "did the deploy land".
+- **`npm run test:deploy` makes the export look stale:** it appends to `packages/core/src/order.ts` and restores via `cp` (new mtime), so the next gesture/WebKit run dies in `e2e/freshness.ts` naming `order.ts` → clean `git diff` means mtime only; re-export; run `test:deploy` last.
+- **Comments state intent, code may have drifted** (widget key rotating despite "handed out once"; login page not always rendering its theme) → read both.
+- **Phone-only bugs:** RN `Modal` is its own window outside the safe area, so absolute positioning sits under the clock; browsers can't show it → check on the simulator. **Tap targets:** measure from the real screenshot (`xcrun simctl io <udid> screenshot`), divide by scale; the shown image is resized. **`hitSlop` is a no-op in react-native-web** → measure the drawn box. Fix with padding + negative margin, but when border/`borderRadius` sit on the pressable, move the visual to an inner View. **Offset-from-own-edge clicks prove nothing** (pass with or without the bug) → measure from the centre outward by a justified distance.
+- **Failed writes are silent** (oversized record dropped while "synced", damaged store read as empty account, unsaved snapshot) → ask what happens on write failure; triage every `.catch(() => {})` by what is lost.
