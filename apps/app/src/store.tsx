@@ -160,6 +160,7 @@ type Store = {
   refusedLabels: string[];
   signIn: (s: Session) => Promise<void>;
   signOut: () => Promise<void>;
+  clearDeletedAccount: () => Promise<void>;
   setSession: (s: Session) => Promise<void>; // token refresh (password change)
   mutate: (fn: (engine: SyncEngine) => void) => void;
   syncNow: () => Promise<void>;
@@ -201,6 +202,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [sharedPartner, setSharedPartner] = useState<string | null>(null);
   const [sharedRaw, setSharedRaw] = useState<AnyRec[]>([]);
   const timers = useRef<{ persist?: ReturnType<typeof setTimeout>; sync?: ReturnType<typeof setTimeout> }>({});
+  const persistQueue = useRef<Promise<void>>(Promise.resolve());
 
   // Seeding starters against an EMPTY engine that simply hasn't pulled yet would
   // duplicate everything the server already holds — normalize only runs once the
@@ -242,13 +244,18 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     // loss there is: everything keeps working, and then a reload comes back
     // to yesterday. Storage refuses for ordinary reasons — a full quota, a
     // browser wiping site data — so say it rather than carry on as if saved.
-    AsyncStorage.setItem(snapKey(user), JSON.stringify(engineRef.current.toSnapshot()))
-      .then(() => setPersistFailed(false))
-      .catch(() => setPersistFailed(true));
+    const snapshot = JSON.stringify(engineRef.current.toSnapshot());
+    const chefSnapshot = JSON.stringify(chefRef.current.toSnapshot());
+    persistQueue.current = persistQueue.current.then(async () => {
+      const results = await Promise.allSettled([
+        AsyncStorage.setItem(snapKey(user), snapshot),
+        AsyncStorage.setItem(chefSnapKey(user), chefSnapshot),
+      ]);
+      setPersistFailed(results.some((result) => result.status === 'rejected'));
+    });
     // ChefMind's snapshot under its own key, on the same terms: a failure
     // here is the same silent loss and is said the same way.
-    AsyncStorage.setItem(chefSnapKey(user), JSON.stringify(chefRef.current.toSnapshot()))
-      .catch(() => setPersistFailed(true));
+    return persistQueue.current;
   }, []);
 
   const pullShared = useCallback(async () => {
@@ -280,6 +287,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
    * and contradicted the line that says it always renders midnight.
    */
   const clearSession = useCallback(() => {
+    sessionRef.current = null;
     engineRef.current = new SyncEngine();
     chefRef.current = new SyncEngine();
     hydratedRef.current = false;
@@ -357,7 +365,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       }
     }
     refresh();
-    persistNow(s.username);
+    if (sessionRef.current === s) persistNow(s.username);
     } finally {
       syncing.current = false;
       // Only if there is still a session: the 401 path above clears it and
@@ -610,6 +618,24 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     clearSession();
   }, [clearSession]);
 
+  const clearDeletedAccount = useCallback(async () => {
+    const user = sessionRef.current?.username;
+    sessionRef.current = null;
+    clearTimeout(timers.current.persist);
+    clearTimeout(timers.current.sync);
+    if (user) {
+      await persistQueue.current;
+      // These are this account's local caches. The caller invokes this only
+      // after the server has confirmed account deletion.
+      await Promise.all([
+        AsyncStorage.removeItem(snapKey(user)).catch(() => {}),
+        AsyncStorage.removeItem(chefSnapKey(user)).catch(() => {}),
+      ]);
+    }
+    await forgetSession();
+    clearSession();
+  }, [clearSession]);
+
   const setSession = useCallback(async (s: Session) => {
     // Same rule: a refreshed token must reach memory even if the disk will
     // not take it, or the app keeps using the old one it can no longer save.
@@ -711,7 +737,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, [sharedRecs, sharedPartner, sharedPartnerLabel]);
 
   return (
-    <Ctx.Provider value={{ ready, session, recs, syncState, persistFailed, refusedLabels, signIn, signOut, setSession, mutate, syncNow, undoLastDelete, partners, sharedPartner, sharedPartnerLabel, sharedRecs, sharedPut, chefRecs }}>
+    <Ctx.Provider value={{ ready, session, recs, syncState, persistFailed, refusedLabels, signIn, signOut, clearDeletedAccount, setSession, mutate, syncNow, undoLastDelete, partners, sharedPartner, sharedPartnerLabel, sharedRecs, sharedPut, chefRecs }}>
       {children}
     </Ctx.Provider>
   );

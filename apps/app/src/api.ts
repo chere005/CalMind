@@ -69,6 +69,8 @@ export const reset = (url: string, username: string, code: string, password: str
   apiPost<Session>(url, { action: 'reset', username, code, password });
 export const changePassword = (s: Session, oldPass: string, newPass: string) =>
   apiPost<{ token: string }>(s.serverUrl, { action: 'change_password', old: oldPass, new: newPass }, s.token);
+export const deleteAccount = (s: Session) =>
+  apiPost(s.serverUrl, { action: 'delete_account' }, s.token);
 export const logout = (s: Session) => apiPost(s.serverUrl, { action: 'logout' }, s.token).catch(() => null);
 
 /**

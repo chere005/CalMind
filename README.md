@@ -27,6 +27,10 @@ npm run web                              # the app on :8081, talking to that API
 npm test                                 # core + server
 ```
 
+To build against another server, set `EXPO_PUBLIC_API_URL` to its full
+`/api/index.php` endpoint before exporting/building. Expo embeds this public
+value into the bundle; leaving it unset keeps the existing defaults.
+
 `cd apps/app && npx expo start`, then `i` or `a`, opens the iOS or Android
 simulator. Deploying a copy of your own needs `server/deploy.conf` (copy
 `server/deploy.conf.sample`) and one script; ARCHITECTURE.md has it, along

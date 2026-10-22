@@ -20,6 +20,7 @@ which is why they are listed here rather than left to be discovered.
 | `npm run test:dev` | the between-runs mini-suite: both typechecks, core, server, counts — ~30s, no browser, no export | (it IS four of the gates, run early) |
 | `npm run test:core` | the behaviour itself, incl. the `spec/*.json` replay | **yes** |
 | `npm run test:server` | the API over real HTTP on a scratch dir | **yes** |
+| `npm run test:contract` | black-box API checks on a disposable local server, or a supplied URL | no |
 | `npm run test:e2e` | gestures, real mouse, on the EXPORTED app | **yes** |
 | `npm run test:webkit` | the spine + header rules + scaling, in Sean's engine | **yes** |
 | `npm run test:watch` | both Swift clock copies; core's JSON through the wrist's real decoder, `drawnGroups` and `drawnWidgetDays` | no |
@@ -40,10 +41,20 @@ The three that gate a deploy, spelled out:
 ```sh
 npm -w @calmind/core test     # core: vitest, ~1s
 php server/tools/test.php     # server: real php -S + HTTP on a scratch dir, ~10s
+npm run test:contract         # black-box API contract on a fresh local server
 npx playwright test           # gestures: the EXPORTED app + real API, real mouse, ~30s
                               #   (npm run export:web first — export PLUS the head
                               #    patch; a bare `expo export` ships an index.html
                               #    with no manifest and no status-bar metas)
+```
+
+The contract suite can target a disposable test deployment. It creates three
+random accounts and deletes them before exiting; a remote URL therefore needs
+the explicit `--allow-destructive` flag. Supply `--origin` and `--rp-id` when
+the WebAuthn application origin differs from the API host:
+
+```sh
+npm run test:contract -- --url=https://test.example/api/index.php --allow-destructive
 ```
 
 All three must be green before `./server/deploy-test.sh` — and the deploy holds
@@ -77,9 +88,8 @@ after 7pm Chicago calling tomorrow "today"; the smoke asserts the feed's day
 IS Chicago's, which is the check that would have caught it. It also holds the
 served head (viewport-fit, the translucent status bar, the manifest and its
 content type, the icons) and walks signup → sync → widget token → feed → bad
-token refused → logout revokes. It leaves one throwaway account behind and
-says so — there is no delete-account endpoint and this is not the place to
-invent one.
+token refused → logout revokes. It still leaves one throwaway account behind;
+the account deletion action now exists, but this smoke script does not call it.
 
 The gesture run now **refuses to start against a stale export** (`e2e/
 freshness.ts`, wired in as playwright's globalSetup): if anything under
@@ -1056,12 +1066,13 @@ deployed test server and proves the parts that only exist there — a
 relying-party id derived from a real host rather than localhost, an origin with
 no port, and a genuinely secure context. Those fail invisibly: every passkey
 stops working at once with no error until someone tries to sign in. It is
-opt-in because it touches the network and leaves an account behind:
+opt-in because it touches the network and creates a disposable account:
 
     CALMIND_LIVE=1 npx playwright test live-passkey
 
 It asserts the URL contains /test/ before it creates anything, and prints the
-account it leaves. There is no delete-account endpoint, so the residue is real.
+account it leaves. The delete-account action now exists, but this spec does not
+call it, so the account remains on the test server.
 
 `e2e/live-watchtick.spec.ts` is the second CALMIND_LIVE spec (2026-08-19,
 unblocked by the throwaway-account approval): the wrist's whole loop against

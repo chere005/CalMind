@@ -246,6 +246,13 @@ anything. One script ships any instance:
 | **test** | `https://test.seancheren.com/calmind/` — sandbox, its own data dir | `./server/deploy.sh` (a bare run is test) |
 | **dev** | `https://dev.seancheren.com/calmind/`, and a local `php -S` on 8788 with data in `server/data/` (gitignored, or `$CALMIND_DATA_DIR`) | `./server/deploy.sh dev` — the local one needs no deploy, it's a process on your Mac |
 
+Expo builds can target an explicit API endpoint with `EXPO_PUBLIC_API_URL`,
+for example `https://test.seancheren.com/calmind/api/index.php`. Set it in
+`apps/app/.env.local` or in the build environment; Expo embeds it in web and
+native bundles, so it is public configuration, not a place for secrets. When
+unset, web builds keep their origin-based routing and native builds keep the
+production default.
+
 Where a file lands on disk and what the world calls it are two different
 facts: test and dev moved to their own subdomains on 2026-08-20, so test's
 files still sit in `/home/public/test/calmind` while

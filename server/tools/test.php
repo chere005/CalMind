@@ -146,6 +146,63 @@ t('whoami answers the token and rejects garbage', function () use ($tokenA) {
     eq(401, api(['action' => 'whoami'], str_repeat('0', 64))['status'], 'bad token');
     eq(401, api(['action' => 'whoami'])['status'], 'no token');
 });
+t('account deletion removes account data, shared references, and credentials', function () use ($rec) {
+    global $scratch;
+    $new = api(['action' => 'signup', 'username' => 'deleteme', 'email' => 'delete@example.com', 'password' => 'deletepass']);
+    eq(200, $new['status'], 'create disposable account');
+    $token = $new['body']['token'];
+    api(['action' => 'sync', 'cursor' => 0, 'changes' => [$rec('own-default', 1000, 'private')]], $token);
+    api(['action' => 'sync', 'space' => 'chef', 'cursor' => 0, 'changes' => [$rec('own-chef', 1000, 'recipe')]], $token);
+    $cfg = ['data_dir' => $scratch];
+    store_write($cfg, $scratch . '/passkeys.json', [
+        'delete-key' => ['user' => 'deleteme', 'label' => 'phone'],
+        'keep-key' => ['user' => 'alice', 'label' => 'phone'],
+    ]);
+    store_write($cfg, $scratch . '/challenges.json', [
+        'delete-challenge' => ['user' => 'deleteme', 'created' => time()],
+        'keep-challenge' => ['user' => 'alice', 'created' => time()],
+    ]);
+    store_write($cfg, $scratch . '/recover.json', ['deleteme' => ['code' => '123456'], 'alice' => ['code' => '654321']]);
+    store_write($cfg, $scratch . '/lockouts.json', ['deleteme' => ['fails' => 4], 'alice' => ['fails' => 2]]);
+    store_write($cfg, $scratch . '/records-bob.json', ['seq' => 4, 'recs' => ['share' => [
+        'id' => 'share', 'type' => 'share', 'updated' => 1000,
+        'payload' => ['partners' => ['alice', 'deleteme'], 'labels' => ['alice' => 'A', 'deleteme' => 'D'],
+                      'sel' => ['deleteme' => ['calendars' => [], 'folders' => [], 'notefolders' => []]], 'calendars' => [], 'folders' => [], 'notefolders' => []],
+    ]]]);
+    file_put_contents($scratch . '/usage.log', "now\t1.2.3.4\tdeleteme\tlogin\nnow\t1.2.3.5\talice\tlogin\n");
+    file_put_contents($scratch . '/usage.log.1', "old\t1.2.3.4\tdeleteme\tlogin\nold\t1.2.3.5\talice\tlogin\n");
+    file_put_contents($scratch . '/mail.log', "now  to=delete@example.com  code=123456\nnow  to=alice@example.com  code=654321\n");
+
+    eq(401, api(['action' => 'delete_account'])['status'], 'auth required');
+    eq(200, api(['action' => 'delete_account'], $token)['status'], 'delete succeeds');
+    eq(401, api(['action' => 'whoami'], $token)['status'], 'old token is invalid');
+    eq(403, api(['action' => 'reset', 'username' => 'deleteme', 'code' => '123456', 'password' => 'newpass'])['status'], 'a recovery code cannot recreate a deleted account');
+    $accounts = store_read($cfg, $scratch . '/accounts.json');
+    $tokens = store_read($cfg, $scratch . '/tokens.json');
+    ok(!isset($accounts['deleteme']), 'account is gone');
+    foreach (['records-deleteme.json', 'records-chef-deleteme.json'] as $f) {
+        ok(!file_exists($scratch . '/' . $f), "$f is gone");
+    }
+    foreach ([['passkeys.json', 'delete-key'], ['challenges.json', 'delete-challenge']] as [$f, $key]) {
+        $rows = store_read($cfg, $scratch . '/' . $f);
+        ok(!isset($rows[$key]), "$f drops deleted user's entry");
+    }
+    foreach (['recover.json', 'lockouts.json'] as $f) {
+        $rows = store_read($cfg, $scratch . '/' . $f);
+        ok(!isset($rows['deleteme']), "$f drops deleted user");
+        ok(isset($rows['alice']), "$f retains other users");
+    }
+    ok(!isset($tokens[hash('sha256', $token)]), 'bearer token is gone');
+    $bob = store_read($cfg, $scratch . '/records-bob.json');
+    eq(['alice'], $bob['recs']['share']['payload']['partners'], "other user's share no longer names deleted account");
+    ok(!isset($bob['recs']['share']['payload']['labels']['deleteme']), 'the deleted label is gone');
+    ok(!isset($bob['recs']['share']['payload']['sel']['deleteme']), 'the deleted selection is gone');
+    ok(!str_contains((string) file_get_contents($scratch . '/usage.log'), "\tdeleteme\t"), 'current usage log is scrubbed');
+    ok(!str_contains((string) file_get_contents($scratch . '/usage.log.1'), "\tdeleteme\t"), 'rotated usage log is scrubbed');
+    ok(!str_contains((string) file_get_contents($scratch . '/mail.log'), 'delete@example.com'), 'recovery-code log is scrubbed');
+    ok(str_contains((string) file_get_contents($scratch . '/mail.log'), 'alice@example.com'), 'other mail log is retained');
+    @unlink($scratch . '/records-bob.json');
+});
 
 echo "\n\033[1msync\033[0m\n";
 t('push then pull round-trips through the cursor', function () use ($tokenA, $rec) {
@@ -252,6 +309,19 @@ t('malformed rows drop; the rest of the batch still lands', function () use ($to
     $ids = array_column($r['body']['changes'], 'id');
     ok(!in_array('../evil', $ids, true), 'traversal id refused');
     ok(in_array('r2', $ids, true), 'good row landed');
+});
+t('malformed records are explicitly rejected by id', function () use ($tokenA, $rec) {
+    $badId = ['id' => '../bad-id', 'type' => 'reminder', 'updated' => 10, 'payload' => null];
+    $badType = ['id' => 'badtype', 'type' => 'bad-type', 'updated' => 10, 'payload' => null];
+    $badUpdated = ['id' => 'badstamp', 'type' => 'reminder', 'updated' => 0, 'payload' => null];
+    $r = api(['action' => 'sync', 'cursor' => 0,
+        'changes' => [$badId, $badType, $badUpdated, $rec('r_valid_after_rejections', 1000, 'good row')]], $tokenA);
+    eq(['../bad-id', 'badtype', 'badstamp'], $r['body']['rejected'] ?? null, 'all identifiable malformed ids are reported');
+    $ids = array_column($r['body']['changes'], 'id');
+    ok(!in_array('../bad-id', $ids, true), 'invalid id did not land');
+    ok(!in_array('badtype', $ids, true), 'invalid type did not land');
+    ok(!in_array('badstamp', $ids, true), 'invalid updated did not land');
+    ok(in_array('r_valid_after_rejections', $ids, true), 'valid row after rejections landed');
 });
 t("users are walls — bob never sees alice's records", function () use ($rec) {
     $tokenB = api(['action' => 'signup', 'username' => 'bob', 'email' => 'bob@example.com', 'password' => 'bobpassword'])['body']['token'];

@@ -275,6 +275,11 @@ function tokens_revoke(array $cfg, string $user): void
     });
 }
 
+function account_exists(array $cfg, string $user): bool
+{
+    return isset(store_read($cfg, accounts_file($cfg))[$user]);
+}
+
 /** The signed-in user, from the Authorization: Bearer header, or a 401. */
 function require_auth(array $cfg): string
 {
@@ -287,7 +292,123 @@ function require_auth(array $cfg): string
     if ($user === '') {
         fail(401, 'bad token');
     }
+    if (!account_exists($cfg, $user)) {
+        fail(401, 'account no longer exists');
+    }
     return $user;
+}
+
+/** Remove exact-user lines from a plain-text log without disturbing other rows. */
+function scrub_user_log(string $path, callable $matches): void
+{
+    if (!is_file($path)) { return; }
+    $lock = fopen($path . '.lock', 'c');
+    if ($lock === false) { throw new RuntimeException('could not lock log'); }
+    flock($lock, LOCK_EX);
+    try {
+        $lines = file($path, FILE_IGNORE_NEW_LINES);
+        if ($lines === false) { throw new RuntimeException('could not read log'); }
+        $kept = array_values(array_filter($lines, fn($line) => !$matches($line)));
+        $tmp = $path . '.' . getmypid() . '.tmp';
+        $body = $kept === [] ? '' : implode("\n", $kept) . "\n";
+        if (file_put_contents($tmp, $body, LOCK_EX) === false || !rename($tmp, $path)) {
+            @unlink($tmp);
+            throw new RuntimeException('could not rewrite log');
+        }
+    } finally {
+        flock($lock, LOCK_UN);
+        fclose($lock);
+    }
+}
+
+/** Delete an account and every server-side artifact tied to it. */
+function handle_delete_account(array $cfg): never
+{
+    $user = require_auth($cfg);
+    $email = with_lock($cfg, 'accounts', function () use ($cfg, $user) {
+        $accounts = store_read($cfg, accounts_file($cfg));
+        if (!isset($accounts[$user])) { fail(401, 'account no longer exists'); }
+        $email = (string) ($accounts[$user]['email'] ?? '');
+        unset($accounts[$user]);
+        store_write($cfg, accounts_file($cfg), $accounts);
+        return $email;
+    });
+
+    tokens_revoke($cfg, $user);
+    with_lock($cfg, 'recover', function () use ($cfg, $user) {
+        $rows = store_read($cfg, recover_file($cfg));
+        unset($rows[$user]);
+        store_write($cfg, recover_file($cfg), $rows);
+    });
+    with_lock($cfg, 'lockouts', function () use ($cfg, $user) {
+        $rows = store_read($cfg, lockouts_file($cfg));
+        unset($rows[$user]);
+        store_write($cfg, lockouts_file($cfg), $rows);
+    });
+    with_lock($cfg, 'passkeys', function () use ($cfg, $user) {
+        $rows = store_read($cfg, passkeys_file($cfg));
+        foreach ($rows as $id => $row) {
+            if (($row['user'] ?? '') === $user) { unset($rows[$id]); }
+        }
+        store_write($cfg, passkeys_file($cfg), $rows);
+    });
+    with_lock($cfg, 'challenges', function () use ($cfg, $user) {
+        $rows = store_read($cfg, challenges_file($cfg));
+        foreach ($rows as $id => $row) {
+            if (($row['user'] ?? '') === $user) { unset($rows[$id]); }
+        }
+        store_write($cfg, challenges_file($cfg), $rows);
+    });
+
+    foreach (array_merge([''], SYNC_SPACES) as $space) {
+        $file = records_file($cfg, $user, $space);
+        with_lock($cfg, 'records-' . ($space === '' ? '' : $space . '-') . $user, function () use ($file) {
+            if (is_file($file) && !unlink($file)) { throw new RuntimeException('could not delete account records'); }
+        });
+    }
+
+    // Remove the deleted username from the other account's share settings.
+    foreach (glob($cfg['data_dir'] . '/records-*.json') ?: [] as $file) {
+        if (in_array($file, array_map(fn($space) => records_file($cfg, $user, $space), array_merge([''], SYNC_SPACES)), true)) { continue; }
+        $name = basename($file, '.json');
+        with_lock($cfg, $name, function () use ($cfg, $file, $user) {
+            if (!is_file($file)) { return; }
+            $db = store_read($cfg, $file);
+            $changed = false;
+            foreach ($db['recs'] as $id => &$record) {
+                if (($record['type'] ?? '') !== 'share' || !is_array($record['payload'] ?? null)) { continue; }
+                $rowChanged = false;
+                $payload =& $record['payload'];
+                $partners = is_array($payload['partners'] ?? null) ? $payload['partners'] : [];
+                $newPartners = array_values(array_filter($partners, fn($partner) => $partner !== $user));
+                if ($newPartners !== $partners) { $payload['partners'] = $newPartners; $rowChanged = true; }
+                foreach (['labels', 'sel'] as $field) {
+                    if (isset($payload[$field]) && is_array($payload[$field]) && array_key_exists($user, $payload[$field])) {
+                        unset($payload[$field][$user]); $rowChanged = true;
+                    }
+                }
+                unset($payload);
+                if ($rowChanged) {
+                    $changed = true;
+                    $record['updated'] = max((int) ($record['updated'] ?? 0), time());
+                    $record['seq'] = (int) ($db['seq'] ?? 0) + 1;
+                    $db['seq'] = $record['seq'];
+                }
+            }
+            unset($record);
+            if ($changed) { store_write($cfg, $file, $db); }
+        });
+    }
+
+    $usagePath = $cfg['data_dir'] . '/usage.log';
+    $userToken = fn(string $s) => preg_replace('/[^\w.@-]/', '_', $s);
+    foreach ([$usagePath, $usagePath . '.1'] as $path) {
+        scrub_user_log($path, fn($line) => (explode("\t", $line)[2] ?? null) === $userToken($user));
+    }
+    if ($email !== '') {
+        scrub_user_log($cfg['data_dir'] . '/mail.log', fn($line) => preg_match('/(?:^|\s)to=' . preg_quote($email, '/') . '(?:\s|$)/', $line) === 1);
+    }
+    reply(200, ['ok' => true]);
 }
 
 // ---------------------------------------------------------------- action handlers
@@ -431,6 +552,7 @@ function handle_reset(array $cfg, array $in): never
     });
     with_lock($cfg, 'accounts', function () use ($cfg, $user, $pass) {
         $acc = store_read($cfg, accounts_file($cfg));
+        if (!isset($acc[$user])) { fail(403, 'that account no longer exists'); }
         $acc[$user]['hash'] = password_hash($pass, PASSWORD_DEFAULT);
         store_write($cfg, accounts_file($cfg), $acc);
     });
@@ -461,17 +583,23 @@ function handle_sync(array $cfg, array $in): never
     // writing one lock name would serialise for no reason, and — worse — a
     // lock named for the wrong file protects nothing at all.
     $out = with_lock($cfg, 'records-' . ($space === '' ? '' : $space . '-') . $user, function () use ($cfg, $user, $space, $cursor, $changes) {
+        if (!account_exists($cfg, $user)) { fail(401, 'account no longer exists'); }
         $db   = store_read($cfg, records_file($cfg, $user, $space));
         $seq  = (int) ($db['seq'] ?? 0);
         $recs = is_array($db['recs'] ?? null) ? $db['recs'] : [];
         $rejected = [];
         foreach ($changes as $c) {
             if (!is_array($c)) { continue; }
-            $id      = (string) ($c['id'] ?? '');
-            $type    = (string) ($c['type'] ?? '');
-            $updated = (int) ($c['updated'] ?? 0);
-            if (!preg_match(REC_ID_RE, $id) || !preg_match(REC_TYPE_RE, $type) || $updated <= 0) {
-                continue;   // malformed rows are dropped, never fatal — the rest of the batch lands
+            $id      = is_string($c['id'] ?? null) ? $c['id'] : '';
+            $type    = is_string($c['type'] ?? null) ? $c['type'] : '';
+            $updated = $c['updated'] ?? null;
+            if (!preg_match(REC_ID_RE, $id) || !preg_match(REC_TYPE_RE, $type)
+                || !is_int($updated) || $updated <= 0) {
+                // The client keeps a rejected id dirty and surfaces it to the
+                // user. Report malformed rows that can be tied back to a
+                // local record; the rest of the batch still lands.
+                if ($id !== '') { $rejected[] = $id; }
+                continue;
             }
             if (strlen(json_encode($c['payload'] ?? null)) > MAX_PAYLOAD) {
                 // Say so. Dropping it and answering ok made the client forget
@@ -520,7 +648,7 @@ function handle_sync(array $cfg, array $in): never
             }
         }
         store_write($cfg, records_file($cfg, $user, $space), ['seq' => $seq, 'recs' => $recs]);
-        $tail = array_values(array_filter($recs, fn($r) => (int) $r['seq'] > $cursor));
+        $tail = array_values(array_filter($recs, fn($r) => (int) ($r['seq'] ?? 0) > $cursor));
         usort($tail, fn($a, $b) => $a['seq'] <=> $b['seq']);
         return ['cursor' => $seq, 'rejected' => $rejected, 'changes' => array_map(function ($r) {
             unset($r['seq']);
@@ -687,7 +815,8 @@ function handle_shared_put(array $cfg, array $in): never
     $payload = is_array($c['payload'] ?? null) ? $c['payload'] : null;
     // The lock name carries the space for the same reason handle_sync's does:
     // a lock named for the wrong file protects nothing.
-    with_lock($cfg, 'records-' . ($space === '' ? '' : $space . '-') . $partner, function () use ($cfg, $partner, $space, $share, $c, $id, $type, $updated, $payload) {
+    with_lock($cfg, 'records-' . ($space === '' ? '' : $space . '-') . $partner, function () use ($cfg, $me, $partner, $space, $share, $c, $id, $type, $updated, $payload) {
+        if (!account_exists($cfg, $me) || !account_exists($cfg, $partner)) { fail(401, 'account no longer exists'); }
         $db   = store_read($cfg, records_file($cfg, $partner, $space));
         $recs = is_array($db['recs'] ?? null) ? $db['recs'] : [];
         $cur  = $recs[$id] ?? null;
@@ -839,6 +968,7 @@ function handle_passkey_register_finish(array $cfg, array $in): never
 
     $id = b64u_encode($auth['credId']);
     with_lock($cfg, 'passkeys', function () use ($cfg, $id, $user, $pem, $auth, $in) {
+        if (!account_exists($cfg, $user)) { fail(401, 'account no longer exists'); }
         $all = store_read($cfg, passkeys_file($cfg));
         if (isset($all[$id])) { fail(409, 'passkey: already registered'); }
         $all[$id] = [

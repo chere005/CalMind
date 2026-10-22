@@ -18,8 +18,15 @@ import { Platform } from 'react-native';
  *          server/data/ (gitignored) unless $CALMIND_DATA_DIR says otherwise.
  */
 const PROD_API = 'https://seancheren.com/calmind/api/index.php';
+// Expo inlines this value into web and native bundles at build time. It is a
+// public endpoint, never a secret. Leaving it unset preserves the existing
+// origin-based web routing and production native default.
+const BUILD_API_URL = process.env.EXPO_PUBLIC_API_URL;
 
 export function defaultServerUrl(): string {
+  if (typeof BUILD_API_URL === 'string' && BUILD_API_URL.trim() !== '') {
+    return BUILD_API_URL.trim();
+  }
   if (Platform.OS === 'web' && typeof location !== 'undefined') {
     // The Tauri desktop shell serves the bundle from its own origin, so
     // same-origin api/ points nowhere — it talks to the live test API.

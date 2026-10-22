@@ -37,10 +37,16 @@ import { newId, tickId, prefsId } from '../src/types';
  */
 const spec = JSON.parse(
   readFileSync(fileURLToPath(new URL('../../../spec/protocol.json', import.meta.url)), 'utf8'),
-) as { recIdPattern: string; maxBatch: number };
+) as { recIdPattern: string; maxBatch: number; invalidRecordResponse: string };
 
 describe('ids core mints are ids the server will take', () => {
   const re = new RegExp(spec.recIdPattern);
+
+  it('the protocol names malformed records as rejected when their id is usable', () => {
+    expect(spec.invalidRecordResponse).toBe(
+      'reject each malformed record by its non-empty string id; continue accepting valid records in the batch',
+    );
+  });
 
   it('the pattern really was read from the contract', () => {
     // Guards the guard: a regex that matched everything would make every

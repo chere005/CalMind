@@ -63,6 +63,7 @@ match ((string) ($in['action'] ?? '')) {
     'signup'          => handle_signup($cfg, $in),
     'login'           => handle_login($cfg, $in),
     'logout'          => handle_logout($cfg),
+    'delete_account'  => handle_delete_account($cfg),
     'change_password' => handle_change_password($cfg, $in),
     'recover'         => handle_recover($cfg, $in),
     'reset'           => handle_reset($cfg, $in),

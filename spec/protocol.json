@@ -19,6 +19,7 @@
   ],
   "recIdPattern": "^[A-Za-z0-9_-]{1,64}$",
   "recIdPatternSource": "app.php REC_ID_RE — every record id a client mints must match, or the server refuses the record and it stays dirty on one device for ever",
+  "invalidRecordResponse": "reject each malformed record by its non-empty string id; continue accepting valid records in the batch",
   "maxBatch": 500,
   "maxBatchSource": "app.php MAX_BATCH — the most changes the server takes in one push; core's SYNC_MAX_BATCH must equal it, or a full batch is either refused whole or silently truncated"
 }

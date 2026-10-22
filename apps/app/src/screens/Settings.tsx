@@ -6,7 +6,7 @@
 import { useEffect, useState } from 'react';
 import { Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { exportFilename, exportStore, exportText, prefsOf, prefsPut } from '@calmind/core';
-import { changePassword, logout } from '../api';
+import { changePassword, deleteAccount, logout } from '../api';
 import { saveTextFile } from '../savefile';
 import { addPasskey, listPasskeys, passkeyAvailable, removePasskey, type PasskeyRow } from '../passkey';
 import { useStore } from '../store';
@@ -16,7 +16,7 @@ import { applyTheme, currentTheme, themed, T, THEMES, type ThemeName } from '../
 import { ShareModal } from '../components/ShareModal';
 
 export function Settings({ onClose }: { onClose: () => void }) {
-  const { session, setSession, signOut, recs, mutate, syncState, persistFailed, refusedLabels } = useStore();
+  const { session, setSession, signOut, clearDeletedAccount, recs, mutate, syncState, persistFailed, refusedLabels } = useStore();
   const pickTheme = (name: ThemeName) => {
     applyTheme(name);
     // The choice syncs like any pref, so every device follows.
@@ -47,6 +47,9 @@ export function Settings({ onClose }: { onClose: () => void }) {
   const [msg, setMsg] = useState('');
   const [err, setErr] = useState('');
   const [shareOpen, setShareOpen] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [deleteName, setDeleteName] = useState('');
+  const [deleting, setDeleting] = useState(false);
 
   const change = async () => {
     setErr('');
@@ -64,6 +67,21 @@ export function Settings({ onClose }: { onClose: () => void }) {
       setMsg('Password changed — other devices sign in again.');
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'something went wrong');
+    }
+  };
+
+  const removeAccount = async () => {
+    if (!session || deleteName !== session.username || deleting) return;
+    setErr('');
+    setMsg('');
+    setDeleting(true);
+    try {
+      await deleteAccount(session);
+      await clearDeletedAccount();
+      onClose();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'could not delete account');
+      setDeleting(false);
     }
   };
 
@@ -196,6 +214,44 @@ export function Settings({ onClose }: { onClose: () => void }) {
               }}
             />
           </View>
+          {!deleteConfirm ? (
+            <View style={s.row}>
+              <Pill
+                testID="delete-account-start"
+                label="Delete account"
+                onPress={() => { setErr(''); setDeleteConfirm(true); }}
+              />
+            </View>
+          ) : (
+            <View testID="delete-account-confirm" style={s.deleteBox}>
+              <Text style={s.deleteTitle}>Delete this account?</Text>
+              <Text style={s.deleteCopy}>
+                This permanently deletes your account and synced CalMind and ChefMind data. Type your username to confirm.
+              </Text>
+              <Field
+                testID="delete-account-username"
+                value={deleteName}
+                onChangeText={setDeleteName}
+                placeholder={session?.username ?? 'Username'}
+                autoCapitalize="none"
+                autoCorrect={false}
+                editable={!deleting}
+              />
+              <View style={s.deleteActions}>
+                <Pill
+                  label="Cancel"
+                  disabled={deleting}
+                  onPress={() => { setDeleteConfirm(false); setDeleteName(''); setErr(''); }}
+                />
+                <Pill
+                  testID="delete-account-confirm-button"
+                  label={deleting ? 'Deleting…' : 'Permanently delete'}
+                  disabled={deleting || !session || deleteName !== session.username}
+                  onPress={() => { void removeAccount(); }}
+                />
+              </View>
+            </View>
+          )}
         </Pressable>
       </Pressable>
     </Modal>
@@ -236,6 +292,10 @@ const s = themed(() => StyleSheet.create({
   clockOptText: { color: T.dim, fontSize: 13, fontWeight: '600' },
   clockOptTextOn: { color: T.accent },
   pkSection: { gap: 8, marginTop: 6, borderTopWidth: 1, borderTopColor: T.line, paddingTop: 10 },
+  deleteBox: { gap: 8, marginTop: 6, borderTopWidth: 1, borderTopColor: T.line, paddingTop: 10 },
+  deleteTitle: { color: T.text, fontSize: 14, fontWeight: '700' },
+  deleteCopy: { color: T.dim, fontSize: 12, lineHeight: 17 },
+  deleteActions: { flexDirection: 'row', justifyContent: 'space-between', gap: 8 },
   pkHead: { color: T.dim, fontSize: 12, textTransform: 'uppercase', letterSpacing: 1 },
   pkRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   pkLabel: { color: T.text, fontSize: 14, flexShrink: 1 },
