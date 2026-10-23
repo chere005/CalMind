@@ -193,6 +193,7 @@ describe('scrubLine — OCR symbol noise never reaches the note', () => {
   it('drops junk glyphs, keeps cooking punctuation and fractions', () => {
     expect(scrubLine('2 tbsp ~~olive oil\u00a9')).toBe('2 tbsp olive oil');
     expect(scrubLine('\u00bd cup | milk')).toBe('\u00bd cup milk');
+    expect(scrubLine('\u2159 \u215a \u215c \u215d \u215e')).toBe('\u2159 \u215a \u215c \u215d \u215e');
     expect(scrubLine('\u2022 1 cup sugar, sifted (fine)')).toBe('1 cup sugar, sifted (fine)');
     expect(scrubLine('Bake at 350\u00b0 for 20\u201325 min\u2026')).toBe('Bake at 350\u00b0 for 20-25 min');
   });

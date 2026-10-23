@@ -10,13 +10,17 @@ import { changePassword, deleteAccount, logout } from '../api';
 import { saveTextFile } from '../savefile';
 import { addPasskey, listPasskeys, passkeyAvailable, removePasskey, type PasskeyRow } from '../passkey';
 import { useStore } from '../store';
+import { useNav } from '../nav';
 import { syncLook } from '../components/SyncDot';
 import { CircleBtn, Field, Pill, ErrorLine } from '../ui';
 import { applyTheme, currentTheme, themed, T, THEMES, type ThemeName } from '../theme';
 import { ShareModal } from '../components/ShareModal';
 
 export function Settings({ onClose }: { onClose: () => void }) {
-  const { session, setSession, signOut, clearDeletedAccount, recs, mutate, syncState, persistFailed, refusedLabels } = useStore();
+  const store = useStore();
+  const { session, setSession, signOut, clearDeletedAccount, recs, mutate, syncState, persistFailed, refusedLabels } = store;
+  const refusedNotes = (store as typeof store & { refusedNotes?: { id: string; label: string }[] }).refusedNotes ?? [];
+  const nav = useNav();
   const pickTheme = (name: ThemeName) => {
     applyTheme(name);
     // The choice syncs like any pref, so every device follows.
@@ -103,6 +107,23 @@ export function Settings({ onClose }: { onClose: () => void }) {
             <View style={[s.statusDot, { backgroundColor: look.color }]} />
             <Text style={s.statusText}>{look.text}</Text>
           </View>
+          {refusedNotes[0] && (
+            <Pressable
+              testID="open-refused-note"
+              accessibilityRole="button"
+              accessibilityLabel={`Open refused note ${refusedNotes[0].label}`}
+              style={s.refusedAction}
+              onPress={() => {
+                const { id } = refusedNotes[0];
+                onClose();
+                nav.openNote?.(id);
+              }}
+            >
+              <Text style={s.refusedActionText} numberOfLines={1}>
+                Open “{refusedNotes[0].label}” to shorten it
+              </Text>
+            </Pressable>
+          )}
           <Text style={s.who}>{session?.username}</Text>
           <Field value={oldPass} onChangeText={setOldPass} placeholder="Current password" secureTextEntry />
           <Field value={newPass} onChangeText={setNewPass} placeholder="New password" secureTextEntry />
@@ -275,6 +296,8 @@ const s = themed(() => StyleSheet.create({
   statusRow: { flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 2 },
   statusDot: { width: 9, height: 9, borderRadius: 5 },
   statusText: { color: T.dim, fontSize: 13 },
+  refusedAction: { alignSelf: 'flex-start', maxWidth: '100%', paddingVertical: 4 },
+  refusedActionText: { color: T.accent, fontSize: 13, fontWeight: '600' },
   who: { color: T.dim, fontSize: 13 },
   themeRow: { flexDirection: 'row', gap: 12, justifyContent: 'center', marginTop: 4 },
   clockRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 14 },

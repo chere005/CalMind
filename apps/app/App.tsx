@@ -77,7 +77,15 @@ function Root() {
   if (!session) return <Login />;
   if (tickId) return <QuickTick id={tickId} onDone={tickDone} />;
   return (
-    <NavCtx.Provider value={{ canBack, goBack, openSearch: () => setSearchOpen(true) }}>
+    <NavCtx.Provider value={{
+      canBack,
+      goBack,
+      openSearch: () => setSearchOpen(true),
+      openNote: (id) => {
+        setNoteToOpen(id);
+        setTab('notes');
+      },
+    }}>
     <View style={s.page}>
       {/* Phone-first column, centred on a wide window — the suite's page shape. */}
       <View style={s.centre}>

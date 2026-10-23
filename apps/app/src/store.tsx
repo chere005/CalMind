@@ -158,6 +158,8 @@ type Store = {
   persistFailed: boolean;
   /** Names of records the server refused, so a warning can name them. */
   refusedLabels: string[];
+  /** Refused notes can be opened directly from Settings so the user can fix them. */
+  refusedNotes: { id: string; label: string }[];
   signIn: (s: Session) => Promise<void>;
   signOut: () => Promise<void>;
   clearDeletedAccount: () => Promise<void>;
@@ -198,6 +200,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [persistFailed, setPersistFailed] = useState(false);
   /** The names of records the server refused, for a message that can point. */
   const [refusedLabels, setRefusedLabels] = useState<string[]>([]);
+  const [refusedNotes, setRefusedNotes] = useState<{ id: string; label: string }[]>([]);
   const [partners, setPartners] = useState<PartnerBadge[]>([]);
   const [sharedPartner, setSharedPartner] = useState<string | null>(null);
   const [sharedRaw, setSharedRaw] = useState<AnyRec[]>([]);
@@ -336,6 +339,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       setRefusedLabels(refused.map((id) => {
         const rec = snap.find((r) => r.id === id);
         return rec ? recLabel(rec) : id;
+      }));
+      setRefusedNotes(refused.flatMap((id) => {
+        const rec = snap.find((r) => r.id === id);
+        return rec?.type === 'note' && !rec.deleted ? [{ id, label: recLabel(rec) }] : [];
       }));
       setSyncState(refused.length > 0 ? 'refused' : 'idle');
       void pullShared();
@@ -737,7 +744,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, [sharedRecs, sharedPartner, sharedPartnerLabel]);
 
   return (
-    <Ctx.Provider value={{ ready, session, recs, syncState, persistFailed, refusedLabels, signIn, signOut, clearDeletedAccount, setSession, mutate, syncNow, undoLastDelete, partners, sharedPartner, sharedPartnerLabel, sharedRecs, sharedPut, chefRecs }}>
+    <Ctx.Provider value={{ ready, session, recs, syncState, persistFailed, refusedLabels, refusedNotes, signIn, signOut, clearDeletedAccount, setSession, mutate, syncNow, undoLastDelete, partners, sharedPartner, sharedPartnerLabel, sharedRecs, sharedPut, chefRecs }}>
       {children}
     </Ctx.Provider>
   );

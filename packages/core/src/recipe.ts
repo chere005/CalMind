@@ -227,7 +227,7 @@ export function scrubLine(raw: string): string {
     .replace(/[\u201c\u201d\u00ab\u00bb]/g, '"')
     .replace(/[\u2013\u2014\u2015]/g, '-')
     .replace(/[\u2022\u25cf\u25aa\u2023\u00b7\u25e6*]/g, ' ')
-    .replace(/[^\p{L}\p{N}\s,.:;!?()/&%_\u00b0'"\u00bd\u00bc\u00be\u2153\u2154\u215b-]/gu, ' ')
+    .replace(/[^\p{L}\p{N}\s,.:;!?()/&%_\u00b0'"\u00bd\u00bc\u00be\u2153\u2154\u2159\u215a\u215b\u215c-\u215e-]/gu, ' ')
     .replace(/([,.:;!?/-])\1+/g, '$1')
     .replace(/\s+/g, ' ')
     .trim();
