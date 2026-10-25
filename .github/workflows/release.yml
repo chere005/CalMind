@@ -1,0 +1,665 @@
+# Releases CalMind Desktop on ONE GitHub Release. A pushed tag <version> (BARE, no "v": 1.37.0) or a manual run
+# naming an existing tag runs these jobs:
+#
+#   prepare  (ubuntu)   the tag must equal the version in all FOUR files that carry it; a tag that is already a published
+#                       release stops the run; notes = the tag's annotation (or its commit's message) plus an install
+#                       block; a DRAFT release "CalMind <version>" is created (an earlier run's draft is reused).
+#   windows  (windows)  typecheck, core tests, web export, Tauri build (msi + nsis exe, x64), asset check, a real install
+#                       and launch of the MSI; the two installers are uploaded into the draft.
+#   macos    (macos-15) the same gates, then the Apple-silicon dmg (`--bundles dmg`, ad hoc signed; Developer ID signing
+#                       and notarization only when the repo has those secrets); uploaded into the draft.
+#   linux    (ubuntu)   the same gates, then deb + AppImage (x64), the deb installed and launched under Xvfb; uploaded.
+#   publish  (ubuntu)   every expected file is on the draft; SHA256SUMS.txt is added; the release is published (Latest; a
+#                       version containing "-" is a pre-release). A missing file leaves the release a DRAFT.
+#
+# A failed build job leaves the release a draft nobody sees: fix it, then re-run the failed jobs (publish runs after them).
+# A published release is never rebuilt. README.md ("Releases") says how to cut one, release an old tag, and preflight.
+#
+# NO actions/upload-artifact OR download-artifact ANYWHERE: the account's Actions artifact storage quota is full ("Failed to
+# CreateArtifact: Artifact storage quota has been hit"), which failed every desktop-windows run of 2026-10-22/23. Release
+# assets do not count against it. The build tool never uploads either: `gh release upload` does.
+#
+# PREFLIGHT (workflow_dispatch with preflight=true; tools/preflight.sh does it): the same builds on the commit about to be
+# tagged, with every job `continue-on-error` (a red job does not make the RUN red, so GitHub sends no failed-job email), no
+# release created, nothing uploaded; the run summary lists each job's result. Real runs stay strict.
+#
+# Unsigned: SmartScreen on Windows (More info > Run anyway), Gatekeeper on the Mac (right-click > Open, or Privacy &
+# Security > Open Anyway). The notes say so.
+name: Release
+
+on:
+  push:
+    tags: ["[0-9]+.[0-9]+.[0-9]+*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "An existing tag to release, e.g. 1.37.0 (no v). Optional in preflight mode: the version in the files is used."
+        required: false
+        type: string
+      preflight:
+        description: "Preflight: build everything, publish nothing, never fail the run"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: ${{ inputs.preflight && 'preflight-' || 'release-' }}${{ github.event_name == 'push' && github.ref_name || inputs.tag || github.sha }}
+  cancel-in-progress: false
+
+env:
+  GH_REPO: ${{ github.repository }}
+  # The tag as asked for: the pushed tag, or the dispatch input (blank is allowed only in preflight mode).
+  REQ_TAG: ${{ github.event_name == 'push' && github.ref_name || inputs.tag }}
+  PREFLIGHT: ${{ inputs.preflight == true && 'true' || 'false' }}
+
+jobs:
+  prepare:
+    name: Tag, notes and the draft release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    continue-on-error: ${{ inputs.preflight == true }}
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # Preflight builds the commit the run was dispatched on (no tag exists yet); a release builds the tag.
+          ref: ${{ inputs.preflight == true && github.sha || format('refs/tags/{0}', env.REQ_TAG) }}
+          fetch-depth: 0
+
+      - name: The tag is the app's version, in every file that carries it
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          v_app=$(node -p "require('./apps/app/app.json').expo.version")
+          v_desk=$(node -p "require('./desktop/package.json').version")
+          v_tauri=$(node -p "require('./desktop/src-tauri/tauri.conf.json').version")
+          v_cargo=$(grep -m1 '^version = ' desktop/src-tauri/Cargo.toml | sed 's/^version = "\(.*\)".*/\1/')
+          echo "apps/app/app.json                    $v_app"
+          echo "desktop/package.json                 $v_desk"
+          echo "desktop/src-tauri/tauri.conf.json    $v_tauri"
+          echo "desktop/src-tauri/Cargo.toml         $v_cargo"
+          if [ "$v_app" != "$v_desk" ] || [ "$v_app" != "$v_tauri" ] || [ "$v_app" != "$v_cargo" ]; then
+            echo "::error title=Version files disagree::apps/app/app.json=$v_app, desktop/package.json=$v_desk, desktop/src-tauri/tauri.conf.json=$v_tauri, desktop/src-tauri/Cargo.toml=$v_cargo. All four must carry the same version."
+            exit 1
+          fi
+          version="$v_app"
+          pat='^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'
+          if ! printf '%s' "$version" | grep -Eq "$pat"; then
+            echo "::error title=Not a version::The version '$version' is not <major>.<minor>.<patch>[-pre]."
+            exit 1
+          fi
+          tag="$REQ_TAG"
+          if [ -z "$tag" ]; then
+            if [ "$PREFLIGHT" = true ]; then
+              tag="$version"
+            else
+              echo "::error title=No tag::A release run needs a tag (the dispatch input 'tag')."
+              exit 1
+            fi
+          fi
+          if ! printf '%s' "$tag" | grep -Eq "$pat"; then
+            echo "::error title=Not a version tag::'$tag' is not <major>.<minor>.<patch>[-pre] (tags are bare, no v)."
+            exit 1
+          fi
+          if [ "$tag" != "$version" ]; then
+            echo "::error title=Tag and version differ::The tag is $tag but apps/app/app.json, desktop/package.json, desktop/src-tauri/tauri.conf.json and desktop/src-tauri/Cargo.toml say $version. Set all four, commit, and tag $version on that commit."
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "Releasing CalMind $version from $tag (preflight: $PREFLIGHT)"
+
+      - name: Release notes from the tag's annotation (or its commit's message)
+        if: env.PREFLIGHT != 'true'
+        shell: bash
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          # actions/checkout can leave an annotated tag as a lightweight one: fetch the tag object itself.
+          git fetch --force origin "refs/tags/${TAG}:refs/tags/${TAG}"
+          body=$(git for-each-ref "refs/tags/${TAG}" --format='%(contents:body)')
+          if [ -n "$(printf '%s' "$body" | tr -d '[:space:]')" ]; then
+            notes=$(git for-each-ref "refs/tags/${TAG}" --format='%(contents)')
+          else
+            notes=$(git log -1 --format=%B "${TAG}^{commit}")
+          fi
+          notes=$(printf '%s\n' "$notes" | grep -viE '^(Co-Authored-By|Signed-off-by):' || true)
+          if [ -z "$(printf '%s' "$notes" | tr -d '[:space:]')" ]; then notes="CalMind ${VERSION}"; fi
+          file="$RUNNER_TEMP/release-notes.md"
+          printf '%s\n' "$notes" > "$file"
+          cat >> "$file" <<'EOF'
+
+          ### Installing
+
+          - **Windows** (`CalMind_@V@_x64_en-US.msi`, or `CalMind_@V@_x64-setup.exe`): the installers are not code-signed, so SmartScreen may say "Windows protected your PC". Choose More info, then Run anyway.
+          - **macOS** (Apple silicon, `CalMind_@V@_aarch64.dmg`): not notarized, so the first open is stopped by Gatekeeper. Right-click CalMind and choose Open, or open System Settings > Privacy & Security and choose Open Anyway.
+          - **Linux** (x64): `sudo apt install ./CalMind_@V@_amd64.deb`, or for the AppImage `chmod +x CalMind_@V@_amd64.AppImage` and run it.
+
+          `SHA256SUMS.txt` has the checksum of every file.
+          EOF
+          sed -i.bak "s/@V@/${VERSION}/g" "$file" && rm -f "$file.bak"
+          cat "$file"
+
+      - name: The draft release for the tag
+        if: env.PREFLIGHT != 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.version.outputs.tag }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          notes="$RUNNER_TEMP/release-notes.md"
+          title="CalMind ${VERSION}"
+          # Every release for this tag, drafts included (a draft is not reachable by releases/tags/<tag>). The tag passed the
+          # version pattern above, so it is safe inside the filter.
+          states=$(gh api "repos/${GH_REPO}/releases?per_page=100" --paginate --jq ".[] | select(.tag_name == \"${TAG}\") | .draft")
+          published=$(printf '%s\n' "$states" | grep -c '^false$' || true)
+          drafts=$(printf '%s\n' "$states" | grep -c '^true$' || true)
+          if [ "$published" -gt 0 ]; then
+            echo "::error title=Already released::${TAG} is a published release; it is never rebuilt. A new version needs a new tag."
+            exit 1
+          fi
+          if [ "$drafts" -gt 1 ]; then
+            echo "::error title=Two drafts::${drafts} draft releases are waiting for ${TAG}: delete all but one on the Releases page, then re-run."
+            exit 1
+          fi
+          if [ "$drafts" -eq 1 ]; then
+            echo "Reusing the draft release for ${TAG} (an earlier run's)"
+            gh release edit "$TAG" --title "$title" --notes-file "$notes"
+          else
+            gh release create "$TAG" --draft --verify-tag --title "$title" --notes-file "$notes"
+          fi
+
+  windows:
+    name: Windows msi + exe
+    needs: prepare
+    runs-on: windows-latest
+    timeout-minutes: 60
+    continue-on-error: ${{ inputs.preflight == true }}
+    env:
+      VERSION: ${{ needs.prepare.outputs.version }}
+      TAG: ${{ needs.prepare.outputs.tag }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      # A preflight keeps going when prepare fails (its job is continue-on-error): stop here, loudly, instead of building blind.
+      - name: Prepare must have succeeded
+        shell: bash
+        run: '[ -n "$VERSION" ] || { echo "::error::prepare did not produce a version"; exit 1; }'
+
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.preflight == true && github.sha || format('refs/tags/{0}', needs.prepare.outputs.tag) }}
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Install deps
+        run: npm ci
+
+      # The gates the repo runs without a server or a device: both typechecks, then core. Core's date tests need this zone.
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Core tests
+        run: npm run test:core
+        env:
+          TZ: America/Chicago
+
+      # export:web, not a bare `expo export`: the head patch rides in it, and the desktop bundle carries the same
+      # index.html the site serves.
+      - name: Export the web app
+        run: npm run export:web
+
+      - name: Build the Windows bundles
+        uses: tauri-apps/tauri-action@v0
+        with:
+          projectPath: desktop
+          args: --bundles msi,nsis
+
+      # desktop/check-assets.sh: every absolute asset the staged shell references is a real file at that path. It needs
+      # no display. `shell: bash` is Git Bash here (a bare `bash` can be WSL's).
+      - name: Check the shell can load what it ships
+        shell: bash
+        run: bash desktop/check-assets.sh
+
+      # The runner IS a Windows machine with a desktop session: install the MSI the way a user's machine would, launch
+      # what it installed, and hold it to the mac smoke's bar: it launches, survives eight seconds, puts up a real
+      # window. A window showing an error page still passes (the limitation desktop/smoke.sh states); check-assets above
+      # covers that gap.
+      - name: Smoke the MSI on the runner
+        shell: pwsh
+        run: |
+          $msi = Get-ChildItem desktop/src-tauri/target/release/bundle/msi/*.msi | Select-Object -First 1
+          if (-not $msi) { throw 'no MSI to smoke' }
+          Write-Host "installing $($msi.Name)"
+          $p = Start-Process msiexec -ArgumentList "/i `"$($msi.FullName)`" /qn" -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "msiexec failed with exit $($p.ExitCode)" }
+          $exe = Get-ChildItem "$env:ProgramFiles","${env:ProgramFiles(x86)}","$env:LOCALAPPDATA\Programs" -Recurse -Include CalMind.exe,calmind-desktop.exe -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $exe) { throw 'the MSI reported success but installed no CalMind binary' }
+          Write-Host "launching $($exe.FullName)"
+          $app = Start-Process $exe.FullName -PassThru
+          Start-Sleep -Seconds 8
+          if ($app.HasExited) { throw "the installed app exited within 8 seconds (code $($app.ExitCode))" }
+          # The window takes a beat to be titled; three looks over six seconds.
+          $title = ''
+          foreach ($i in 1..3) {
+            $title = (Get-Process -Id $app.Id -ErrorAction SilentlyContinue).MainWindowTitle
+            if ($title -like '*CalMind*') { break }
+            Start-Sleep -Seconds 2
+          }
+          if ($title -notlike '*CalMind*') { throw "the app is running but shows no CalMind window - got '$title'" }
+          Write-Host "window up: '$title' - stopping it"
+          Stop-Process -Id $app.Id
+
+      - name: The files this job attaches
+        id: files
+        shell: bash
+        run: |
+          set -euo pipefail
+          b=desktop/src-tauri/target/release/bundle
+          shopt -s nullglob
+          files=("$b"/msi/CalMind_"${VERSION}"_x64*.msi "$b"/nsis/CalMind_"${VERSION}"_x64*-setup.exe)
+          ls -l "$b"/msi "$b"/nsis
+          if [ "${#files[@]}" -ne 2 ]; then
+            echo "::error title=Wrong files::expected CalMind_${VERSION}_x64*.msi and CalMind_${VERSION}_x64*-setup.exe, found ${#files[@]} matching file(s)"
+            exit 1
+          fi
+          printf 'Will attach: %s\n' "${files[@]}"
+          printf '%s\n' "${files[@]}" > "$RUNNER_TEMP/attach.txt"
+
+      - name: Upload into the draft release
+        if: env.PREFLIGHT != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t files < "$RUNNER_TEMP/attach.txt"
+          gh release upload "$TAG" "${files[@]}" --clobber
+
+  macos:
+    name: macOS dmg (Apple silicon)
+    needs: prepare
+    # macos-15 runners are Apple-silicon Macs: the dmg is arm64, nothing is built for Intel.
+    runs-on: macos-15
+    timeout-minutes: 90
+    continue-on-error: ${{ inputs.preflight == true }}
+    env:
+      VERSION: ${{ needs.prepare.outputs.version }}
+      TAG: ${{ needs.prepare.outputs.tag }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # Read here only to be tested for presence: they reach the build (via GITHUB_ENV) only when ALL are set.
+      APPLE_CERTIFICATE_SECRET: ${{ secrets.APPLE_CERTIFICATE }}
+      APPLE_CERTIFICATE_PASSWORD_SECRET: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+      APPLE_SIGNING_IDENTITY_SECRET: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+      APPLE_ID_SECRET: ${{ secrets.APPLE_ID }}
+      APPLE_PASSWORD_SECRET: ${{ secrets.APPLE_PASSWORD }}
+      APPLE_TEAM_ID_SECRET: ${{ secrets.APPLE_TEAM_ID }}
+    steps:
+      - name: Prepare must have succeeded
+        shell: bash
+        run: '[ -n "$VERSION" ] || { echo "::error::prepare did not produce a version"; exit 1; }'
+
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.preflight == true && github.sha || format('refs/tags/{0}', needs.prepare.outputs.tag) }}
+
+      # Developer ID signing and notarization ONLY when the repo has every secret (none today). Without them the app is
+      # signed ad hoc ("-"), which Tauri accepts as a signing identity, and Gatekeeper's first-open prompt is the cost.
+      - name: Signing mode
+        shell: bash
+        run: |
+          if [ -n "$APPLE_CERTIFICATE_SECRET" ] && [ -n "$APPLE_CERTIFICATE_PASSWORD_SECRET" ] && [ -n "$APPLE_SIGNING_IDENTITY_SECRET" ] \
+             && [ -n "$APPLE_ID_SECRET" ] && [ -n "$APPLE_PASSWORD_SECRET" ] && [ -n "$APPLE_TEAM_ID_SECRET" ]; then
+            {
+              echo "APPLE_CERTIFICATE=$APPLE_CERTIFICATE_SECRET"
+              echo "APPLE_CERTIFICATE_PASSWORD=$APPLE_CERTIFICATE_PASSWORD_SECRET"
+              echo "APPLE_SIGNING_IDENTITY=$APPLE_SIGNING_IDENTITY_SECRET"
+              echo "APPLE_ID=$APPLE_ID_SECRET"
+              echo "APPLE_PASSWORD=$APPLE_PASSWORD_SECRET"
+              echo "APPLE_TEAM_ID=$APPLE_TEAM_ID_SECRET"
+            } >> "$GITHUB_ENV"
+            echo "Developer ID signing and notarization"
+          else
+            echo "APPLE_SIGNING_IDENTITY=-" >> "$GITHUB_ENV"
+            echo "No signing secrets: ad hoc signature, not notarized"
+          fi
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Core tests
+        run: npm run test:core
+        env:
+          TZ: America/Chicago
+
+      - name: Export the web app
+        run: npm run export:web
+
+      # `--bundles dmg` is passed here only: tauri.conf.json's own bundle targets stay as they are (the local lane builds
+      # the .app from them).
+      - name: Build the macOS dmg
+        uses: tauri-apps/tauri-action@v0
+        with:
+          projectPath: desktop
+          args: --bundles dmg
+
+      - name: Check the shell can load what it ships
+        run: bash desktop/check-assets.sh
+
+      # A real disk image, holding an app whose executable is arm64.
+      - name: Check the dmg
+        run: |
+          set -euo pipefail
+          dmg=$(ls desktop/src-tauri/target/release/bundle/dmg/CalMind_"${VERSION}"_aarch64.dmg)
+          hdiutil verify "$dmg"
+          mnt="$RUNNER_TEMP/dmg-mount"
+          mkdir -p "$mnt"
+          hdiutil attach "$dmg" -nobrowse -readonly -mountpoint "$mnt" > /dev/null
+          trap 'hdiutil detach "$mnt" -force > /dev/null 2>&1 || true' EXIT
+          app=$(ls -d "$mnt"/*.app | head -1)
+          echo "app: $app"
+          for f in "$app"/Contents/MacOS/*; do
+            archs=$(lipo -archs "$f")
+            echo "$f: $archs"
+            [ "$archs" = "arm64" ] || { echo "::error::$f is '$archs', not arm64"; exit 1; }
+          done
+
+      - name: The files this job attaches
+        run: |
+          set -euo pipefail
+          ls -l desktop/src-tauri/target/release/bundle/dmg
+          dmg=desktop/src-tauri/target/release/bundle/dmg/CalMind_"${VERSION}"_aarch64.dmg
+          [ -f "$dmg" ] || { echo "::error::no $dmg"; exit 1; }
+          echo "Will attach: $dmg"
+          echo "$dmg" > "$RUNNER_TEMP/attach.txt"
+
+      - name: Upload into the draft release
+        if: env.PREFLIGHT != 'true'
+        run: |
+          set -euo pipefail
+          gh release upload "$TAG" "$(cat "$RUNNER_TEMP/attach.txt")" --clobber
+
+  linux:
+    name: Linux deb + AppImage
+    needs: prepare
+    # Pinned to 24.04, not ubuntu-latest: a label that moves under a release lane brings a new base distro on a Tuesday.
+    # The deb links noble's glibc, so it installs on noble or newer.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    continue-on-error: ${{ inputs.preflight == true }}
+    env:
+      VERSION: ${{ needs.prepare.outputs.version }}
+      TAG: ${{ needs.prepare.outputs.tag }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Prepare must have succeeded
+        run: '[ -n "$VERSION" ] || { echo "::error::prepare did not produce a version"; exit 1; }'
+
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.preflight == true && github.sha || format('refs/tags/{0}', needs.prepare.outputs.tag) }}
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+
+      # WebKitGTK 4.1 (the soup3 API this repo's tauri/wry resolve to), and the tools the AppImage bundler and the smoke
+      # need: patchelf for the bundler, xvfb + xdotool because "is there a window" is unanswerable without a display.
+      - name: Install system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev \
+            build-essential \
+            curl wget file \
+            libxdo-dev \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            xvfb xdotool
+
+      # Two of this repo's scripts (desktop/stage-dist.sh, run by tauri as beforeBuildCommand through `sh`, and
+      # desktop/check-assets.sh) are bash that resolve their own path with ${BASH_SOURCE[0]}. Ubuntu's /bin/sh is dash,
+      # which cannot expand it: the build dies before a crate compiles. stage-dist.sh is a canon file, so the fix is here.
+      # The switch is ASSERTED, not printed: if it silently did nothing the job would die four steps later as something else.
+      - name: Point /bin/sh at bash
+        run: |
+          set -eu
+          echo "dash dash/sh boolean false" | sudo debconf-set-selections
+          sudo DEBIAN_FRONTEND=noninteractive dpkg-reconfigure -f noninteractive dash
+          ls -l /bin/sh
+          case "$(readlink -f /bin/sh)" in
+            *bash) echo "/bin/sh -> bash" ;;
+            *) echo "/bin/sh is still $(readlink -f /bin/sh)"; exit 1 ;;
+          esac
+          sh -c ': "${BASH_SOURCE[0]:-}"' || { echo "/bin/sh still cannot expand BASH_SOURCE"; exit 1; }
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Core tests
+        run: npm run test:core
+        env:
+          TZ: America/Chicago
+
+      - name: Export the web app
+        run: npm run export:web
+
+      # APPIMAGE_EXTRACT_AND_RUN: the AppImage bundler runs linuxdeploy (itself an AppImage); self-extraction avoids FUSE,
+      # which the runner lacks. NO_STRIP: linuxdeploy's bundled strip chokes on newer toolchains' .relr.dyn sections, and
+      # Cargo's release profile already strips the binary.
+      - name: Build the Linux bundles
+        uses: tauri-apps/tauri-action@v0
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: "1"
+          NO_STRIP: "true"
+        with:
+          projectPath: desktop
+          args: --bundles deb,appimage
+
+      - name: Check the shell can load what it ships
+        run: bash desktop/check-assets.sh
+
+      # Install the .deb as a user's machine would, launch what it installed on a virtual display, and require a real
+      # window. dpkg is asked what it installed (a success that installed no binary is a failure this repo has met on
+      # Windows). WEBKIT_DISABLE_DMABUF_RENDERER / LIBGL_ALWAYS_SOFTWARE are for the HARNESS (Xvfb has no GPU), not the app.
+      - name: Smoke the .deb on the runner
+        env:
+          WEBKIT_DISABLE_DMABUF_RENDERER: "1"
+          LIBGL_ALWAYS_SOFTWARE: "1"
+        run: |
+          set -eu
+          BUNDLE=desktop/src-tauri/target/release/bundle
+          DEB=$(ls "$BUNDLE"/deb/CalMind_"${VERSION}"_amd64.deb 2>/dev/null | head -1 || true)
+          if [ -z "$DEB" ]; then
+            echo "no .deb to smoke; the build produced:"
+            ls -R "$BUNDLE" 2>/dev/null || echo "  (no bundle directory at all)"
+            exit 1
+          fi
+          DEB=$(readlink -f "$DEB")
+          sudo apt-get install -y "$DEB"
+          PKG=$(dpkg-deb -f "$DEB" Package)
+          BIN=""
+          for f in $(dpkg -L "$PKG" | grep '^/usr/bin/'); do
+            if [ -f "$f" ] && [ -x "$f" ]; then BIN="$f"; break; fi
+          done
+          if [ -z "$BIN" ]; then
+            echo "the .deb reported success but installed no CalMind binary"
+            dpkg -L "$PKG"
+            exit 1
+          fi
+          echo "installed $BIN (package $PKG)"
+
+          # Does the binary carry THIS export? The bundle file name is content-hashed and survives into the binary as a
+          # plain string (desktop/smoke.sh's middle check, ported). The empty-name guard keeps the check able to fail.
+          JS=$(grep -oE 'index-[a-f0-9]+\.js' apps/app/dist/index.html | head -1 || true)
+          if [ -z "$JS" ]; then
+            echo "no exported bundle name in apps/app/dist/index.html"
+            exit 1
+          fi
+          if strings -a "$BIN" | grep -qF "$JS"; then
+            echo "it carries THIS export ($JS)"
+          else
+            echo "the .deb was built from a different export than apps/app/dist holds"
+            strings -a "$BIN" | grep -oE 'index-[a-f0-9]+\.js' | sort -u | head -3
+            exit 1
+          fi
+
+          Xvfb :99 -screen 0 1280x800x24 >/tmp/xvfb.log 2>&1 &
+          XVFB=$!
+          sleep 2
+          if ! kill -0 "$XVFB" 2>/dev/null; then
+            echo "Xvfb did not start:"; cat /tmp/xvfb.log; exit 1
+          fi
+          export DISPLAY=:99
+
+          "$BIN" >/tmp/calmind.log 2>&1 &
+          APP=$!
+          sleep 8
+          if ! kill -0 "$APP" 2>/dev/null; then
+            echo "the installed app exited within 8 seconds:"
+            cat /tmp/calmind.log
+            exit 1
+          fi
+          WIN=""
+          for _ in 1 2 3; do
+            WIN=$(xdotool search --name CalMind 2>/dev/null | head -1 || true)
+            [ -n "$WIN" ] && break
+            sleep 2
+          done
+          if [ -z "$WIN" ]; then
+            echo "the app is running but shows no CalMind window"
+            cat /tmp/calmind.log
+            kill "$APP" 2>/dev/null || true
+            exit 1
+          fi
+          echo "window up: $(xdotool getwindowname "$WIN") - stopping it"
+          kill "$APP" 2>/dev/null || true
+          kill "$XVFB" 2>/dev/null || true
+
+      - name: The files this job attaches
+        run: |
+          set -euo pipefail
+          b=desktop/src-tauri/target/release/bundle
+          ls -l "$b"/deb "$b"/appimage
+          : > "$RUNNER_TEMP/attach.txt"
+          for f in "$b/deb/CalMind_${VERSION}_amd64.deb" "$b/appimage/CalMind_${VERSION}_amd64.AppImage"; do
+            [ -f "$f" ] || { echo "::error::no $f"; exit 1; }
+            echo "Will attach: $f"
+            echo "$f" >> "$RUNNER_TEMP/attach.txt"
+          done
+
+      - name: Upload into the draft release
+        if: env.PREFLIGHT != 'true'
+        run: |
+          set -euo pipefail
+          mapfile -t files < "$RUNNER_TEMP/attach.txt"
+          gh release upload "$TAG" "${files[@]}" --clobber
+
+  publish:
+    name: Every file is there; publish the release
+    needs: [prepare, windows, macos, linux]
+    if: ${{ inputs.preflight != true }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      VERSION: ${{ needs.prepare.outputs.version }}
+      TAG: ${{ needs.prepare.outputs.tag }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Every expected file is on the release
+        shell: bash
+        run: |
+          set -euo pipefail
+          names=$(gh release view "$TAG" --json assets --jq '.assets[].name')
+          echo "Assets:"; printf '  %s\n' $names
+          missing=""
+          want() { # want <glob> <what>
+            local hit=""
+            while IFS= read -r n; do
+              # shellcheck disable=SC2053
+              if [[ "$n" == $1 ]]; then hit=1; fi
+            done <<< "$names"
+            [ -n "$hit" ] || missing="$missing $2($1)"
+          }
+          want "CalMind_${VERSION}_x64*.msi"        "Windows msi"
+          want "CalMind_${VERSION}_x64*-setup.exe"  "Windows exe"
+          want "CalMind_${VERSION}_aarch64.dmg"     "macOS dmg"
+          want "CalMind_${VERSION}_amd64.deb"       "Linux deb"
+          want "CalMind_${VERSION}_amd64.AppImage"  "Linux AppImage"
+          if [ -n "$missing" ]; then
+            echo "::error title=Release incomplete::Missing:${missing}. The release stays a draft."
+            exit 1
+          fi
+
+      - name: Checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir "$RUNNER_TEMP/assets"
+          gh release download "$TAG" --dir "$RUNNER_TEMP/assets" --pattern '*'
+          rm -f "$RUNNER_TEMP/assets/SHA256SUMS.txt"
+          (cd "$RUNNER_TEMP/assets" && sha256sum -- * > "$RUNNER_TEMP/SHA256SUMS.txt")
+          cat "$RUNNER_TEMP/SHA256SUMS.txt"
+          gh release upload "$TAG" "$RUNNER_TEMP/SHA256SUMS.txt" --clobber
+
+      - name: Publish
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$VERSION" == *-* ]]; then
+            gh release edit "$TAG" --draft=false --prerelease
+          else
+            gh release edit "$TAG" --draft=false --latest
+          fi
+          gh release view "$TAG" --json url --jq .url
+
+  # Preflight only: say how each job went in the run summary. Never fails (that is the point of a preflight).
+  summary:
+    name: Preflight summary
+    needs: [prepare, windows, macos, linux]
+    if: ${{ always() && inputs.preflight == true }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: List every job's result
+        shell: bash
+        run: |
+          {
+            echo "## Preflight"
+            echo
+            echo "| Job | Result |"
+            echo "| --- | --- |"
+            gh run view "${{ github.run_id }}" --json jobs \
+              --jq '.jobs[] | select(.name != "Preflight summary") | "| \(.name) | \(.conclusion // .status) |"' || echo "| (could not read the jobs) | |"
+            echo
+            gh run view "${{ github.run_id }}" --json jobs \
+              --jq '.jobs[] | .name as $j | .steps[]? | select(.conclusion == "failure") | "- failed: \($j) > \(.name)"' || true
+          } >> "$GITHUB_STEP_SUMMARY"
+          cat "$GITHUB_STEP_SUMMARY"

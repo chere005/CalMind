@@ -1383,5 +1383,6 @@ temptation to report them was real:
 - **Desktop** (desktop/): the shell holds NO behavior — it is the same web
   bundle the e2e suite drives, so the three runs above cover it. The by-eye
   residue is only the shell itself: window opens, CM dock icon, signs into
-  the live test API, quits clean. Windows: trigger the manual
-  desktop-windows workflow and smoke the artifact when one is wanted.
+  the live test API, quits clean. Windows and Linux: the Release
+  workflow's jobs install and launch the package on the runner; `sh
+  tools/preflight.sh` runs them without publishing.

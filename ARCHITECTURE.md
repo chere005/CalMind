@@ -95,9 +95,8 @@ tools/             The release lane, and the checks no browser can reach.
 desktop/           CalMind Desktop — a Tauri 2 shell around the identical web
                    export. Rust opens the window; everything else is the
                    shared code. macOS builds locally (desktop/README.md);
-                   Windows builds on the `desktop-windows` GitHub Actions
-                   job, which is workflow_dispatch-only but is dispatched
-                   by every dtp/tdtp run.
+                   Windows and Linux build on GitHub runners from the same tag
+                   push as the Mac dmg: the Release workflow (see "Releases").
 packaging/arch/    A PKGBUILD, a .desktop file and INSTALL.md for building the
                    same desktop shell on Arch Linux. Written 2026-09-21 and
                    never built — read its "Read this first" before trusting a
@@ -216,15 +215,15 @@ evidence either way. The watch app picks it up through
 that iOS had left the wrist on an older build than the phone.
 
 **The desktop shells.** macOS builds locally out of `desktop/` and the
-`dtp`/`tdtp` lane builds the bundle before the tag; Windows builds on the
-`desktop-windows` GitHub Actions job, which is `workflow_dispatch`-only but is
-dispatched at the end of every release. Tauri cannot cross-compile, which is
-the reason a Windows build needs a runner at all — and the same reason Linux
-needs a Linux machine. `packaging/arch/` (PKGBUILD, `calmind.desktop`,
-`INSTALL.md`) and `.github/workflows/desktop-linux.yml` were both written on a
-Mac on 2026-09-21 and NEITHER HAS EVER RUN; `INSTALL.md` opens with what was
-verified and what was not, and is the honest version. Treat the first Linux
-build as the first evidence that any of it works.
+`dtp`/`tdtp` lane builds the bundle before the tag; the tag push then starts
+the Release workflow, which builds the Windows installers, the Apple-silicon
+dmg and the Linux deb/AppImage on GitHub runners and publishes them on one
+release (see "Releases"). Tauri cannot cross-compile, which is the reason
+Windows and Linux need runners at all. `packaging/arch/` (PKGBUILD,
+`calmind.desktop`, `INSTALL.md`) was written on a Mac on 2026-09-21 and has
+never run; `INSTALL.md` opens with what was verified and what was not, and is
+the honest version. The Linux job of the Release workflow has not been seen to
+run either: treat its first run as the first evidence that any of it works.
 
 `AGENTS.md`'s "Platforms" section is where the release lane's own order is
 written — which platform builds before the tag, which after the push, and
@@ -307,6 +306,66 @@ suite, a red gesture run, or a `dist` that some other build rewrote between
 the tests and the upload each stop the deploy. Two of those used to pass
 unconditionally — see `tools/check-deploy-guards.sh`, which re-proves them by
 breaking a copy and requiring the copy to fail.
+
+## Releases
+
+**A tag is a release.** Pushing a bare version tag (`1.37.0`, no `v`) starts
+`.github/workflows/release.yml` ("Release"). It checks that the tag equals the
+version in all four files that carry it (`apps/app/app.json`,
+`desktop/package.json`, `desktop/src-tauri/tauri.conf.json`,
+`desktop/src-tauri/Cargo.toml`), makes ONE draft GitHub release "CalMind
+<version>" (notes: the tag annotation, else the tagged commit message, plus
+an install block), and builds on three runners, each of which runs the
+typecheck and the core tests first, then builds, then attaches its files to the
+draft:
+
+| Runner | Files |
+| --- | --- |
+| Windows | `CalMind_<version>_x64_en-US.msi`, `CalMind_<version>_x64-setup.exe` (the MSI is installed and launched on the runner as a smoke) |
+| macOS (Apple silicon) | `CalMind_<version>_aarch64.dmg` (`--bundles dmg` is passed in CI only; the targets in `tauri.conf.json` are what the local lane builds the `.app` from) |
+| Linux (x64) | `CalMind_<version>_amd64.deb`, `CalMind_<version>_amd64.AppImage` (the deb is installed and launched under Xvfb) |
+
+When every one of those is on the draft, the last job writes
+`SHA256SUMS.txt` and publishes the release (Latest; a version containing "-" is
+a pre-release). A missing file leaves it a DRAFT that nobody sees. A tag that
+is already a published release is refused: a published version is never
+rebuilt.
+
+**Cutting one** is the lane: `npm run dtp` / `npm run tdtp`. Its order is drift
+gate, deploy, Mac bundle, preflight, tag, push, the watched Release run, device
+builds. It prints the run URL and the published release URL; if the
+Release fails after the tag, the deploy is still live, the lane says so and
+ends non-zero, and the retry is `gh run rerun <id> --failed`.
+
+**Releasing an existing tag** (a past version's first release, or a redo of a
+tag whose release was deleted): `gh workflow run Release -f tag=<tag>`. The
+workflow file is the one on the branch you name; the source built is the
+tag.
+
+**Preflight** (`sh tools/preflight.sh [tag]`, run by the lane before the tag,
+skipped with `--skip-preflight`): pushes HEAD to a throwaway
+`preflight/<sha7>` branch (which triggers nothing), dispatches Release there
+with `preflight=true`, waits, and prints PASS or FAIL naming the failed jobs
+and steps; the branch is always deleted. In that mode every job is
+`continue-on-error`, so a red build does not make the RUN red and GitHub sends
+no failed-job email, nothing is uploaded and no release is made. The first
+preflight needs `release.yml` to be on the default branch, because GitHub
+only dispatches workflows it knows from there.
+
+**Why nothing uploads an Actions artifact.** The account's artifact storage
+quota is full ("Artifact storage quota has been hit"), which failed every run
+of the old dispatch-only Windows job. Release assets are not counted against
+it, so the builds hand their files to `gh release upload` and never use
+`actions/upload-artifact`. Do not add one.
+
+**Unsigned installs.** Nothing is code-signed or notarized today. Windows
+SmartScreen says "Windows protected your PC": More info, then Run anyway. On
+the Mac the first open is stopped by Gatekeeper: right-click the app and
+choose Open, or System Settings, Privacy & Security, Open Anyway. The AppImage
+needs `chmod +x`. If the repo gains the Apple secrets (`APPLE_CERTIFICATE`,
+`APPLE_CERTIFICATE_PASSWORD`, `APPLE_SIGNING_IDENTITY`, `APPLE_ID`,
+`APPLE_PASSWORD`, `APPLE_TEAM_ID`) the macOS job signs and notarizes with
+them; without all six it signs ad hoc and never fails for want of them.
 
 ## Rules of the road
 

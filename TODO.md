@@ -160,12 +160,13 @@ read the note-focus flake's twelve-occurrence history first
   some things could occasionally break"), then tag and push; **tdtp** = the
   same command without `--quick`, so every suite runs. One gesture each
   since 2026-08-22: `npm run dtp` / `npm run tdtp` (tools/dtp.sh bumps the
-  minor, deploys, tags vx.y.0, pushes, dispatches the Windows job). Test ships in the
+  minor, deploys, tags vx.y.0, pushes, the tag push starts the Release workflow). Test ships in the
   same command rather than in a second run — the gates are what cost the
   time, and they run once for both. `deploy-test.sh` still exists and is
   still test-only; nothing routine uses it now. A failed deploy in either lane gets fixed BEFORE tagging and
-  pushing, never tagged around. Both lanes dispatch the `desktop-windows`
-  workflow AFTER the push (CI builds the pushed tree). Windows stays
+  pushing, never tagged around. Both lanes run `tools/preflight.sh` (the Release builds on this
+  commit, no publish) BEFORE the tag, then watch the Release workflow the tag
+  push starts. Windows stays
   untested by hand on his word: "i just want it to stay up to date."
 - Keep every suite in the counts above green, including the native four.
   `npm run test:dev` between runs; the deploy runs the browser gates

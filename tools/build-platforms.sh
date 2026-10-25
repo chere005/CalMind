@@ -2,8 +2,8 @@
 # The platforms this repo ships that server/deploy.sh does not: the macOS
 # desktop bundle, one iOS build installed on every phone CalMind belongs on —
 # carrying the watch companion onto a paired Apple Watch when one is reachable
-# — and an Android build on an emulator. Windows is CI's
-# (.github/workflows/desktop-windows.yml) — Tauri does not cross-compile.
+# — and an Android build on an emulator. Windows and Linux are CI's
+# (.github/workflows/release.yml) — Tauri does not cross-compile.
 #
 #   sh tools/build-platforms.sh              all three
 #   sh tools/build-platforms.sh --mac        just the desktop bundle
@@ -73,8 +73,8 @@ fi
 # saying whose it is, instead of running beside it.
 #
 # It sees only builds that TAKE it: the suite's build-platforms.sh, MyCalMind's
-# deploy-device.sh, AcctMind's building smoke and CoreMind's fallback. PrivateApp,
-# the TestMindSuite forks, a hand-typed xcodebuild/gradle/cargo and an Xcode
+# deploy-device.sh, AcctMind's building smoke and CoreMind's fallback. Other
+# lockless builds, the TestMindSuite forks, a hand-typed xcodebuild/gradle/cargo and an Xcode
 # window's build are not seen.
 #
 # Taken around each BLOCK, because a block is the unit the lane runs one at a

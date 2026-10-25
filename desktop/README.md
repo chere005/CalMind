@@ -58,14 +58,15 @@ bundling an .app.
 
 ## Windows
 
-Tauri cannot cross-compile from macOS, so Windows builds on a runner:
-`.github/workflows/desktop-windows.yml`, `tauri-apps/tauri-action` on
-`windows-latest`, same repo and same export, producing the `.msi`/`.exe` as
-an artifact. It is `workflow_dispatch` only and never runs on push — but the
-dtp/tdtp lane dispatches it at the end of every release, so a shipped version
-gets a Windows build without anyone opening the Actions tab; trigger it by
-hand there when you want one in between. No one has smoked the artifact yet,
-so treat the first one as unverified.
+Tauri cannot cross-compile from macOS, so Windows (and Linux) build on
+runners: the Windows job of `.github/workflows/release.yml`,
+`tauri-apps/tauri-action` on `windows-latest`, same repo and same export,
+producing the `.msi` and the NSIS `-setup.exe`. A pushed version tag runs it
+(the dtp/tdtp lane pushes one), installs and launches the MSI on the runner as
+a smoke, and attaches both files to the GitHub release for that tag; for a tag
+that already exists, `gh workflow run Release -f tag=<tag>`. Nothing uploads an
+Actions artifact (the account's artifact quota is full). ARCHITECTURE.md
+("Releases") has the whole pipeline, including the preflight.
 
 ## Icons
 

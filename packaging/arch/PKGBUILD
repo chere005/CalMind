@@ -10,13 +10,12 @@
 #
 # WHY FROM SOURCE AND NOT FROM A RELEASE ARTIFACT. Tauri does not
 # cross-compile, so a Linux binary has to be produced on Linux — either here
-# or in CI. CalMind has no Linux CI job and publishes no GitHub Release
-# (checked 2026-09-21: the releases API returns an empty list); the only
-# existing desktop CI (.github/workflows/desktop-windows.yml) uploads a
+# or in CI. When this was written (2026-09-21) CalMind had no Linux CI job and
+# published no GitHub Release; the only desktop CI job then uploaded a
 # workflow ARTIFACT, which expires and needs an authenticated download, so it
 # cannot be a PKGBUILD source=() at all. Building here needs no release
-# infrastructure to exist first. If a desktop-linux workflow later publishes a
-# real .deb or AppImage to a Release, a second, much smaller PKGBUILD that
+# infrastructure to exist first. The Release workflow (.github/workflows/release.yml)
+# now attaches a .deb and an AppImage to each GitHub release; once one is proven, a second, much smaller PKGBUILD that
 # repackages it becomes the faster option — this one stays correct either way.
 #
 # ---------------------------------------------------------------------------
