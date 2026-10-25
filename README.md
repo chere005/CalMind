@@ -10,7 +10,7 @@ Reminders, Calendar, Notes and Habits in one app, with an Add tab in the
 middle. A note can be a recipe, imported from a photo or a URL; there is
 search, sharing, a public request page and four themes. It runs on the web, on
 iOS and Android, on an Apple Watch with its own complication, in an iPhone
-home-screen widget, and in a desktop window on macOS and Windows. Everything
+home-screen widget, and in a desktop window on macOS, Windows and Linux. Everything
 the product *does*, the date parsing, the repeats, the ordering, the merging,
 is written once in TypeScript (`packages/core`) and shared verbatim by every
 surface. It is local-first: each client holds the whole store and draws from
@@ -34,7 +34,9 @@ simulator. To build against another server set `EXPO_PUBLIC_API_URL` to its
 full `/api/index.php` endpoint before exporting; Expo bakes it into the
 bundle. Deploying a copy of your own needs `server/deploy.conf` (copy
 `server/deploy.conf.sample`). `npm run dtp` is the release lane (deploy, tag,
-push) and `npm run tdtp` runs the full tests first.
+push) and `npm run tdtp` runs the full tests first; the tag then makes GitHub
+build the Windows, macOS (Apple silicon) and Linux installers and publish them
+as one release ([ARCHITECTURE.md](ARCHITECTURE.md#releases)).
 
 ## More
 
