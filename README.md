@@ -6,44 +6,29 @@ Feel free to deploy this on your own website, build and deploy the iOS version, 
 
 **This is a personal project to have some fun with claude code, which generated essentially all of the code, and the rest of this readme:**
 
-Reminders, Calendar, Notes and Habits in one app, with an Add tab in the
-middle. A note can be a recipe, imported from a photo or a URL; there is
-search, sharing, a public request page and four themes. It runs on the web, on
-iOS and Android, on an Apple Watch with its own complication, in an iPhone
-home-screen widget, and in a desktop window on macOS, Windows and Linux. Everything
-the product *does*, the date parsing, the repeats, the ordering, the merging,
-is written once in TypeScript (`packages/core`) and shared verbatim by every
-surface. It is local-first: each client holds the whole store and draws from
-it instantly, and a small PHP server reconciles.
+Reminders, calendar, notes and habits in one local-first app.
 
-Sean's copy runs at <https://seancheren.com/calmind/>. Yours can run anywhere:
-deploy the server on your own host, build the phone apps, change what you
-like.
+- Runs on web, iOS, Android, Apple Watch, macOS, Windows and Linux.
+- One TypeScript core shared by every platform. A small PHP server syncs.
+- Notes can be recipes, from a photo or a URL. Search, sharing, themes.
+- Live at <https://seancheren.com/calmind/>.
 
-## Running it
+## Screens
+
+| Calendar | Reminders | Notes | Recipe editor |
+| --- | --- | --- | --- |
+| ![Calendar](docs/screenshots/calmind-dinner-calendar-mobile.png) | ![Reminders](docs/screenshots/calmind-ingredient-prep-mobile.png) | ![Notes](docs/screenshots/calmind-notes-mobile.png) | ![Recipe editor](docs/screenshots/calmind-recipe-note-mobile.png) |
+| Calendars, reminders, notes and ChefMind recipes in one month. | Home, errands and work to-dos, dated or not. | Reference notes and recipes, in folders. | Ingredients, quantities and steps. |
+
+## Run
 
 ```sh
-npm install                              # once, at the root
-php -S 127.0.0.1:8788 -t server/public   # the API, data in server/data/
-npm run web                              # the app on :8081, talking to that API
-npm test                                 # core, app and server tests
+npm install
+php -S 127.0.0.1:8788 -t server/public   # the API
+npm run web                              # the app on :8081
+npm test
 ```
 
-`cd apps/app && npx expo start`, then `i` or `a`, opens the iOS or Android
-simulator. To build against another server set `EXPO_PUBLIC_API_URL` to its
-full `/api/index.php` endpoint before exporting; Expo bakes it into the
-bundle. Deploying a copy of your own needs `server/deploy.conf` (copy
-`server/deploy.conf.sample`). `npm run dtp` is the release lane (deploy, tag,
-push) and `npm run tdtp` runs the full tests first; the tag then makes GitHub
-build the Windows, macOS (Apple silicon) and Linux installers and publish them
-as one release ([ARCHITECTURE.md](ARCHITECTURE.md#releases)).
+`EXPO_PUBLIC_API_URL` points a build at another server. Release: `npm run dtp` (or `tdtp`, tests first); the tag builds the desktop installers on GitHub.
 
-## More
-
-[ARCHITECTURE.md](ARCHITECTURE.md) is the map: the tree, each platform and how
-it ships, the sync model, the three environments, the release lane, and why
-any of it is the way it is. [docs/api.md](docs/api.md) is the API reference,
-[TESTING.md](TESTING.md) says what the tests are worth, [PARITY.md](PARITY.md)
-is the ledger of what shipped, [TODO.md](TODO.md) is what is still owed, and
-[AGENTS.md](AGENTS.md) is the house rules for anyone, human or agent, writing
-code here. BSD 3-Clause; see [LICENSE](LICENSE).
+Docs: [ARCHITECTURE](ARCHITECTURE.md) · [API](docs/api.md) · [TESTING](TESTING.md) · [PARITY](PARITY.md) · [TODO](TODO.md) · [AGENTS](AGENTS.md). BSD 3-Clause.
