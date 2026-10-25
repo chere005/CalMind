@@ -216,6 +216,8 @@ jobs:
         run: npm run test:core
         env:
           TZ: America/Chicago
+          # npm otherwise uses cmd.exe, which cannot run the package's TZ=... script.
+          npm_config_script_shell: 'C:\Program Files\Git\bin\bash.exe'
 
       # export:web, not a bare `expo export`: the head patch rides in it, and the desktop bundle carries the same
       # index.html the site serves.
@@ -440,22 +442,6 @@ jobs:
             patchelf \
             xvfb xdotool
 
-      # Two of this repo's scripts (desktop/stage-dist.sh, run by tauri as beforeBuildCommand through `sh`, and
-      # desktop/check-assets.sh) are bash that resolve their own path with ${BASH_SOURCE[0]}. Ubuntu's /bin/sh is dash,
-      # which cannot expand it: the build dies before a crate compiles. stage-dist.sh is a canon file, so the fix is here.
-      # The switch is ASSERTED, not printed: if it silently did nothing the job would die four steps later as something else.
-      - name: Point /bin/sh at bash
-        run: |
-          set -eu
-          echo "dash dash/sh boolean false" | sudo debconf-set-selections
-          sudo DEBIAN_FRONTEND=noninteractive dpkg-reconfigure -f noninteractive dash
-          ls -l /bin/sh
-          case "$(readlink -f /bin/sh)" in
-            *bash) echo "/bin/sh -> bash" ;;
-            *) echo "/bin/sh is still $(readlink -f /bin/sh)"; exit 1 ;;
-          esac
-          sh -c ': "${BASH_SOURCE[0]:-}"' || { echo "/bin/sh still cannot expand BASH_SOURCE"; exit 1; }
-
       - name: Install deps
         run: npm ci
 
@@ -479,7 +465,8 @@ jobs:
           NO_STRIP: "true"
         with:
           projectPath: desktop
-          args: --bundles deb,appimage
+          # stage-dist.sh uses Bash; override only this build's hook instead of changing Ubuntu's /bin/sh.
+          args: --bundles deb,appimage --config '{"build":{"beforeBuildCommand":"bash stage-dist.sh"}}'
 
       - name: Check the shell can load what it ships
         run: bash desktop/check-assets.sh
