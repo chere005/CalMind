@@ -1,28 +1,62 @@
 # CalMind
 
+Reminders, calendar, notes and habits in one local-first app.
+
+## Disclaimer
+
 I haven't been quite happy with subtle things like not being able to have reminders from previous days on the calendar not continue to show until they are checked off.. I also wanted to tie together reminders, notes, and my calendar.. I also like enforcing date and time patterns.
 
 Feel free to deploy this on your own website, build and deploy the iOS version, etc.
 
 **This is a personal project to have some fun with claude code, which generated essentially all of the code, and the rest of this readme:**
 
-Reminders, calendar, notes and habits in one local-first app.
+## Quick start / Install
 
-- Runs on web, iOS, Android, Apple Watch, macOS, Windows and Linux.
-- One TypeScript core shared by every platform. A small PHP server syncs.
-- Notes can be recipes, from a photo or a URL. Search, sharing, themes.
-- Live at <https://seancheren.com/calmind/>.
+- Web: <https://seancheren.com/calmind/>.
+- macOS, Windows and Linux: installers on [GitHub Releases](https://github.com/chere005/CalMind/releases). Unsigned.
+- iOS, Android and Apple Watch: build from source, see Building.
 
-<table>
-<tr>
-<td align="center" valign="top"><img src="docs/screenshots/calmind-dinner-calendar-mobile.png" width="200" alt="Calendar"><br><sub><b>Calendar.</b> Calendars, reminders, notes and ChefMind recipes in one month.</sub></td>
-<td align="center" valign="top"><img src="docs/screenshots/calmind-ingredient-prep-mobile.png" width="200" alt="Reminders"><br><sub><b>Reminders.</b> Home, errands and work to-dos, dated or not.</sub></td>
-<td align="center" valign="top"><img src="docs/screenshots/calmind-notes-mobile.png" width="200" alt="Notes"><br><sub><b>Notes.</b> Reference notes and recipes, in folders.</sub></td>
-<td align="center" valign="top"><img src="docs/screenshots/calmind-recipe-note-mobile.png" width="200" alt="Recipe editor"><br><sub><b>Recipe editor.</b> Ingredients, quantities and steps.</sub></td>
-</tr>
-</table>
+## Platforms
 
-## Run
+- Web
+- iOS and Android
+- Apple Watch (app and complication) and an iPhone home-screen widget
+- macOS, Windows and Linux (Tauri desktop app)
+
+## Usage
+
+### Calendar
+
+Calendars, reminders, notes and ChefMind recipes in one month view. Unfinished reminders carry forward until checked off.
+
+<img src="docs/screenshots/calmind-dinner-calendar-mobile.png" width="320" alt="Calendar">
+
+### Reminders
+
+Home, errands and work to-dos, dated or not.
+
+<img src="docs/screenshots/calmind-ingredient-prep-mobile.png" width="320" alt="Reminders">
+
+### Notes
+
+Reference notes and recipes, in folders.
+
+<img src="docs/screenshots/calmind-notes-mobile.png" width="320" alt="Notes">
+
+### Recipe editor
+
+Ingredients, quantities and steps. Recipes can be imported from a photo or a URL.
+
+<img src="docs/screenshots/calmind-recipe-note-mobile.png" width="320" alt="Recipe editor">
+
+## Notes
+
+- Five tabs: Reminders · Calendar · Add · Notes · Habits.
+- Local-first: each client holds the whole store; a small PHP server syncs.
+- One TypeScript core (`packages/core`) shared by every platform.
+- Also: search, sharing, a public request page, four themes.
+
+## Building
 
 ```sh
 npm install
@@ -31,6 +65,15 @@ npm run web                              # the app on :8081
 npm test
 ```
 
-`EXPO_PUBLIC_API_URL` points a build at another server. Release: `npm run dtp` (or `tdtp`, tests first); the tag builds the desktop installers on GitHub.
+Phones: `cd apps/app && npx expo start`, then `i` or `a`. `EXPO_PUBLIC_API_URL` points a build at another server. Deploy needs `server/deploy.conf` (copy the sample). Release: `npm run dtp` (or `tdtp`, tests first); the tag builds the desktop installers on GitHub.
 
-Docs: [ARCHITECTURE](ARCHITECTURE.md) · [API](docs/api.md) · [TESTING](TESTING.md) · [PARITY](PARITY.md) · [TODO](TODO.md) · [AGENTS](AGENTS.md). BSD 3-Clause.
+## Documentation
+
+- [ARCHITECTURE.md](ARCHITECTURE.md): the tree, each platform, sync, environments, release lane.
+- [docs/api.md](docs/api.md): the API.
+- [TESTING.md](TESTING.md), [PARITY.md](PARITY.md), [TODO.md](TODO.md).
+- [AGENTS.md](AGENTS.md): rules for anyone, human or agent, changing the code.
+
+## Contributing
+
+Issues and pull requests are welcome. Read AGENTS.md first; `npm test` must pass. BSD 3-Clause, see [LICENSE](LICENSE).
