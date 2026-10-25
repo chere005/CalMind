@@ -29,25 +29,25 @@ Feel free to deploy this on your own website, build and deploy the iOS version, 
 
 Calendars, reminders, notes and ChefMind recipes in one month view. Unfinished reminders carry forward until checked off.
 
-<img src="docs/screenshots/calmind-dinner-calendar-mobile.png" width="320" alt="Calendar">
+<picture><img src="docs/screenshots/calmind-dinner-calendar-mobile.png" width="320" alt="Calendar"></picture>
 
 ### Reminders
 
 Home, errands and work to-dos, dated or not.
 
-<img src="docs/screenshots/calmind-ingredient-prep-mobile.png" width="320" alt="Reminders">
+<picture><img src="docs/screenshots/calmind-ingredient-prep-mobile.png" width="320" alt="Reminders"></picture>
 
 ### Notes
 
 Reference notes and recipes, in folders.
 
-<img src="docs/screenshots/calmind-notes-mobile.png" width="320" alt="Notes">
+<picture><img src="docs/screenshots/calmind-notes-mobile.png" width="320" alt="Notes"></picture>
 
 ### Recipe editor
 
 Ingredients, quantities and steps. Recipes can be imported from a photo or a URL.
 
-<img src="docs/screenshots/calmind-recipe-note-mobile.png" width="320" alt="Recipe editor">
+<picture><img src="docs/screenshots/calmind-recipe-note-mobile.png" width="320" alt="Recipe editor"></picture>
 
 ## Notes
 
