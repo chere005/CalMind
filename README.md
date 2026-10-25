@@ -13,12 +13,14 @@ Reminders, calendar, notes and habits in one local-first app.
 - Notes can be recipes, from a photo or a URL. Search, sharing, themes.
 - Live at <https://seancheren.com/calmind/>.
 
-## Screens
-
-| Calendar | Reminders | Notes | Recipe editor |
-| --- | --- | --- | --- |
-| ![Calendar](docs/screenshots/calmind-dinner-calendar-mobile.png) | ![Reminders](docs/screenshots/calmind-ingredient-prep-mobile.png) | ![Notes](docs/screenshots/calmind-notes-mobile.png) | ![Recipe editor](docs/screenshots/calmind-recipe-note-mobile.png) |
-| Calendars, reminders, notes and ChefMind recipes in one month. | Home, errands and work to-dos, dated or not. | Reference notes and recipes, in folders. | Ingredients, quantities and steps. |
+<table>
+<tr>
+<td align="center" valign="top"><img src="docs/screenshots/calmind-dinner-calendar-mobile.png" width="200" alt="Calendar"><br><sub><b>Calendar.</b> Calendars, reminders, notes and ChefMind recipes in one month.</sub></td>
+<td align="center" valign="top"><img src="docs/screenshots/calmind-ingredient-prep-mobile.png" width="200" alt="Reminders"><br><sub><b>Reminders.</b> Home, errands and work to-dos, dated or not.</sub></td>
+<td align="center" valign="top"><img src="docs/screenshots/calmind-notes-mobile.png" width="200" alt="Notes"><br><sub><b>Notes.</b> Reference notes and recipes, in folders.</sub></td>
+<td align="center" valign="top"><img src="docs/screenshots/calmind-recipe-note-mobile.png" width="200" alt="Recipe editor"><br><sub><b>Recipe editor.</b> Ingredients, quantities and steps.</sub></td>
+</tr>
+</table>
 
 ## Run
 
