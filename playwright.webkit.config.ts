@@ -1,4 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
+import { e2eServer } from './e2e/serve.cjs';
 
 /**
  * The WebKit smoke — SEPARATE from the main config on purpose.
@@ -24,6 +25,7 @@ const PORT = 8791;
 process.env.CALMIND_E2E_PORT = String(PORT);
 
 export default defineConfig({
+  ...e2eServer(PORT),
   testDir: './e2e',
   // Playwright empties its output dir at the start of a run; the shards'
   // are test-results-<port>, and this one must not be any of theirs.
@@ -67,12 +69,5 @@ export default defineConfig({
     ...devices['Desktop Safari'],
     baseURL: `http://127.0.0.1:${PORT}/calmind/`,
     viewport: { width: 420, height: 900 },
-  },
-  webServer: {
-    command:
-      `rm -rf /tmp/calmind-e2e-webkit && mkdir -p /tmp/calmind-e2e-webkit && CALMIND_DATA_DIR=/tmp/calmind-e2e-webkit CALMIND_MEETREQ_USER=owner php -S 127.0.0.1:${PORT} e2e/router.php`,
-    url: `http://127.0.0.1:${PORT}/calmind/`,
-    reuseExistingServer: false,
-    timeout: 15_000,
   },
 });

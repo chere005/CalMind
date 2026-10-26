@@ -107,7 +107,7 @@ if (!html.includes(ERR_ID)) {
  * Every URL in it is RELATIVE, so it resolves against wherever the manifest
  * itself is served from — /test/calmind/ today, somewhere else tomorrow —
  * rather than baking an instance prefix into a file that ships everywhere.
- * The icons are emitted by the deploy (sips), beside the apple-touch-icon.
+ * The deploy emits icons through tools/generate-pwa-icons.mjs.
  */
 const manifest = {
   id: './',

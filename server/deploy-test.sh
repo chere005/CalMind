@@ -174,7 +174,7 @@ if [ "$WEB" = 1 ]; then
     # record that renders. A broken export, a broken head patch, or a broken
     # store all fail here in under a minute.
     echo "==> spot gestures (--quick: the full suites wait for a tdtp)"
-    QLOG=$(mktemp -t calmind-quick)
+    QLOG=$(mktemp "${TMPDIR:-/tmp}/calmind-quick.XXXXXX")
     if ! npx playwright test e2e/app.spec.ts -g "signing up lands on the calendar|a reminder adds into its section" >"$QLOG" 2>&1; then
       echo "spot test failed — not deploying. Last lines:" >&2
       grep -E '✘|Error:|Timeout|[0-9]+ failed|webServer' "$QLOG" | tail -15 >&2
@@ -190,7 +190,7 @@ if [ "$WEB" = 1 ]; then
     # tell a real regression from a flake, a port clash, or the harness's own
     # 15s server timeout under load. A gate that blocks without evidence costs
     # more than the minute it saves.
-    GLOG=$(mktemp -t calmind-gestures)
+    GLOG=$(mktemp "${TMPDIR:-/tmp}/calmind-gestures.XXXXXX")
     if ! npx playwright test >"$GLOG" 2>&1; then
       echo "gesture suite failed — not deploying. Last lines:" >&2
       grep -E '✘|Error:|Timeout|[0-9]+ failed|webServer' "$GLOG" | tail -25 >&2
@@ -207,7 +207,7 @@ if [ "$WEB" = 1 ]; then
     # regression could ship. Sixteen specs, under thirty seconds, and the log
     # is kept for the same reason as the one above — a gate that blocks
     # without evidence costs more than the minute it saves.
-    WLOG=$(mktemp -t calmind-webkit)
+    WLOG=$(mktemp "${TMPDIR:-/tmp}/calmind-webkit.XXXXXX")
     if ! npx playwright test -c playwright.webkit.config.ts >"$WLOG" 2>&1; then
       echo "WebKit suite failed — not deploying. Last lines:" >&2
       grep -E '✘|Error:|Timeout|[0-9]+ failed|webServer' "$WLOG" | tail -25 >&2
@@ -231,6 +231,9 @@ if [ "$WEB" = 1 ]; then
   AFTER=$(grep -o 'index-[a-zA-Z0-9]*\.js' apps/app/dist/index.html | head -1)
   [ "$AFTER" = "$BEFORE" ] || {
     echo "dist was rebuilt under this deploy: gated $BEFORE, now $AFTER — not deploying" >&2; exit 1; }
+  # Validate all install assets before the first API or web upload.
+  echo "==> install icons"
+  node tools/generate-pwa-icons.mjs || { echo "install icons failed — not deploying" >&2; exit 1; }
 fi
 
 # The PHP half of the same question the bundle check asks: is this still the
@@ -263,12 +266,6 @@ if [ "$WEB" = 1 ]; then
   echo "==> [TEST] web client -> $WEB_DEST/"
   ICOV=$(shasum apps/app/dist/favicon.ico | cut -c1-8)
   perl -i -pe "s|favicon\.ico(\?v=[0-9a-f]*)?|favicon.ico?v=$ICOV|" apps/app/dist/index.html
-  # The home-screen icon: iOS reads apple-touch-icon, which expo doesn't emit.
-  sips -z 180 180 apps/app/assets/icon.png --out apps/app/dist/apple-touch-icon.png >/dev/null 2>&1
-  # …and the manifest's pair, for Android and desktop installs. The manifest
-  # itself is written by the export's head patch; these are what it names.
-  sips -z 192 192 apps/app/assets/icon.png --out apps/app/dist/icon-192.png >/dev/null 2>&1
-  sips -z 512 512 apps/app/assets/icon.png --out apps/app/dist/icon-512.png >/dev/null 2>&1
   # The export's own base path, not WEB_PATH — see the long note in
   # server/deploy.sh. WEB_PATH is where the files sit on disk
   # (/test/calmind); the browser is at /calmind on test.seancheren.com, and

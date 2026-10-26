@@ -74,6 +74,18 @@ exported dist).
 "dtp" means this lane; "tdtp" means the full one, and it is where anything
 the quick lane let through gets caught. A red spot test still ships nothing.
 
+Both browser configs use `e2e/serve.cjs` to launch PHP with an environment
+object on every platform. Each run owns a fresh temporary data directory and
+control channel; global teardown stops PHP and removes that run's data before
+Playwright shuts down its shell. This avoids Unix shell syntax and orphaned
+PHP processes on Windows. `CALMIND_CHROMIUM_EXECUTABLE_PATH` can select an
+installed Chromium-compatible executable; unset, Playwright uses its normal
+browser installation. PHP inherits `PHPRC` and `OPENSSL_CONF` when needed.
+
+The deploy generates install icons through `tools/generate-pwa-icons.mjs`
+using Expo's image pipeline. Every PNG is parsed and checked at its required
+size before any API or web upload; an unreadable source stops deployment.
+
 And one AFTER it:
 
 ```sh

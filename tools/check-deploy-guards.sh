@@ -16,7 +16,7 @@
 set -e
 cd "$(dirname "$0")/.."
 
-TMP=$(mktemp -d -t deployguards)
+TMP=$(mktemp -d "${TMPDIR:-/tmp}/deployguards.XXXXXX")
 trap 'rm -rf "$TMP" server/_guardcheck-*.sh' EXIT
 PASS=0; FAIL=0
 ok()  { PASS=$((PASS+1)); printf '  \033[32m✓\033[0m %s\n' "$1"; }

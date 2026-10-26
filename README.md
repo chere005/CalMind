@@ -75,6 +75,8 @@ npm test
 
 Phones: `cd apps/app && npx expo start`, then `i` or `a`. `EXPO_PUBLIC_API_URL` points a build at another server. Deploy needs `server/deploy.conf` (copy the sample). Release: `npm run dtp` (or `tdtp`, tests first); the tag builds the desktop installers on GitHub.
 
+On Windows, run shell lanes from Git Bash with PHP (cURL, OpenSSL and mbstring) and rsync available. `npm run dtp -- --web` runs the web and GitHub release without local Apple or Android builds. Browser checks can use `CALMIND_CHROMIUM_EXECUTABLE_PATH` for an installed Chromium-compatible browser, or Playwright's installed Chromium.
+
 ## Documentation
 
 - [ARCHITECTURE.md](ARCHITECTURE.md): the tree, each platform, sync, environments, release lane.

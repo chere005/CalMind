@@ -31,7 +31,7 @@ done
 #
 # Captured to a file, not piped through tee: under plain sh there is no
 # pipefail, and `suite | tee` has tee's status — a red suite would sail on.
-OUT=$(mktemp -t calmind-testdev)
+OUT=$(mktemp "${TMPDIR:-/tmp}/calmind-testdev.XXXXXX")
 trap 'rm -f "$OUT"' EXIT
 run_counted() { # <label> <npm script> [args...] — runs it, shows it, fails on red
   label="$1"; shift

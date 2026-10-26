@@ -324,7 +324,7 @@ if [ "$WEB" = 1 ]; then
     # record that renders. A broken export, a broken head patch, or a broken
     # store all fail here in under a minute.
     echo "==> spot gestures (--quick: the full suites wait for a tdtp)"
-    QLOG=$(mktemp -t calmind-quick)
+    QLOG=$(mktemp "${TMPDIR:-/tmp}/calmind-quick.XXXXXX")
     if ! npx playwright test e2e/app.spec.ts -g "signing up lands on the calendar|a reminder adds into its section" >"$QLOG" 2>&1; then
       echo "spot test failed — not deploying. Last lines:" >&2
       grep -E '✘|Error:|Timeout|[0-9]+ failed|webServer' "$QLOG" | tail -15 >&2
@@ -373,7 +373,7 @@ if [ "$WEB" = 1 ]; then
     case "$LISTED" in
       ''|*[!0-9]*|0) echo "could not count the gesture suite (playwright test --list) — not deploying" >&2; exit 1 ;;
     esac
-    GDIR=$(mktemp -d -t calmind-gestures)
+    GDIR=$(mktemp -d "${TMPDIR:-/tmp}/calmind-gestures.XXXXXX")
     echo "==> gestures: $LISTED tests in $SHARDS shards, WebKit beside them (--no-gestures to skip)"
     G0=$(date +%s)
     # perl only to undo one thing the shell does: a background job of a
@@ -463,6 +463,11 @@ if [ "$WEB" = 1 ]; then
   AFTER=$(grep -o 'index-[a-zA-Z0-9]*\.js' apps/app/dist/index.html | head -1)
   [ "$AFTER" = "$BEFORE" ] || {
     echo "dist was rebuilt under this deploy: gated $BEFORE, now $AFTER — not deploying" >&2; exit 1; }
+  # All install assets must exist and parse before any instance is uploaded.
+  # Expo's image pipeline also works on Windows and Linux; sips was macOS-only
+  # and failed after the API had already shipped.
+  echo "==> install icons"
+  node tools/generate-pwa-icons.mjs || { echo "install icons failed — not deploying" >&2; exit 1; }
 fi
 
 # The PHP half of the same question the bundle check asks: is this still the
@@ -514,12 +519,6 @@ upload_to() {
     echo "==> [$INST] web client -> $WEB_DEST/"
     ICOV=$(shasum apps/app/dist/favicon.ico | cut -c1-8)
     perl -i -pe "s|favicon\.ico(\?v=[0-9a-f]*)?|favicon.ico?v=$ICOV|" apps/app/dist/index.html
-    # The home-screen icon: iOS reads apple-touch-icon, which expo doesn't emit.
-    sips -z 180 180 apps/app/assets/icon.png --out apps/app/dist/apple-touch-icon.png >/dev/null 2>&1
-    # …and the manifest's pair, for Android and desktop installs. The manifest
-    # itself is written by the export's head patch; these are what it names.
-    sips -z 192 192 apps/app/assets/icon.png --out apps/app/dist/icon-192.png >/dev/null 2>&1
-    sips -z 512 512 apps/app/assets/icon.png --out apps/app/dist/icon-512.png >/dev/null 2>&1
     # REWRITTEN, not inserted-if-absent: one dist is uploaded to every target
     # in turn, so an insert-once rule hands every later instance whatever the
     # FIRST one wrote.
