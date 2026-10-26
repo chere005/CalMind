@@ -4,7 +4,7 @@
  * box, and Manage calendars… with add / rename / recolor / delete (rules from
  * core) and the default calendar for new events.
  */
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import {
   byRecOrd,
@@ -28,6 +28,13 @@ import { Dropdown } from './Dropdown';
 import { ordForMove, useRowDrag } from './rowdrag';
 import { SwatchTray } from './SwatchTray';
 import { PieDot } from './PieDot';
+
+/** Editions supply their own import flow; the shared picker keeps the link
+ *  entry form when no replacement is provided. */
+export type CalendarPickProps = {
+  renderImport?: (props: { subs: Rec<'calsub'>[]; colorOffset: number }) => ReactNode;
+  subscriptionLabel?: (subscription: Rec<'calsub'>['payload']) => string;
+};
 
 export type CalendarView = {
   sharedCals: Rec<'calendar'>[];
@@ -65,7 +72,7 @@ export function useCalendarView(): CalendarView {
   }, [recs, sharedRecs, sharedPartner]);
 }
 
-export function CalendarPick() {
+export function CalendarPick({ renderImport, subscriptionLabel }: CalendarPickProps = {}) {
   const { recs, mutate, sharedPartnerLabel } = useStore();
   const [manageRem, setManageRem] = useState(false);
   const { view, hidden, calendars, visible, sharedCals, hiddenShared, visibleShared, subs, hiddenSubs, visibleSubs } = useCalendarView();
@@ -202,7 +209,7 @@ export function CalendarPick() {
                       >
                         <View style={[s.dot, { backgroundColor: c.payload.color }]} />
                         <Text style={s.rowText}>{c.payload.name}</Text>
-                        <Text style={s.subChip}>link</Text>
+                        <Text style={s.subChip}>{subscriptionLabel?.(c.payload) ?? 'link'}</Text>
                       </Pressable>
                     </View>
                   );
@@ -223,7 +230,7 @@ export function CalendarPick() {
         </Modal>
       )}
 
-      {manage && <CalendarManager onClose={() => setManage(false)} />}
+      {manage && <CalendarManager onClose={() => setManage(false)} renderImport={renderImport} subscriptionLabel={subscriptionLabel} />}
       {manageRem && <ReminderFoldersManager onClose={() => setManageRem(false)} />}
     </>
   );
@@ -296,7 +303,7 @@ function ReminderFoldersManager({ onClose }: { onClose: () => void }) {
   );
 }
 
-function CalendarManager({ onClose }: { onClose: () => void }) {
+function CalendarManager({ onClose, renderImport, subscriptionLabel }: CalendarPickProps & { onClose: () => void }) {
   const { recs, mutate, sharedRecs, sharedPartner, sharedPartnerLabel } = useStore();
   // The viewer's recolour of a partner's shared calendar — my override, my
   // prefs, the lighter shared palette, their data untouched.
@@ -338,15 +345,8 @@ function CalendarManager({ onClose }: { onClose: () => void }) {
     });
   };
 
-  /**
-   * Subscribe by link. The NAME is not asked for up front: nearly every feed
-   * URL names its host, and the row can be renamed like any calendar — one
-   * field beats two for a thing pasted from a clipboard. Validation is only
-   * the scheme; whether the link actually answers with a calendar is the
-   * server's question (calsub_fetch says 'that link is not a calendar'), and
-   * the row appearing immediately with events arriving on the next fetch is
-   * the same local-first shape as everything else here.
-   */
+  /** Legacy link entry stays local-first for editions without an import
+   *  provider: only the connection record is created here. */
   const subscribe = () => {
     const url = subUrl.trim();
     if (!url) return;
@@ -428,12 +428,14 @@ function CalendarManager({ onClose }: { onClose: () => void }) {
               </View>
             ))}
             {drag.slot === calendars.length && <View style={s.dropLine} />}
-            <Text style={s.mlabel}>Subscribed by link</Text>
-            <Text style={s.subhead}>Read-only: another calendar's events, drawn here, never edited here.</Text>
-            <View style={s.addRow}>
-              <Field testID="calsub-url" value={subUrl} onChangeText={setSubUrl} placeholder="https://… or webcal://… (.ics link)" style={s.addField} autoCapitalize="none" onSubmitEditing={subscribe} />
-              <CircleBtn testID="calsub-add" glyph="+" label="Subscribe" color={T.accent} size={34} onPress={subscribe} />
-            </View>
+            {renderImport ? renderImport({ subs, colorOffset: calendars.length + subs.length }) : <>
+              <Text style={s.mlabel}>Subscribed by link</Text>
+              <Text style={s.subhead}>Read-only: another calendar's events, drawn here, never edited here.</Text>
+              <View style={s.addRow}>
+                <Field testID="calsub-url" value={subUrl} onChangeText={setSubUrl} placeholder="https://… or webcal://… (.ics link)" style={s.addField} autoCapitalize="none" onSubmitEditing={subscribe} />
+                <CircleBtn testID="calsub-add" glyph="+" label="Subscribe" color={T.accent} size={34} onPress={subscribe} />
+              </View>
+            </>}
             {subs.map((c) => (
               <View key={c.id} style={s.mrow}>
                 <SwatchTray palette={APP_PALETTES.calendar} color={c.payload.color} onPick={(hex) => mutate((e) => e.put({ ...c, payload: { ...c.payload, color: hex } }))} />
@@ -449,6 +451,7 @@ function CalendarManager({ onClose }: { onClose: () => void }) {
                 ) : (
                   <Text style={s.rowText} numberOfLines={1}>{c.payload.name}</Text>
                 )}
+                {subscriptionLabel && <Text style={s.subChip}>{subscriptionLabel(c.payload)}</Text>}
                 <CircleBtn glyph="✎" label="Edit" size={26} onPress={() => { setRenaming(c.id); setRenameText(c.payload.name); }} />
                 <ConfirmDelete onDelete={() => mutate((e) => e.del(c.id))} />
               </View>

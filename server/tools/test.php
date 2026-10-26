@@ -35,14 +35,12 @@ $sock = stream_socket_server('tcp://127.0.0.1:0', $e1, $e2);
 $port = (int) explode(':', stream_socket_get_name($sock, false))[1];
 fclose($sock);
 $srv = proc_open(
-    'CALMIND_DATA_DIR=' . escapeshellarg($scratch)
+    [PHP_BINARY, '-d', 'display_errors=1', '-d', 'error_reporting=E_ALL', '-S', '127.0.0.1:' . $port, '-t', $root . '/public'],
     // Whose request page this instance serves. The availability editor is
     // the owner's alone, so the harness has to be able to BE the owner; the
     // scratch dir is new every run, so a fixed name never collides.
-    . ' CALMIND_MEETREQ_USER=mrowner'
-    . ' php -d display_errors=1 -d error_reporting=E_ALL -S 127.0.0.1:' . $port . ' -t ' . escapeshellarg($root . '/public'),
-    [1 => ['file', '/dev/null', 'w'], 2 => ['file', $scratch . '/server.log', 'w']],
-    $pipes
+    [1 => ['file', PHP_OS_FAMILY === 'Windows' ? 'NUL' : '/dev/null', 'w'], 2 => ['file', $scratch . '/server.log', 'w']],
+    $pipes, null, array_merge(getenv(), ['CALMIND_DATA_DIR' => $scratch, 'CALMIND_MEETREQ_USER' => 'mrowner'])
 );
 register_shutdown_function(function () use (&$srv, $scratch) {
     if (is_resource($srv)) { proc_terminate($srv); proc_close($srv); }
@@ -756,8 +754,8 @@ for ($i = 0; $i < 40; $i++) {
     $procs = [];
     for ($k = 0; $k < 4; $k++) {
         $procs[] = proc_open(
-            'php ' . escapeshellarg($worker) . ' ' . escapeshellarg($root) . ' ' . escapeshellarg($scratch),
-            [1 => ['file', '/dev/null', 'w'], 2 => ['file', '/dev/null', 'w']],
+            [PHP_BINARY, $worker, $root, $scratch],
+            [1 => ['file', PHP_OS_FAMILY === 'Windows' ? 'NUL' : '/dev/null', 'w'], 2 => ['file', PHP_OS_FAMILY === 'Windows' ? 'NUL' : '/dev/null', 'w']],
             $pipes,
         );
     }
@@ -1374,6 +1372,11 @@ t('calsub_fetch: a fresh cache answers without fetching; a stale one is the fall
     eq(200, $r['status'], 'a fresh cache answers');
     eq(true, $r['body']['cached'] ?? null, 'and says it was the cache');
     ok(str_contains((string) ($r['body']['ics'] ?? ''), 'SUMMARY:Seeded'), 'with the seeded calendar');
+    foreach (['ical', 'google'] as $source) {
+        $explicit = api(['action' => 'calsub_fetch', 'source' => $source, 'url' => $url], $tok);
+        eq(200, $explicit['status'], "the UI's explicit $source source is accepted");
+        eq($ics, $explicit['body']['ics'] ?? null, "$source uses the existing feed cache");
+    }
 
     // Stale: the fetch runs, the guard refuses it, and last week's calendar
     // beats an error on a train.
@@ -1388,6 +1391,41 @@ t('calsub_fetch: a fresh cache answers without fetching; a stale one is the fall
     // And the cache file is ENC1 at rest — a private feed's content is
     // someone's calendar, and this is the same trade the record store makes.
     ok(str_starts_with((string) file_get_contents($file), 'ENC1:'), 'the cache is encrypted at rest');
+});
+
+require __DIR__ . '/caldav-tests.php';
+
+t('CalDAV API requires login and validates HTTPS, credentials and public addresses', function () {
+    $u = 'dav' . substr((string) mt_rand(), 0, 6);
+    $tok = api(['action' => 'signup', 'username' => $u, 'email' => $u . '@example.com', 'password' => 'caldavpassword'])['body']['token'] ?? '';
+    ok($tok !== '', 'disposable account has a valid token');
+    eq(401, api(['action' => 'calsub_discover', 'url' => 'https://127.0.0.1/'])['status']);
+    foreach (['calsub_discover', 'calsub_fetch'] as $action) {
+        $base = ['action' => $action, 'source' => 'caldav', 'url' => 'https://127.0.0.1/', 'username' => 'alice', 'password' => 'secret'];
+        $blocked = api($base, $tok);
+        eq(400, $blocked['status']);
+        ok(str_contains($blocked['body']['error'], 'not one this server will fetch'), 'private host refused before network');
+        eq(400, api(array_merge($base, ['url' => 'http://127.0.0.1/']), $tok)['status'], 'no HTTP credentials');
+        eq(400, api(array_merge($base, ['password' => '']), $tok)['status'], 'credentials required');
+    }
+    eq(400, api(['action' => 'calsub_fetch', 'source' => 'unknown', 'url' => 'https://127.0.0.1/'], $tok)['status']);
+});
+
+t('CalDAV API uses encrypted credential-specific cache and retains stale calendars offline', function () use ($scratch) {
+    $u = 'dvc' . substr((string) mt_rand(), 0, 6);
+    $tok = api(['action' => 'signup', 'username' => $u, 'email' => $u . '@example.com', 'password' => 'caldavpassword'])['body']['token'] ?? '';
+    ok($tok !== '', 'disposable account has a valid token');
+    $cfg = ['data_dir' => $scratch];
+    $url = 'https://127.0.0.1/private-caldav/';
+    $file = caldav_cache_file($cfg, $u, $url, 'davuser', 'app-secret');
+    $ics = "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nEND:VCALENDAR\r\n";
+    $body = ['action' => 'calsub_fetch', 'source' => 'caldav', 'url' => $url, 'username' => 'davuser', 'password' => 'app-secret'];
+    store_write($cfg, $file, ['at' => time(), 'ics' => $ics]);
+    eq($ics, api($body, $tok)['body']['ics'] ?? null, 'fresh cache answers');
+    store_write($cfg, $file, ['at' => time() - 960, 'ics' => $ics]);
+    eq(true, api($body, $tok)['body']['stale'] ?? null, 'offline refresh retains last good copy');
+    eq(400, api(array_merge($body, ['password' => 'different-password']), $tok)['status'], 'new credentials cannot reuse old cache');
+    ok(str_starts_with(file_get_contents($file), 'ENC1:'), 'private calendar cache encrypted');
 });
 
 

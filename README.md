@@ -29,6 +29,14 @@ Feel free to deploy this on your own website, build and deploy the iOS version, 
 
 Calendars, reminders, notes and ChefMind recipes in one month view. Unfinished reminders carry forward until checked off.
 
+Use the calendar picker → **Manage calendars…** → **Import read-only calendars**:
+
+- **Google:** paste the calendar's **Secret address in iCal format** from Google Calendar settings → your calendar → **Integrate calendar**. Public iCal links work too. Some work or school accounts hide the secret address; their administrator controls its availability. See [Google's view-only setup](https://support.google.com/calendar/answer/37648?hl=en).
+- **CalDAV:** enter the HTTPS server or calendar URL, username and password (an app password if your provider requires one), then choose calendars to import. Each selected calendar creates its own new read-only calendar folder. If the provider redirects to a different host, use its direct calendar-home or collection URL.
+- **Calendar link:** paste another provider's `.ics` or `webcal://` link.
+
+Imports create separate calendar folders and leave your existing folders intact. Imported events refresh on foreground or every twenty minutes, with a cached copy for offline use. Rename, recolor, hide or remove the connection here; edit events in the original calendar. Google uses its iCal feed, so no Google Cloud project or OAuth setup is needed. CalDAV requires the server's cURL and DOM XML extensions. Connection details sync with your account and are encrypted at rest on the server, like the rest of the snapshot; local app storage contains the connection details.
+
 <picture><img src="docs/screenshots/calmind-dinner-calendar-mobile.png" width="320" alt="Calendar"></picture>
 
 ### Reminders

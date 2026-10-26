@@ -77,6 +77,7 @@ match ((string) ($in['action'] ?? '')) {
     'spaces'          => handle_spaces(),
     'recipe_fetch'    => handle_recipe_fetch($cfg, $in),
     'calsub_fetch'    => handle_calsub_fetch($cfg, $in),
+    'calsub_discover' => handle_calsub_discover($cfg, $in),
     // The meeting-request pair is PUBLIC (the page is a link anyone may
     // hold); the mail answer is the owner's client and requires auth.
     'meetreq_slots'   => handle_meetreq_slots($cfg, $in),

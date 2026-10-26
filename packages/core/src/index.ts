@@ -10,6 +10,7 @@ export * from './b64u';
 export * from './ical';
 export * from './rrule';
 export * from './calsub';
+export * from './calimport';
 export * from './markdown';
 export * from './recipe';
 export * from './rules';

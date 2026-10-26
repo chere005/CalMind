@@ -1,0 +1,47 @@
+{
+  "url": [
+    { "name": "legacy webcal becomes HTTPS", "input": " webcal://Example.com/work.ics ", "expect": "https://example.com/work.ics" },
+    { "name": "public HTTP feeds remain supported", "input": "http://example.com/work.ics", "expect": "http://example.com/work.ics" },
+    { "name": "default HTTPS port is canonical", "input": "https://EXAMPLE.com:443/work.ics?token=abc", "expect": "https://example.com/work.ics?token=abc" },
+    { "name": "a missing host is invalid", "input": "https://", "expect": null },
+    { "name": "a relative path is invalid", "input": "/work.ics", "expect": null },
+    { "name": "file URLs are invalid", "input": "file:///etc/passwd", "expect": null },
+    { "name": "userinfo must use separate fields", "input": "https://alice:secret@example.com/work.ics", "expect": null },
+    { "name": "fragments are refused", "input": "https://example.com/work.ics#secret", "expect": null },
+    { "name": "embedded whitespace is refused", "input": "https://example.com/work\n.ics", "expect": null },
+    { "name": "backslashes are refused", "input": "https://example.com\\work.ics", "expect": null },
+    { "name": "CalDAV requires HTTPS", "input": "http://example.com/dav/", "source": "caldav", "expect": null },
+    { "name": "CalDAV collection and query survive", "input": "https://example.com:8443/dav/alice/?export", "source": "caldav", "expect": "https://example.com:8443/dav/alice/?export" },
+    { "name": "Google private iCal URL is supported", "input": "https://calendar.google.com/calendar/ical/alice%40example.com/private-fixture/basic.ics", "source": "google", "expect": "https://calendar.google.com/calendar/ical/alice%40example.com/private-fixture/basic.ics" },
+    { "name": "Google public iCal URL is supported", "input": "https://www.google.com/calendar/ical/example/public/basic.ics", "source": "google", "expect": "https://www.google.com/calendar/ical/example/public/basic.ics" },
+    { "name": "Google browser link is not an import URL", "input": "https://calendar.google.com/calendar/u/0/r", "source": "google", "expect": null },
+    { "name": "Google embeds are not import URLs", "input": "https://calendar.google.com/calendar/embed?src=example", "source": "google", "expect": null },
+    { "name": "lookalike Google host is refused", "input": "https://calendar.google.com.example.org/calendar/ical/example/public/basic.ics", "source": "google", "expect": null },
+    { "name": "Google imports require HTTPS", "input": "http://calendar.google.com/calendar/ical/example/public/basic.ics", "source": "google", "expect": null }
+  ],
+  "labels": [
+    { "name": "legacy link keeps its label", "sub": { "url": "https://example.com/work.ics" }, "expect": "link" },
+    { "name": "legacy Google feed is recognized", "sub": { "url": "https://calendar.google.com/calendar/ical/example/public/basic.ics" }, "expect": "Google" },
+    { "name": "CalDAV is explicit", "sub": { "url": "https://example.com/dav/", "source": "caldav" }, "expect": "CalDAV" },
+    { "name": "Google is explicit", "sub": { "url": "https://example.com/work.ics", "source": "google" }, "expect": "Google" }
+  ],
+  "identity": [
+    { "name": "Google and generic links to the same feed duplicate", "left": { "url": "webcal://calendar.google.com/calendar/ical/example/public/basic.ics" }, "right": { "url": "https://calendar.google.com/calendar/ical/example/public/basic.ics", "source": "google" }, "equal": true },
+    { "name": "CalDAV usernames trim surrounding spaces", "left": { "url": "https://example.com/dav/", "source": "caldav", "username": " alice " }, "right": { "url": "https://example.com/dav/", "source": "caldav", "username": "alice" }, "equal": true },
+    { "name": "different CalDAV users may share a URL", "left": { "url": "https://example.com/dav/", "source": "caldav", "username": "alice" }, "right": { "url": "https://example.com/dav/", "source": "caldav", "username": "bob" }, "equal": false },
+    { "name": "different feed tokens are different subscriptions", "left": { "url": "https://example.com/work.ics?token=a" }, "right": { "url": "https://example.com/work.ics?token=b" }, "equal": false }
+  ],
+  "names": [
+    { "name": "feed name unfolds and unescapes", "ics": "BEGIN:VCALENDAR\r\nX-WR-CALNAME:Work\\, tea\r\n m\r\nEND:VCALENDAR\r\n", "fallback": "example.com", "expect": "Work, team" },
+    { "name": "empty feed name uses fallback", "ics": "BEGIN:VCALENDAR\nX-WR-CALNAME: \nEND:VCALENDAR", "fallback": "Subscribed", "expect": "Subscribed" },
+    { "name": "an event property is not the calendar name", "ics": "BEGIN:VCALENDAR\nBEGIN:VEVENT\nX-WR-CALNAME:Misleading\nEND:VEVENT\nEND:VCALENDAR", "fallback": "Subscribed", "expect": "Subscribed" }
+  ],
+  "feeds": [
+    { "name": "empty calendars are valid", "ics": "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nEND:VCALENDAR\r\n", "expect": true },
+    { "name": "BOM and surrounding whitespace are accepted", "ics": "\ufeff\nBEGIN:VCALENDAR\nBEGIN:VEVENT\nUID:example\nEND:VEVENT\nEND:VCALENDAR\n", "expect": true },
+    { "name": "HTML containing calendar text is refused", "ics": "<html>BEGIN:VCALENDAR\nEND:VCALENDAR</html>", "expect": false },
+    { "name": "an unfinished calendar is refused", "ics": "BEGIN:VCALENDAR\nBEGIN:VEVENT\nUID:example\nEND:VEVENT", "expect": false },
+    { "name": "an unfinished event is refused", "ics": "BEGIN:VCALENDAR\nBEGIN:VEVENT\nEND:VCALENDAR", "expect": false },
+    { "name": "multiple calendar roots are refused", "ics": "BEGIN:VCALENDAR\nEND:VCALENDAR\nBEGIN:VCALENDAR\nEND:VCALENDAR", "expect": false }
+  ]
+}

@@ -77,7 +77,8 @@ kind of token.
 | `shared_pull` / `shared_put` | Bearer | Read/write the caller's share record. |
 | `spaces` | — | `{ spaces: [...] }` — the sync spaces this server knows. |
 | `recipe_fetch` | Bearer | Server-side fetch of a recipe URL (address-guarded). |
-| `calsub_fetch` | Bearer | Fetch + cache a subscribed `webcal://`/https calendar. |
+| `calsub_fetch` | Bearer | Fetch + cache an iCal feed or a read-only CalDAV calendar. |
+| `calsub_discover` | Bearer | Discover event calendars from a CalDAV account or collection. |
 | `meetreq_slots` | — | Public open/closed slots for the meeting-request page. |
 | `meetreq_create` | — | Book a slot (per-IP throttled). |
 | `meetreq_mail` | Bearer | Owner's client mails the booking answer. |
@@ -86,6 +87,32 @@ kind of token.
 `spaces` is public **deliberately**: ChefMind's deploy calls it before it ships,
 so a client can never go out in front of an API that would merge its records
 into the wrong store.
+
+## Read-only calendar imports
+
+`calsub_fetch` accepts `{ url, source? }`, where `source` is `ical` (the default),
+`google`, or `caldav`. Google uses its public or secret iCal feed URL; `webcal://`
+is treated as HTTPS. Success returns `{ ok: true, ics, cached }`, with
+`stale: true` when a refresh failed and the last good calendar is available.
+The server caches feeds for fifteen minutes; clients refresh every twenty
+minutes and on foreground. Remote events remain ICS content outside the sync
+snapshot and have no remote write path.
+
+For CalDAV, send `{ action: "calsub_discover", url, username, password }` to
+receive `{ ok: true, calendars: [{ url, name, color? }] }`. The URL can identify
+a server, calendar home or collection. The server follows principal/home
+properties and lists collections supporting events. Fetch a selected
+collection with `{ action: "calsub_fetch", source: "caldav", url, username,
+password }` to receive the same ICS response as a link subscription.
+
+CalDAV uses only `PROPFIND` and `REPORT`. Authenticated requests require HTTPS,
+public IP addresses and the same origin throughout discovery and redirects;
+the resolved address is pinned for the request. Providers that change hosts
+need their direct calendar-home or collection URL. Requests and responses are
+bounded in time and size, XML external entities are refused, and partial
+failures are errors. CalDAV cache entries are encrypted and separated by
+CalMind user, URL and credentials. Credentials are supplied with each request
+and kept in the encrypted subscription payload, never in cache filenames.
 
 ## Sync
 

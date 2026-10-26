@@ -30,7 +30,7 @@ file, and run this as part of ANY future compression.
 
 ## Suite counts, as of this commit
 
-core **754** · app **14** · gesture **294** (+2 skipped: the two live specs) · WebKit **15** · server **64** ·
+core **790** · app **14** · gesture **301** (+2 skipped: the two live specs) · WebKit **15** · server **77** ·
 live **19** with the API · desktop **7** (+3 in `npm run test:desktop`) · deploy guards **15** · plus the four
 native seam checkers no browser can reach: `npm run test:watch`,
 `npm run test:widget`, `npm run test:deploy`.
@@ -45,13 +45,10 @@ counts — ~40s, no browser).
 
 Each is blocked on his word, not on work.
 
-- **Gmail calendar** needs a Google Cloud project he creates himself. On a
-  personal gmail.com account, an app left in Testing mode expires its
-  refresh token roughly weekly; escaping that means Google verification,
-  onerous for these scopes, with no Workspace "Internal" shortcut. Parked
-  until he wants Gmail specifically — subscribe-by-link ICS shipped
-  2026-08-19 and covers "read someone else's calendar" today. CalDAV and
-  write-back are a different milestone he has de-prioritised ("read only").
+- **Google OAuth sign-in** needs a Google Cloud project. Read-only Google
+  calendar imports now use secret/public iCal links without that setup;
+  CalDAV discovery and read-only imports are implemented too. OAuth account
+  sign-in and remote write-back remain separate work.
 
 - **E2EE envelopes** (P2, 2026-08-19 — "lets discuss e2ee and larger notes
   later"). Design settled, build gated: X25519 + Argon2id-wrapped private

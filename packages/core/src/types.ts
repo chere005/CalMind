@@ -179,13 +179,20 @@ export type MeetAvail = {
   on: string[];  // 'HH:00' starts he opened over a clash
 };
 
-/** A calendar subscribed BY LINK, read-only (Sean, 2026-08-18: "subscribe-by-
- *  link first, i just want read only access to other calendar system"). The
- *  record is only the pointer — url, name, colour, its place in the picker.
+export type CalSubSource = 'ical' | 'google' | 'caldav';
+
+/** A read-only calendar subscription. The record holds the connection and
+ *  display preferences; optional source keeps existing link records valid.
  *  The EVENTS are never records: the server proxies the ICS (calsub_fetch)
  *  and core's subOccurrences reads it fresh on the client, so nothing from
  *  someone else's calendar can ever sync back out. */
-export type CalSub = { url: string; name: string; color: string; ord: string };
+export type CalSub = {
+  url: string; name: string; color: string; ord: string;
+  source?: CalSubSource;
+  /** CalDAV credentials travel in the encrypted payload, never in the URL. */
+  username?: string;
+  password?: string;
+};
 
 export type RecType =
   | 'folder'

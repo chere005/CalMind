@@ -19,6 +19,7 @@ require_once __DIR__ . '/mail.php';
 // caller. The SSRF care in it is the reason a user-supplied URL can be
 // fetched at all.
 require_once __DIR__ . '/fetchurl.php';
+require_once __DIR__ . '/caldav.php';
 
 const USERNAME_RE   = '/^[A-Za-z0-9_-]{2,20}$/';
 const REC_ID_RE     = '/^[A-Za-z0-9_-]{1,64}$/';
@@ -1122,16 +1123,26 @@ const CALSUB_CACHE_TTL = 900;
 
 function handle_calsub_fetch(array $cfg, array $in): never
 {
-    require_auth($cfg);
-    $url = trim((string) ($in['url'] ?? ''));
-    if ($url === '') {
-        fail(400, 'no url');
+    $user = require_auth($cfg);
+    $source = is_string($in['source'] ?? null) ? $in['source'] : '';
+    if (!in_array($source, ['', 'ical', 'ics', 'google', 'caldav'], true)) {
+        fail(400, 'unknown calendar source');
     }
-    // webcal:// is how calendar apps hand these links out; it MEANS https.
-    if (stripos($url, 'webcal://') === 0) {
-        $url = 'https://' . substr($url, 9);
+    if ($source === 'caldav') {
+        try { [$url, $username, $password] = caldav_credentials($in); }
+        catch (InvalidArgumentException $e) { fail(400, $e->getMessage()); }
+        $file = caldav_cache_file($cfg, $user, $url, $username, $password);
+    } else {
+        $url = trim((string) ($in['url'] ?? ''));
+        if ($url === '') {
+            fail(400, 'no url');
+        }
+        // webcal:// is how calendar apps hand these links out; it MEANS https.
+        if (stripos($url, 'webcal://') === 0) {
+            $url = 'https://' . substr($url, 9);
+        }
+        $file = $cfg['data_dir'] . '/icscache/' . sha1($url) . '.json';
     }
-    $file = $cfg['data_dir'] . '/icscache/' . sha1($url) . '.json';
     // A cache that will not decrypt is a cache miss, not an outage — unlike
     // the record store, everything here can be fetched again.
     try {
@@ -1143,7 +1154,12 @@ function handle_calsub_fetch(array $cfg, array $in): never
     if ($ics !== '' && (int) ($cached['at'] ?? 0) > time() - CALSUB_CACHE_TTL) {
         reply(200, ['ok' => true, 'ics' => $ics, 'cached' => true]);
     }
-    $res = fetch_url($url);
+    if ($source === 'caldav') {
+        try { $res = ['ok' => true, 'body' => caldav_fetch($url, $username, $password)]; }
+        catch (RuntimeException | InvalidArgumentException $e) { $res = ['ok' => false, 'error' => $e->getMessage()]; }
+    } else {
+        $res = fetch_url($url);
+    }
     if (!$res['ok']) {
         if ($ics !== '') {
             reply(200, ['ok' => true, 'ics' => $ics, 'cached' => true, 'stale' => true]);
@@ -1163,6 +1179,18 @@ function handle_calsub_fetch(array $cfg, array $in): never
     }
     store_write($cfg, $file, ['at' => time(), 'ics' => $body]);
     reply(200, ['ok' => true, 'ics' => $body, 'cached' => false]);
+}
+
+function handle_calsub_discover(array $cfg, array $in): never
+{
+    require_auth($cfg);
+    try {
+        [$url, $username, $password] = caldav_credentials($in);
+        $calendars = caldav_discover($url, $username, $password);
+    } catch (RuntimeException | InvalidArgumentException $e) {
+        fail(400, $e->getMessage());
+    }
+    reply(200, ['ok' => true, 'calendars' => $calendars]);
 }
 
 function handle_recipe_fetch(array $cfg, array $in): never

@@ -414,12 +414,15 @@ them; without all six it signs ad hoc and never fails for want of them.
    free-tier cap of three apps on a device is a limit this suite is under.
    `AGENTS.md`'s "Platforms" section is the current word on signing and on
    which phones a release installs to.
-6. **Calendar integrations** — subscribe-by-link shipped 2026-08-19:
-   read-only ICS subscriptions end to end (an authed server proxy with
-   per-hop SSRF guards and a 15-minute cache, core's iCalendar + RRULE
-   expansion into day-chips, and Manage calendars grows "Subscribed by
-   link"). OAuth, CalDAV and Gmail remain not started, deliberately — the
-   Gmail question (his own Google Cloud project) is still with Sean.
+6. **Calendar integrations** — read-only imports in Manage calendars:
+   generic ICS links, Google Calendar's secret/public iCal links, and CalDAV
+   account discovery plus selected calendar imports. The server proxies feeds
+   with a 15-minute cache; CalDAV uses HTTPS PROPFIND/REPORT with pinned public
+   addresses and same-origin discovery. Core's iCalendar + RRULE expansion
+   produces day-chips, never editable synced events. The client keeps content
+   outside the snapshot in an account/server-scoped cache and refreshes on
+   foreground or every twenty minutes. Google OAuth sign-in remains separate;
+   iCal imports need no Google Cloud project. See docs/api.md for the contract.
 
 ## License
 

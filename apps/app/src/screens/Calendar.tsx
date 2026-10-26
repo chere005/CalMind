@@ -26,6 +26,7 @@ import {
   prefsOf,
   reminderToggle,
   subOccurrences,
+  subSourceLabel,
   timeLabel,
   timeRangeLabel,
   eventDayLabel,
@@ -40,6 +41,7 @@ import { useClock24 } from '../useClock24';
 import { themed, T } from '../theme';
 import { TopBar } from '../chrome';
 import { CalendarPick, useCalendarView } from '../components/CalendarPick';
+import { CalendarImport } from '../components/CalendarImport';
 import { CalGlyph, ChefHatGlyph, PageGlyph, TickBoxGlyph } from '../components/KindIcons';
 import { ItemModal, type ItemKind } from '../components/ItemModal';
 import { useSwipeLeft } from '../components/swiperow';
@@ -559,7 +561,7 @@ export function Calendar({ onNoteCreated }: { onNoteCreated?: (id: string) => vo
         ])}
         showCompleted={showDone}
         onToggleCompleted={() => setShowDone(!showDone)}
-        picker={<CalendarPick />}
+        picker={<CalendarPick renderImport={(props) => <CalendarImport {...props} />} subscriptionLabel={subSourceLabel} />}
       />
       {/* The date centred over the grid; ◉ jumps home to today. */}
       <View style={s.pagerRow}>
