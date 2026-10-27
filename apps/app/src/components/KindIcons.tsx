@@ -27,6 +27,16 @@ export function TickBoxGlyph({ color, done = false, size = 11 }: { color: string
   );
 }
 
+/** A clock face, hands at ten past — the note editor's insert-the-time pill. */
+export function ClockGlyph({ color, size = 15 }: { color: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 12 12">
+      <Circle cx={6} cy={6} r={5} fill="none" stroke={color} strokeWidth={1.3} />
+      <Path d="M 6 3.2 V 6 L 8 7.2" stroke={color} strokeWidth={1.3} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
 /** A page: rect with a folded corner suggestion (two text lines). */
 export function PageGlyph({ color, size = 11 }: { color: string; size?: number }) {
   return (

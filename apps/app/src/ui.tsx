@@ -3,7 +3,7 @@
  * glyph buttons (always flex-centred — the rule the web checks by eye is the
  * default here), and the two-press delete that replaces every confirm box.
  */
-import { useRef, useState } from 'react';
+import { type ReactNode, useRef, useState } from 'react';
 import { Platform, Pressable, ScrollView, type ScrollViewProps, StyleSheet, Text, TextInput, type TextInputProps, View } from 'react-native';
 import Svg, { Polyline } from 'react-native-svg';
 import { LONG_PRESS_MS } from '@calmind/core';
@@ -189,6 +189,7 @@ export function Pill({
   disabled = false,
   compact = false,
   testID,
+  icon,
 }: {
   label: string;
   onPress: () => void;
@@ -223,6 +224,8 @@ export function Pill({
    */
   compact?: boolean;
   testID?: string;
+  /** Drawn in place of the label — give it a `label` anyway: that is what a screen reader says. */
+  icon?: ReactNode;
 }) {
   return (
     <Pressable
@@ -240,6 +243,7 @@ export function Pill({
       // control it should have refused; the role only made it visible.
       accessibilityRole="button"
       {...noSteal}
+      accessibilityLabel={icon ? label : undefined}
       testID={testID}
       onPress={onPress}
       disabled={disabled}
@@ -247,7 +251,7 @@ export function Pill({
       style={({ pressed }) => [s.pill, compact && s.pillCompact, primary && s.pillPrimary, pressed && s.pressed, disabled && s.disabled]}
     >
       {compact && <WebHitSlop slop={5} />}
-      <Text style={[s.pillText, primary && s.pillTextPrimary]}>{label}</Text>
+      {icon ?? <Text style={[s.pillText, primary && s.pillTextPrimary]}>{label}</Text>}
     </Pressable>
   );
 }

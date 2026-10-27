@@ -5,7 +5,7 @@
  */
 import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { chefDateOf, setChefDate, dayHeading, LONG_PRESS_MS, defaultNoteTitle, looksLikeDefaultNoteTitle, deleteSection, renameSection, sectionNameTaken, byRecOrd, ingredientParts, isRecipeNote, joinRecipeBody, richLines, scaleRecipeBody, splitRecipeBody, duplicateItem, prefsPut, moveNote, moveSection, moveSectionEmptyingFolder, newId, nowStr, ordBetween, parseWhenFromText, todayStr, type Rec } from '@calmind/core';
+import { chefDateOf, setChefDate, dayHeading, LONG_PRESS_MS, defaultNoteTitle, looksLikeDefaultNoteTitle, deleteSection, renameSection, sectionNameTaken, byRecOrd, ingredientParts, isRecipeNote, joinRecipeBody, richLines, scaleRecipeBody, splitRecipeBody, duplicateItem, prefsPut, moveNote, moveSection, moveSectionEmptyingFolder, newId, insertTimestamp, nowStr, ordBetween, parseWhenFromText, todayStr, type Rec } from '@calmind/core';
 import * as Clipboard from 'expo-clipboard';
 import { useStore } from '../store';
 import { UnitBadge } from '../components/IngredientBadge';
@@ -16,6 +16,7 @@ import { TopBar } from '../chrome';
 import { FolderPick, useFolderView } from '../components/FolderPick';
 import { CircleBtn, ConfirmDelete, DayPickBtn, DeletePill, Field, FoldCaret, Pill, Scroll, TOPBAR_CTRL, TOPBAR_DOT_TOP, WebHitSlop } from '../ui';
 import { useFolds } from '../folds';
+import { useClock24 } from '../useClock24';
 import { DayPick } from '../components/DayPick';
 import { Dropdown } from '../components/Dropdown';
 import { useRowDrag } from '../components/rowdrag';
@@ -23,7 +24,7 @@ import { dropTarget, slotEntries } from '../components/rowslots';
 import { useSectionDrag, type SectionSlot } from '../components/sectiondrag';
 import { useSwipeLeft } from '../components/swiperow';
 import { Chevron } from '../components/Chevron';
-import { ChefHatGlyph } from '../components/KindIcons';
+import { ChefHatGlyph, ClockGlyph } from '../components/KindIcons';
 import { SyncDot, syncWord } from '../components/SyncDot';
 import { useToast } from '../components/Toast';
 import { EditExit } from '../components/EditExit';
@@ -154,6 +155,7 @@ function NoteBody({ body, recipe, onLine }: { body: string; recipe: boolean; onL
 export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | null; onOpenConsumed?: () => void }) {
   const { recs, mutate, sharedRecs, sharedPartnerLabel, syncState, persistFailed, chefRecs } = useStore();
   const nav = useNav();
+  const clock24 = useClock24();
   const { view, visible: visibleFolders, visibleShared, sharedView, sharedPartner } = useFolderView('notes');
   const setNotePrefs = (lastView: string) => mutate((e) => e.put(prefsPut(recs, 'notes', { lastView })));
   const [openId, setOpenId] = useState<string | null>(null);
@@ -311,6 +313,18 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
   // fires on a device; on web it is a harmless no-op over autoFocus.
   const bodyRef = React.useRef<TextInput | null>(null);
   const titleRef = React.useRef<TextInput | null>(null);
+  // Where a pill wants the caret once its edit has rendered. A layout effect,
+  // not a timer: a timer lost the race to the next keystroke and put the caret
+  // back BEFORE the letter just typed.
+  const pendingCaret = React.useRef<number | null>(null);
+  React.useLayoutEffect(() => {
+    const caret = pendingCaret.current;
+    if (caret === null) return;
+    pendingCaret.current = null;
+    const f = bodyRef.current as unknown as { setSelection?: (a: number, b: number) => void; setSelectionRange?: (a: number, b: number) => void } | null;
+    f?.setSelection?.(caret, caret);
+    f?.setSelectionRange?.(caret, caret);
+  });
   // Whether THIS editing session opened on a recipe note — decided when the
   // editor opens, never re-decided mid-keystroke, or typing markers into a
   // plain note would swap the field out from under the typing hand.
@@ -612,19 +626,46 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
     setOpenId(id);
   };
 
-  const wrapSel = (before: string, after = before) => {
+  // The body AS THE FIELD SHOWS IT. While the body is being typed in, the
+  // field reads `draft`, not the record — so a pill that edited the record
+  // alone changed nothing on screen, and the next keystroke wrote the draft
+  // back over it. Both halves move together now.
+  const bodyNow = () => draft ?? open?.payload.body ?? '';
+  const putBody = (next: string, caret?: number) => {
     if (!open) return;
-    const b = open.payload.body;
-    const { start, end } = sel;
-    const next = b.slice(0, start) + before + b.slice(start, end) + after + b.slice(end);
+    if (draft !== null) setDraft(next);
     mutate((e) => e.put({ ...open, payload: { ...open.payload, body: next } }));
+    if (caret === undefined) return;
+    setSel({ start: caret, end: caret });
+    if (bodyEditing) pendingCaret.current = caret;
+  };
+  const wrapSel = (before: string, after = before) => {
+    const b = bodyNow();
+    const { start, end } = sel;
+    putBody(b.slice(0, start) + before + b.slice(start, end) + after + b.slice(end));
   };
   const linePrefix = (marker: string) => {
-    if (!open) return;
-    const b = open.payload.body;
+    const b = bodyNow();
     const at = b.lastIndexOf('\n', Math.max(0, sel.start - 1)) + 1;
-    const next = b.slice(0, at) + marker + b.slice(at);
-    mutate((e) => e.put({ ...open, payload: { ...open.payload, body: next } }));
+    putBody(b.slice(0, at) + marker + b.slice(at));
+  };
+  // The clock pill (Sean, 2026-10-26): now, at the caret while typing; at the
+  // END of the note when it is only being read, since there is no caret then.
+  const stampNow = () => {
+    if (!open) return;
+    if (bodyEditing && editAsRecipe.current) {
+      // A recipe note types in two banks; the stamp goes at the end of the one above.
+      const es = splitRecipeBody(open.payload.body)!;
+      const b = beforeDraft ?? es.before;
+      const { body: next } = insertTimestamp(b, b.length, b.length, new Date(), clock24);
+      setBeforeDraft(next);
+      mutate((e) => e.put({ ...open, payload: { ...open.payload, body: joinRecipeBody(next, es.recipe, afterDraft ?? es.after) } }));
+      return;
+    }
+    const b = bodyNow();
+    const [a, z] = bodyEditing ? [sel.start, sel.end] : [b.length, b.length];
+    const { body: next, caret } = insertTimestamp(b, a, z, new Date(), clock24);
+    putBody(next, caret);
   };
 
   /**
@@ -799,7 +840,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
         <View style={s.edStatus} pointerEvents="none">
           <SyncDot testID="editor-sync" withText />
         </View>
-        <Scroll contentContainerStyle={s.editor}>
+        <Scroll contentContainerStyle={s.editor} keyboardShouldPersistTaps="handled">
           <View style={s.titleRow}>
             <TextInput
               ref={titleRef}
@@ -878,6 +919,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
             <Pill label="I" onPress={() => wrapSel('*')} />
             <Pill label="U" onPress={() => wrapSel('__')} />
             <Pill label="· List" onPress={() => linePrefix('- ')} />
+            <Pill testID="note-stamp" label="Insert date and time" icon={<ClockGlyph color={T.text} />} onPress={stampNow} />
             <Pill
               testID="recipe-import"
               label="Recipe"

@@ -1,5 +1,26 @@
 import { describe, it, expect } from 'vitest';
-import { defaultNoteTitle, looksLikeDefaultNoteTitle, parseClockField, parseTimeFromText, parseTimeRangeFromText, timeLabel } from '../src/parse';
+import { defaultNoteTitle, insertTimestamp, looksLikeDefaultNoteTitle, parseClockField, parseTimeFromText, parseTimeRangeFromText, timeLabel } from '../src/parse';
+
+describe('insertTimestamp — the clock pill in the note editor', () => {
+  const at = new Date(2026, 9, 26, 15, 4);
+  it('into an empty note, caret after it', () => {
+    expect(insertTimestamp('', 0, 0, at)).toEqual({ body: 'Oct 26, 2026 at 3:04pm ', caret: 23 });
+  });
+  it('after a word gets a space before it, and before one that follows', () => {
+    expect(insertTimestamp('Called', 6, 6, at).body).toBe('Called Oct 26, 2026 at 3:04pm ');
+    expect(insertTimestamp('ab', 1, 1, at).body).toBe('a Oct 26, 2026 at 3:04pm b');
+  });
+  it('adds no doubled space where whitespace already sits', () => {
+    expect(insertTimestamp('Called \nnext', 7, 7, at)).toEqual({ body: 'Called Oct 26, 2026 at 3:04pm\nnext', caret: 29 });
+  });
+  it('replaces a selection, and survives a stale one past the end', () => {
+    expect(insertTimestamp('a XX b', 2, 4, at).body).toBe('a Oct 26, 2026 at 3:04pm b');
+    expect(insertTimestamp('hi', 9, 9, at).body).toBe('hi Oct 26, 2026 at 3:04pm ');
+  });
+  it('honours the 24-hour clock', () => {
+    expect(insertTimestamp('', 0, 0, at, true).body).toBe('Oct 26, 2026 at 15:04 ');
+  });
+});
 
 
 describe('defaultNoteTitle — a new note arrives readable', () => {

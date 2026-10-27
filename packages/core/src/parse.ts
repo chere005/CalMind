@@ -645,6 +645,33 @@ export function defaultNoteTitle(d = new Date()): string {
 }
 
 /**
+ * The clock pill in the note editor: drop "now" into the body where the caret
+ * is (Sean, 2026-10-26). Same words as a new note's title, in whichever clock
+ * the suite is set to, and it REPLACES a selection, as typing would.
+ *
+ * Spaced so it never glues onto a word: one space before it unless the caret
+ * is already after whitespace or at the start, and one after it unless
+ * whitespace already follows — so typing straight on reads naturally. Returns
+ * the caret, which lands after that trailing space.
+ */
+export function insertTimestamp(
+  body: string,
+  start: number,
+  end: number,
+  d = new Date(),
+  clock24 = false,
+): { body: string; caret: number } {
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const a = Math.max(0, Math.min(start, end, body.length));
+  const b = Math.max(a, Math.min(Math.max(start, end), body.length));
+  const stamp = `${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()} at ${timeLabel(nowStr(d), clock24)}`;
+  const lead = a > 0 && !/\s/.test(body[a - 1]!) ? ' ' : '';
+  const trail = b < body.length && /\s/.test(body[b]!) ? '' : ' ';
+  const ins = lead + stamp + trail;
+  return { body: body.slice(0, a) + ins + body.slice(b), caret: a + ins.length };
+}
+
+/**
  * Does this title look like one defaultNoteTitle wrote?
  *
  * Needed because the default title IS a date, and the title field parses
