@@ -5,7 +5,7 @@
  */
 import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { chefDateOf, setChefDate, dayHeading, LONG_PRESS_MS, defaultNoteTitle, looksLikeDefaultNoteTitle, deleteSection, renameSection, sectionNameTaken, byRecOrd, ingredientParts, isRecipeNote, joinRecipeBody, richLines, scaleRecipeBody, splitRecipeBody, duplicateItem, prefsPut, moveNote, moveSection, moveSectionEmptyingFolder, newId, insertTimestamp, nowStr, ordBetween, parseWhenFromText, todayStr, type Rec } from '@calmind/core';
+import { chefDateOf, setChefDate, dayHeading, LONG_PRESS_MS, defaultNoteTitle, looksLikeDefaultNoteTitle, deleteSection, renameSection, sectionNameTaken, byRecOrd, ingredientParts, isRecipeNote, joinRecipeBody, richLines, scaleRecipeBody, splitRecipeBody, duplicateItem, prefsPut, moveNote, moveSection, moveSectionEmptyingFolder, newId, insertTimestamp, nowStr, ordBetween, parseWhenFromText, stampParts, todayStr, type Rec } from '@calmind/core';
 import * as Clipboard from 'expo-clipboard';
 import { useStore } from '../store';
 import { UnitBadge } from '../components/IngredientBadge';
@@ -102,6 +102,8 @@ function RichBody({ body, onLine, badges }: { body: string; onLine?: (text: stri
             <RichText text={parts.name || raw} style={s.rtText} />
             <UnitBadge qty={parts.qty} unit={parts.unit} />
           </>
+        ) : ln.runs.some((r) => stampParts(r.text).some((p) => p.stamp)) ? (
+          <StampLine runs={ln.runs} quote={ln.kind === 'quote'} />
         ) : (
           <Text style={[s.rtText, ln.kind === 'quote' && s.rtQuoteText]}>
             {ln.runs.map((r, j) => (
@@ -127,6 +129,45 @@ function RichBody({ body, onLine, badges }: { body: string; onLine?: (text: stri
       })}
     </>
   );
+}
+
+/**
+ * A line carrying a timestamp, the stamp drawn as a small card in the recipe
+ * card's own dress — accent bar on the left, the tinted inset, its tag type —
+ * with the clock the pill wears (Sean, 2026-10-27: "pretty formatting like a
+ * recipe card"). A wrapping ROW of pieces rather than a View inside a Text:
+ * inline views sit on the baseline differently on each platform, and this
+ * line has to look the same in Safari, on the phone and on the desktop.
+ */
+function StampLine({ runs, quote }: { runs: { text: string; bold?: boolean; italic?: boolean; under?: boolean }[]; quote: boolean }) {
+  const items: React.ReactNode[] = [];
+  let group: React.ReactNode[] = [];
+  const flush = () => {
+    if (group.length) items.push(<Text key={items.length} style={[s.rtText, quote && s.rtQuoteText]}>{group}</Text>);
+    group = [];
+  };
+  runs.forEach((r, j) => {
+    const parts = stampParts(r.text);
+    parts.forEach((p, k) => {
+      if (p.stamp) {
+        flush();
+        items.push(
+          <View key={items.length} testID="note-stamp-chip" style={s.stampChip}>
+            <ClockGlyph color={T.accent} size={12} />
+            <Text style={s.stampText}>{p.text.replace(' at ', ' · ')}</Text>
+          </View>,
+        );
+        return;
+      }
+      // The spaces beside a card are the row's gap now, not a second one.
+      let t = p.text;
+      if (k > 0) t = t.replace(/^\s+/, '');
+      if (k < parts.length - 1) t = t.replace(/\s+$/, '');
+      if (t) group.push(<Text key={`${j}.${k}`} style={[r.bold && s.rtBold, r.italic && s.rtItalic, r.under && s.rtUnder]}>{t}</Text>);
+    });
+  });
+  flush();
+  return <View style={s.stampLine}>{items}</View>;
 }
 
 /**
@@ -1941,6 +1982,23 @@ const s = themed(() => StyleSheet.create({
     gap: 2,
   },
   recipeTag: { color: T.accent, fontSize: 11, fontWeight: '800', fontStyle: 'italic', textTransform: 'uppercase', letterSpacing: 0.6 },
+  // A timestamp in the read view: the recipe card's dress, at the size of a
+  // word in the line — the pieces either side wrap round it.
+  stampLine: { flex: 1, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 6, rowGap: 2 },
+  stampChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    borderLeftWidth: 3,
+    borderLeftColor: T.accent,
+    backgroundColor: T.surface2,
+    borderRadius: 8,
+    paddingVertical: 3,
+    paddingLeft: 7,
+    paddingRight: 9,
+    marginVertical: 1,
+  },
+  stampText: { color: T.accent, fontSize: 11, lineHeight: 14, fontWeight: '800', fontStyle: 'italic', textTransform: 'uppercase', letterSpacing: 0.6 },
   // The editor's version of the same thing, kept SMALL on purpose: one quiet
   // quoted chip standing where the recipe is, never as tall as the recipe.
   recipeBlob: {

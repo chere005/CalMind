@@ -37,10 +37,18 @@ test('the clock pill stamps now at the caret, and typing carries on after it', a
   await page.keyboard.type('done');
   await expect(body).toHaveValue(new RegExp(`^Called ${STAMP.source} done$`));
 
-  // Leave and come back: the record has it, not just the field.
+  // Leave and come back: the record has it, not just the field — and the
+  // read view draws it as the stamp card, between the words either side.
   await page.getByTestId('note-back').click();
   await page.getByTestId('note-row').filter({ hasText: 'Log' }).first().click();
-  await expect(page.getByTestId('note-body-view')).toContainText(new RegExp(`Called ${STAMP.source} done`));
+  const view = page.getByTestId('note-body-view');
+  await expect(view.getByTestId('note-stamp-chip')).toHaveCount(1);
+  await expect(view.getByTestId('note-stamp-chip')).toHaveText(new RegExp(`^${STAMP.source.replace(' at ', ' · ')}$`));
+  await expect(view).toContainText('Called');
+  await expect(view).toContainText('done');
+  // Plain words underneath: Copy as Markdown hands out the stamp as typed.
+  await page.getByTestId('note-body-view').click();
+  await expect(page.getByTestId('note-body-edit')).toHaveValue(new RegExp(`^Called ${STAMP.source} done$`));
 });
 
 test('a read-only tap on the clock adds the stamp at the end of the note', async ({ page }) => {
@@ -50,7 +58,8 @@ test('a read-only tap on the clock adds the stamp at the end of the note', async
   await page.getByTestId('note-title').click();
   await expect(page.getByTestId('note-body-view')).toBeVisible();
   await page.getByTestId('note-stamp').click();
-  await expect(page.getByTestId('note-body-view')).toContainText(new RegExp(`First line ${STAMP.source}`));
+  await expect(page.getByTestId('note-body-view')).toContainText('First line');
+  await expect(page.getByTestId('note-stamp-chip')).toHaveCount(1);
 });
 
 test('a format pill mid-typing lands in the field and survives the next keystroke', async ({ page }) => {

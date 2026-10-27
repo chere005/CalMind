@@ -672,6 +672,26 @@ export function insertTimestamp(
 }
 
 /**
+ * A note line cut into its timestamps and the text between them, so the read
+ * view can draw each stamp as a small card (Sean, 2026-10-27: "pretty
+ * formatting like a recipe card"). Matched by SHAPE — what insertTimestamp
+ * writes, in either clock — so stamps already in notes get it too, and the
+ * stored text stays plain words that copy out as Markdown unchanged.
+ */
+export function stampParts(text: string): { text: string; stamp: boolean }[] {
+  const re = /\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) \d{1,2}, \d{4} at (?:\d{1,2}(?::\d{2})?(?:am|pm)|\d{2}:\d{2})(?![\w:])/g;
+  const out: { text: string; stamp: boolean }[] = [];
+  let at = 0;
+  for (let m = re.exec(text); m; m = re.exec(text)) {
+    if (m.index > at) out.push({ text: text.slice(at, m.index), stamp: false });
+    out.push({ text: m[0], stamp: true });
+    at = m.index + m[0].length;
+  }
+  if (at < text.length || out.length === 0) out.push({ text: text.slice(at), stamp: false });
+  return out;
+}
+
+/**
  * Does this title look like one defaultNoteTitle wrote?
  *
  * Needed because the default title IS a date, and the title field parses

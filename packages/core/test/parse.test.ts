@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { defaultNoteTitle, insertTimestamp, looksLikeDefaultNoteTitle, parseClockField, parseTimeFromText, parseTimeRangeFromText, timeLabel } from '../src/parse';
+import { defaultNoteTitle, insertTimestamp, looksLikeDefaultNoteTitle, stampParts, parseClockField, parseTimeFromText, parseTimeRangeFromText, timeLabel } from '../src/parse';
 
 describe('insertTimestamp — the clock pill in the note editor', () => {
   const at = new Date(2026, 9, 26, 15, 4);
@@ -30,6 +30,33 @@ describe('defaultNoteTitle — a new note arrives readable', () => {
   it('noon and midnight are the two that catch 12-hour clocks out', () => {
     expect(defaultNoteTitle(new Date(2026, 0, 1, 12, 0))).toBe('Jan 1, 2026 at 12pm');
     expect(defaultNoteTitle(new Date(2026, 0, 1, 0, 30))).toBe('Jan 1, 2026 at 12:30am');
+  });
+});
+
+describe('stampParts — where the read view draws a stamp card', () => {
+  it('cuts a stamp out of the words around it', () => {
+    expect(stampParts('Called Oct 26, 2026 at 3:04pm done')).toEqual([
+      { text: 'Called ', stamp: false },
+      { text: 'Oct 26, 2026 at 3:04pm', stamp: true },
+      { text: ' done', stamp: false },
+    ]);
+  });
+  it('finds what insertTimestamp writes, in both clocks and on the hour', () => {
+    const at = new Date(2026, 9, 26, 15, 0);
+    for (const c24 of [false, true]) {
+      const { body } = insertTimestamp('', 0, 0, at, c24);
+      expect(stampParts(body).filter((p) => p.stamp).map((p) => p.text)).toEqual([body.trim()]);
+    }
+  });
+  it('two stamps, punctuation beside them', () => {
+    expect(stampParts('(Oct 1, 2026 at 9am), Oct 2, 2026 at 09:30.').filter((p) => p.stamp).map((p) => p.text))
+      .toEqual(['Oct 1, 2026 at 9am', 'Oct 2, 2026 at 09:30']);
+  });
+  it('leaves plain text and near-misses alone', () => {
+    expect(stampParts('Dentist 8/3')).toEqual([{ text: 'Dentist 8/3', stamp: false }]);
+    expect(stampParts('')).toEqual([{ text: '', stamp: false }]);
+    expect(stampParts('Oct 26, 2026 at 3:045pm').some((p) => p.stamp)).toBe(false);
+    expect(stampParts('Octo 26, 2026 at 3pm').some((p) => p.stamp)).toBe(false);
   });
 });
 
