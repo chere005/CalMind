@@ -4,7 +4,7 @@
  * convert out and never repeat; a date in the title puts one on the calendar.
  */
 import React, { useEffect, useMemo, useState, useRef } from 'react';
-import { Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { InputAccessoryView, Keyboard, Modal, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { chefDateOf, setChefDate, dayHeading, LONG_PRESS_MS, defaultNoteTitle, looksLikeDefaultNoteTitle, deleteSection, renameSection, sectionNameTaken, byRecOrd, ingredientParts, isRecipeNote, joinRecipeBody, richLines, scaleRecipeBody, splitRecipeBody, duplicateItem, prefsPut, moveNote, moveSection, moveSectionEmptyingFolder, newId, insertTimestamp, nowStr, ordBetween, parseWhenFromText, stampParts, todayStr, type Rec } from '@calmind/core';
 import * as Clipboard from 'expo-clipboard';
 import { useStore } from '../store';
@@ -130,6 +130,10 @@ function RichBody({ body, onLine, badges }: { body: string; onLine?: (text: stri
     </>
   );
 }
+
+/** The Done bar above the iOS keyboard; elsewhere there is no such view to name. */
+const KB_DONE_ID = 'note-kb-done';
+const KB_DONE = Platform.OS === 'ios' ? KB_DONE_ID : undefined;
 
 /**
  * A line carrying a timestamp, the stamp drawn as a small card in the recipe
@@ -881,7 +885,19 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
         <View style={s.edStatus} pointerEvents="none">
           <SyncDot testID="editor-sync" withText />
         </View>
-        <Scroll contentContainerStyle={s.editor} keyboardShouldPersistTaps="handled">
+        {/* The keyboard, which this screen used to ignore (Sean, 2026-10-27:
+            "scrolling and making the keyboard go away is super awkward"):
+            the insets keep the end of a long note scrollable above it rather
+            than under it, a drag down puts it away as Notes does, and on iOS
+            a Done bar rides on top of it — a multiline field has no return
+            key that dismisses, and every tap on a control keeps it up. */}
+        <Scroll
+          contentContainerStyle={s.editor}
+          keyboardShouldPersistTaps="handled"
+          // Not on web: there a wheel scroll would blur the field mid-sentence.
+          keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : Platform.OS === 'android' ? 'on-drag' : 'none'}
+          automaticallyAdjustKeyboardInsets
+        >
           <View style={s.titleRow}>
             <TextInput
               ref={titleRef}
@@ -1019,6 +1035,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
                   <TextInput
                     ref={bodyRef}
                     testID="note-body-before"
+                    inputAccessoryViewID={KB_DONE}
                     style={s.bodyBank}
                     value={beforeDraft ?? es.before}
                     placeholder="Write above the recipe…"
@@ -1042,6 +1059,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
                   </Pressable>
                   <TextInput
                     testID="note-body-after"
+                    inputAccessoryViewID={KB_DONE}
                     style={s.bodyBank}
                     value={afterDraft ?? es.after}
                     placeholder="Write below the recipe…"
@@ -1061,6 +1079,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
             <TextInput
               ref={bodyRef}
               testID="note-body-edit"
+              inputAccessoryViewID={KB_DONE}
               style={s.body}
               value={draft ?? open.payload.body}
               placeholder="Write…"
@@ -1165,6 +1184,15 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
             </View>
           </View>
         </Scroll>
+        {Platform.OS === 'ios' && (
+          <InputAccessoryView nativeID={KB_DONE_ID}>
+            <View style={s.kbBar}>
+              <Pressable testID="kb-done" accessibilityRole="button" onPress={() => Keyboard.dismiss()} hitSlop={10}>
+                <Text style={s.kbDone}>Done</Text>
+              </Pressable>
+            </View>
+          </InputAccessoryView>
+        )}
 
       </View>
     );
@@ -1984,6 +2012,17 @@ const s = themed(() => StyleSheet.create({
   recipeTag: { color: T.accent, fontSize: 11, fontWeight: '800', fontStyle: 'italic', textTransform: 'uppercase', letterSpacing: 0.6 },
   // A timestamp in the read view: the recipe card's dress, at the size of a
   // word in the line — the pieces either side wrap round it.
+  kbBar: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    backgroundColor: T.surface,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: T.line,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  kbDone: { color: T.accent, fontSize: 16, fontWeight: '700' },
   stampLine: { flex: 1, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 6, rowGap: 2 },
   stampChip: {
     flexDirection: 'row',
