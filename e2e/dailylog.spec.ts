@@ -22,6 +22,7 @@ test('note type comes first and daily cards stay together, save, and survive typ
   await page.getByTestId('daily-food').fill('Soup');
   await page.getByTestId('daily-exercise').fill('Walk');
   await page.getByTestId('daily-mood').fill('Calm');
+  await page.getByTestId('daily-graffirmations').fill('Bloom loud');
   await page.getByTestId('daily-log-add').click();
   await expect(page.getByTestId('daily-log-card')).toHaveCount(2);
   await expect(page.getByTestId('daily-food').nth(1)).toHaveValue('Soup');
@@ -40,4 +41,5 @@ test('note type comes first and daily cards stay together, save, and survive typ
   await expect(page.getByTestId('daily-log-card')).toHaveCount(2);
   await expect(page.getByTestId('daily-food').first()).toHaveValue('Breakfast');
   await expect(page.getByTestId('daily-mood').nth(1)).toHaveValue('Calm');
+  await expect(page.getByTestId('daily-graffirmations').nth(1)).toHaveValue('Bloom loud');
 });

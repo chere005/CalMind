@@ -5,7 +5,7 @@ import { noteType, setNoteType, addDailyLogCard, updateDailyLogCard, removeDaily
 const spec = JSON.parse(readFileSync(fileURLToPath(new URL('../../../spec/dailylog.json', import.meta.url)), 'utf8'));
 const base = spec.base as Note;
 
-describe('spec/dailylog.json — one note with dated food, exercise and mood cards', () => {
+describe('spec/dailylog.json — one note with dated food, exercise, mood and graffirmations cards', () => {
   for (const vector of spec.types) it(vector.name, () => expect(noteType(vector.note)).toBe(vector.expect));
   it('selecting Daily log creates its first card and preserves existing text', () => {
     const note = setNoteType(base, 'daily-log', spec.firstCard.id, spec.today);
@@ -22,8 +22,9 @@ describe('spec/dailylog.json — one note with dated food, exercise and mood car
   });
   it('editing and removing one card never changes another card', () => {
     const note = addDailyLogCard(addDailyLogCard(base, 'day-1', spec.today), 'day-2', spec.today);
-    const edited = updateDailyLogCard(note, 'day-1', { food: 'Soup', exercise: 'Walk', mood: 'Calm' });
-    expect(edited.logCards?.[1]).toMatchObject({ food: 'Soup', exercise: 'Walk', mood: 'Calm' });
+    const edited = updateDailyLogCard(note, 'day-1', { food: 'Soup', exercise: 'Walk', mood: 'Calm', graffirmations: 'I am enough' });
+    expect(edited.logCards?.[1]).toMatchObject({ food: 'Soup', exercise: 'Walk', mood: 'Calm', graffirmations: 'I am enough' });
+    expect(note.logCards?.[1]?.graffirmations).toBe('');
     expect(note.logCards?.[1]?.food).toBe('');
     expect(removeDailyLogCard(edited, 'day-2').logCards).toEqual([edited.logCards?.[1]]);
   });
@@ -35,7 +36,7 @@ describe('spec/dailylog.json — one note with dated food, exercise and mood car
     expect(setNoteType(plain, 'daily-log', 'unused', spec.today).logCards).toEqual(log.logCards);
   });
   it('card contents survive snapshots and remain searchable and copyable', async () => {
-    const payload = updateDailyLogCard(setNoteType(base, 'daily-log', 'day-1', spec.today), 'day-1', { food: 'Soup', exercise: 'Walk', mood: 'Calm' });
+    const payload = updateDailyLogCard(setNoteType(base, 'daily-log', 'day-1', spec.today), 'day-1', { food: 'Soup', exercise: 'Walk', mood: 'Calm', graffirmations: 'Bloom loud' });
     const engine = new SyncEngine();
     engine.put({ id: 'journal', type: 'note', updated: 1, payload }, 1);
     const restored = SyncEngine.fromSnapshot(JSON.parse(JSON.stringify(engine.toSnapshot())));
@@ -45,8 +46,16 @@ describe('spec/dailylog.json — one note with dated food, exercise and mood car
     expect(noteBodyText(payload)).toContain('### Exercise\nWalk');
     expect(noteBodyText(payload)).toContain('### Food\nSoup');
     expect(noteBodyText(payload)).toContain('### Mood\nCalm');
+    expect(noteBodyText(payload)).toContain('### Graffirmations\nBloom loud');
+    expect(searchRecords(restored.all(), 'Bloom').map((r) => r.id)).toEqual(['journal']);
     let sent: unknown;
     await restored.sync(async (request) => { sent = request.changes[0]?.payload; return { cursor: 1, changes: [] }; });
     expect(sent).toEqual(payload);
+  });
+  it('a card saved before Graffirmations existed still reads, copies and takes one', () => {
+    const old = { ...base, noteType: 'daily-log' as const, logCards: [{ id: 'old', date: spec.today, food: 'Toast', exercise: '', mood: '' }] };
+    expect(noteBodyText(old)).toContain('### Graffirmations\n');
+    expect(noteBodyText(old)).not.toContain('undefined');
+    expect(updateDailyLogCard(old, 'old', { graffirmations: 'Paint it' }).logCards?.[0]).toMatchObject({ food: 'Toast', graffirmations: 'Paint it' });
   });
 });

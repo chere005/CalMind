@@ -231,8 +231,8 @@ function DailyLogCards({ note, onChange }: { note: Note; onChange: (next: Note) 
           {dateFor === card.id && <DayPick value={card.date} allowClear={false}
             onPick={(date) => { onChange(updateDailyLogCard(note, card.id, { date: date ?? card.date })); setDateFor(null); }}
             onClose={() => setDateFor(null)} />}
-          {(['food', 'exercise', 'mood'] as const).map((field) => (
-            <DailyLogField key={field} label={field[0]!.toUpperCase() + field.slice(1)} value={card[field]}
+          {(['food', 'exercise', 'mood', 'graffirmations'] as const).map((field) => (
+            <DailyLogField key={field} label={field[0]!.toUpperCase() + field.slice(1)} value={card[field] ?? ''}
               onChange={(value) => onChange(updateDailyLogCard(note, card.id, { [field]: value }))} />
           ))}
         </View>

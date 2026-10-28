@@ -8,7 +8,7 @@ export function noteType(note: Pick<Note, 'body' | 'recipe' | 'noteType'>): Note
 export function addDailyLogCard(note: Note, id: string, date: string): Note {
   if (note.logCards?.some((card) => card.id === id)) return note;
   return { ...note, noteType: 'daily-log', recipe: false,
-    logCards: [{ id, date, food: '', exercise: '', mood: '' }, ...(note.logCards ?? [])] };
+    logCards: [{ id, date, food: '', exercise: '', mood: '', graffirmations: '' }, ...(note.logCards ?? [])] };
 }
 
 export function setNoteType(note: Note, type: NoteType, id: string, date: string): Note {
@@ -28,6 +28,6 @@ export function removeDailyLogCard(note: Note, id: string): Note {
 export function noteBodyText(note: Note): string {
   if (noteType(note) !== 'daily-log') return note.body;
   return [note.body, ...(note.logCards ?? []).map((card) =>
-    `## ${card.date}\n\n### Food\n${card.food}\n\n### Exercise\n${card.exercise}\n\n### Mood\n${card.mood}`,
+    `## ${card.date}\n\n### Food\n${card.food}\n\n### Exercise\n${card.exercise}\n\n### Mood\n${card.mood}\n\n### Graffirmations\n${card.graffirmations ?? ''}`,
   )].filter(Boolean).join('\n\n');
 }
