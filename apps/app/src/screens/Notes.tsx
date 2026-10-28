@@ -4,8 +4,8 @@
  * convert out and never repeat; a date in the title puts one on the calendar.
  */
 import React, { useEffect, useMemo, useState, useRef } from 'react';
-import { Dimensions, Keyboard, Modal, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { noteType, setNoteType, addDailyLogCard, updateDailyLogCard, removeDailyLogCard, noteBodyText, type Note, type NoteType, chefDateOf, setChefDate, dayHeading, LONG_PRESS_MS, defaultNoteTitle, looksLikeDefaultNoteTitle, deleteSection, renameSection, sectionNameTaken, byRecOrd, ingredientParts, isRecipeNote, joinRecipeBody, richLines, scaleRecipeBody, splitRecipeBody, duplicateItem, prefsPut, moveNote, moveSection, moveSectionEmptyingFolder, newId, insertTimestamp, nowStr, ordBetween, parseWhenFromText, stampParts, todayStr, type Rec } from '@calmind/core';
+import { Dimensions, Keyboard, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { noteType, setNoteType, addDailyLogCard, updateDailyLogCard, removeDailyLogCard, noteBodyText, noteBulletDots, type Note, type NoteType, chefDateOf, setChefDate, dayHeading, LONG_PRESS_MS, defaultNoteTitle, looksLikeDefaultNoteTitle, deleteSection, renameSection, sectionNameTaken, byRecOrd, ingredientParts, isRecipeNote, joinRecipeBody, richLines, scaleRecipeBody, splitRecipeBody, duplicateItem, prefsPut, moveNote, moveSection, moveSectionEmptyingFolder, newId, insertTimestamp, nowStr, ordBetween, parseWhenFromText, stampParts, todayStr, type Rec } from '@calmind/core';
 import * as Clipboard from 'expo-clipboard';
 import { useStore } from '../store';
 import { UnitBadge } from '../components/IngredientBadge';
@@ -30,7 +30,7 @@ import { useToast } from '../components/Toast';
 import { EditExit } from '../components/EditExit';
 import { RecipeEditor } from './RecipeEditor';
 import { ItemModal } from '../components/ItemModal';
-import { NoteBodyInput } from '../components/NoteBodyInput';
+import { NoteBodyInput, type NoteInputReveal } from '../components/NoteBodyInput';
 
 // Half, as written, and double — the three a cook actually asks for.
 // The id stays ASCII: it reaches native as an accessibility identifier, and
@@ -172,7 +172,7 @@ function DoneBar() {
   );
 }
 
-function DailyLogField({ label, value, onChange }: { label: string; value: string; onChange: (text: string) => void }) {
+function DailyLogField({ label, value, onChange, onEnsureVisible = () => {} }: { label: string; value: string; onChange: (text: string) => void; onEnsureVisible?: NoteInputReveal }) {
   const [draft, setDraft] = useState<string | null>(null);
   return (
     <View style={s.logFieldWrap}>
@@ -181,11 +181,13 @@ function DailyLogField({ label, value, onChange }: { label: string; value: strin
         testID={`daily-${label.toLowerCase()}`}
         accessibilityLabel={label}
         multiline
+        bulletDots
+        onEnsureVisible={onEnsureVisible}
         style={s.logField}
         value={draft ?? value}
         placeholder={`${label}…`}
         placeholderTextColor={T.muted}
-        onFocus={() => setDraft(value)}
+        onFocus={() => setDraft(noteBulletDots(value))}
         onBlur={() => setDraft(null)}
         onChangeText={(text) => { setDraft(text); onChange(text); }}
       />
@@ -193,7 +195,7 @@ function DailyLogField({ label, value, onChange }: { label: string; value: strin
   );
 }
 
-function DailyLogCards({ note, onChange }: { note: Note; onChange: (next: Note) => void }) {
+function DailyLogCards({ note, onChange, onEnsureVisible = () => {} }: { note: Note; onChange: (next: Note) => void; onEnsureVisible?: NoteInputReveal }) {
   const [dateFor, setDateFor] = useState<string | null>(null);
   return (
     <View testID="daily-log" style={s.logStack}>
@@ -217,6 +219,7 @@ function DailyLogCards({ note, onChange }: { note: Note; onChange: (next: Note) 
             onClose={() => setDateFor(null)} />}
           {(['food', 'exercise', 'mood', 'graffirmations'] as const).map((field) => (
             <DailyLogField key={field} label={field[0]!.toUpperCase() + field.slice(1)} value={card[field] ?? ''}
+              onEnsureVisible={onEnsureVisible}
               onChange={(value) => onChange(updateDailyLogCard(note, card.id, { [field]: value }))} />
           ))}
         </View>
@@ -367,6 +370,48 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
    * pressing back left you in Notes — one tab away from what you were doing.
    */
   const cameFromTab = useRef(false);
+  const editorScrollRef = useRef<ScrollView | null>(null);
+  const revealFocusedEditorField = useRef<(() => void) | null>(null);
+  const editorScrollOffset = useRef(0);
+  const editorKeyboardTop = useRef<number | null>(null);
+  useEffect(() => {
+    editorScrollOffset.current = 0;
+    revealFocusedEditorField.current = null;
+  }, [openId]);
+  const revealEditorField: NoteInputReveal = (field, caret) => {
+    if (Platform.OS === 'web' || !field.isFocused()) return;
+    revealFocusedEditorField.current = () => revealEditorField(field, caret);
+    // Measure in window coordinates: this scroll view starts below the editor
+    // header and ends above the persistent tab bar, so RN's full-screen
+    // scrollResponder keyboard calculation uses the wrong origin here.
+    requestAnimationFrame(() => field.measureInWindow((_x, fieldY, _width, fieldHeight) => {
+      const viewport = editorScrollRef.current?.getNativeScrollRef() as unknown as View | null;
+      viewport?.measureInWindow((_sx, scrollY, _sw, scrollHeight) => {
+        if (!field.isFocused()) return;
+        const keyboardTop = editorKeyboardTop.current;
+        const visibleBottom = Math.min(scrollY + scrollHeight, keyboardTop ?? Infinity) - (keyboardTop === null ? 0 : 52);
+        // A tall input cannot fit as a whole. Only reveal its bottom when
+        // the latest caret is at the tail; tapping an earlier line must keep
+        // that line in view, including while these measurements are pending.
+        const current = caret.current;
+        const atTail = current !== null && current.selection.start === current.text.length && current.selection.end === current.text.length;
+        if (fieldHeight > visibleBottom - scrollY && !atTail) return;
+        const overflow = fieldY + fieldHeight - visibleBottom;
+        if (overflow > 0) editorScrollRef.current?.scrollTo({ y: editorScrollOffset.current + overflow, animated: true });
+      });
+    }));
+  };
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+    const eventName = Platform.OS === 'ios' ? 'keyboardWillChangeFrame' : 'keyboardDidShow';
+    const show = Keyboard.addListener(eventName, (event) => {
+      editorKeyboardTop.current = event.endCoordinates.screenY;
+      const reveal = revealFocusedEditorField.current;
+      if (reveal) setTimeout(reveal, 0);
+    });
+    const hide = Keyboard.addListener('keyboardDidHide', () => { editorKeyboardTop.current = null; });
+    return () => { show.remove(); hide.remove(); revealFocusedEditorField.current = null; };
+  }, []);
   // Two levels, one hook each — see folds.ts for what the six hand-rolled
   // copies of this had drifted into. The old local names are kept so every
   // read below still says what it means.
@@ -1031,7 +1076,12 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
             than under it, a drag down puts it away as Notes does, and on iOS
             a Done bar rides on top of it — a multiline field has no return
             key that dismisses, and every tap on a control keeps it up. */}
-        <Scroll
+        <ScrollView
+          ref={editorScrollRef}
+          onScroll={(event) => { editorScrollOffset.current = event.nativeEvent.contentOffset.y; }}
+          scrollEventThrottle={16}
+          alwaysBounceVertical={false}
+          alwaysBounceHorizontal={false}
           contentContainerStyle={[s.editor, s.editorKbClearance]}
           keyboardShouldPersistTaps="handled"
           // Not on web: there a wheel scroll would blur the field mid-sentence.
@@ -1175,7 +1225,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
             </View>
           )}
           {noteType(open.payload) === 'daily-log' ? (
-            <DailyLogCards note={open.payload} onChange={(payload) => mutate((e) => e.put({ ...open, payload }))} />
+            <DailyLogCards note={open.payload} onChange={(payload) => mutate((e) => e.put({ ...open, payload }))} onEnsureVisible={revealEditorField} />
           ) : bodyEditing && editAsRecipe.current ? (
             (() => {
               const es = splitRecipeBody(open.payload.body)!;
@@ -1346,7 +1396,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
               <DeletePill key={open.id} onDelete={() => leaveEditorAfterKeyboard(() => { setOpenId(null); mutate((e) => e.del(open.id)); })} />
             </View>
           </View>
-        </Scroll>
+        </ScrollView>
         <DoneBar />
       </View>
     );
@@ -2137,7 +2187,10 @@ const s = themed(() => StyleSheet.create({
   logLabel: { color: T.dim, fontSize: 13, fontWeight: '700' },
   logField: { color: T.text, fontSize: 16, lineHeight: 24, minHeight: 72, padding: 10, textAlignVertical: 'top', borderRadius: 8, backgroundColor: T.bg, borderWidth: 1, borderColor: T.line },
   editor: { padding: 16, gap: 10 },
-  editorKbClearance: { paddingBottom: 56 },
+  // 52pt is the Done overlay plus a small gap; 20pt of tolerance keeps the
+  // final card's last line reachable when safe-area and keyboard insets land
+  // on different frames.
+  editorKbClearance: { paddingBottom: 72 },
   edHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 16, marginHorizontal: 16, marginBottom: 8, flexWrap: 'wrap' },
   // marginLeft auto pushes it to the right edge of the row, and it keeps its
   // corner when the row wraps on a narrow screen rather than following the

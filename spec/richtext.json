@@ -1,4 +1,26 @@
 {
+  "bulletDots": [
+    {
+      "name": "projects legacy star bullets as dots without changing length",
+      "text": "* old\nplain * text\n- new",
+      "result": "• old\nplain * text\n• new"
+    },
+    {
+      "name": "preserves indentation and emphasis markers",
+      "text": "  * **bold** and *italic*\n\t- __under__",
+      "result": "  • **bold** and *italic*\n\t• __under__"
+    },
+    {
+      "name": "preserves UTF-16 length around emoji",
+      "text": "🙂\n🙂 - item\n- 🙂",
+      "result": "🙂\n🙂 - item\n• 🙂"
+    },
+    {
+      "name": "leaves non-list and already dotted lines alone",
+      "text": "• already\n  prose\n*x\n-",
+      "result": "• already\n  prose\n*x\n-"
+    }
+  ],
   "listEdit": [
     {
       "name": "prefer the bullet candidate at a duplicated newline boundary",
@@ -17,6 +39,24 @@
       "previous": "  - item",
       "next": "  - item\n",
       "result": { "text": "  - item\n  - ", "caret": 13 }
+    },
+    {
+      "name": "continue a dot bullet",
+      "previous": "• item",
+      "next": "• item\n",
+      "result": { "text": "• item\n• ", "caret": 9 }
+    },
+    {
+      "name": "continue an indented dot bullet",
+      "previous": "  • item",
+      "next": "  • item\n",
+      "result": { "text": "  • item\n  • ", "caret": 13 }
+    },
+    {
+      "name": "exit an empty dot bullet",
+      "previous": "• ",
+      "next": "• \n",
+      "result": { "text": "", "caret": 0 }
     },
     {
       "name": "exit an empty star bullet",

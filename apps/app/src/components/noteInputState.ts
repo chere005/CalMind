@@ -1,4 +1,4 @@
-import { noteListEdit } from '@calmind/core';
+import { noteBulletDots, noteListEdit } from '@calmind/core';
 
 export type InputSelection = { start: number; end: number };
 export type NoteInputState = { raw: string; text: string; offsets: number[] | null };
@@ -43,7 +43,7 @@ export function noteInputSelection(state: NoteInputState, selection: InputSelect
 }
 
 /** Rebase native edits that arrive before an earlier JS list correction lands. */
-export function editNoteInput(state: NoteInputState, next: string, selection?: InputSelection): {
+export function editNoteInput(state: NoteInputState, next: string, selection?: InputSelection, bulletDots = false): {
   state: NoteInputState; selection: InputSelection;
 } {
   const caret = selection?.start === selection?.end ? selection?.end : undefined;
@@ -59,7 +59,11 @@ export function editNoteInput(state: NoteInputState, next: string, selection?: I
   const at = (offset: number) => useRaw ? state.offsets?.[offset] ?? offset : offset;
   const start = at(edit.start);
   const end = at(edit.end);
-  const candidate = state.text.slice(0, start) + edit.insert + state.text.slice(end);
+  const inserted = state.text.slice(0, start) + edit.insert + state.text.slice(end);
+  // Marker projection is length preserving, so it must not be folded into
+  // the edit-size/rebase decision above. Doing it here keeps native event
+  // offsets positional while list continuation can still recognize `• `.
+  const candidate = bulletDots ? noteBulletDots(inserted) : inserted;
   const listEdit = noteListEdit(state.text, candidate);
   const text = listEdit?.text ?? candidate;
   const generated = listEdit ? textEdit(candidate, text, listEdit.caret) : null;

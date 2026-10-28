@@ -2,7 +2,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { noteListEdit, richLines } from '../src/richtext';
+import { noteBulletDots, noteListEdit, richLines } from '../src/richtext';
 
 type ListEditCase = {
   name: string;
@@ -10,12 +10,24 @@ type ListEditCase = {
   next: string;
   result: { text: string; caret: number } | null;
 };
+type BulletDotsCase = { name: string; text: string; result: string };
 const editCases = JSON.parse(readFileSync(
   fileURLToPath(new URL('../../../spec/richtext.json', import.meta.url)), 'utf8',
 )) as {
+  bulletDots: BulletDotsCase[];
   listEdit: ListEditCase[];
   sequences: { name: string; initial: string; steps: { next: string; result: { text: string; caret: number } | null }[] }[];
 };
+
+describe('noteBulletDots', () => {
+  for (const c of editCases.bulletDots) {
+    it(c.name, () => {
+      const result = noteBulletDots(c.text);
+      expect(result).toBe(c.result);
+      expect(result.length).toBe(c.text.length);
+    });
+  }
+});
 
 describe('richLines', () => {
   it('renders bold, italic and underline runs', () => {
@@ -40,6 +52,8 @@ describe('richLines', () => {
     expect(richLines('> wise words')[0]).toEqual({ kind: 'quote', runs: [{ text: 'wise words' }] });
     expect(richLines('- milk')[0]).toEqual({ kind: 'bullet', runs: [{ text: 'milk' }] });
     expect(richLines('* milk')[0]).toEqual({ kind: 'bullet', runs: [{ text: 'milk' }] });
+    expect(richLines('• milk')[0]).toEqual({ kind: 'bullet', runs: [{ text: 'milk' }] });
+    expect(richLines('  • milk')[0]).toEqual({ kind: 'bullet', runs: [{ text: '  milk' }] });
     expect(richLines('-not a bullet')[0]!.kind).toBe('plain');
   });
 

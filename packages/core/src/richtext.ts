@@ -10,6 +10,11 @@
 export type RichRun = { text: string; bold?: boolean; italic?: boolean; under?: boolean };
 export type RichLine = { kind: 'plain' | 'quote' | 'bullet' | 'number'; num?: string; runs: RichRun[] };
 
+/** Project stored star/dash bullets to visible dots without changing offsets. */
+export function noteBulletDots(text: string): string {
+  return text.replace(/(^[ \t]*)[*-](?= )/gm, '$1•');
+}
+
 /**
  * Two digits at most, and a space after the dot. A recipe step is '1. ' or
  * '12. '; a sentence that opens '1996. What a year' is prose, and '1.5 cups'
@@ -51,7 +56,7 @@ export function noteListEdit(previous: string, next: string): { text: string; ca
 
     let end = currentLineStart;
     while (previous[end] === ' ' || previous[end] === '\t') end++;
-    if ((previous[end] === '*' || previous[end] === '-') && previous[end + 1] === ' ' && end + 2 <= i) {
+    if ((previous[end] === '*' || previous[end] === '-' || previous[end] === '•') && previous[end + 1] === ' ' && end + 2 <= i) {
       insertion = i;
       lineStart = currentLineStart;
       markerEnd = end + 2;
@@ -94,6 +99,9 @@ export function richLines(body: string): RichLine[] {
     } else if (line.startsWith('- ')) {
       kind = 'bullet';
       line = line.slice(2);
+    } else if (/^[ \t]*• /.test(line)) {
+      kind = 'bullet';
+      line = line.replace(/^([ \t]*)• /, '$1');
     } else if (numbered) {
       kind = 'number';
       num = numbered[1] + '.';

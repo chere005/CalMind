@@ -3,6 +3,8 @@ import { editNoteInput, noteInputSelection, noteInputState, type NoteInputState 
 
 const change = (state: NoteInputState, text: string, caret = text.length) =>
   editNoteInput(state, text, { start: caret, end: caret });
+const changeWithDots = (state: NoteInputState, text: string, caret = text.length) =>
+  editNoteInput(state, text, { start: caret, end: caret }, true);
 
 test('Return, Return and a letter survive before either native correction is acknowledged', () => {
   let result = change(noteInputState('* Soup'), '* Soup\n');
@@ -67,4 +69,28 @@ test('selecting and deleting an applied automatic marker does not resurrect it',
   const deleted = change(result.state, '* One\n');
   expect(deleted.state.text).toBe('* One\n');
   expect(deleted.selection).toEqual({ start: 6, end: 6 });
+});
+
+test('daily log input normalizes new markers and continues dot bullets across queued native events', () => {
+  let result = changeWithDots(noteInputState(''), '* first');
+  expect(result.state.text).toBe('• first');
+  // The next native event may still carry the just-typed asterisk marker;
+  // reconciliation maps its positions onto the normalized bullet text.
+  result = changeWithDots(result.state, '* first\n');
+  expect(result.state.text).toBe('• first\n• ');
+  result = changeWithDots(result.state, '* first\n\n');
+  expect(result.state.text).toBe('• first\n');
+  result = changeWithDots(result.state, '* first\n\nnext');
+  expect(result.state.text).toBe('• first\nnext');
+  expect(result.selection).toEqual({ start: 12, end: 12 });
+});
+
+test('same-length marker normalization keeps selection positions independent of newline rebasing', () => {
+  let result = changeWithDots(noteInputState('• keep'), '* keep!');
+  expect(result.state.text).toBe('• keep!');
+  expect(result.selection).toEqual({ start: 7, end: 7 });
+  expect(noteInputSelection(result.state, { start: 1, end: 2 })).toEqual({ start: 1, end: 2 });
+  result = changeWithDots(result.state, '* keep!\n');
+  expect(result.state.text).toBe('• keep!\n• ');
+  expect(result.selection.end).toBe(result.state.text.length);
 });

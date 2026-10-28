@@ -17,11 +17,13 @@
  *     removes nothing, and nothing is exactly a subset of the markers.
  */
 import { describe, it, expect } from 'vitest';
-import { richLines } from '../src/richtext';
+import { noteBulletDots, richLines } from '../src/richtext';
 
 /** What the line looked like after its prefix was taken off. */
 function afterPrefix(raw: string): string {
   if (raw.startsWith('> ') || raw.startsWith('- ') || raw.startsWith('* ')) return raw.slice(2);
+  const dot = /^([ \t]*)• /.exec(raw);
+  if (dot) return dot[1]! + raw.slice(dot[0].length);
   const m = /^(\d{1,2})[.)] /.exec(raw);
   return m ? raw.slice(m[0].length) : raw;
 }
@@ -46,7 +48,7 @@ function skipped(all: string, sub: string): string | null {
   return i === sub.length ? out : null;
 }
 
-const ALPHABET = ['a', 'b', ' ', '*', '_', '>', '-', '1', '.', ')', '\n', 'é', '🙂'];
+const ALPHABET = ['a', 'b', ' ', '*', '_', '>', '-', '•', '1', '.', ')', '\n', 'é', '🙂'];
 
 describe('richLines never eats the text', () => {
   /**
@@ -99,5 +101,24 @@ describe('richLines never eats the text', () => {
   it('a line is always at least one run, so a blank line still draws', () => {
     expect(richLines('')[0]!.runs).toEqual([{ text: '' }]);
     expect(richLines('a\n\nb')[1]!.runs).toEqual([{ text: '' }]);
+  });
+
+  it('bullet projection preserves UTF-16 offsets for generated bodies', () => {
+    let seed = 7401;
+    const rnd = (n: number) => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed % n; };
+    for (let t = 0; t < 2_000; t++) {
+      let body = '';
+      for (let i = 0, n = rnd(24); i < n; i++) body += ALPHABET[rnd(ALPHABET.length)]!;
+      const projected = noteBulletDots(body);
+      expect(projected.length, JSON.stringify(body)).toBe(body.length);
+      for (let i = 0; i < body.length; i++) {
+        if (body[i] === projected[i]) continue;
+        const lineStart = body.lastIndexOf('\n', i - 1) + 1;
+        expect(projected[i], JSON.stringify(body)).toBe('•');
+        expect(['*', '-'], JSON.stringify(body)).toContain(body[i]);
+        expect(/^[ \t]*$/.test(body.slice(lineStart, i)), JSON.stringify(body)).toBe(true);
+        expect(body[i + 1], JSON.stringify(body)).toBe(' ');
+      }
+    }
   });
 });
