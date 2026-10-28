@@ -1,45 +1,62 @@
 # Continuation
 
-## Notes editor: one scroll area
+## Daily-log notes and ChefMind grouping
 
-Sean reported that the nested scroll bars were awkward after the keyboard
-changes in 1.41.0/1.42.0. CalMind commit `1075187` makes the editor page own
-scrolling. Plain note bodies, recipe prose banks, and shared-note bodies grow
-with their text. Native text fields disable internal scrolling; web text fields
-resize after edits and layout changes, including shrinking after deletions.
-The existing keyboard insets, interactive dismissal, and Done bar remain.
+The new Note / Recipe / Daily log dropdown is first in the note editor's
+button row. Daily log creates a dated card with Food, Exercise, and Mood
+fields. + adds another card dated today in the same note. Cards autosave,
+can be dated, and use the existing two-press delete. Dates cannot be cleared.
+Switching types preserves the existing body and saved log cards. The recipe
+editor writes the explicit Recipe type; legacy notes/recipes retain their
+previous behavior.
 
-Typechecks, the development suite, and the affected Notes/recipe browser checks
-passed. The new regression checks a long note's height, typing at its end,
-shrinking it, and saving/reopening it. CoreMind canon (`0f6eee0`) and MyCalMind
-(`b332a5d`) carry identical source; their required checks passed and both are
-pushed on main.
+Core behavior is in `packages/core/src/dailylog.ts`, with optional fields in
+`types.ts`, shared `spec/dailylog.json`, and contract tests. Search and Copy as
+Markdown include active log card contents. The server payload remains opaque;
+no server schema or record type changed.
 
-CalMind 1.43.0 (`f1b7155`) is deployed to prod and test, pushed and tagged.
-Preflight and the published Release both passed:
-https://github.com/chere005/CalMind/releases/tag/1.43.0.
-The signed production build is installed on Sean's `iPhoooooone` and his
-watch. Its version, signature, and production API were verified; it contains
-no simulator fixture API. Launching the physical phone app was refused because
-the phone was locked; the editor's behavior was verified in the simulator.
+All ChefMind notes are now beneath one collapsible ChefMind parent, with
+source folders and sections as subgroups. This changes presentation only:
+reading and folding still write nothing to ChefMind's records.
 
-Autumn's phone install remains owed: mounting its developer disk image was
-refused because the phone was locked. Patricia's phone was unreachable and
-skipped. The current signed bundle is
-`apps/app/ios/derived-platforms/Build/Products/Release-iphoneos/CalMind.app`;
-these device retries require no source change or new release. Device output is
-in `/tmp/calmind-single-scroll-phone.log`, and the release lane output is in
-`/tmp/calmind-single-scroll-release.log`. A CoreMind ticket proposal was queued
-to distinguish locked-phone errors from the script's misleading provisioning
-advice.
+The shared dropdown now exposes individual accessible choices. The note-type
+picker waits for iOS dismissal before opening RecipeEditor. CoreMind carries
+these exact changes and manifests for the new module/spec/test; source copies
+in MyCalMind and the compatible ChefMind core are updated. CoreMind is pushed
+at `c31dd5e`; MyCalMind at `d16ad93`.
 
-A headless native simulator check passed using a disposable local API and
-account: a drag inside a long note moves the page footer, and Done dismisses
-the keyboard across repeated edits. Its result bundle is
-`/tmp/calmind-scroll-probe/result2.xcresult`; its log is
-`/tmp/calmind-single-scroll-native-test2.log`. The temporary server is stopped
-and its simulator deleted. The generated simulator app uses the fixture API;
-the installed production phone build uses the production API. SPACE has been
-unmounted. Source work is complete; only the other phone installs remain owed.
-Sean's cutoff was 11:30 PM America/Chicago on October 27, 2026; this continuation
-finished before that cutoff.
+## Verification
+
+Typechecks, the development suite, relevant daily-log/Recipe/Markdown browser
+checks, ChefMind grouping checks, canon tests, and all consumer drift checks
+passed. The native headless probe verified all three daily fields, adding a
+second card, persistence after reopening, type changes without losing cards,
+and opening Recipe from the dropdown. Result:
+`/tmp/calmind-scroll-probe/dailylog5.xcresult`. Its log is
+`/tmp/calmind-dailylog-native-test5.log`. The temporary server is stopped and
+the disposable simulator deleted. Generated simulator builds use a local
+fixture API; production phone builds must use the production API.
+
+## Release and device state
+
+CalMind 1.44.0 is deployed to prod/test, pushed and tagged at `9aafa60`.
+Preflight 40630834089 passed. The release lane is watching Release run
+40631599434 before device installation; log:
+`/tmp/calmind-dailylog-release3.log`. Earlier preflights were stopped to include
+Sean's later grouping request and the native dropdown fix. Nothing from
+1.44.0 has been installed on the phone yet; Sean's phone and watch have 1.43.0.
+SPACE is connected and unmounted, ready for device work.
+
+ChefMind's compatible source is pushed on main at `1f2bd27`, prepared as
+untagged 1.31.0 because its preflight refuses an already published version.
+No ChefMind release or deployment was requested or performed. Preflight
+40630737075 passed for `63185b0`; the final merge only retains a remote TODO,
+and application/build inputs were verified identical to that checked commit.
+The prior local/remote divergence was merged, preserving local pantry/note
+improvements and the published release tooling. Its log is
+`/tmp/calmind-dailylog-chef-preflight3.log`.
+
+The 11:30 PM America/Chicago October 27 cutoff remains mandatory. Update this
+state before stopping. Finish the release and phone install only if time
+allows, unmount SPACE after device work, and record any remaining work here.
+The installed local desktop and Android apps were not rebuilt in this turn.
