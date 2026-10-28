@@ -6,8 +6,8 @@
  * border tints to match, so the destination reads as the thing it files into.
  * The `gold` variant is the fallback tint where no colour is supplied.
  */
-import { useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useRef, useState } from 'react';
+import { Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Scroll } from '../ui';
 import { themed, T } from '../theme';
 
@@ -20,6 +20,7 @@ export function Dropdown({
   gold = false,
   placeholder = '—',
   testID,
+  deferSelection = false,
 }: {
   value: string | null;
   options: DropdownOption[];
@@ -27,8 +28,11 @@ export function Dropdown({
   gold?: boolean;
   placeholder?: string;
   testID?: string;
+  /** Finish dismissing the iOS menu before opening another modal. */
+  deferSelection?: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const pendingPick = useRef<string | null>(null);
   const currentOpt = options.find((o) => o.id === value);
   const current = currentOpt?.label ?? placeholder;
   const curColor = currentOpt?.color;
@@ -36,6 +40,7 @@ export function Dropdown({
     <>
       <Pressable
         testID={testID}
+        accessibilityRole="button"
         style={[s.pill, gold && s.pillGold, curColor ? { borderColor: curColor } : null]}
         onPress={() => setOpen(true)}
       >
@@ -45,18 +50,25 @@ export function Dropdown({
         </Text>
         <Text style={[s.chev, gold && s.textGold]}>⌄</Text>
       </Pressable>
-      {open && (
-        <Modal transparent animationType="fade" onRequestClose={() => setOpen(false)}>
-          <Pressable style={s.backdrop} onPress={() => setOpen(false)}>
-            <Pressable style={s.menu} onPress={() => {}}>
+        <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}
+          onDismiss={() => {
+            const id = pendingPick.current;
+            pendingPick.current = null;
+            if (id !== null) onPick(id);
+          }}>
+          <Pressable accessible={false} style={s.backdrop} onPress={() => setOpen(false)}>
+            <Pressable accessible={false} style={s.menu} onPress={() => {}}>
               <Scroll>
                 {options.map((o) => (
                   <Pressable
                     key={o.id}
+                    accessibilityRole="button"
+                    accessibilityLabel={o.label}
                     style={s.row}
                     onPress={() => {
+                      if (deferSelection && Platform.OS === 'ios') pendingPick.current = o.id;
+                      else onPick(o.id);
                       setOpen(false);
-                      onPick(o.id);
                     }}
                   >
                     {o.color ? <View style={[s.dot, { backgroundColor: o.color }]} /> : null}
@@ -67,7 +79,6 @@ export function Dropdown({
             </Pressable>
           </Pressable>
         </Modal>
-      )}
     </>
   );
 }

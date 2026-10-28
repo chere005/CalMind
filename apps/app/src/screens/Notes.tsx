@@ -1081,7 +1081,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
           </View>
           {/* The format pills live under the name, as prod places them. */}
           <View style={s.toolRow}>
-            <Dropdown testID="note-type" value={noteType(open.payload)}
+            <Dropdown testID="note-type" deferSelection value={noteType(open.payload)}
               options={[{ id: 'note', label: 'Note' }, { id: 'recipe', label: 'Recipe' }, { id: 'daily-log', label: 'Daily log' }]}
               onPick={(type) => {
                 cancelFreshFocus();
