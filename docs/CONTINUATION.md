@@ -1,6 +1,40 @@
 # Continuation
 
-## Notes bullets and keyboard dismissal — 1.46.0
+## Real card dots and bottom-field reach — 1.47.0
+
+Daily-log card fields display real `•` bullets, including legacy saved star
+and dash markers. Opening a card does not rewrite its record; edits store
+the dots. The projection preserves string length and queued native input
+mapping. Return continues a dot and Return on an empty item exits.
+
+Focused fields are measured against the actual editor viewport and keyboard
+in window coordinates, leaving room for Done. Focus, selection, and layout
+growth reveal the bottom field. Tall fields only reveal their bottom for a
+tail caret, so selecting earlier text does not pull the page back down.
+Reveal state is reset between notes.
+
+Application commit `41f9a72`; release/tag `1.47.0` at `4f62f74`. Prod/test
+are deployed, Release `40785279215` is published, and Sean's `iPhoooooone`
+reports 1.47.0 installed. Preflight `40784278087` passed. The signed phone
+bundle has the dot code and production API, with no fixture API. The watch
+was unreachable; local Mac and Android installs were not part of this run.
+
+Development, core/fuzz, app, and browser regressions passed. The headless
+iPhone 15 Pro test used multiple cards, a long upper field, and a long
+Graffirmations field in the bottom card. Its screenshot shows `END OF CARD`
+and the caret above Done and the keyboard. Dismissal and persistence passed.
+Evidence: `/tmp/calmind-card-dots/probe/result.xcresult` and the exported
+screenshots under `/tmp/calmind-card-dots/screenshots/`. Use
+`ONLY_ACTIVE_ARCH=YES ARCHS=arm64` for simulator builds; the unnecessary
+universal archive ran out of internal disk space before the ARM build passed.
+
+Shared source is pushed on main: CoreMind `6233765`, MyCalMind `c2f2ca6`,
+ChefMind `3745f78`. ChefMind source preflight `40783325248` passed; no
+ChefMind or MyCalMind app release was made. All consumer drift checks pass.
+The fixture API is stopped, the disposable simulator deleted, and SPACE
+unmounted.
+
+## Earlier notes input and dismissal — 1.46.0
 
 Star-space and dash-space start note lists. Return continues the marker;
 Return on an empty item exits. This works in daily-log cards, plain notes,
