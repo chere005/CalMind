@@ -21,7 +21,7 @@ import { richLines } from '../src/richtext';
 
 /** What the line looked like after its prefix was taken off. */
 function afterPrefix(raw: string): string {
-  if (raw.startsWith('> ') || raw.startsWith('- ')) return raw.slice(2);
+  if (raw.startsWith('> ') || raw.startsWith('- ') || raw.startsWith('* ')) return raw.slice(2);
   const m = /^(\d{1,2})[.)] /.exec(raw);
   return m ? raw.slice(m[0].length) : raw;
 }

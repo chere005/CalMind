@@ -1,0 +1,95 @@
+{
+  "listEdit": [
+    {
+      "name": "prefer the bullet candidate at a duplicated newline boundary",
+      "previous": "start\n* item\nend",
+      "next": "start\n* item\n\nend",
+      "result": { "text": "start\n* item\n* \nend", "caret": 15 }
+    },
+    {
+      "name": "prefer the bullet candidate when a newline split has two positions",
+      "previous": "* item\nend",
+      "next": "* item\n\nend",
+      "result": { "text": "* item\n* \nend", "caret": 9 }
+    },
+    {
+      "name": "continue an indented dash bullet",
+      "previous": "  - item",
+      "next": "  - item\n",
+      "result": { "text": "  - item\n  - ", "caret": 13 }
+    },
+    {
+      "name": "exit an empty star bullet",
+      "previous": "* ",
+      "next": "* \n",
+      "result": { "text": "", "caret": 0 }
+    },
+    {
+      "name": "keep a bullet when text remains after the caret",
+      "previous": "* item",
+      "next": "* \nitem",
+      "result": { "text": "* \n* item", "caret": 5 }
+    },
+    {
+      "name": "exit an empty bullet when only whitespace remains after the caret",
+      "previous": "*   ",
+      "next": "* \n  ",
+      "result": { "text": "  ", "caret": 0 }
+    },
+    {
+      "name": "exit an empty dash bullet after note text",
+      "previous": "start\n- ",
+      "next": "start\n- \n",
+      "result": { "text": "start\n", "caret": 6 }
+    },
+    {
+      "name": "leave a pasted multi-line edit alone",
+      "previous": "* item",
+      "next": "* item\npasted\ntext",
+      "result": null
+    },
+    {
+      "name": "leave an ordinary newline insertion alone",
+      "previous": "plain",
+      "next": "pla\nin",
+      "result": null
+    },
+    {
+      "name": "leave a non-newline edit alone",
+      "previous": "* item",
+      "next": "* items",
+      "result": null
+    },
+    {
+      "name": "leave a newline plus an unrelated prefix replacement alone",
+      "previous": "x* item",
+      "next": "y\n* item",
+      "result": null
+    },
+    {
+      "name": "leave backspace alone",
+      "previous": "* item",
+      "next": "* ite",
+      "result": null
+    },
+    {
+      "name": "leave a no-op alone",
+      "previous": "* item",
+      "next": "* item",
+      "result": null
+    }
+  ],
+  "sequences": [
+    {
+      "name": "continue after a filled bullet, exit the empty bullet, then type prose",
+      "initial": "* First",
+      "steps": [
+        { "next": "* First\n", "result": { "text": "* First\n* ", "caret": 10 } },
+        { "next": "* First\n* Second", "result": null },
+        { "next": "* First\n* Second\n", "result": { "text": "* First\n* Second\n* ", "caret": 19 } },
+        { "next": "* First\n* Second\n* \n", "result": { "text": "* First\n* Second\n", "caret": 17 } },
+        { "next": "* First\n* Second\nPlain", "result": null }
+      ]
+    }
+  ]
+}

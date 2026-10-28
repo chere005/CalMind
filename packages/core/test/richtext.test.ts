@@ -1,6 +1,21 @@
 /** The marker → styled-run contract the note body renders by. */
 import { describe, it, expect } from 'vitest';
-import { richLines } from '../src/richtext';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { noteListEdit, richLines } from '../src/richtext';
+
+type ListEditCase = {
+  name: string;
+  previous: string;
+  next: string;
+  result: { text: string; caret: number } | null;
+};
+const editCases = JSON.parse(readFileSync(
+  fileURLToPath(new URL('../../../spec/richtext.json', import.meta.url)), 'utf8',
+)) as {
+  listEdit: ListEditCase[];
+  sequences: { name: string; initial: string; steps: { next: string; result: { text: string; caret: number } | null }[] }[];
+};
 
 describe('richLines', () => {
   it('renders bold, italic and underline runs', () => {
@@ -24,7 +39,14 @@ describe('richLines', () => {
   it('reads the line prefixes', () => {
     expect(richLines('> wise words')[0]).toEqual({ kind: 'quote', runs: [{ text: 'wise words' }] });
     expect(richLines('- milk')[0]).toEqual({ kind: 'bullet', runs: [{ text: 'milk' }] });
+    expect(richLines('* milk')[0]).toEqual({ kind: 'bullet', runs: [{ text: 'milk' }] });
     expect(richLines('-not a bullet')[0]!.kind).toBe('plain');
+  });
+
+  it('keeps emphasis parsing intact inside star bullets', () => {
+    expect(richLines('* **bold** and *italic*')[0]).toEqual({
+      kind: 'bullet', runs: [{ text: 'bold', bold: true }, { text: ' and ' }, { text: 'italic', italic: true }],
+    });
   });
 
   it('a numbered step is read as one, so it can be laid out like a bullet', () => {
@@ -45,4 +67,24 @@ describe('richLines', () => {
   it('an empty line keeps one empty run so it still takes height', () => {
     expect(richLines('a\n\nb')[1]!.runs).toEqual([{ text: '' }]);
   });
+});
+
+describe('noteListEdit', () => {
+  for (const c of editCases.listEdit) {
+    it(c.name, () => {
+      expect(noteListEdit(c.previous, c.next)).toEqual(c.result);
+    });
+  }
+
+  for (const sequence of editCases.sequences) {
+    it(sequence.name, () => {
+      let body = sequence.initial;
+      for (const step of sequence.steps) {
+        const result = noteListEdit(body, step.next);
+        expect(result).toEqual(step.result);
+        body = result?.text ?? step.next;
+      }
+      expect(body).toBe('* First\n* Second\nPlain');
+    });
+  }
 });

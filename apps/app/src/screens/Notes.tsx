@@ -4,7 +4,7 @@
  * convert out and never repeat; a date in the title puts one on the calendar.
  */
 import React, { useEffect, useMemo, useState, useRef } from 'react';
-import { InputAccessoryView, Keyboard, Modal, Platform, Pressable, StyleSheet, Text, TextInput, type TextInputProps, View } from 'react-native';
+import { Dimensions, Keyboard, Modal, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { noteType, setNoteType, addDailyLogCard, updateDailyLogCard, removeDailyLogCard, noteBodyText, type Note, type NoteType, chefDateOf, setChefDate, dayHeading, LONG_PRESS_MS, defaultNoteTitle, looksLikeDefaultNoteTitle, deleteSection, renameSection, sectionNameTaken, byRecOrd, ingredientParts, isRecipeNote, joinRecipeBody, richLines, scaleRecipeBody, splitRecipeBody, duplicateItem, prefsPut, moveNote, moveSection, moveSectionEmptyingFolder, newId, insertTimestamp, nowStr, ordBetween, parseWhenFromText, stampParts, todayStr, type Rec } from '@calmind/core';
 import * as Clipboard from 'expo-clipboard';
 import { useStore } from '../store';
@@ -30,6 +30,7 @@ import { useToast } from '../components/Toast';
 import { EditExit } from '../components/EditExit';
 import { RecipeEditor } from './RecipeEditor';
 import { ItemModal } from '../components/ItemModal';
+import { NoteBodyInput } from '../components/NoteBodyInput';
 
 // Half, as written, and double — the three a cook actually asks for.
 // The id stays ASCII: it reaches native as an accessibility identifier, and
@@ -131,70 +132,54 @@ function RichBody({ body, onLine, badges }: { body: string; onLine?: (text: stri
   );
 }
 
-/**
- * The Done bar above the iOS keyboard. The new architecture links a bar to its
- * field ONCE, when the bar reaches the window, and takes the FIRST field
- * wearing its id. So each field gets its own id, and its bar is rendered as
- * the field's NEXT SIBLING: the two mount in one commit, field first, and go
- * together when editing ends. Mounted with the editor instead — before the
- * body field exists — it found nothing and never showed; mounted a commit
- * later it lost the race to the body's deferred focus and showed only
- * sometimes. And the id is fresh for every editing session: a recycled field
- * keeps its old props, so a repeated id is never re-applied to it and the
- * second session's bar found nothing. Elsewhere there is no such view to name.
- */
-const KB_IDS = { body: 'note-kb-body', before: 'note-kb-before', after: 'note-kb-after' } as const;
-let kbSessions = 0;
-
-// The page owns scrolling; a second scroll view inside the body traps drags.
-const NoteBodyInput = React.forwardRef<TextInput, TextInputProps>((props, forwardedRef) => {
-  const input = useRef<TextInput | null>(null);
-  const fitWeb = React.useCallback(() => {
-    if (Platform.OS !== 'web' || !input.current) return;
-    const field = input.current as unknown as HTMLTextAreaElement;
-    // Reset first so deleting text shrinks the field as well as typing grows it.
-    field.style.height = 'auto';
-    field.style.height = `${field.scrollHeight + field.offsetHeight - field.clientHeight}px`;
+function DoneBar() {
+  const frameRef = useRef<View | null>(null);
+  const [pageFrame, setPageFrame] = useState<{ y: number; height: number } | null>(null);
+  const [keyboardTop, setKeyboardTop] = useState<number | null>(null);
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    if (Platform.OS !== 'ios') return;
+    const frame = Keyboard.addListener('keyboardWillChangeFrame', (event) => {
+      const top = event.endCoordinates.screenY;
+      setKeyboardTop(top);
+      setVisible(top < Dimensions.get('screen').height);
+    });
+    const hide = Keyboard.addListener('keyboardDidHide', () => {
+      setVisible(false);
+      setKeyboardTop(null);
+    });
+    return () => { frame.remove(); hide.remove(); };
   }, []);
-  React.useLayoutEffect(fitWeb, [fitWeb, props.value]);
-  return (
-    <TextInput
-      {...props}
-      ref={(field) => {
-        input.current = field;
-        if (typeof forwardedRef === 'function') forwardedRef(field);
-        else if (forwardedRef) forwardedRef.current = field;
-      }}
-      scrollEnabled={false}
-      style={[props.style, Platform.OS === 'web' && { overflow: 'hidden' }]}
-      onLayout={(event) => { fitWeb(); props.onLayout?.(event); }}
-    />
-  );
-});
-
-function DoneBar({ id }: { id: string }) {
   if (Platform.OS !== 'ios') return null;
+  const bottom = pageFrame && keyboardTop !== null
+    ? Math.max(0, pageFrame.y + pageFrame.height - keyboardTop)
+    : 0;
   return (
-    <InputAccessoryView nativeID={id}>
-      <View style={s.kbBar}>
-        <Pressable testID="kb-done" accessibilityRole="button" onPress={() => Keyboard.dismiss()} hitSlop={10}>
-          <Text style={s.kbDone}>Done</Text>
-        </Pressable>
+    <View
+      ref={frameRef}
+      pointerEvents={visible ? 'box-none' : 'none'}
+      style={StyleSheet.absoluteFill}
+      onLayout={() => frameRef.current?.measureInWindow((_x, y, _width, height) => setPageFrame({ y, height }))}
+    >
+      <View style={[s.kbBarOverlay, { bottom }]}>
+        <View style={[s.kbBar, !visible && s.kbBarHidden]} accessibilityElementsHidden={!visible}>
+          <Pressable testID="kb-done" accessibilityRole="button" onPress={() => Keyboard.dismiss()} hitSlop={10}>
+            <Text style={s.kbDone}>Done</Text>
+          </Pressable>
+        </View>
       </View>
-    </InputAccessoryView>
+    </View>
   );
 }
 
 function DailyLogField({ label, value, onChange }: { label: string; value: string; onChange: (text: string) => void }) {
   const [draft, setDraft] = useState<string | null>(null);
-  const id = `daily-log-${React.useId()}`;
   return (
     <View style={s.logFieldWrap}>
       <Text style={s.logLabel}>{label}</Text>
       <NoteBodyInput
         testID={`daily-${label.toLowerCase()}`}
         accessibilityLabel={label}
-        inputAccessoryViewID={Platform.OS === 'ios' ? id : undefined}
         multiline
         style={s.logField}
         value={draft ?? value}
@@ -204,7 +189,6 @@ function DailyLogField({ label, value, onChange }: { label: string; value: strin
         onBlur={() => setDraft(null)}
         onChangeText={(text) => { setDraft(text); onChange(text); }}
       />
-      <DoneBar id={id} />
     </View>
   );
 }
@@ -326,6 +310,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
   // written, and 1× is always one tap away.
   const [scale, setScale] = useNoteScoped(openId, 1);
   const [recipeOpen, setRecipeOpen] = useNoteScoped(openId, false);
+  const [typePickerSession, setTypePickerSession] = useNoteScoped(openId, 0);
   // The recipe-note editor splits into [above][blob][below] (Sean,
   // 2026-08-18): the blob is the marker region, not editable here and not
   // removable at all — its content is the Recipe page's business. The two
@@ -337,6 +322,11 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
   // blur arms a short fuse, the other's focus defuses it.
   const partsBlurTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const partFocus = () => {
+    collapseBodyAfterHide.current = false;
+    if (titleFocusFrame.current !== null) {
+      cancelAnimationFrame(titleFocusFrame.current);
+      titleFocusFrame.current = null;
+    }
     if (partsBlurTimer.current) {
       clearTimeout(partsBlurTimer.current);
       partsBlurTimer.current = null;
@@ -345,10 +335,14 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
   const partBlur = () => {
     partsBlurTimer.current = setTimeout(() => {
       partsBlurTimer.current = null;
-      setBodyEditing(false);
-      setDraft(null);
-      setBeforeDraft(null);
-      setAfterDraft(null);
+      if (Platform.OS !== 'web' && Keyboard.isVisible()) {
+        collapseBodyAfterHide.current = true;
+      } else {
+        setBodyEditing(false);
+        setDraft(null);
+        setBeforeDraft(null);
+        setAfterDraft(null);
+      }
     }, 120);
   };
   // What a tapped ingredient or step is becoming: the reminder sheet's text.
@@ -480,10 +474,44 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
   // editor opens, never re-decided mid-keystroke, or typing markers into a
   // plain note would swap the field out from under the typing hand.
   const editAsRecipe = React.useRef(false);
-  // A new Done-bar id each time editing starts or stops — see DoneBar.
-  const kbTag = useMemo(() => ++kbSessions, [bodyEditing]);
-  const kbId = (f: keyof typeof KB_IDS) => `${KB_IDS[f]}-${kbTag}`;
-  const kbField = (f: keyof typeof KB_IDS) => (Platform.OS === 'ios' ? kbId(f) : undefined);
+  // Blur can precede the keyboard's hide animation. Keep the native input
+  // mounted until didHide, then return to the read view.
+  const collapseBodyAfterHide = React.useRef(false);
+  const titleFocusFrame = React.useRef<number | null>(null);
+  const pendingLeave = React.useRef<(() => void) | null>(null);
+  const pendingLeaveTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const runPendingLeave = () => {
+    if (pendingLeaveTimer.current) clearTimeout(pendingLeaveTimer.current);
+    pendingLeaveTimer.current = null;
+    const leave = pendingLeave.current;
+    pendingLeave.current = null;
+    leave?.();
+  };
+  React.useEffect(() => {
+    const hide = Keyboard.addListener('keyboardDidHide', () => {
+      if (collapseBodyAfterHide.current) {
+        collapseBodyAfterHide.current = false;
+        setBodyEditing(false);
+        setDraft(null);
+        setBeforeDraft(null);
+        setAfterDraft(null);
+      }
+      runPendingLeave();
+    });
+    return () => hide.remove();
+  }, [setBodyEditing]);
+  React.useEffect(() => () => {
+    if (pendingLeaveTimer.current) clearTimeout(pendingLeaveTimer.current);
+    pendingLeaveTimer.current = null;
+    pendingLeave.current = null;
+  }, [openId]);
+  const leaveEditorAfterKeyboard = (leave: () => void) => {
+    if (Platform.OS === 'web' || !Keyboard.isVisible()) { leave(); return; }
+    pendingLeave.current = leave;
+    if (pendingLeaveTimer.current) clearTimeout(pendingLeaveTimer.current);
+    pendingLeaveTimer.current = setTimeout(runPendingLeave, 800);
+    Keyboard.dismiss();
+  };
   // The pending body focus, so leaving the note — or a TITLE TAP — can call
   // it off. The cancel-on-title-focus was tried once and rejected ("no hand
   // is that fast"); Sean settled it the other way on 2026-08-18: "tapping
@@ -946,9 +974,11 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
             label="Back"
             onPress={() => {
               const external = cameFromTab.current;
-              cameFromTab.current = false;
-              setOpenId(null);
-              if (external) nav.goBack();
+              leaveEditorAfterKeyboard(() => {
+                cameFromTab.current = false;
+                setOpenId(null);
+                if (external) nav.goBack();
+              });
             }}
           />
           {/* And a direct way to the list, beside it. Back returns to wherever
@@ -960,7 +990,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
             accessibilityRole="button"
             accessibilityLabel="All notes"
             style={s.ddPill}
-            onPress={() => { cameFromTab.current = false; setOpenId(null); }}
+            onPress={() => leaveEditorAfterKeyboard(() => { cameFromTab.current = false; setOpenId(null); })}
           >
             <Text style={s.backText}>All notes</Text>
           </Pressable>
@@ -1002,10 +1032,10 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
             a Done bar rides on top of it — a multiline field has no return
             key that dismisses, and every tap on a control keeps it up. */}
         <Scroll
-          contentContainerStyle={s.editor}
+          contentContainerStyle={[s.editor, s.editorKbClearance]}
           keyboardShouldPersistTaps="handled"
           // Not on web: there a wheel scroll would blur the field mid-sentence.
-          keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : Platform.OS === 'android' ? 'on-drag' : 'none'}
+          keyboardDismissMode={Platform.OS === 'ios' || Platform.OS === 'android' ? 'on-drag' : 'none'}
           automaticallyAdjustKeyboardInsets
         >
           <View style={s.titleRow}>
@@ -1046,10 +1076,15 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
                 // pending body focus cancelled, body back to its view.
                 cancelFreshFocus();
                 if (bodyEditing) {
-                  setBodyEditing(false);
-                  setDraft(null);
-                  setBeforeDraft(null);
-                  setAfterDraft(null);
+                  collapseBodyAfterHide.current = false;
+                  if (titleFocusFrame.current !== null) cancelAnimationFrame(titleFocusFrame.current);
+                  titleFocusFrame.current = requestAnimationFrame(() => {
+                    titleFocusFrame.current = null;
+                    setBodyEditing(false);
+                    setDraft(null);
+                    setBeforeDraft(null);
+                    setAfterDraft(null);
+                  });
                 }
               }}
               onBlur={() => {
@@ -1081,9 +1116,12 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
           </View>
           {/* The format pills live under the name, as prod places them. */}
           <View style={s.toolRow}>
-            <Dropdown testID="note-type" deferSelection value={noteType(open.payload)}
+            <Dropdown key={typePickerSession} testID="note-type" deferSelection value={noteType(open.payload)}
               options={[{ id: 'note', label: 'Note' }, { id: 'recipe', label: 'Recipe' }, { id: 'daily-log', label: 'Daily log' }]}
               onPick={(type) => {
+                // Retire the web modal now: its fade-out focus restoration
+                // must finish before anyone can type in the new fields.
+                if (Platform.OS === 'web') setTypePickerSession((session) => session + 1);
                 cancelFreshFocus();
                 setBodyEditing(false);
                 setDraft(null);
@@ -1148,7 +1186,6 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
                   <NoteBodyInput
                     ref={bodyRef}
                     testID="note-body-before"
-                    inputAccessoryViewID={kbField('before')}
                     style={s.bodyBank}
                     value={beforeDraft ?? es.before}
                     placeholder="Write above the recipe…"
@@ -1161,7 +1198,6 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
                       put(t, afterDraft ?? es.after);
                     }}
                   />
-                  <DoneBar id={kbId('before')} />
                   {/* The recipe, as ONE quiet blob — quoted, italic, small,
                       and not deletable from here: its content is the Recipe
                       page's business, which tapping it opens. */}
@@ -1173,7 +1209,6 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
                   </Pressable>
                   <NoteBodyInput
                     testID="note-body-after"
-                    inputAccessoryViewID={kbField('after')}
                     style={s.bodyBank}
                     value={afterDraft ?? es.after}
                     placeholder="Write below the recipe…"
@@ -1186,7 +1221,6 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
                       put(beforeDraft ?? es.before, t);
                     }}
                   />
-                  <DoneBar id={kbId('after')} />
                 </View>
               );
             })()
@@ -1195,7 +1229,6 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
             <NoteBodyInput
               ref={bodyRef}
               testID="note-body-edit"
-              inputAccessoryViewID={kbField('body')}
               style={s.body}
               value={draft ?? open.payload.body}
               placeholder="Write…"
@@ -1208,8 +1241,20 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
               // deliberately by whoever opened it (tap-to-edit, just below)
               // rather than by racing.
               onBlur={() => {
-                setBodyEditing(false);
-                setDraft(null);
+                if (Platform.OS !== 'web' && Keyboard.isVisible()) {
+                  collapseBodyAfterHide.current = true;
+                } else {
+                  collapseBodyAfterHide.current = false;
+                  setBodyEditing(false);
+                  setDraft(null);
+                }
+              }}
+              onFocus={() => {
+                collapseBodyAfterHide.current = false;
+                if (titleFocusFrame.current !== null) {
+                  cancelAnimationFrame(titleFocusFrame.current);
+                  titleFocusFrame.current = null;
+                }
               }}
               onSelectionChange={(ev) => setSel(ev.nativeEvent.selection)}
               onChangeText={(t) => {
@@ -1217,7 +1262,6 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
                 mutate((e) => e.put({ ...open, payload: { ...open.payload, body: t } }));
               }}
             />
-            <DoneBar id={kbId('body')} />
             </>
           ) : (
             <Pressable
@@ -1229,6 +1273,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
                 // else. 1× is right there.
                 if (scale !== 1) return;
                 editAsRecipe.current = isRecipeNote(open.payload);
+                collapseBodyAfterHide.current = false;
                 setDraft(open.payload.body);
                 setBodyEditing(true);
                 // The field does not exist until this has rendered — and the
@@ -1298,11 +1343,11 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
                   (Sean, 2026-08-20). Keyed by note so arming one can never
                   prime the next (armeddelete.spec), which useNoteScoped did
                   for the old inline version. */}
-              <DeletePill key={open.id} onDelete={() => { setOpenId(null); mutate((e) => e.del(open.id)); }} />
+              <DeletePill key={open.id} onDelete={() => leaveEditorAfterKeyboard(() => { setOpenId(null); mutate((e) => e.del(open.id)); })} />
             </View>
           </View>
         </Scroll>
-
+        <DoneBar />
       </View>
     );
   }
@@ -2092,6 +2137,7 @@ const s = themed(() => StyleSheet.create({
   logLabel: { color: T.dim, fontSize: 13, fontWeight: '700' },
   logField: { color: T.text, fontSize: 16, lineHeight: 24, minHeight: 72, padding: 10, textAlignVertical: 'top', borderRadius: 8, backgroundColor: T.bg, borderWidth: 1, borderColor: T.line },
   editor: { padding: 16, gap: 10 },
+  editorKbClearance: { paddingBottom: 56 },
   edHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 16, marginHorizontal: 16, marginBottom: 8, flexWrap: 'wrap' },
   // marginLeft auto pushes it to the right edge of the row, and it keeps its
   // corner when the row wraps on a narrow screen rather than following the
@@ -2144,6 +2190,7 @@ const s = themed(() => StyleSheet.create({
   recipeTag: { color: T.accent, fontSize: 11, fontWeight: '800', fontStyle: 'italic', textTransform: 'uppercase', letterSpacing: 0.6 },
   // A timestamp in the read view: the recipe card's dress, at the size of a
   // word in the line — the pieces either side wrap round it.
+  kbBarOverlay: { position: 'absolute', left: 0, right: 0 },
   kbBar: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
@@ -2154,6 +2201,7 @@ const s = themed(() => StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
   },
+  kbBarHidden: { opacity: 0 },
   kbDone: { color: T.accent, fontSize: 16, fontWeight: '700' },
   stampLine: { flex: 1, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 6, rowGap: 2 },
   stampChip: {
