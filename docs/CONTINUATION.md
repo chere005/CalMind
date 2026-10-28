@@ -1,6 +1,41 @@
 # Continuation
 
-## Daily-log notes and ChefMind grouping
+## Notes bullets and keyboard dismissal — 1.46.0
+
+Star-space and dash-space start note lists. Return continues the marker;
+Return on an empty item exits. This works in daily-log cards, plain notes,
+and recipe prose. `noteListEdit` and `spec/richtext.json` define the behavior.
+`NoteBodyInput` and `noteInputState` preserve text and selection when native
+keystrokes arrive before an earlier automatic correction is acknowledged.
+
+Notes now uses a measured Done overlay instead of changing native keyboard
+accessory views. Native scrolling dismisses on drag. A blurred body remains
+mounted until the keyboard finishes hiding; navigation has a bounded fallback.
+The web note-type modal is retired before its closing animation can steal
+focus from a new card field.
+
+Application commit: `8033725`. CalMind 1.46.0 is pushed/tagged at `1802b3a`,
+deployed to prod/test, and installed on Sean's `iPhoooooone`. Preflight
+`40774486358` and published Release `40775299332` passed. Signature, installed
+version, production API, and the queued-input code were checked. No fixture
+API is in the phone bundle. The watch was unreachable and was not updated;
+no local Mac or Android install was requested in this run.
+
+The development suite, app input regressions, related browser checks, repeated
+bullet checks, and headless native quick/full probes passed. Native probes
+cover rapid Return/Return/typing, repeated Done dismissal, drag dismissal,
+persistence, and navigation. Evidence is under `/tmp/calmind-bullet-keyboard/`;
+the successful full result is
+`full-native-input-final-20261028-164017.xcresult`. The fixture API is stopped,
+the disposable simulator deleted, and SPACE unmounted.
+
+Source copies are pushed on main: CoreMind `552caf4`, MyCalMind `53c69e6`,
+ChefMind `f732752`. All consumer drift checks pass. ChefMind's source-only
+preflight `40772053063` passed; no ChefMind or MyCalMind app release was made.
+A follow-up to preserve the native regression runner in the repo is queued
+in Sean's ticket Inbox.
+
+## Earlier daily-log and ChefMind handoff (1.44.0)
 
 The new Note / Recipe / Daily log dropdown is first in the note editor's
 button row. Daily log creates a dated card with Food, Exercise, and Mood
@@ -25,7 +60,7 @@ these exact changes and manifests for the new module/spec/test; source copies
 in MyCalMind and the compatible ChefMind core are updated. CoreMind is pushed
 at `c31dd5e`; MyCalMind at `d16ad93`.
 
-## Verification
+## Earlier verification
 
 Typechecks, the development suite, relevant daily-log/Recipe/Markdown browser
 checks, ChefMind grouping checks, canon tests, and all consumer drift checks
@@ -37,7 +72,7 @@ and opening Recipe from the dropdown. Result:
 the disposable simulator deleted. Generated simulator builds use a local
 fixture API; production phone builds must use the production API.
 
-## Release and device state
+## Earlier release and device state
 
 CalMind 1.44.0 is deployed to prod/test, pushed and tagged at `9aafa60`.
 Preflight 40630834089 and published Release 40631599434 both passed.
