@@ -40,12 +40,18 @@ fixture API; production phone builds must use the production API.
 ## Release and device state
 
 CalMind 1.44.0 is deployed to prod/test, pushed and tagged at `9aafa60`.
-Preflight 40630834089 passed. The release lane is watching Release run
-40631599434 before device installation; log:
-`/tmp/calmind-dailylog-release3.log`. Earlier preflights were stopped to include
-Sean's later grouping request and the native dropdown fix. Nothing from
-1.44.0 has been installed on the phone yet; Sean's phone and watch have 1.43.0.
-SPACE is connected and unmounted, ready for device work.
+Preflight 40630834089 and published Release 40631599434 both passed.
+Release: https://github.com/chere005/CalMind/releases/tag/1.44.0.
+The signed 1.44.0 production bundle is installed on Sean's `iPhoooooone` and
+his watch. Its signature, version, production API, Daily log code, and
+ChefMind parent-group code were checked; no fixture API is bundled.
+
+The device run used `IOS_DEVICE=iPhoooooone` to finish within the cutoff.
+Autumn's and Patricia's phones were not updated in this run. The signed bundle
+is at `apps/app/ios/derived-platforms/Build/Products/Release-iphoneos/CalMind.app`.
+Device output: `/tmp/calmind-dailylog-phone.log`. Release output:
+`/tmp/calmind-dailylog-release3.log`. The installed local desktop and Android
+apps were not rebuilt, and no MyCalMind app release was performed.
 
 ChefMind's compatible source is pushed on main at `1f2bd27`, prepared as
 untagged 1.31.0 because its preflight refuses an already published version.
@@ -54,9 +60,10 @@ No ChefMind release or deployment was requested or performed. Preflight
 and application/build inputs were verified identical to that checked commit.
 The prior local/remote divergence was merged, preserving local pantry/note
 improvements and the published release tooling. Its log is
-`/tmp/calmind-dailylog-chef-preflight3.log`.
+`/tmp/calmind-dailylog-chef-preflight3.log`. The existing pantry identity/aisle
+backlog was preserved and proposed to Sean's ticket Inbox for approval.
 
-The 11:30 PM America/Chicago October 27 cutoff remains mandatory. Update this
-state before stopping. Finish the release and phone install only if time
-allows, unmount SPACE after device work, and record any remaining work here.
-The installed local desktop and Android apps were not rebuilt in this turn.
+SPACE is unmounted, the temporary test server is stopped, and the disposable
+simulator is deleted. Implementation and the requested phone install are
+complete. Only other device/platform installs remain deferred. This run
+finished before Sean's 11:30 PM America/Chicago October 27 cutoff.
