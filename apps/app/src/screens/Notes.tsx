@@ -131,9 +131,33 @@ function RichBody({ body, onLine, badges }: { body: string; onLine?: (text: stri
   );
 }
 
-/** The Done bar above the iOS keyboard; elsewhere there is no such view to name. */
-const KB_DONE_ID = 'note-kb-done';
-const KB_DONE = Platform.OS === 'ios' ? KB_DONE_ID : undefined;
+/**
+ * The Done bar above the iOS keyboard. The new architecture links a bar to its
+ * field ONCE, when the bar reaches the window, and takes the FIRST field
+ * wearing its id. So each field gets its own id, and its bar is rendered as
+ * the field's NEXT SIBLING: the two mount in one commit, field first, and go
+ * together when editing ends. Mounted with the editor instead — before the
+ * body field exists — it found nothing and never showed; mounted a commit
+ * later it lost the race to the body's deferred focus and showed only
+ * sometimes. And the id is fresh for every editing session: a recycled field
+ * keeps its old props, so a repeated id is never re-applied to it and the
+ * second session's bar found nothing. Elsewhere there is no such view to name.
+ */
+const KB_IDS = { body: 'note-kb-body', before: 'note-kb-before', after: 'note-kb-after' } as const;
+let kbSessions = 0;
+
+function DoneBar({ id }: { id: string }) {
+  if (Platform.OS !== 'ios') return null;
+  return (
+    <InputAccessoryView nativeID={id}>
+      <View style={s.kbBar}>
+        <Pressable testID="kb-done" accessibilityRole="button" onPress={() => Keyboard.dismiss()} hitSlop={10}>
+          <Text style={s.kbDone}>Done</Text>
+        </Pressable>
+      </View>
+    </InputAccessoryView>
+  );
+}
 
 /**
  * A line carrying a timestamp, the stamp drawn as a small card in the recipe
@@ -374,6 +398,10 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
   // editor opens, never re-decided mid-keystroke, or typing markers into a
   // plain note would swap the field out from under the typing hand.
   const editAsRecipe = React.useRef(false);
+  // A new Done-bar id each time editing starts or stops — see DoneBar.
+  const kbTag = useMemo(() => ++kbSessions, [bodyEditing]);
+  const kbId = (f: keyof typeof KB_IDS) => `${KB_IDS[f]}-${kbTag}`;
+  const kbField = (f: keyof typeof KB_IDS) => (Platform.OS === 'ios' ? kbId(f) : undefined);
   // The pending body focus, so leaving the note — or a TITLE TAP — can call
   // it off. The cancel-on-title-focus was tried once and rejected ("no hand
   // is that fast"); Sean settled it the other way on 2026-08-18: "tapping
@@ -1035,7 +1063,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
                   <TextInput
                     ref={bodyRef}
                     testID="note-body-before"
-                    inputAccessoryViewID={KB_DONE}
+                    inputAccessoryViewID={kbField('before')}
                     style={s.bodyBank}
                     value={beforeDraft ?? es.before}
                     placeholder="Write above the recipe…"
@@ -1048,6 +1076,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
                       put(t, afterDraft ?? es.after);
                     }}
                   />
+                  <DoneBar id={kbId('before')} />
                   {/* The recipe, as ONE quiet blob — quoted, italic, small,
                       and not deletable from here: its content is the Recipe
                       page's business, which tapping it opens. */}
@@ -1059,7 +1088,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
                   </Pressable>
                   <TextInput
                     testID="note-body-after"
-                    inputAccessoryViewID={KB_DONE}
+                    inputAccessoryViewID={kbField('after')}
                     style={s.bodyBank}
                     value={afterDraft ?? es.after}
                     placeholder="Write below the recipe…"
@@ -1072,14 +1101,16 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
                       put(beforeDraft ?? es.before, t);
                     }}
                   />
+                  <DoneBar id={kbId('after')} />
                 </View>
               );
             })()
           ) : bodyEditing ? (
+            <>
             <TextInput
               ref={bodyRef}
               testID="note-body-edit"
-              inputAccessoryViewID={KB_DONE}
+              inputAccessoryViewID={kbField('body')}
               style={s.body}
               value={draft ?? open.payload.body}
               placeholder="Write…"
@@ -1101,6 +1132,8 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
                 mutate((e) => e.put({ ...open, payload: { ...open.payload, body: t } }));
               }}
             />
+            <DoneBar id={kbId('body')} />
+            </>
           ) : (
             <Pressable
               testID="note-body-view"
@@ -1184,15 +1217,6 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
             </View>
           </View>
         </Scroll>
-        {Platform.OS === 'ios' && (
-          <InputAccessoryView nativeID={KB_DONE_ID}>
-            <View style={s.kbBar}>
-              <Pressable testID="kb-done" accessibilityRole="button" onPress={() => Keyboard.dismiss()} hitSlop={10}>
-                <Text style={s.kbDone}>Done</Text>
-              </Pressable>
-            </View>
-          </InputAccessoryView>
-        )}
 
       </View>
     );
