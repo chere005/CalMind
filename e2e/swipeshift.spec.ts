@@ -51,7 +51,8 @@ async function openRecipe(page: Page) {
   // the title-tap rule, 2026-08-18) — reopen it the way a hand would.
   await page.getByTestId('note-body-view').click();
   await page.getByTestId('note-body-edit').fill('2 cups flour\n1 cup milk\n3 eggs\n1. Mix it');
-  await page.getByTestId('recipe-import').click();
+  await page.getByTestId('note-type').click();
+  await page.getByText('Recipe', { exact: true }).last().click();
   // The page slides in; measuring a row mid-animation aims the swipe at where
   // it used to be.
   await page.waitForTimeout(400);

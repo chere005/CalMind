@@ -587,8 +587,8 @@ export function joinRecipeBody(before: string, recipe: string, after: string): s
  * written. The shape still has to hold too, or a flagged note whose markers
  * were edited away would draw a card around nothing.
  */
-export function isRecipeNote(n: { body: string; recipe?: boolean }): boolean {
-  return n.recipe === true && splitRecipeBody(n.body) !== null;
+export function isRecipeNote(n: { body: string; recipe?: boolean; noteType?: string }): boolean {
+  return n.noteType !== 'note' && n.noteType !== 'daily-log' && n.recipe === true && splitRecipeBody(n.body) !== null;
 }
 
 /* ── Scaling ──────────────────────────────────────────────────────────────

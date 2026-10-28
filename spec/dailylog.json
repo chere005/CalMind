@@ -1,0 +1,44 @@
+{
+  "types": [
+    {
+      "name": "legacy plain note",
+      "note": {
+        "body": "plain"
+      },
+      "expect": "note"
+    },
+    {
+      "name": "legacy recipe",
+      "note": {
+        "body": "**Ingredients**\n- rice\n\n**Steps**\n1. Cook",
+        "recipe": true
+      },
+      "expect": "recipe"
+    },
+    {
+      "name": "daily log overrides old recipe flag",
+      "note": {
+        "body": "plain",
+        "recipe": true,
+        "noteType": "daily-log"
+      },
+      "expect": "daily-log"
+    }
+  ],
+  "base": {
+    "title": "Daily journal",
+    "body": "Keep my existing text",
+    "date": null,
+    "folderId": "f",
+    "sectionId": "s",
+    "ord": "a"
+  },
+  "today": "2026-10-27",
+  "firstCard": {
+    "id": "day-1",
+    "date": "2026-10-27",
+    "food": "",
+    "exercise": "",
+    "mood": ""
+  }
+}

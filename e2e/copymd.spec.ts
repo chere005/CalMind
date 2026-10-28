@@ -110,7 +110,8 @@ test('the toast stays on top of a sheet (Sean: "just make the toast always on to
   // Fire the toast, then open a real sheet inside its two-second life.
   await page.getByTestId('note-copymd').click();
   await expect(page.getByTestId('toast')).toBeVisible();
-  await page.getByTestId('recipe-import').click();
+  await page.getByTestId('note-type').click();
+  await page.getByText('Recipe', { exact: true }).last().click();
   await expect(page.getByTestId('recipe-back'), 'the sheet is open').toBeVisible({ timeout: 10_000 });
   await expect(page.getByTestId('toast'), 'and the toast outlives its arrival').toBeVisible();
   const zs = await page.getByTestId('toast').evaluate((el) => {

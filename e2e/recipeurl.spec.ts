@@ -61,7 +61,8 @@ test('a recipe link fills in ingredients and steps, and nothing else', async ({ 
   await page.getByTestId('note-body-view').click();
   await page.getByTestId('note-body-edit').fill('placeholder body');
   await page.getByTestId('note-title').click();
-  await page.getByTestId('recipe-import').click();
+  await page.getByTestId('note-type').click();
+  await page.getByText('Recipe', { exact: true }).last().click();
   await expect(page.getByTestId('recipe-back')).toBeVisible({ timeout: 10_000 });
 
   await page.getByTestId('recipe-link').click();
@@ -106,7 +107,8 @@ test('a page with no recipe says so instead of appearing to work', async ({ page
   await page.getByTestId('note-body-view').click();
   await page.getByTestId('note-body-edit').fill('placeholder body');
   await page.getByTestId('note-title').click();
-  await page.getByTestId('recipe-import').click();
+  await page.getByTestId('note-type').click();
+  await page.getByText('Recipe', { exact: true }).last().click();
   await expect(page.getByTestId('recipe-back')).toBeVisible({ timeout: 10_000 });
   await page.getByTestId('recipe-link').click();
   await page.getByTestId('recipe-url').fill('https://example.com/blog');

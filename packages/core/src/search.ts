@@ -9,6 +9,7 @@
  * query that matches nothing states so, which beats guessing.
  */
 import type { AnyRec, Rec } from './types';
+import { noteBodyText } from './dailylog';
 
 export type SearchKind = 'reminder' | 'note' | 'event';
 export type SearchSort = 'relevance' | 'date' | 'alpha';
@@ -60,7 +61,7 @@ export function searchRecords(
       const p = (r as Rec<'note'>).payload;
       // The body counts at half weight: a title hit IS the note; a body hit
       // is a note that mentions it.
-      const score = Math.max(fieldScore(p.title, q, words), fieldScore(p.body, q, words) * 0.5);
+      const score = Math.max(fieldScore(p.title, q, words), fieldScore(noteBodyText(p), q, words) * 0.5);
       if (score > 0) hits.push({ id: r.id, kind: 'note', text: p.title, date: p.date, score, updated: r.updated });
     } else if (r.type === 'event' && kinds.has('event')) {
       const p = (r as Rec<'event'>).payload;

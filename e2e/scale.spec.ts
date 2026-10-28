@@ -39,7 +39,8 @@ test('scaling reads the recipe differently and writes nothing', async ({ page })
   await page.getByTestId('note-title').click();
   // A recipe is a note the Recipe page SAVED (2026-08-19) — typed markers
   // alone stay plain, so convert before expecting the scale row.
-  await page.getByTestId('recipe-import').click();
+  await page.getByTestId('note-type').click();
+  await page.getByText('Recipe', { exact: true }).last().click();
   await expect(page.getByTestId('recipe-back')).toBeVisible({ timeout: 10_000 });
   await page.getByTestId('recipe-back').click();
 
@@ -95,7 +96,8 @@ test('scaling never reaches the stored recipe, even through the Recipe editor', 
   await page.getByTestId('note-body-edit').fill(BODY);
   await page.getByTestId('note-title').click();
   // Convert — a recipe is a note the Recipe page saved (2026-08-19).
-  await page.getByTestId('recipe-import').click();
+  await page.getByTestId('note-type').click();
+  await page.getByText('Recipe', { exact: true }).last().click();
   await expect(page.getByTestId('recipe-back')).toBeVisible({ timeout: 10_000 });
   await page.getByTestId('recipe-back').click();
 
@@ -104,7 +106,8 @@ test('scaling never reaches the stored recipe, even through the Recipe editor', 
   // re-parses the note and Save rewrites the whole body.
   await page.getByTestId('scale-double').click();
   await expect(page.getByTestId('note-body-view').getByTestId('ing-unit').first()).toHaveText('4 cups');
-  await page.getByTestId('recipe-import').click();
+  await page.getByTestId('note-type').click();
+  await page.getByText('Recipe', { exact: true }).last().click();
   await expect(page.getByTestId('recipe-back')).toBeVisible({ timeout: 10_000 });
   // Name in the row, measure in the badge — together they are the claim.
   const flourRow = page.getByTestId('ing-row').filter({ hasText: 'flour' });

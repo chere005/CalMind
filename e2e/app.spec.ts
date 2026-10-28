@@ -1093,7 +1093,8 @@ test("sharing: a calendar shows under the partner's day-panel group; notes read 
   await pageA.getByTestId('note-title').click();
   // A recipe is a note the Recipe page SAVED (2026-08-19) — the flag rides
   // the payload through sync, which is what dresses the partner's copy.
-  await pageA.getByTestId('recipe-import').click();
+  await pageA.getByTestId('note-type').click();
+  await pageA.getByText('Recipe', { exact: true }).last().click();
   await expect(pageA.getByTestId('recipe-back')).toBeVisible({ timeout: 10_000 });
   await pageA.getByTestId('recipe-back').click();
   await pageA.waitForTimeout(2_000);
@@ -1208,7 +1209,8 @@ test('unticking Include notes shows what it would drop, rather than hiding it', 
     'Ingredients\n200 g farina 00\n2 eggs\nForm a well with the flour and knead it.\nDo whatever you want with it.',
   );
   await page.getByTestId('note-title').click();
-  await page.getByTestId('recipe-import').click();
+  await page.getByTestId('note-type').click();
+  await page.getByText('Recipe', { exact: true }).last().click();
   await expect(page.getByTestId('recipe-back')).toBeVisible({ timeout: 10_000 });
 
   // Ticked: the lines are listed and no warning is needed.
@@ -1600,7 +1602,8 @@ test('a recipe line is mended by tapping it, not by deleting and retyping', asyn
   // the title-tap rule, 2026-08-18) — reopen it the way a hand would.
   await page.getByTestId('note-body-view').click();
   await page.getByTestId('note-body-edit').fill('2 cups flur\n1. Mix it');
-  await page.getByTestId('recipe-import').click();
+  await page.getByTestId('note-type').click();
+  await page.getByText('Recipe', { exact: true }).last().click();
 
   await page.getByTestId('ing-row').first().click();
   const field = page.getByTestId('ing-edit');
@@ -1637,7 +1640,8 @@ test('recipe lines reorder by dragging the marker they already wear', async ({ p
   // the title-tap rule, 2026-08-18) — reopen it the way a hand would.
   await page.getByTestId('note-body-view').click();
   await page.getByTestId('note-body-edit').fill('2 cups flour\n1 cup milk\n3 eggs');
-  await page.getByTestId('recipe-import').click();
+  await page.getByTestId('note-type').click();
+  await page.getByText('Recipe', { exact: true }).last().click();
 
   const rows = () => page.getByTestId('ing-row').allTextContents().then(deIcon);
   await expect.poll(rows).toEqual(['flour2 cups', 'milk1 cup', 'eggs3']);
@@ -1672,7 +1676,8 @@ test('the Recipe page says how its lines are handled', async ({ page }) => {
   // the title-tap rule, 2026-08-18) — reopen it the way a hand would.
   await page.getByTestId('note-body-view').click();
   await page.getByTestId('note-body-edit').fill('2 cups flour\n1 cup milk');
-  await page.getByTestId('recipe-import').click();
+  await page.getByTestId('note-type').click();
+  await page.getByText('Recipe', { exact: true }).last().click();
   const hint = page.getByTestId('recipe-hint');
   await expect(hint).toBeVisible();
   await expect(hint).toContainText('reorder');
@@ -1691,7 +1696,8 @@ test('a recipe line deletes by swiping it, not by a × parked on every row', asy
   // the title-tap rule, 2026-08-18) — reopen it the way a hand would.
   await page.getByTestId('note-body-view').click();
   await page.getByTestId('note-body-edit').fill('2 cups flour\n1 cup milk');
-  await page.getByTestId('recipe-import').click();
+  await page.getByTestId('note-type').click();
+  await page.getByText('Recipe', { exact: true }).last().click();
   await expect.poll(() => page.getByTestId('ing-row').allTextContents().then(deIcon)).toEqual(['flour2 cups', 'milk1 cup']);
   await page.waitForTimeout(400); // the page slides in
 
@@ -1718,7 +1724,8 @@ test('the Recipe page can shed the non-recipe notes with its checkbox', async ({
   // the title-tap rule, 2026-08-18) — reopen it the way a hand would.
   await page.getByTestId('note-body-view').click();
   await page.getByTestId('note-body-edit').fill('2 cups flour\n1. Mix well\nGrandma loved these, and she always doubled the butter.');
-  await page.getByTestId('recipe-import').click();
+  await page.getByTestId('note-type').click();
+  await page.getByText('Recipe', { exact: true }).last().click();
   // The checkbox shows because free text exists; untick and save.
   await expect(page.getByTestId('recipe-incnotes')).toBeVisible();
   await page.getByTestId('recipe-incnotes').click();

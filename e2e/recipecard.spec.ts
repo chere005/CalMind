@@ -34,7 +34,8 @@ async function makeRecipeNote(page: Page, title: string, body: string) {
   // A recipe is a note the Recipe page SAVED (2026-08-19): the typed marker
   // shape alone no longer dresses a note in the card — Sean's own
   // hand-written notes wear that shape and must stay plain. Convert.
-  await page.getByTestId('recipe-import').click();
+  await page.getByTestId('note-type').click();
+  await page.getByText('Recipe', { exact: true }).last().click();
   await expect(page.getByTestId('recipe-back')).toBeVisible({ timeout: 10_000 });
   await page.getByTestId('recipe-back').click();
   await expect(page.getByTestId('note-body-view')).toBeVisible();

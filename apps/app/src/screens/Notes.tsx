@@ -5,7 +5,7 @@
  */
 import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { InputAccessoryView, Keyboard, Modal, Platform, Pressable, StyleSheet, Text, TextInput, type TextInputProps, View } from 'react-native';
-import { chefDateOf, setChefDate, dayHeading, LONG_PRESS_MS, defaultNoteTitle, looksLikeDefaultNoteTitle, deleteSection, renameSection, sectionNameTaken, byRecOrd, ingredientParts, isRecipeNote, joinRecipeBody, richLines, scaleRecipeBody, splitRecipeBody, duplicateItem, prefsPut, moveNote, moveSection, moveSectionEmptyingFolder, newId, insertTimestamp, nowStr, ordBetween, parseWhenFromText, stampParts, todayStr, type Rec } from '@calmind/core';
+import { noteType, setNoteType, addDailyLogCard, updateDailyLogCard, removeDailyLogCard, noteBodyText, type Note, type NoteType, chefDateOf, setChefDate, dayHeading, LONG_PRESS_MS, defaultNoteTitle, looksLikeDefaultNoteTitle, deleteSection, renameSection, sectionNameTaken, byRecOrd, ingredientParts, isRecipeNote, joinRecipeBody, richLines, scaleRecipeBody, splitRecipeBody, duplicateItem, prefsPut, moveNote, moveSection, moveSectionEmptyingFolder, newId, insertTimestamp, nowStr, ordBetween, parseWhenFromText, stampParts, todayStr, type Rec } from '@calmind/core';
 import * as Clipboard from 'expo-clipboard';
 import { useStore } from '../store';
 import { UnitBadge } from '../components/IngredientBadge';
@@ -182,6 +182,62 @@ function DoneBar({ id }: { id: string }) {
         </Pressable>
       </View>
     </InputAccessoryView>
+  );
+}
+
+function DailyLogField({ label, value, onChange }: { label: string; value: string; onChange: (text: string) => void }) {
+  const [draft, setDraft] = useState<string | null>(null);
+  const id = `daily-log-${React.useId()}`;
+  return (
+    <View style={s.logFieldWrap}>
+      <Text style={s.logLabel}>{label}</Text>
+      <NoteBodyInput
+        testID={`daily-${label.toLowerCase()}`}
+        accessibilityLabel={label}
+        inputAccessoryViewID={Platform.OS === 'ios' ? id : undefined}
+        multiline
+        style={s.logField}
+        value={draft ?? value}
+        placeholder={`${label}…`}
+        placeholderTextColor={T.muted}
+        onFocus={() => setDraft(value)}
+        onBlur={() => setDraft(null)}
+        onChangeText={(text) => { setDraft(text); onChange(text); }}
+      />
+      <DoneBar id={id} />
+    </View>
+  );
+}
+
+function DailyLogCards({ note, onChange }: { note: Note; onChange: (next: Note) => void }) {
+  const [dateFor, setDateFor] = useState<string | null>(null);
+  return (
+    <View testID="daily-log" style={s.logStack}>
+      {note.body !== '' && <NoteBodyInput testID="daily-log-intro" style={s.bodyBank} multiline value={note.body} onChangeText={(body) => onChange({ ...note, body })} />}
+      <View style={s.logHead}>
+        <Text style={s.logHeading}>Daily log</Text>
+        <Pressable testID="daily-log-add" accessibilityRole="button" accessibilityLabel="Add daily log card" style={s.logAdd}
+          onPress={() => { Keyboard.dismiss(); onChange(addDailyLogCard(note, newId(), todayStr())); }}>
+          <Text style={s.logPlus}>+</Text>
+        </Pressable>
+      </View>
+      {(note.logCards ?? []).map((card) => (
+        <View key={card.id} testID="daily-log-card" style={s.logCard}>
+          <View style={s.logHead}>
+            <Text style={s.logDay}>{dayHeading(card.date, todayStr())}</Text>
+            <DayPickBtn value={card.date} onPress={() => setDateFor(dateFor === card.id ? null : card.id)} />
+            <DeletePill key={card.id} onDelete={() => onChange(removeDailyLogCard(note, card.id))} />
+          </View>
+          {dateFor === card.id && <DayPick value={card.date}
+            onPick={(date) => { onChange(updateDailyLogCard(note, card.id, { date: date ?? card.date })); setDateFor(null); }}
+            onClose={() => setDateFor(null)} />}
+          {(['food', 'exercise', 'mood'] as const).map((field) => (
+            <DailyLogField key={field} label={field[0]!.toUpperCase() + field.slice(1)} value={card[field]}
+              onChange={(value) => onChange(updateDailyLogCard(note, card.id, { [field]: value }))} />
+          ))}
+        </View>
+      ))}
+    </View>
   );
 }
 
@@ -1025,24 +1081,25 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
           </View>
           {/* The format pills live under the name, as prod places them. */}
           <View style={s.toolRow}>
+            <Dropdown testID="note-type" value={noteType(open.payload)}
+              options={[{ id: 'note', label: 'Note' }, { id: 'recipe', label: 'Recipe' }, { id: 'daily-log', label: 'Daily log' }]}
+              onPick={(type) => {
+                cancelFreshFocus();
+                setBodyEditing(false);
+                setDraft(null);
+                setScale(1);
+                if (type === 'recipe') { setRecipeOpen(true); return; }
+                mutate((e) => e.put({ ...open, payload: setNoteType(open.payload, type as NoteType, newId(), todayStr()) }));
+              }} />
+            {noteType(open.payload) !== 'daily-log' && <>
             <Pill label={'”'} onPress={() => linePrefix('> ')} />
             <Pill label="B" onPress={() => wrapSel('**')} />
             <Pill label="I" onPress={() => wrapSel('*')} />
             <Pill label="U" onPress={() => wrapSel('__')} />
             <Pill label="· List" onPress={() => linePrefix('- ')} />
             <Pill testID="note-stamp" label="Insert date and time" icon={<ClockGlyph color={T.text} />} onPress={stampNow} />
-            <Pill
-              testID="recipe-import"
-              label="Recipe"
-              onPress={() => {
-                // The editor works on what the note SAYS, not on what the
-                // scale is showing. Dropping back to 1x first means the two
-                // agree on screen, rather than the editor looking like it
-                // threw the doubling away.
-                setScale(1);
-                setRecipeOpen(true);
-              }}
-            />
+            </>}
+
           </View>
           {dateOpen && (
             <View style={s.metaRow}>
@@ -1079,7 +1136,9 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
               {scale !== 1 && <Text style={s.scaleNote}>Scaled — 1× to edit</Text>}
             </View>
           )}
-          {bodyEditing && editAsRecipe.current ? (
+          {noteType(open.payload) === 'daily-log' ? (
+            <DailyLogCards note={open.payload} onChange={(payload) => mutate((e) => e.put({ ...open, payload }))} />
+          ) : bodyEditing && editAsRecipe.current ? (
             (() => {
               const es = splitRecipeBody(open.payload.body)!;
               const put = (before: string, after: string) =>
@@ -1227,7 +1286,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
                 accessibilityRole="button"
                 accessibilityLabel="Copy as Markdown"
                 onPress={() => {
-                  const md = `# ${open.payload.title}\n\n${open.payload.body}`;
+                  const md = `# ${open.payload.title}\n\n${noteBodyText(open.payload)}`;
                   Clipboard.setStringAsync(md)
                     .then(() => toast('Copied as Markdown'))
                     .catch(() => toast('Could not copy'));
@@ -1818,7 +1877,13 @@ function SharedNotes({ viewKey, partner }: { viewKey: string; partner: string })
               {sharedScale !== 1 && <Text style={s.scaleNote}>Scaled — 1× to edit</Text>}
             </View>
           )}
-          {sharedBodyEdit ? (
+          {noteType(openShared.payload) === 'daily-log' ? (
+            <DailyLogCards note={openShared.payload} onChange={(payload) => {
+              const next = { ...openShared, payload };
+              setOpenShared(next);
+              void sharedPut(next);
+            }} />
+          ) : sharedBodyEdit ? (
             <NoteBodyInput
               testID="shared-note-edit"
               style={s.body}
@@ -2009,6 +2074,16 @@ const s = themed(() => StyleSheet.create({
   askRow: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8 },
   rowTitle: { color: T.text, fontSize: 16, flex: 1 },
   chev: { color: T.muted, fontSize: 16, marginLeft: 'auto' },
+  logStack: { gap: 14 },
+  logHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  logHeading: { flex: 1, fontSize: 18, fontWeight: '700', color: T.text },
+  logDay: { flex: 1, fontSize: 16, fontWeight: '700', color: T.text },
+  logAdd: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 22, backgroundColor: T.accentSoft, borderColor: T.accent, borderWidth: 1 },
+  logPlus: { fontSize: 26, color: T.accent },
+  logCard: { padding: 14, gap: 12, borderRadius: 12, borderLeftWidth: 3, borderLeftColor: T.accent, backgroundColor: T.surface },
+  logFieldWrap: { gap: 6 },
+  logLabel: { color: T.dim, fontSize: 13, fontWeight: '700' },
+  logField: { color: T.text, fontSize: 16, lineHeight: 24, minHeight: 72, padding: 10, textAlignVertical: 'top', borderRadius: 8, backgroundColor: T.bg, borderWidth: 1, borderColor: T.line },
   editor: { padding: 16, gap: 10 },
   edHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 16, marginHorizontal: 16, marginBottom: 8, flexWrap: 'wrap' },
   // marginLeft auto pushes it to the right edge of the row, and it keeps its

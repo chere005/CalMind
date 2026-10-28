@@ -68,7 +68,8 @@ test('a correction typed during an import lands on the line it was typed into', 
   // the title-tap rule, 2026-08-18) — reopen it the way a hand would.
   await page.getByTestId('note-body-view').click();
   await page.getByTestId('note-body-edit').fill('2 cups flour\n1 cup milk\n1. Mix it');
-  await page.getByTestId('recipe-import').click();
+  await page.getByTestId('note-type').click();
+  await page.getByText('Recipe', { exact: true }).last().click();
   await page.waitForTimeout(400);
   const ings = () => page.getByTestId('ing-row').allTextContents().then(deIcon);
   await expect.poll(ings).toEqual(['flour2 cups', 'milk1 cup']);

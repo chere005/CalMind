@@ -281,7 +281,7 @@ export function RecipeEditor({ note, onClose, put }: {
   const write = () => {
     const { note: cur, putNote: put } = latest.current;
     const body = [recipeBody(ingredients, steps), includeNotes ? extra.join('\n') : ''].filter(Boolean).join('\n\n');
-    put({ ...cur, payload: { ...cur.payload, title: title || cur.payload.title, body, recipe: true } });
+    put({ ...cur, payload: { ...cur.payload, title: title || cur.payload.title, body, recipe: true, noteType: 'recipe' } });
   };
   useEffect(() => {
     if (!touched.current) {

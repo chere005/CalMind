@@ -26,3 +26,4 @@ export * from './search';
 export * from './meetreq';
 export * from './folds';
 export * from './chefdate';
+export * from './dailylog';

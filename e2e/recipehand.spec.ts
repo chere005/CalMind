@@ -46,7 +46,8 @@ async function openEditor(page: Page, body: string) {
   // the title-tap rule, 2026-08-18) — reopen it the way a hand would.
   await page.getByTestId('note-body-view').click();
   await page.getByTestId('note-body-edit').fill(body);
-  await page.getByTestId('recipe-import').click();
+  await page.getByTestId('note-type').click();
+  await page.getByText('Recipe', { exact: true }).last().click();
 }
 
 // The badge's family icon sits between name and measure in a row's text
@@ -157,7 +158,8 @@ test('what was typed by hand survives closing the editor', async ({ page }) => {
   // Back through the editor: the note is what persists, so reopening it is
   // the only thing that proves the typing reached the note rather than a
   // component's own state.
-  await page.getByTestId('recipe-import').click();
+  await page.getByTestId('note-type').click();
+  await page.getByText('Recipe', { exact: true }).last().click();
   await expect.poll(() => ings(page)).toEqual(['milk1 cup', 'flour2 cups']);
   await expect.poll(() => stepTexts(page)).toEqual(['Mix it', 'Fry until golden']);
 });

@@ -76,7 +76,9 @@ export type Event = {
  *  before it existed has none, and reads as a plain note — which is exactly
  *  what Sean's hand-typed marker-shaped notes turned out to be (2026-08-19);
  *  see isRecipeNote in recipe.ts. */
-export type Note = { title: string; body: string; date: string | null; folderId: string; sectionId: string; ord: string; recipe?: boolean };
+export type NoteType = 'note' | 'recipe' | 'daily-log';
+export type DailyLogCard = { id: string; date: string; food: string; exercise: string; mood: string };
+export type Note = { title: string; body: string; date: string | null; folderId: string; sectionId: string; ord: string; recipe?: boolean; noteType?: NoteType; logCards?: DailyLogCard[] };
 
 export type HabitSection = { name: string; color: string; ord: string };
 /**
