@@ -228,7 +228,7 @@ function DailyLogCards({ note, onChange }: { note: Note; onChange: (next: Note) 
             <DayPickBtn value={card.date} onPress={() => setDateFor(dateFor === card.id ? null : card.id)} />
             <DeletePill key={card.id} onDelete={() => onChange(removeDailyLogCard(note, card.id))} />
           </View>
-          {dateFor === card.id && <DayPick value={card.date}
+          {dateFor === card.id && <DayPick value={card.date} allowClear={false}
             onPick={(date) => { onChange(updateDailyLogCard(note, card.id, { date: date ?? card.date })); setDateFor(null); }}
             onClose={() => setDateFor(null)} />}
           {(['food', 'exercise', 'mood'] as const).map((field) => (
@@ -601,7 +601,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
   /** The folder level, keyed exactly as its carets key their folds. */
   const allFolderIds = [
     ...folders.map((f) => f.id),
-    ...(view === 'all' ? chef.folders.map((f) => `chef:${f.id}`) : []),
+    ...(view === 'all' && chef.folders.length ? ['chef:root', ...chef.folders.map((f) => `chef:${f.id}`)] : []),
     ...(view === 'all' && sharedPartner ? visibleShared.map((f) => `sh:${f.id}`) : []),
   ];
   /**
@@ -1515,8 +1515,18 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
             section name saying whose they are. No grips, no swipe, no rename,
             no + — the recipes are ChefMind's to change — and a tap opens the
             recipe in ChefRecipeView, a reader. See `chef`. */}
-        {view === 'all' && chef.folders.map((f) => (
-          <View key={`chef${f.id}`} style={s.folderBlock} testID={`chef-folder-${f.payload.name}`}>
+        {view === 'all' && chef.folders.length > 0 && (
+          <View testID="chef-group" style={s.folderBlock}>
+            <View style={s.folderHead}>
+              <FoldCaret testID="chef-group-fold" open={!foldedFolders.has('chef:root')} color={T.text}
+                onPress={() => toggleFolderFold('chef:root')}
+                onLongPress={() => foldAllFolders(!foldedFolders.has('chef:root'))} />
+              <Text style={s.folderName}>ChefMind</Text>
+              <View testID="chef-folder-badge" style={s.chefBadge}><ChefHatGlyph color={T.accent} size={13} /></View>
+              <View style={s.folderRule} />
+            </View>
+        {!foldedFolders.has('chef:root') && chef.folders.map((f) => (
+          <View key={`chef${f.id}`} style={[s.folderBlock, s.chefSubgroup]} testID={`chef-folder-${f.payload.name}`}>
             <View testID={`head-fold-chef-${f.payload.name}`} style={s.folderHead}>
               <FoldCaret
                 testID={`foldfold-chef-${f.payload.name}`}
@@ -1525,14 +1535,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
                 onPress={() => toggleFolderFold(`chef:${f.id}`)}
                 onLongPress={() => foldAllFolders(!foldedFolders.has(`chef:${f.id}`))}
               />
-              <Text style={[s.folderName, { backgroundColor: f.payload.color + '33' }]}>{f.payload.name}</Text>
-              {/* Beside the name, LEFT of the divider — where the partner's
-                  owner badge sits, for the same reason: a label on the
-                  folder, not on the line. */}
-              <View testID="chef-folder-badge" style={s.chefBadge}>
-                <ChefHatGlyph color={T.accent} size={13} />
-                <Text style={s.chefBadgeText}>ChefMind</Text>
-              </View>
+              <Text style={[s.folderName, s.chefSubgroupName, { backgroundColor: f.payload.color + '33' }]}>{f.payload.name}</Text>
               <View style={s.folderRule} />
             </View>
             {!foldedFolders.has(`chef:${f.id}`) && chef.sectionsOf(f.id).map((sec) => (
@@ -1603,6 +1606,8 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
             ))}
           </View>
         ))}
+          </View>
+        )}
         {view === 'all' && sharedPartner &&
           visibleShared
             .slice()
@@ -1996,6 +2001,8 @@ const s = themed(() => StyleSheet.create({
   sharedRow: { paddingLeft: 24 },
   ownerBadge: { color: T.accent, fontSize: 12, fontWeight: '700', backgroundColor: T.accentSoft, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3, overflow: 'hidden' },
   // The ChefMind folder badge: the owner badge's pill with the hat inside it.
+  chefSubgroup: { marginLeft: 14 },
+  chefSubgroupName: { fontSize: 17 },
   chefBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: T.accentSoft, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3, overflow: 'hidden' },
   chefBadgeText: { color: T.accent, fontSize: 12, fontWeight: '700' },
   // The hat right of a ChefMind section's name — the same 20x20 box the

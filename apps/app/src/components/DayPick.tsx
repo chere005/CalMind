@@ -17,11 +17,12 @@ import { themed, T } from '../theme';
 
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
-export function DayPick({ value, onPick, onClose }: {
+export function DayPick({ value, onPick, onClose, allowClear = true }: {
   value: string | null;
   /** null = the Clear pill: the field goes back to no date at all. */
   onPick: (date: string | null) => void;
   onClose: () => void;
+  allowClear?: boolean;
 }) {
   const today = todayStr();
   const [ym, setYm] = useState((value ?? today).slice(0, 7));
@@ -70,7 +71,7 @@ export function DayPick({ value, onPick, onClose }: {
               );
             })}
           </View>
-          {value !== null && (
+          {allowClear && value !== null && (
             <View style={s.foot}>
               <Pill label="Clear" onPress={() => { onPick(null); onClose(); }} />
             </View>

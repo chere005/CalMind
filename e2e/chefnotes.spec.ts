@@ -71,7 +71,10 @@ test("ChefMind's recipes show under the hat, read-only — opening one writes no
   const folder: Rec = { id: 'cf0000000001', type: 'folder', updated: now, payload: { name: 'Recipes', color: '#7dc2ed', ord: 'V', app: 'notes' } };
   const section: Rec = { id: 'cs0000000001', type: 'section', updated: now, payload: { name: 'Pasta', folderId: folder.id, ord: 'V' } };
   const recipe: Rec = { id: 'cn0000000001', type: 'note', updated: now, payload: { title: 'Cacio e Pepe', body: 'Pecorino, pepper, pasta water.', date: null, folderId: folder.id, sectionId: section.id, ord: 'V' } };
-  await sync(page, tok, 'chef', [folder, section, recipe]);
+  const secondFolder: Rec = { ...folder, id: 'cf0000000002', payload: { ...folder.payload, name: 'Weeknight', ord: 'W' } };
+  const secondSection: Rec = { ...section, id: 'cs0000000002', payload: { ...section.payload, name: 'Dinners', folderId: secondFolder.id } };
+  const secondRecipe: Rec = { ...recipe, id: 'cn0000000002', payload: { ...recipe.payload, title: 'Red lentil dal', folderId: secondFolder.id, sectionId: secondSection.id } };
+  await sync(page, tok, 'chef', [folder, section, recipe, secondFolder, secondSection, secondRecipe]);
 
   // Pull it in and look. A reload is the sync that is easiest to wait on:
   // boot restores the session and syncs both spaces before the tabs draw.
@@ -82,6 +85,13 @@ test("ChefMind's recipes show under the hat, read-only — opening one writes no
   await page.getByTestId('tab-notes').click();
   await expect(page.getByTestId('chef-folder-badge'), 'the folder wears the ChefMind badge').toBeVisible({ timeout: 15_000 });
   await expect(page.getByTestId('chef-hat-Pasta'), 'the section carries the hat, right of its name').toBeVisible();
+  await expect(page.getByTestId('chef-group')).toHaveCount(1);
+  await expect(page.getByTestId('chef-group').getByTestId('chef-folder-Recipes')).toBeVisible();
+  await expect(page.getByTestId('chef-group').getByTestId('chef-folder-Weeknight')).toBeVisible();
+  await page.getByTestId('chef-group-fold').click();
+  await expect(page.getByTestId('chef-note-row')).toHaveCount(0);
+  await page.getByTestId('chef-group-fold').click();
+  await expect(page.getByTestId('chef-note-row')).toHaveCount(2);
   const row = page.getByTestId('chef-note-row').filter({ hasText: 'Cacio e Pepe' });
   await expect(row).toBeVisible();
 
@@ -109,7 +119,7 @@ test("ChefMind's recipes show under the hat, read-only — opening one writes no
   const held = chef.find((r) => r.id === recipe.id)!;
   expect(held.updated, "ChefMind's recipe was not touched").toBe(now);
   expect(held.payload['title']).toBe('Cacio e Pepe');
-  expect(chef.filter((r) => r.type === 'note').length, 'no recipe was added to ChefMind').toBe(1);
+  expect(chef.filter((r) => r.type === 'note').length, 'no recipe was added to ChefMind').toBe(2);
   const mine = await sync(page, tok, '');
   expect(mine.some((r) => r.id === recipe.id), 'the recipe was never copied into my own store').toBe(false);
   expect(mine.some((r) => r.type === 'note' && r.payload['title'] === 'Cacio e Pepe')).toBe(false);
