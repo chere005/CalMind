@@ -4,7 +4,7 @@
  * convert out and never repeat; a date in the title puts one on the calendar.
  */
 import React, { useEffect, useMemo, useState, useRef } from 'react';
-import { InputAccessoryView, Keyboard, Modal, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { InputAccessoryView, Keyboard, Modal, Platform, Pressable, StyleSheet, Text, TextInput, type TextInputProps, View } from 'react-native';
 import { chefDateOf, setChefDate, dayHeading, LONG_PRESS_MS, defaultNoteTitle, looksLikeDefaultNoteTitle, deleteSection, renameSection, sectionNameTaken, byRecOrd, ingredientParts, isRecipeNote, joinRecipeBody, richLines, scaleRecipeBody, splitRecipeBody, duplicateItem, prefsPut, moveNote, moveSection, moveSectionEmptyingFolder, newId, insertTimestamp, nowStr, ordBetween, parseWhenFromText, stampParts, todayStr, type Rec } from '@calmind/core';
 import * as Clipboard from 'expo-clipboard';
 import { useStore } from '../store';
@@ -145,6 +145,32 @@ function RichBody({ body, onLine, badges }: { body: string; onLine?: (text: stri
  */
 const KB_IDS = { body: 'note-kb-body', before: 'note-kb-before', after: 'note-kb-after' } as const;
 let kbSessions = 0;
+
+// The page owns scrolling; a second scroll view inside the body traps drags.
+const NoteBodyInput = React.forwardRef<TextInput, TextInputProps>((props, forwardedRef) => {
+  const input = useRef<TextInput | null>(null);
+  const fitWeb = React.useCallback(() => {
+    if (Platform.OS !== 'web' || !input.current) return;
+    const field = input.current as unknown as HTMLTextAreaElement;
+    // Reset first so deleting text shrinks the field as well as typing grows it.
+    field.style.height = 'auto';
+    field.style.height = `${field.scrollHeight + field.offsetHeight - field.clientHeight}px`;
+  }, []);
+  React.useLayoutEffect(fitWeb, [fitWeb, props.value]);
+  return (
+    <TextInput
+      {...props}
+      ref={(field) => {
+        input.current = field;
+        if (typeof forwardedRef === 'function') forwardedRef(field);
+        else if (forwardedRef) forwardedRef.current = field;
+      }}
+      scrollEnabled={false}
+      style={[props.style, Platform.OS === 'web' && { overflow: 'hidden' }]}
+      onLayout={(event) => { fitWeb(); props.onLayout?.(event); }}
+    />
+  );
+});
 
 function DoneBar({ id }: { id: string }) {
   if (Platform.OS !== 'ios') return null;
@@ -1060,7 +1086,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
                 mutate((e) => e.put({ ...open, payload: { ...open.payload, body: joinRecipeBody(before, es.recipe, after) } }));
               return (
                 <View style={s.body}>
-                  <TextInput
+                  <NoteBodyInput
                     ref={bodyRef}
                     testID="note-body-before"
                     inputAccessoryViewID={kbField('before')}
@@ -1086,7 +1112,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
                       {es.recipe.split('\n').filter((l) => l.startsWith('- ')).slice(0, 3).map((l) => l.slice(2)).join(' · ') || 'Open the recipe'}
                     </Text>
                   </Pressable>
-                  <TextInput
+                  <NoteBodyInput
                     testID="note-body-after"
                     inputAccessoryViewID={kbField('after')}
                     style={s.bodyBank}
@@ -1107,7 +1133,7 @@ export function Notes({ openNoteId, onOpenConsumed }: { openNoteId?: string | nu
             })()
           ) : bodyEditing ? (
             <>
-            <TextInput
+            <NoteBodyInput
               ref={bodyRef}
               testID="note-body-edit"
               inputAccessoryViewID={kbField('body')}
@@ -1793,7 +1819,7 @@ function SharedNotes({ viewKey, partner }: { viewKey: string; partner: string })
             </View>
           )}
           {sharedBodyEdit ? (
-            <TextInput
+            <NoteBodyInput
               testID="shared-note-edit"
               style={s.body}
               value={draft}

@@ -43,6 +43,28 @@ async function hold(page: Page) {
   await page.mouse.up();
 }
 
+test('a long note grows with its text so only the editor page scrolls', async ({ page }) => {
+  await notesWithOne(page);
+  await page.getByTestId('note-row').filter({ hasText: 'Shopping' }).first().click();
+  await page.getByTestId('note-body-view').click();
+  const field = page.getByTestId('note-body-edit');
+  const longBody = Array.from({ length: 80 }, (_, i) => `Line ${i + 1}: a long note`).join('\n');
+  await field.fill(longBody);
+  await expect.poll(() => field.evaluate((node) => node.scrollHeight - node.clientHeight)).toBeLessThanOrEqual(1);
+  const tall = (await field.boundingBox())!.height;
+  expect(tall).toBeGreaterThan(900);
+  await field.press('ControlOrMeta+End');
+  await field.press('Enter');
+  await field.pressSequentially('Last line');
+  await expect(field).toHaveValue(longBody + '\nLast line');
+  await expect.poll(() => field.evaluate((node) => node.scrollHeight - node.clientHeight)).toBeLessThanOrEqual(1);
+  await field.fill('Short again');
+  await expect.poll(async () => (await field.boundingBox())!.height).toBeLessThan(tall);
+  await page.getByTestId('note-back').click();
+  await page.getByTestId('note-row').filter({ hasText: 'Shopping' }).first().click();
+  await expect(page.getByTestId('note-body-view')).toHaveText('Short again');
+});
+
 test('holding a note reveals the grip and its controls, and a tap leaves', async ({ page }) => {
   test.setTimeout(90_000);
   await page.setViewportSize({ width: 1160, height: 800 });
